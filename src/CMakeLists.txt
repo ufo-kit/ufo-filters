@@ -85,7 +85,11 @@ foreach(_src ${ufofilter_SRCS})
     set(target "filter${filter}")
 
     # build single shared library per filter
-    add_library(${target} SHARED ${_src})
+    if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        add_library(${target} MODULE ${_src})
+    else()
+        add_library(${target} SHARED ${_src})
+    endif()
 
     target_link_libraries(${target} ${ufofilter_LIBS})
     

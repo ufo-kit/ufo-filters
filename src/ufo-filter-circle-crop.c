@@ -1,5 +1,9 @@
 #include <gmodule.h>
+#ifdef __APPLE__
+#include <OpenCL/cl.h>
+#else
 #include <CL/cl.h>
+#endif
 #include <math.h>
 
 #include <ufo/ufo-resource-manager.h>
