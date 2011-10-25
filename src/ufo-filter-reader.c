@@ -67,8 +67,11 @@ static void *filter_read_tiff(const gchar *filename,
     TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, width);
     TIFFGetField(tif, TIFFTAG_IMAGELENGTH, height);
 
-    if (*samples_per_pixel != 1 && *bits_per_sample != 32)
+    /* XXX: something creates files with 0 samples per pixel */
+    if (*samples_per_pixel > 1) {
+        g_warning("%s has %i samples per pixel (%i bps)", filename, *samples_per_pixel, *bits_per_sample);
         goto error_close;
+    }
 
     size_t bytes_per_sample = *bits_per_sample >> 3;
     void *buffer = g_malloc0(bytes_per_sample * (*width) * (*height));

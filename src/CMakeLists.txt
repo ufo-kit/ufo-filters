@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 2.6)
 # --- Set sources -------------------------------------------------------------
 set(ufofilter_SRCS 
     ufo-filter-arg-max.c
+    ufo-filter-averager.c
     ufo-filter-backproject.c
     ufo-filter-center-of-rotation.c
     ufo-filter-circle-crop.c
@@ -25,7 +26,6 @@ set(ufofilter_KERNELS
     )
 
 set(ufofilter_LIBS
-    ufo
     ${GLIB2_LIBRARIES}
     ${GOBJECT2_LIBRARIES}
     ${ETHOS_LIBRARIES}
@@ -70,7 +70,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
 
-if (${LIB64} STREQUAL "TRUE")
+if (${LIB64} STREQUAL "TRUE" AND UNIX)
     set (LIB_SUFFIX 64)
 else()
     set (LIB_SUFFIX "")

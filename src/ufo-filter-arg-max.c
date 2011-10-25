@@ -8,7 +8,6 @@
 #include <ufo/ufo-resource-manager.h>
 #include <ufo/ufo-filter.h>
 #include <ufo/ufo-buffer.h>
-
 #include "ufo-filter-arg-max.h"
 
 GType ufo_filter_arg_max_get_type(void) G_GNUC_CONST;

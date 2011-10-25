@@ -17,6 +17,7 @@ struct _UfoFilterClPrivate {
     gchar *kernel_name;
     gboolean inplace;
     gboolean combine;
+    gint static_argument;
 };
 
 GType ufo_filter_cl_get_type(void) G_GNUC_CONST;
@@ -31,6 +32,7 @@ enum {
     PROP_KERNEL,
     PROP_INPLACE,
     PROP_COMBINE,
+    PROP_STATIC_ARGUMENT,
     N_PROPERTIES
 };
 
@@ -146,12 +148,11 @@ static void process_combine(UfoFilter *self,
         cl_command_queue command_queue, 
         cl_kernel kernel)
 {
-    UfoChannel *input_a, *input_b;
     UfoChannel *output_channel = ufo_filter_get_output_channel(self);
     UfoResourceManager *manager = ufo_resource_manager();
     
-    input_a = ufo_filter_get_input_channel_by_name(self, "input1");
-    input_b = ufo_filter_get_input_channel_by_name(self, "input2");
+    UfoChannel *input_a = ufo_filter_get_input_channel_by_name(self, "input1");
+    UfoChannel *input_b = ufo_filter_get_input_channel_by_name(self, "input2");
 
     size_t local_work_size[2] = { 16, 16 };
     size_t global_work_size[2];
@@ -181,13 +182,24 @@ static void process_combine(UfoFilter *self,
          * kernel. This should be moved to a ufo_kernel_launch method. */
         CHECK_ERROR(clEnqueueNDRangeKernel(command_queue,
             kernel,
-            2, NULL, global_work_size, local_work_size,
+            2, NULL, global_work_size, NULL,
             0, NULL, &event));
 
-        ufo_resource_manager_release_buffer(manager, a);
-        ufo_resource_manager_release_buffer(manager, b);
-        a = ufo_channel_pop(input_a);
-        b = ufo_channel_pop(input_b);
+        switch (priv->static_argument) {
+            case 0:
+                ufo_resource_manager_release_buffer(manager, a);
+                ufo_resource_manager_release_buffer(manager, b);
+                a = ufo_channel_pop(input_a);
+                b = ufo_channel_pop(input_b);
+                break;
+            case 1:
+                ufo_resource_manager_release_buffer(manager, b);
+                b = ufo_channel_pop(input_b);
+                break;
+            case 2:
+                ufo_resource_manager_release_buffer(manager, a);
+                a = ufo_channel_pop(input_a);
+        }
         
         ufo_buffer_set_wait_event(result, event);
         ufo_channel_push(output_channel, result);
@@ -262,6 +274,9 @@ static void ufo_filter_cl_set_property(GObject *object,
         case PROP_COMBINE:
             priv->combine = g_value_get_boolean(value);
             break;
+        case PROP_STATIC_ARGUMENT:
+            priv->static_argument= g_value_get_int(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
@@ -287,6 +302,9 @@ static void ufo_filter_cl_get_property(GObject *object,
             break;
         case PROP_COMBINE:
             g_value_set_boolean(value, priv->combine);
+            break;
+        case PROP_STATIC_ARGUMENT:
+            g_value_set_int(value, priv->static_argument);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -335,10 +353,20 @@ static void ufo_filter_cl_class_init(UfoFilterClClass *klass)
             FALSE,
             G_PARAM_READWRITE);
 
+    cl_properties[PROP_STATIC_ARGUMENT] = 
+        g_param_spec_int("static-argument",
+            "Input of channel k is used for each iteration",
+            "Input of channel k is used for each iteration",
+            0,
+            2,
+            2,
+            G_PARAM_READWRITE);
+
     g_object_class_install_property(gobject_class, PROP_FILE_NAME, cl_properties[PROP_FILE_NAME]);
     g_object_class_install_property(gobject_class, PROP_KERNEL, cl_properties[PROP_KERNEL]);
     g_object_class_install_property(gobject_class, PROP_INPLACE, cl_properties[PROP_INPLACE]);
     g_object_class_install_property(gobject_class, PROP_COMBINE, cl_properties[PROP_COMBINE]);
+    g_object_class_install_property(gobject_class, PROP_STATIC_ARGUMENT, cl_properties[PROP_STATIC_ARGUMENT]);
 
     g_type_class_add_private(gobject_class, sizeof(UfoFilterClPrivate));
 }
@@ -350,6 +378,7 @@ static void ufo_filter_cl_init(UfoFilterCl *self)
     priv->kernel_name = NULL;
     priv->kernel = NULL;
     priv->inplace = TRUE;
+    priv->static_argument = 0;
 }
 
 G_MODULE_EXPORT EthosPlugin *ethos_plugin_register(void)
