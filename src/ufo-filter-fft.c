@@ -131,14 +131,14 @@ static void ufo_filter_fft_process(UfoFilter *filter)
 
         global_work_size[0] = priv->fft_size.x;
         global_work_size[1] = priv->fft_dimensions == clFFT_1D ? height : priv->fft_size.y;
-        clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &fft_buffer_mem);
-        clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &sinogram_mem);
-        clSetKernelArg(priv->kernel, 2, sizeof(int), &width);
-        clSetKernelArg(priv->kernel, 3, sizeof(int), &height);
-        clEnqueueNDRangeKernel(command_queue,
+        CHECK_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &fft_buffer_mem));
+        CHECK_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &sinogram_mem));
+        CHECK_ERROR(clSetKernelArg(priv->kernel, 2, sizeof(int), &width));
+        CHECK_ERROR(clSetKernelArg(priv->kernel, 3, sizeof(int), &height));
+        CHECK_ERROR(clEnqueueNDRangeKernel(command_queue,
                 priv->kernel, 
                 2, NULL, global_work_size, NULL, 
-                0, NULL, &event);
+                0, NULL, &event));
         
         ufo_filter_account_gpu_time(filter, (void **) &wait_on_event);
 

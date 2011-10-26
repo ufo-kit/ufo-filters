@@ -169,7 +169,7 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
         CHECK_ERROR(errcode);
 
         CHECK_ERROR(clEnqueueNDRangeKernel(command_queue, kernel,
-                2, NULL, global_work_size, local_work_size,
+                2, NULL, global_work_size, NULL,
                 0, NULL, &event));
 
         ufo_filter_account_gpu_time(filter, (void **) &event);

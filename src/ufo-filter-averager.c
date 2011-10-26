@@ -69,6 +69,7 @@ static void ufo_filter_averager_process(UfoFilter *filter)
         for (int i = 0; i < num_pixels; i++)
             out[i] += in[i];
 
+        ufo_resource_manager_release_buffer(manager, input);
         input = ufo_channel_pop(input_channel);
     }
 

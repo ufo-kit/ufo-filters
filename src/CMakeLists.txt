@@ -9,8 +9,10 @@ set(ufofilter_SRCS
     ufo-filter-circle-crop.c
     ufo-filter-cl.c
     ufo-filter-complex.c
+    ufo-filter-copy.c
     ufo-filter-demux.c
     ufo-filter-filter.c
+    ufo-filter-interpolator.c
     ufo-filter-mux.c
     ufo-filter-normalize.c
     ufo-filter-null.c
@@ -22,6 +24,7 @@ set(ufofilter_KERNELS
     backproject.cl
     fft.cl
     filter.cl
+    interpolator.cl
     complex.cl
     )
 
