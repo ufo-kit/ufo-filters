@@ -14,7 +14,7 @@ struct _UfoFilterReaderPrivate {
     gchar *prefix;
     gint count;
     gint nth;
-    GList *filenames;
+    gboolean blocking;
 };
 
 GType ufo_filter_reader_get_type(void) G_GNUC_CONST;
@@ -29,6 +29,7 @@ enum {
     PROP_PATH,
     PROP_PREFIX,
     PROP_COUNT,
+    PROP_BLOCKING,
     PROP_NTH,
     N_PROPERTIES
 };
@@ -158,35 +159,33 @@ static void *filter_read_edf(const gchar *filename,
     return buffer;
 }
 
-static void filter_dispose_filenames(UfoFilterReaderPrivate *priv)
+static void filter_dispose_filenames(GList *filenames)
 {
-    if (priv->filenames != NULL) {
-        g_list_foreach(priv->filenames, (GFunc) g_free, NULL);
-        priv->filenames = NULL;
+    if (filenames != NULL) {
+        g_list_foreach(filenames, (GFunc) g_free, NULL);
+        filenames = NULL;
     }
 }
 
-static void filter_read_filenames(UfoFilterReaderPrivate *priv)
+static GList *filter_read_filenames(UfoFilterReaderPrivate *priv)
 {
-    filter_dispose_filenames(priv);
-
     GDir *directory = g_dir_open(priv->path, 0, NULL);
     if (directory == NULL) {
         g_debug("Could not open %s", priv->path);
-        return;
+        return NULL;
     }
 
+    GList *filenames = NULL;
     gchar *filename = (gchar *) g_dir_read_name(directory);
     while (filename != NULL) {
         if (((priv->prefix == NULL) || (g_str_has_prefix(filename, priv->prefix))) &&
             (g_str_has_suffix(filename, "tif") || g_str_has_suffix(filename, "edf"))) {
-            priv->filenames = g_list_append(priv->filenames, 
-                g_strdup_printf("%s/%s", priv->path, filename));
+            filenames = g_list_append(filenames, g_strdup_printf("%s/%s", priv->path, filename));
         }
         filename = (gchar *) g_dir_read_name(directory);
     }
-    priv->filenames = g_list_sort(priv->filenames, (GCompareFunc) g_strcmp0);
     g_dir_close(directory);
+    return g_list_sort(filenames, (GCompareFunc) g_strcmp0);
 }
 
 /* 
@@ -205,22 +204,25 @@ static void ufo_filter_reader_set_property(GObject *object,
     const GValue    *value,
     GParamSpec      *pspec)
 {
-    UfoFilterReader *filter = UFO_FILTER_READER(object);
+    UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(object);
 
     switch (property_id) {
         case PROP_PATH:
-            g_free(filter->priv->path);
-            filter->priv->path = g_strdup(g_value_get_string(value));
+            g_free(priv->path);
+            priv->path = g_strdup(g_value_get_string(value));
             break;
         case PROP_PREFIX:
-            g_free(filter->priv->prefix);
-            filter->priv->prefix = g_strdup(g_value_get_string(value));
+            g_free(priv->prefix);
+            priv->prefix = g_strdup(g_value_get_string(value));
             break;
         case PROP_COUNT:
-            filter->priv->count = g_value_get_int(value);
+            priv->count = g_value_get_int(value);
             break;
         case PROP_NTH:
-            filter->priv->nth = g_value_get_int(value);
+            priv->nth = g_value_get_int(value);
+            break;
+        case PROP_BLOCKING:
+            priv->blocking = g_value_get_boolean(value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -233,31 +235,27 @@ static void ufo_filter_reader_get_property(GObject *object,
     GValue      *value,
     GParamSpec  *pspec)
 {
-    UfoFilterReader *filter = UFO_FILTER_READER(object);
+    UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(object);
 
     switch (property_id) {
         case PROP_PATH:
-            g_value_set_string(value, filter->priv->path);
+            g_value_set_string(value, priv->path);
             break;
         case PROP_PREFIX:
-            g_value_set_string(value, filter->priv->prefix);
+            g_value_set_string(value, priv->prefix);
             break;
         case PROP_COUNT:
-            g_value_set_int(value, filter->priv->count);
+            g_value_set_int(value, priv->count);
             break;
         case PROP_NTH:
-            g_value_set_int(value, filter->priv->nth);
+            g_value_set_int(value, priv->nth);
             break;
+        case PROP_BLOCKING:
+            g_value_set_boolean(value, priv->blocking);
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
     }
-}
-
-static void ufo_filter_reader_dispose(GObject *object)
-{
-    filter_dispose_filenames(UFO_FILTER_READER_GET_PRIVATE(UFO_FILTER(object)));
-    G_OBJECT_CLASS(ufo_filter_reader_parent_class)->dispose(object);
 }
 
 static void ufo_filter_reader_process(UfoFilter *self)
@@ -268,19 +266,37 @@ static void ufo_filter_reader_process(UfoFilter *self)
     UfoResourceManager *manager = ufo_resource_manager();
     UfoChannel *output_channel = ufo_filter_get_output_channel(self);
     
-    filter_read_filenames(priv);
+    GList *filenames = filter_read_filenames(priv);
     const guint max_count = (priv->count == -1) ? G_MAXUINT : priv->count;
     guint32 width, height;
     guint16 bits_per_sample, samples_per_pixel;
 
     GList *filename = NULL;
-    if ((priv->nth > -1) && (priv->nth < g_list_length(priv->filenames)))
-        filename = g_list_nth(priv->filenames, priv->nth);
+    if ((priv->nth > -1) && (priv->nth < g_list_length(filenames)))
+        filename = g_list_nth(filenames, priv->nth);
     else
-        filename = g_list_first(priv->filenames);
+        filename = g_list_first(filenames);
 
     gint32 dimensions[4] = { 1, 1, 1, 1 };
-    for (guint i = 0; i < max_count && filename != NULL; i++) {
+    guint i = 0;
+    while (i < max_count) {
+        if (filename == NULL) {
+            if (priv->blocking) {
+                /* If file could not be opened and we block, sleep for 1000ms and
+                 * readout directory again */
+                g_usleep(1000 * 1000);
+                filter_dispose_filenames(filenames);
+                filenames = filter_read_filenames(priv);        
+                if ((priv->nth > -1) && (priv->nth < g_list_length(filenames)))
+                    filename = g_list_nth(filenames, priv->nth + i);
+                else
+                    filename = g_list_nth(filenames, i);
+                continue;
+            }
+            else
+                break;
+        }
+
         void *buffer;
         if (g_str_has_suffix(filename->data, "tif"))
             buffer = filter_read_tiff((char *) filename->data,
@@ -310,9 +326,12 @@ static void ufo_filter_reader_process(UfoFilter *self)
         ufo_channel_push(output_channel, image);
         g_free(buffer);
         filename = g_list_next(filename);
+        i++;
     }
+
     /* No more data */
     ufo_channel_finish(output_channel);
+    filter_dispose_filenames(filenames);
 }
 
 static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
@@ -324,7 +343,6 @@ static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
 
     gobject_class->set_property = ufo_filter_reader_set_property;
     gobject_class->get_property = ufo_filter_reader_get_property;
-    gobject_class->dispose = ufo_filter_reader_dispose;
     filter_class->process = ufo_filter_reader_process;
     plugin_class->activated = activated;
     plugin_class->deactivated = deactivated;
@@ -362,10 +380,18 @@ static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
         -1,     /* default */
         G_PARAM_READWRITE);
 
+    reader_properties[PROP_BLOCKING] = 
+        g_param_spec_boolean("blocking",
+        "Block until all <count> files are read",
+        "Block until all <count> files are read",
+        FALSE,
+        G_PARAM_READWRITE);
+
     g_object_class_install_property(gobject_class, PROP_PATH, reader_properties[PROP_PATH]);
     g_object_class_install_property(gobject_class, PROP_PREFIX, reader_properties[PROP_PREFIX]);
     g_object_class_install_property(gobject_class, PROP_COUNT, reader_properties[PROP_COUNT]);
     g_object_class_install_property(gobject_class, PROP_NTH, reader_properties[PROP_NTH]);
+    g_object_class_install_property(gobject_class, PROP_BLOCKING, reader_properties[PROP_BLOCKING]);
 
     /* install private data */
     g_type_class_add_private(gobject_class, sizeof(UfoFilterReaderPrivate));
@@ -378,6 +404,7 @@ static void ufo_filter_reader_init(UfoFilterReader *self)
     self->priv->prefix = NULL;
     self->priv->count = -1;
     self->priv->nth = -1;
+    self->priv->blocking = FALSE;
 }
 
 G_MODULE_EXPORT EthosPlugin *ethos_plugin_register(void)
