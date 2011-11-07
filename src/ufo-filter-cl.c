@@ -73,12 +73,15 @@ static void process_regular(UfoFilter *self,
     cl_int num_events;
     gint32 dimensions[4] = { 1, 1, 1, 1 };
 
+    GTimer *timer = g_timer_new();
+    g_timer_stop(timer);
+
     while (frame != NULL) { 
         ufo_buffer_get_dimensions(frame, dimensions);
         global_work_size[0] = (size_t) dimensions[0];
         global_work_size[1] = (size_t) dimensions[1];
         
-        UfoBuffer *result = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, TRUE);
+        UfoBuffer *result = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, command_queue);
         cl_mem frame_mem = (cl_mem) ufo_buffer_get_gpu_data(frame, command_queue);
         cl_mem result_mem = (cl_mem) ufo_buffer_get_gpu_data(result, command_queue);
         cl_event wait_event = (cl_event) ufo_buffer_get_wait_event(frame);
@@ -95,11 +98,17 @@ static void process_regular(UfoFilter *self,
             2, NULL, global_work_size, NULL,
             num_events, &wait_event, &event));
 
+        /* g_timer_continue(timer); */
+        /* ufo_filter_account_gpu_time(self, (void **) &event); */
+        /* g_timer_stop(timer); */
         ufo_buffer_set_wait_event(frame, event);
         ufo_resource_manager_release_buffer(manager, frame);
         ufo_channel_push(output_channel, result);
         frame = ufo_channel_pop(input_channel);
     }
+
+    g_print("cl: %2.5fs elapsed\n", g_timer_elapsed(timer, NULL));
+    g_timer_destroy(timer);
     ufo_channel_finish(output_channel);
 }
 
@@ -168,7 +177,7 @@ static void process_combine(UfoFilter *self,
         global_work_size[0] = (size_t) dimensions[0];
         global_work_size[1] = (size_t) dimensions[1];
 
-        UfoBuffer *result = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, TRUE);
+        UfoBuffer *result = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, command_queue);
         cl_mem a_mem = (cl_mem) ufo_buffer_get_gpu_data(a, command_queue);
         cl_mem b_mem = (cl_mem) ufo_buffer_get_gpu_data(b, command_queue);
         cl_mem result_mem = (cl_mem) ufo_buffer_get_gpu_data(result, command_queue);

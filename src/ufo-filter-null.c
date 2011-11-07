@@ -47,13 +47,20 @@ static void ufo_filter_null_process(UfoFilter *filter)
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoResourceManager *manager = ufo_resource_manager();
 
+    GTimer *timer = g_timer_new();
     UfoBuffer *input = ufo_channel_pop(input_channel);
+    g_timer_stop(timer);
     gint frames = 0;
     while (input != NULL) {
         frames++;
         ufo_resource_manager_release_buffer(manager, input);
+        
+        g_timer_continue(timer);
         input = ufo_channel_pop(input_channel);
+        g_timer_stop(timer);
     }
+    g_print("null elapsed: %2.5fs\n", g_timer_elapsed(timer, NULL));
+    g_timer_destroy(timer);
     g_message("processed %i frames", frames);
 }
 

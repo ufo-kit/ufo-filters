@@ -122,7 +122,7 @@ static void ufo_filter_fft_process(UfoFilter *filter)
         /* Create a new buffer large enough to hold complex numbers */
         dimensions[0] = 2 * priv->fft_size.x;
         dimensions[1] = priv->fft_dimensions == clFFT_1D ? height : priv->fft_size.y;
-        fft_buffer = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, FALSE);
+        fft_buffer = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, command_queue);
 
         cl_mem fft_buffer_mem = (cl_mem) ufo_buffer_get_gpu_data(fft_buffer, command_queue);
         cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_gpu_data(input, command_queue);

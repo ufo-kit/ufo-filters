@@ -145,7 +145,7 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
         dimensions[0] = width;
         dimensions[1] = height;
         UfoBuffer *result = ufo_resource_manager_request_buffer(manager,
-                UFO_BUFFER_2D, dimensions, NULL, FALSE);
+                UFO_BUFFER_2D, dimensions, NULL, command_queue);
         
         global_work_size[0] = priv->ifft_size.x;
         global_work_size[1] = height;

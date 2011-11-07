@@ -262,6 +262,7 @@ static void ufo_filter_reader_process(UfoFilter *self)
 {
     g_return_if_fail(UFO_IS_FILTER(self));
 
+    GTimer *timer = g_timer_new();
     UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(self);
     UfoResourceManager *manager = ufo_resource_manager();
     UfoChannel *output_channel = ufo_filter_get_output_channel(self);
@@ -313,7 +314,7 @@ static void ufo_filter_reader_process(UfoFilter *self)
 
         dimensions[0] = width;
         dimensions[1] = height;
-        UfoBuffer *image = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, FALSE);
+        UfoBuffer *image = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, NULL);
 
         const guint16 bytes_per_sample = bits_per_sample >> 3;
         ufo_buffer_set_cpu_data(image, buffer, bytes_per_sample * width * height, NULL);
@@ -328,10 +329,13 @@ static void ufo_filter_reader_process(UfoFilter *self)
         filename = g_list_next(filename);
         i++;
     }
+    g_print("reader: %2.5fs\n", g_timer_elapsed(timer, NULL));
+    g_timer_destroy(timer);
 
     /* No more data */
     ufo_channel_finish(output_channel);
     filter_dispose_filenames(filenames);
+
 }
 
 static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)

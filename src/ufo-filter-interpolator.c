@@ -89,7 +89,7 @@ static void ufo_filter_interpolator_process(UfoFilter *filter)
     size_t global_work_size[2] = { (size_t) dimensions[0], (size_t) dimensions[1] };
 
     for (int i = 0; i < priv->num_steps; i++) {
-        UfoBuffer *result = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, TRUE);
+        UfoBuffer *result = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, command_queue);
         cl_mem result_mem = (cl_mem) ufo_buffer_get_gpu_data(result, command_queue);
 
         CHECK_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &a_mem));

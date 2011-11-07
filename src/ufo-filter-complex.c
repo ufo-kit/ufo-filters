@@ -97,7 +97,7 @@ static void ufo_filter_complex_binary(UfoFilter *filter, cl_kernel kernel)
         
         dimensions[0] = wa;
         dimensions[1] = ha;
-        UfoBuffer *r = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, TRUE);
+        UfoBuffer *r = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, cmd_queue);
         
         mem_a = ufo_buffer_get_gpu_data(a, cmd_queue);
         mem_b = ufo_buffer_get_gpu_data(b, cmd_queue);

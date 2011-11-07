@@ -34,7 +34,7 @@ enum {
 
 static GParamSpec *filter_properties[N_PROPERTIES] = { NULL, };
 
-static UfoBuffer *filter_create_data(UfoFilterFilterPrivate *priv, guint32 width)
+static UfoBuffer *filter_create_data(UfoFilterFilterPrivate *priv, guint32 width, cl_command_queue cmd_queue)
 {
     float *filter = g_malloc0(width * sizeof(float));
     const float scale = 2.0 / width / width;
@@ -53,7 +53,7 @@ static UfoBuffer *filter_create_data(UfoFilterFilterPrivate *priv, guint32 width
 
     gint32 dimensions[4] = { width, 1, 1, 1 };
     UfoBuffer *filter_buffer = ufo_resource_manager_request_buffer(
-            ufo_resource_manager(), UFO_BUFFER_1D, dimensions, filter, TRUE);
+            ufo_resource_manager(), UFO_BUFFER_1D, dimensions, filter, cmd_queue);
     g_free(filter);
     return filter_buffer;
 }
@@ -108,7 +108,7 @@ static void ufo_filter_filter_process(UfoFilter *filter)
     gint32 width, height;
     ufo_buffer_get_2d_dimensions(input, &width, &height);
 
-    UfoBuffer *filter_buffer = filter_create_data(priv, width);
+    UfoBuffer *filter_buffer = filter_create_data(priv, width, command_queue);
     cl_mem filter_mem = (cl_mem) ufo_buffer_get_gpu_data(filter_buffer, command_queue);
     cl_event event;
         

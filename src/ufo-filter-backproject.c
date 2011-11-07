@@ -146,9 +146,8 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
     while (sinogram != NULL) {
         total++;
         gint32 dimensions[4] = { width, width, 1, 1 };
-        UfoBuffer *slice = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, FALSE);
+        UfoBuffer *slice = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, command_queue);
         size_t global_work_size[2] = { width, width };
-        size_t local_work_size[2] = { 16, 16 };
         cl_event event;
 
         cl_mem slice_mem = (cl_mem) ufo_buffer_get_gpu_data(slice, command_queue);
@@ -174,7 +173,7 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
 
         ufo_filter_account_gpu_time(filter, (void **) &event);
         CHECK_ERROR(clReleaseEvent(event));
-        CHECK_ERROR(clFlush(command_queue));
+        /* CHECK_ERROR(clFlush(command_queue)); */
         ufo_buffer_transfer_id(sinogram, slice);
 
         ufo_channel_push(output_channel, slice);
