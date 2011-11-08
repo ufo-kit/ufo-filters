@@ -329,7 +329,7 @@ static void ufo_filter_reader_process(UfoFilter *self)
         filename = g_list_next(filename);
         i++;
     }
-    g_print("reader: %2.5fs\n", g_timer_elapsed(timer, NULL));
+    /* g_print("reader: %2.5fs\n", g_timer_elapsed(timer, NULL)); */
     g_timer_destroy(timer);
 
     /* No more data */

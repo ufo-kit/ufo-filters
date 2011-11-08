@@ -90,6 +90,10 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
     gint32 dimensions[4] = { 1, 1, 1, 1 };
     gint32 batch_size;
 
+    cl_event *events = NULL;
+    cl_uint num_events = 0;
+    cl_event event;
+
     while (input != NULL) {
         ufo_buffer_get_dimensions(input, dimensions);
         gint32 width = dimensions[0];
@@ -111,7 +115,6 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
         }
 
         cl_mem mem_fft = (cl_mem) ufo_buffer_get_gpu_data(input, command_queue);
-        cl_event wait_on_event;
 
         /* 1. Inverse FFT */
         if (priv->ifft_dimensions == clFFT_1D)
@@ -126,9 +129,10 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
          *  2. we force and wait for command queue termination after enqueuing
          *  the kernel.
          */
-        cl_event event = ufo_buffer_get_wait_event(input);
-        clWaitForEvents(1, &event);
-        clReleaseEvent(event);
+        ufo_buffer_get_events(input, (gpointer **) &events, &num_events);
+        clWaitForEvents(num_events, events);
+        ufo_buffer_clear_events(input);
+
         clFFT_ExecuteInterleaved(command_queue,
                 ifft_plan, batch_size, clFFT_Inverse, 
                 mem_fft, mem_fft,
@@ -162,8 +166,7 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
                 0, NULL, &event);
 
         ufo_filter_account_gpu_time(filter, (void **) &event);
-        /* clReleaseEvent(event); */
-        ufo_buffer_set_wait_event(result, event);
+        ufo_buffer_attach_event(result, event);
 
         ufo_buffer_transfer_id(input, result);
         ufo_resource_manager_release_buffer(manager, input);

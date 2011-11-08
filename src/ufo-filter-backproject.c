@@ -143,6 +143,7 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
 
     int total = 0;
 
+    GTimeVal timeval;
     while (sinogram != NULL) {
         total++;
         gint32 dimensions[4] = { width, width, 1, 1 };
@@ -167,14 +168,14 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
         errcode |= clSetKernelArg(kernel, 8, sizeof(cl_mem), (void *) &slice_mem);
         CHECK_ERROR(errcode);
 
+        g_get_current_time(&timeval);
         CHECK_ERROR(clEnqueueNDRangeKernel(command_queue, kernel,
                 2, NULL, global_work_size, NULL,
                 0, NULL, &event));
 
         ufo_filter_account_gpu_time(filter, (void **) &event);
-        CHECK_ERROR(clReleaseEvent(event));
-        /* CHECK_ERROR(clFlush(command_queue)); */
         ufo_buffer_transfer_id(sinogram, slice);
+        ufo_buffer_attach_event(slice, (void *) event);
 
         ufo_channel_push(output_channel, slice);
 

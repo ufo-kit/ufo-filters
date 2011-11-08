@@ -113,7 +113,7 @@ static void ufo_filter_complex_binary(UfoFilter *filter, cl_kernel kernel)
                 2, NULL, global_work_size, NULL,
                 0, NULL, &wait_event);
 
-        ufo_buffer_set_wait_event(r, wait_event);
+        ufo_buffer_attach_event(r, wait_event);
         /* ufo_filter_account_gpu_time(filter, (void **) &event); */
 
         ufo_channel_push(output_channel, r);
@@ -151,7 +151,7 @@ static void ufo_filter_complex_unary(UfoFilter* filter, cl_kernel kernel)
                 2, NULL, global_work_size, NULL,
                 0, NULL, &wait_event);
 
-        ufo_buffer_set_wait_event(input, wait_event);
+        ufo_buffer_attach_event(input, wait_event);
         /* ufo_filter_account_gpu_time(filter, (void **) &event); */
 
         ufo_channel_push(output_channel, input);

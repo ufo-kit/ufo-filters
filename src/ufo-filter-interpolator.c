@@ -103,7 +103,7 @@ static void ufo_filter_interpolator_process(UfoFilter *filter)
             2, NULL, global_work_size, NULL,
             0, NULL, &event));
 
-        ufo_buffer_set_wait_event(result, event);
+        ufo_buffer_attach_event(result, event);
         ufo_channel_push(output_channel, result);
     }
     ufo_resource_manager_release_buffer(manager, a);
