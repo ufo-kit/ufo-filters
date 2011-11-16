@@ -71,7 +71,7 @@ static void *filter_read_tiff(const gchar *filename,
     /* XXX: something creates files with 0 samples per pixel */
     if (*samples_per_pixel > 1) {
         g_warning("%s has %i samples per pixel (%i bps)", filename, *samples_per_pixel, *bits_per_sample);
-        goto error_close;
+        /* goto error_close; */
     }
 
     size_t bytes_per_sample = *bits_per_sample >> 3;
@@ -264,7 +264,7 @@ static void ufo_filter_reader_process(UfoFilter *self)
 
     GTimer *timer = g_timer_new();
     UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(self);
-    UfoResourceManager *manager = ufo_resource_manager();
+    /* UfoResourceManager *manager = ufo_resource_manager(); */
     UfoChannel *output_channel = ufo_filter_get_output_channel(self);
     
     GList *filenames = filter_read_filenames(priv);
@@ -278,8 +278,12 @@ static void ufo_filter_reader_process(UfoFilter *self)
     else
         filename = g_list_first(filenames);
 
-    gint32 dimensions[4] = { 1, 1, 1, 1 };
+    /* gint32 dimensions[4] = { 1, 1, 1, 1 }; */
     guint i = 0;
+
+    gboolean buffers_initialized = FALSE;
+    UfoBuffer *output_buffer = NULL;
+
     while (i < max_count) {
         if (filename == NULL) {
             if (priv->blocking) {
@@ -312,19 +316,25 @@ static void ufo_filter_reader_process(UfoFilter *self)
         if (buffer == NULL)
             break;
 
-        dimensions[0] = width;
-        dimensions[1] = height;
-        UfoBuffer *image = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, NULL);
+        /* UfoBuffer *image = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, NULL); */
+        if (!buffers_initialized) {
+            ufo_channel_allocate_output_buffers(output_channel, width, height);
+            buffers_initialized = TRUE;
+        }
+
+        output_buffer = ufo_channel_get_output_buffer(output_channel);
+        g_print("reader: out=%p\n", output_buffer);
 
         const guint16 bytes_per_sample = bits_per_sample >> 3;
-        ufo_buffer_set_cpu_data(image, buffer, bytes_per_sample * width * height, NULL);
+        ufo_buffer_set_cpu_data(output_buffer, buffer, bytes_per_sample * width * height, NULL);
         if (bits_per_sample < 32)
-            ufo_buffer_reinterpret(image, bits_per_sample, width * height);
+            ufo_buffer_reinterpret(output_buffer, bits_per_sample, width * height);
 
         /* Limit congestion */
-        while (ufo_channel_length(output_channel) > 2)
-            ;
-        ufo_channel_push(output_channel, image);
+        /* while (ufo_channel_length(output_channel) > 2) */
+        /*     ; */
+        /* ufo_channel_push(output_channel, image); */
+        ufo_channel_finalize_output_buffer(output_channel, output_buffer);
         g_free(buffer);
         filename = g_list_next(filename);
         i++;

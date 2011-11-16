@@ -122,14 +122,14 @@ static void ufo_filter_writer_process(UfoFilter *self)
 
     UfoFilterWriterPrivate *priv = UFO_FILTER_WRITER_GET_PRIVATE(self);
     UfoChannel *input_channel = ufo_filter_get_input_channel(self);
-    UfoBuffer *input = ufo_channel_pop(input_channel);
+    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(self);
     GString *filename = g_string_new("");
     gint id = -1, current_frame = 0;
 
-    GTimer *timer = g_timer_new();
     gint32 dimensions[4] = { 1, 1, 1, 1 };
     gint32 counter = 0;
+
     while (input != NULL) {
         ufo_buffer_get_dimensions(input, dimensions);
         const gint32 width = dimensions[0];
@@ -138,21 +138,15 @@ static void ufo_filter_writer_process(UfoFilter *self)
         if (id == -1)
             id = current_frame++;
 
-        g_timer_stop(timer);
         float *data = ufo_buffer_get_cpu_data(input, command_queue);
-        g_timer_continue(timer);
 
         g_string_printf(filename, "%s/%s-%05i.tif", priv->path, priv->prefix, counter++); 
         if (!filter_write_tiff(data, filename->str, width, height))
             g_message("something went wrong");
 
-        ufo_resource_manager_release_buffer(ufo_resource_manager(), input);
-        g_timer_stop(timer);
-        input = ufo_channel_pop(input_channel);
-        g_timer_continue(timer);
+        ufo_channel_finalize_input_buffer(input_channel, input);
+        input = ufo_channel_get_input_buffer(input_channel);
     }
-    g_timer_stop(timer);
-    g_message("ufo-filter-writer: %fs/0.0s", g_timer_elapsed(timer, NULL));
     g_string_free(filename, TRUE);
 }
 

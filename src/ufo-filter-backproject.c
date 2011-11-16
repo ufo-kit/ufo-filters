@@ -86,7 +86,8 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
 
-    UfoBuffer *sinogram = (UfoBuffer *) ufo_channel_pop(input_channel);
+    UfoBuffer *sinogram = ufo_channel_get_input_buffer(input_channel);
+    UfoBuffer *slice = NULL;
     gint32 width, num_projections;
     ufo_buffer_get_2d_dimensions(sinogram, &width, &num_projections);
 
@@ -143,11 +144,14 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
 
     int total = 0;
 
-    GTimeVal timeval;
+    gboolean buffers_initialized = FALSE;
     while (sinogram != NULL) {
         total++;
-        gint32 dimensions[4] = { width, width, 1, 1 };
-        UfoBuffer *slice = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, command_queue);
+        if (!buffers_initialized) {
+            ufo_channel_allocate_output_buffers(output_channel, width, width);
+            buffers_initialized = TRUE;
+        }
+        slice = ufo_channel_get_output_buffer(output_channel);
         size_t global_work_size[2] = { width, width };
         cl_event event;
 
@@ -168,7 +172,6 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
         errcode |= clSetKernelArg(kernel, 8, sizeof(cl_mem), (void *) &slice_mem);
         CHECK_ERROR(errcode);
 
-        g_get_current_time(&timeval);
         CHECK_ERROR(clEnqueueNDRangeKernel(command_queue, kernel,
                 2, NULL, global_work_size, NULL,
                 0, NULL, &event));
@@ -177,10 +180,9 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
         ufo_buffer_transfer_id(sinogram, slice);
         ufo_buffer_attach_event(slice, (void *) event);
 
-        ufo_channel_push(output_channel, slice);
-
-        ufo_resource_manager_release_buffer(manager, sinogram);
-        sinogram = ufo_channel_pop(input_channel);
+        ufo_channel_finalize_input_buffer(input_channel, sinogram);
+        ufo_channel_finalize_output_buffer(output_channel, slice);
+        sinogram = ufo_channel_get_input_buffer(input_channel);
     }
     
     if (priv->use_texture)

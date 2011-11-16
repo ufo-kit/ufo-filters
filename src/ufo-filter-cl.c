@@ -15,7 +15,6 @@ struct _UfoFilterClPrivate {
     cl_kernel kernel;
     gchar *file_name;
     gchar *kernel_name;
-    gboolean inplace;
     gboolean combine;
     gint static_argument;
 };
@@ -30,7 +29,6 @@ enum {
     PROP_0,
     PROP_FILE_NAME,
     PROP_KERNEL,
-    PROP_INPLACE,
     PROP_COMBINE,
     PROP_STATIC_ARGUMENT,
     N_PROPERTIES
@@ -52,8 +50,6 @@ static void deactivated(EthosPlugin *plugin)
  */
 static void ufo_filter_cl_initialize(UfoFilter *filter)
 {
-    /* Here you can code, that is called for each newly instantiated filter */
-    /*UfoFilterCl *self = UFO_FILTER_CL(filter);*/
 }
 
 static void process_regular(UfoFilter *self,
@@ -63,88 +59,42 @@ static void process_regular(UfoFilter *self,
 {
     UfoChannel *input_channel = ufo_filter_get_input_channel(self);
     UfoChannel *output_channel = ufo_filter_get_output_channel(self);
-    UfoResourceManager *manager = ufo_resource_manager();
+    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
     size_t global_work_size[2];
 
-    UfoBuffer *frame = ufo_channel_pop(input_channel);
-
     cl_event event;
     gint32 dimensions[4] = { 1, 1, 1, 1 };
+    gboolean buffers_initialized = FALSE;
 
-    GTimer *timer = g_timer_new();
-    g_timer_stop(timer);
-
-    while (frame != NULL) { 
-        ufo_buffer_get_dimensions(frame, dimensions);
-        global_work_size[0] = (size_t) dimensions[0];
-        global_work_size[1] = (size_t) dimensions[1];
+    while (input != NULL) { 
+        if (!buffers_initialized) {
+            ufo_buffer_get_dimensions(input, dimensions);
+            global_work_size[0] = (size_t) dimensions[0];
+            global_work_size[1] = (size_t) dimensions[1];
+            ufo_channel_allocate_output_buffers(output_channel, dimensions[0], dimensions[1]);
+            buffers_initialized = TRUE;
+        }
         
-        UfoBuffer *result = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, command_queue);
-        cl_mem frame_mem = (cl_mem) ufo_buffer_get_gpu_data(frame, command_queue);
-        cl_mem result_mem = (cl_mem) ufo_buffer_get_gpu_data(result, command_queue);
-        /* cl_event wait_event = (cl_event) ufo_buffer_get_wait_event(frame); */
+        UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
+        cl_mem frame_mem = (cl_mem) ufo_buffer_get_gpu_data(input, command_queue);
+        cl_mem result_mem = (cl_mem) ufo_buffer_get_gpu_data(output, command_queue);
 
         CHECK_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &frame_mem));
         CHECK_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &result_mem));
         CHECK_ERROR(clSetKernelArg(kernel, 2, sizeof(float)*16*16, NULL));
 
-        /* XXX: For AMD CPU, a clFinish must be issued before enqueuing the
-         * kernel. This should be moved to a ufo_kernel_launch method. */
-        /* num_events = wait_event == NULL ? 0 : 1; */
         CHECK_ERROR(clEnqueueNDRangeKernel(command_queue,
             kernel,
             2, NULL, global_work_size, NULL,
             0, NULL, &event));
 
-        /* ufo_filter_account_gpu_time(self, (void **) &event); */
-        ufo_buffer_attach_event(frame, event);
-        ufo_resource_manager_release_buffer(manager, frame);
-        ufo_channel_push(output_channel, result);
-        frame = ufo_channel_pop(input_channel);
+        ufo_buffer_attach_event(output, event);
+        ufo_channel_finalize_input_buffer(input_channel, input);
+        ufo_channel_finalize_output_buffer(output_channel, output);
+        output = ufo_channel_get_input_buffer(input_channel);
     }
 
-    g_print("cl: %2.5fs elapsed\n", g_timer_elapsed(timer, NULL));
-    g_timer_destroy(timer);
-    ufo_channel_finish(output_channel);
-}
-
-static void process_inplace(UfoFilter *self,
-        UfoFilterClPrivate *priv, 
-        cl_command_queue command_queue, 
-        cl_kernel kernel)
-{
-    UfoChannel *input_channel = ufo_filter_get_input_channel(self);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(self);
-
-    size_t local_work_size[2] = { 16, 16 };
-    size_t global_work_size[2];
-    gint32 dimensions[4];
-
-    UfoBuffer *frame = ufo_channel_pop(input_channel);
-    cl_event event;
-
-    while (frame != NULL) {
-        ufo_buffer_get_dimensions(frame, dimensions);
-        global_work_size[0] = (size_t) dimensions[0];
-        global_work_size[1] = (size_t) dimensions[1];
-
-        /* cl_event wait_event = (cl_event) ufo_buffer_get_wait_event(frame); */
-        cl_mem frame_mem = (cl_mem) ufo_buffer_get_gpu_data(frame, command_queue);
-
-        CHECK_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &frame_mem));
-        CHECK_ERROR(clSetKernelArg(kernel, 1, sizeof(float)*local_work_size[0]*local_work_size[1], NULL));
-
-        /* num_events = wait_event == NULL ? 0 : 1; */
-        CHECK_ERROR(clEnqueueNDRangeKernel(command_queue,
-            kernel,
-            2, NULL, global_work_size, NULL,
-            0, NULL, &event));
-
-        ufo_buffer_attach_event(frame, event);
-        ufo_channel_push(output_channel, frame);
-        frame = ufo_channel_pop(input_channel);
-    }
     ufo_channel_finish(output_channel);
 }
 
@@ -248,8 +198,6 @@ static void ufo_filter_cl_process(UfoFilter *filter)
 
     if (priv->combine)
         process_combine(filter, priv, command_queue, kernel);
-    else if (priv->inplace)
-        process_inplace(filter, priv, command_queue, kernel);
     else
         process_regular(filter, priv, command_queue, kernel);
     
@@ -272,9 +220,6 @@ static void ufo_filter_cl_set_property(GObject *object,
         case PROP_KERNEL:
             g_free(priv->kernel_name);
             priv->kernel_name = g_strdup(g_value_get_string(value));
-            break;
-        case PROP_INPLACE:
-            priv->inplace = g_value_get_boolean(value);
             break;
         case PROP_COMBINE:
             priv->combine = g_value_get_boolean(value);
@@ -301,9 +246,6 @@ static void ufo_filter_cl_get_property(GObject *object,
             break;
         case PROP_KERNEL:
             g_value_set_string(value, priv->kernel_name);
-            break;
-        case PROP_INPLACE:
-            g_value_set_boolean(value, priv->inplace);
             break;
         case PROP_COMBINE:
             g_value_set_boolean(value, priv->combine);
@@ -344,13 +286,6 @@ static void ufo_filter_cl_class_init(UfoFilterClClass *klass)
             "",
             G_PARAM_READWRITE);
 
-    cl_properties[PROP_INPLACE] = 
-        g_param_spec_boolean("inplace",
-            "Expect output buffer or calculate inplace",
-            "Expect output buffer or calculate inplace",
-            TRUE,
-            G_PARAM_READWRITE);
-
     cl_properties[PROP_COMBINE] = 
         g_param_spec_boolean("combine",
             "Use two frames as an input for a function",
@@ -369,7 +304,6 @@ static void ufo_filter_cl_class_init(UfoFilterClClass *klass)
 
     g_object_class_install_property(gobject_class, PROP_FILE_NAME, cl_properties[PROP_FILE_NAME]);
     g_object_class_install_property(gobject_class, PROP_KERNEL, cl_properties[PROP_KERNEL]);
-    g_object_class_install_property(gobject_class, PROP_INPLACE, cl_properties[PROP_INPLACE]);
     g_object_class_install_property(gobject_class, PROP_COMBINE, cl_properties[PROP_COMBINE]);
     g_object_class_install_property(gobject_class, PROP_STATIC_ARGUMENT, cl_properties[PROP_STATIC_ARGUMENT]);
 
@@ -382,7 +316,6 @@ static void ufo_filter_cl_init(UfoFilterCl *self)
     priv->file_name = NULL;
     priv->kernel_name = NULL;
     priv->kernel = NULL;
-    priv->inplace = TRUE;
     priv->static_argument = 0;
 }
 
