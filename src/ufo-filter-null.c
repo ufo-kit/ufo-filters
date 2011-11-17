@@ -12,8 +12,6 @@
 #include "ufo-filter-null.h"
 
 struct _UfoFilterNullPrivate {
-    /* add your private data here */
-    float example;
 };
 
 GType ufo_filter_null_get_type(void) G_GNUC_CONST;
@@ -45,23 +43,13 @@ static void ufo_filter_null_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
 
-    GTimer *timer = g_timer_new();
-    UfoBuffer *input = ufo_channel_pop(input_channel);
-    g_timer_stop(timer);
+    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
     gint frames = 0;
     while (input != NULL) {
         frames++;
-        ufo_resource_manager_release_buffer(manager, input);
-        
-        g_timer_continue(timer);
-        input = ufo_channel_pop(input_channel);
-        g_timer_stop(timer);
+        input = ufo_channel_get_input_buffer(input_channel);
     }
-    g_print("null elapsed: %2.5fs\n", g_timer_elapsed(timer, NULL));
-    g_timer_destroy(timer);
-    g_message("processed %i frames", frames);
 }
 
 static void ufo_filter_null_set_property(GObject *object,

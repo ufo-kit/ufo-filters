@@ -104,20 +104,24 @@ static void ufo_filter_filter_process(UfoFilter *filter)
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
-    UfoBuffer *input = (UfoBuffer *) ufo_channel_pop(input_channel);
-    gint32 width, height;
-    ufo_buffer_get_2d_dimensions(input, &width, &height);
+    UfoBuffer *input = (UfoBuffer *) ufo_channel_get_input_buffer(input_channel);
+    gint32 dimensions[4] = { 1, 1, 1, 1 }; 
+    ufo_buffer_get_dimensions(input, dimensions);
+    ufo_channel_allocate_output_buffers(output_channel, dimensions);
+    size_t global_work_size[2] = { dimensions[0], dimensions[1] };
 
-    UfoBuffer *filter_buffer = filter_create_data(priv, width, command_queue);
+    UfoBuffer *filter_buffer = filter_create_data(priv, dimensions[0], command_queue);
     cl_mem filter_mem = (cl_mem) ufo_buffer_get_gpu_data(filter_buffer, command_queue);
     cl_event event;
         
     while (input != NULL) {
-        cl_mem fft_buffer_mem = (cl_mem) ufo_buffer_get_gpu_data(input, command_queue);
-        size_t global_work_size[2] = { width, height };
+        UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
+        cl_mem freq_out_mem = (cl_mem) ufo_buffer_get_gpu_data(output, command_queue);
+        cl_mem freq_in_mem = (cl_mem) ufo_buffer_get_gpu_data(input, command_queue);
 
-        clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &fft_buffer_mem);
-        clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &filter_mem);
+        clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &freq_in_mem);
+        clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &freq_out_mem);
+        clSetKernelArg(priv->kernel, 2, sizeof(cl_mem), (void *) &filter_mem);
         CHECK_ERROR(clEnqueueNDRangeKernel(command_queue,
                 priv->kernel, 
                 2, NULL, global_work_size, NULL, 
@@ -126,8 +130,10 @@ static void ufo_filter_filter_process(UfoFilter *filter)
         ufo_filter_account_gpu_time(filter, (void **) &event);
         ufo_buffer_attach_event(input, event);
         
-        ufo_channel_push(output_channel, input);
-        input = (UfoBuffer *) ufo_channel_pop(input_channel);
+        ufo_channel_finalize_input_buffer(input_channel, input);
+        ufo_channel_finalize_output_buffer(output_channel, output);
+
+        input = ufo_channel_get_input_buffer(input_channel);
     }
     ufo_resource_manager_release_buffer(manager, filter_buffer);
     ufo_channel_finish(output_channel);

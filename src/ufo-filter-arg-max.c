@@ -46,8 +46,7 @@ static void ufo_filter_arg_max_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    UfoBuffer *input = ufo_channel_pop(input_channel);
+    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
     
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
     gint index[4] = {0, 0, 0, 0};
@@ -80,10 +79,8 @@ static void ufo_filter_arg_max_process(UfoFilter *filter)
         gint dy = index[1] > dims[1] / 2 ? index[1] - dims[1] : index[1];
         g_print("%i %i\n", dx, dy);
 
-        ufo_channel_push(output_channel, input);
-        input = ufo_channel_pop(input_channel);
+        input = ufo_channel_get_input_buffer(input_channel);
     }
-    ufo_channel_finish(output_channel);
 }
 
 static void ufo_filter_arg_max_set_property(GObject *object,

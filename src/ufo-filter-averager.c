@@ -53,12 +53,14 @@ static void ufo_filter_averager_process(UfoFilter *filter)
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
     gint32 dimensions[4] = {1, 1, 1, 1};
-    UfoBuffer *input = ufo_channel_pop(input_channel);
+    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
     ufo_buffer_get_dimensions(input, dimensions);
-    UfoBuffer *result = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, FALSE);
-    float *out = ufo_buffer_get_cpu_data(result, command_queue);
-    memset(out, 0, ufo_buffer_get_size(result));
+    ufo_channel_allocate_output_buffers(output_channel, dimensions);
+    
+    UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
+    float *out = ufo_buffer_get_cpu_data(output, command_queue);
+    memset(out, 0, ufo_buffer_get_size(output));
 
     float num_input = 0.0f;
     const int num_pixels = dimensions[0]*dimensions[1]*dimensions[2]*dimensions[3];
@@ -70,7 +72,8 @@ static void ufo_filter_averager_process(UfoFilter *filter)
             out[i] += in[i];
 
         ufo_resource_manager_release_buffer(manager, input);
-        input = ufo_channel_pop(input_channel);
+        ufo_channel_finalize_input_buffer(input_channel, input);
+        input = ufo_channel_get_input_buffer(input_channel);
     }
 
     if (num_input > 0.0f) {
@@ -78,7 +81,7 @@ static void ufo_filter_averager_process(UfoFilter *filter)
             out[i] /= num_input;
     }
 
-    ufo_channel_push(output_channel, result);
+    ufo_channel_finalize_output_buffer(output_channel, output);
     ufo_channel_finish(output_channel);
 }
 

@@ -6,7 +6,6 @@ set(ufofilter_SRCS
     ufo-filter-averager.c
     ufo-filter-backproject.c
     ufo-filter-center-of-rotation.c
-    ufo-filter-circle-crop.c
     ufo-filter-cl.c
     ufo-filter-complex.c
     ufo-filter-copy.c

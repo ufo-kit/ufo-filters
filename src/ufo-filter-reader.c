@@ -262,9 +262,7 @@ static void ufo_filter_reader_process(UfoFilter *self)
 {
     g_return_if_fail(UFO_IS_FILTER(self));
 
-    GTimer *timer = g_timer_new();
     UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(self);
-    /* UfoResourceManager *manager = ufo_resource_manager(); */
     UfoChannel *output_channel = ufo_filter_get_output_channel(self);
     
     GList *filenames = filter_read_filenames(priv);
@@ -278,9 +276,7 @@ static void ufo_filter_reader_process(UfoFilter *self)
     else
         filename = g_list_first(filenames);
 
-    /* gint32 dimensions[4] = { 1, 1, 1, 1 }; */
     guint i = 0;
-
     gboolean buffers_initialized = FALSE;
     UfoBuffer *output_buffer = NULL;
 
@@ -318,7 +314,8 @@ static void ufo_filter_reader_process(UfoFilter *self)
 
         /* UfoBuffer *image = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, NULL); */
         if (!buffers_initialized) {
-            ufo_channel_allocate_output_buffers(output_channel, width, height);
+            gint32 dimensions[4] = { width, height, 1, 1};
+            ufo_channel_allocate_output_buffers(output_channel, dimensions);
             buffers_initialized = TRUE;
         }
 
@@ -330,22 +327,15 @@ static void ufo_filter_reader_process(UfoFilter *self)
         if (bits_per_sample < 32)
             ufo_buffer_reinterpret(output_buffer, bits_per_sample, width * height);
 
-        /* Limit congestion */
-        /* while (ufo_channel_length(output_channel) > 2) */
-        /*     ; */
-        /* ufo_channel_push(output_channel, image); */
         ufo_channel_finalize_output_buffer(output_channel, output_buffer);
         g_free(buffer);
         filename = g_list_next(filename);
         i++;
     }
-    /* g_print("reader: %2.5fs\n", g_timer_elapsed(timer, NULL)); */
-    g_timer_destroy(timer);
 
     /* No more data */
     ufo_channel_finish(output_channel);
     filter_dispose_filenames(filenames);
-
 }
 
 static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)

@@ -64,7 +64,7 @@ static void process_regular(UfoFilter *self,
     cl_event event;
     gint32 dimensions[4] = { 1, 1, 1, 1 };
     ufo_buffer_get_dimensions(input, dimensions);
-    ufo_channel_allocate_output_buffers(output_channel, dimensions[0], dimensions[1]);
+    ufo_channel_allocate_output_buffers(output_channel, dimensions);
 
     size_t global_work_size[2];
     global_work_size[0] = (size_t) dimensions[0];
@@ -109,7 +109,7 @@ static void process_combine(UfoFilter *self,
     UfoBuffer *a = ufo_channel_get_input_buffer(input_a);
     UfoBuffer *b = ufo_channel_get_input_buffer(input_b);
     ufo_buffer_get_dimensions(a, dimensions);
-    ufo_channel_allocate_output_buffers(output_channel, dimensions[0], dimensions[1]);
+    ufo_channel_allocate_output_buffers(output_channel, dimensions);
 
     size_t global_work_size[2];
     global_work_size[0] = (size_t) dimensions[0];

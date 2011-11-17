@@ -69,7 +69,6 @@ static void ufo_filter_interpolator_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterInterpolatorPrivate *priv = UFO_FILTER_INTERPOLATOR_GET_PRIVATE(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
 
     UfoChannel *input_a = ufo_filter_get_input_channel_by_name(filter, "input1");
     UfoChannel *input_b = ufo_filter_get_input_channel_by_name(filter, "input2");
@@ -77,19 +76,20 @@ static void ufo_filter_interpolator_process(UfoFilter *filter)
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
     /* We only pop one from each input */
-    UfoBuffer *a = ufo_channel_pop(input_a);
-    UfoBuffer *b = ufo_channel_pop(input_b);
+    UfoBuffer *a = ufo_channel_get_input_buffer(input_a);
+    UfoBuffer *b = ufo_channel_get_input_buffer(input_b);
     cl_mem a_mem = (cl_mem) ufo_buffer_get_gpu_data(a, command_queue);
     cl_mem b_mem = (cl_mem) ufo_buffer_get_gpu_data(b, command_queue);
     cl_kernel kernel = priv->kernel;
     cl_event event;
 
-    gint32 dimensions[4];
+    gint32 dimensions[4] = { 1, 1, 1, 1 };
     ufo_buffer_get_dimensions(a, dimensions);
+    ufo_channel_allocate_output_buffers(output_channel, dimensions);
     size_t global_work_size[2] = { (size_t) dimensions[0], (size_t) dimensions[1] };
 
     for (int i = 0; i < priv->num_steps; i++) {
-        UfoBuffer *result = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, command_queue);
+        UfoBuffer *result = ufo_channel_get_output_buffer(output_channel);
         cl_mem result_mem = (cl_mem) ufo_buffer_get_gpu_data(result, command_queue);
 
         CHECK_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &a_mem));
@@ -104,10 +104,8 @@ static void ufo_filter_interpolator_process(UfoFilter *filter)
             0, NULL, &event));
 
         ufo_buffer_attach_event(result, event);
-        ufo_channel_push(output_channel, result);
+        ufo_channel_finalize_output_buffer(output_channel, result);
     }
-    ufo_resource_manager_release_buffer(manager, a);
-    ufo_resource_manager_release_buffer(manager, b);
     ufo_channel_finish(output_channel);
 }
 

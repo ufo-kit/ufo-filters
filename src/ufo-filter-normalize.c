@@ -6,25 +6,12 @@
 
 #include "ufo-filter-normalize.h"
 
-struct _UfoFilterNormalizePrivate {
-    /* add your private data here */
-    /* cl_kernel kernel; */
-    float example;
-};
-
 GType ufo_filter_normalize_get_type(void) G_GNUC_CONST;
 
 G_DEFINE_TYPE(UfoFilterNormalize, ufo_filter_normalize, UFO_TYPE_FILTER);
 
 #define UFO_FILTER_NORMALIZE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_NORMALIZE, UfoFilterNormalizePrivate))
 
-enum {
-    PROP_0,
-    PROP_EXAMPLE, /* remove this or add more */
-    N_PROPERTIES
-};
-
-static GParamSpec *normalize_properties[N_PROPERTIES] = { NULL, };
 
 static void activated(EthosPlugin *plugin)
 {
@@ -53,27 +40,34 @@ static void ufo_filter_normalize_process(UfoFilter *filter)
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
-    UfoBuffer *input = ufo_channel_pop(input_channel);
+    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
     gint32 dimensions[4] = {1, 1, 1, 1};
+    ufo_buffer_get_dimensions(input, dimensions);
+    ufo_channel_allocate_output_buffers(output_channel, dimensions);
+    const gint32 num_elements = dimensions[0] * dimensions[1] * dimensions[2] * dimensions[3];
+
     while (input != NULL) {
-        ufo_buffer_get_dimensions(input, dimensions);
-        const gint32 num_elements = dimensions[0] * dimensions[1] * dimensions[2] * dimensions[3];
-        float *data = ufo_buffer_get_cpu_data(input, command_queue);
+        float *in_data = ufo_buffer_get_cpu_data(input, command_queue);
 
         float min = 1.0, max = 0.0;
         for (int i = 0; i < num_elements; i++) {
-            if (data[i] < min)
-                min = data[i];
-            if (data[i] > max)
-                max = data[i];
+            if (in_data[i] < min)
+                min = in_data[i];
+            if (in_data[i] > max)
+                max = in_data[i];
         }
-
         float scale = 1.0 / (max - min);
+
+        UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
+        /* This avoids an unneccessary GPU-to-host transfer */
+        ufo_buffer_invalidate_gpu_data(output);
+        float *out_data = ufo_buffer_get_cpu_data(output, command_queue);
         for (int i = 0; i < num_elements; i++) {
-            data[i] = (data[i] - min) * scale;
+            out_data[i] = (in_data[i] - min) * scale;
         }
-        ufo_channel_push(output_channel, input);
-        input = ufo_channel_pop(input_channel);
+        ufo_channel_finalize_input_buffer(input_channel, input);
+        ufo_channel_finalize_output_buffer(output_channel, output);
+        input = ufo_channel_get_input_buffer(input_channel);
     }
     ufo_channel_finish(output_channel);
 }
@@ -83,13 +77,7 @@ static void ufo_filter_normalize_set_property(GObject *object,
     const GValue    *value,
     GParamSpec      *pspec)
 {
-    UfoFilterNormalize *self = UFO_FILTER_NORMALIZE(object);
-
-    /* Handle all properties accordingly */
     switch (property_id) {
-        case PROP_EXAMPLE:
-            self->priv->example = g_value_get_double(value);
-            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
@@ -101,13 +89,7 @@ static void ufo_filter_normalize_get_property(GObject *object,
     GValue      *value,
     GParamSpec  *pspec)
 {
-    UfoFilterNormalize *self = UFO_FILTER_NORMALIZE(object);
-
-    /* Handle all properties accordingly */
     switch (property_id) {
-        case PROP_EXAMPLE:
-            g_value_set_double(value, self->priv->example);
-            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
@@ -126,21 +108,6 @@ static void ufo_filter_normalize_class_init(UfoFilterNormalizeClass *klass)
     plugin_class->deactivated = deactivated;
     filter_class->initialize = ufo_filter_normalize_initialize;
     filter_class->process = ufo_filter_normalize_process;
-
-    /* install properties */
-    normalize_properties[PROP_EXAMPLE] = 
-        g_param_spec_double("example",
-            "This is an example property",
-            "You should definately replace this with some meaningful property",
-            -1.0,   /* minimum */
-             1.0,   /* maximum */
-             1.0,   /* default */
-            G_PARAM_READWRITE);
-
-    g_object_class_install_property(gobject_class, PROP_EXAMPLE, normalize_properties[PROP_EXAMPLE]);
-
-    /* install private data */
-    g_type_class_add_private(gobject_class, sizeof(UfoFilterNormalizePrivate));
 }
 
 static void ufo_filter_normalize_init(UfoFilterNormalize *self)

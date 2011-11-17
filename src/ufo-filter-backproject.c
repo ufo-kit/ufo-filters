@@ -88,8 +88,12 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
 
     UfoBuffer *sinogram = ufo_channel_get_input_buffer(input_channel);
     UfoBuffer *slice = NULL;
-    gint32 width, num_projections;
-    ufo_buffer_get_2d_dimensions(sinogram, &width, &num_projections);
+
+    gint32 dimensions[4] = { 1, 1, 1, 1 };
+    ufo_buffer_get_dimensions(sinogram, dimensions);
+    ufo_channel_allocate_output_buffers(output_channel, dimensions);
+    gint32 width = dimensions[0];
+    gint32 num_projections = dimensions[1];
 
     /* create angle arrays */
     float *cos_tmp = g_malloc0(sizeof(float) * num_projections);
@@ -142,17 +146,10 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
     errcode |= clSetKernelArg(kernel, 6, sizeof(cl_mem), (void *) &axes_mem);
     CHECK_ERROR(errcode);
 
-    int total = 0;
+    size_t global_work_size[2] = { width, width };
 
-    gboolean buffers_initialized = FALSE;
     while (sinogram != NULL) {
-        total++;
-        if (!buffers_initialized) {
-            ufo_channel_allocate_output_buffers(output_channel, width, width);
-            buffers_initialized = TRUE;
-        }
         slice = ufo_channel_get_output_buffer(output_channel);
-        size_t global_work_size[2] = { width, width };
         cl_event event;
 
         cl_mem slice_mem = (cl_mem) ufo_buffer_get_gpu_data(slice, command_queue);
