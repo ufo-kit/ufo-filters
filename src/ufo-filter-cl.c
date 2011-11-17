@@ -61,21 +61,16 @@ static void process_regular(UfoFilter *self,
     UfoChannel *output_channel = ufo_filter_get_output_channel(self);
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
-    size_t global_work_size[2];
-
     cl_event event;
     gint32 dimensions[4] = { 1, 1, 1, 1 };
-    gboolean buffers_initialized = FALSE;
+    ufo_buffer_get_dimensions(input, dimensions);
+    ufo_channel_allocate_output_buffers(output_channel, dimensions[0], dimensions[1]);
+
+    size_t global_work_size[2];
+    global_work_size[0] = (size_t) dimensions[0];
+    global_work_size[1] = (size_t) dimensions[1];
 
     while (input != NULL) { 
-        if (!buffers_initialized) {
-            ufo_buffer_get_dimensions(input, dimensions);
-            global_work_size[0] = (size_t) dimensions[0];
-            global_work_size[1] = (size_t) dimensions[1];
-            ufo_channel_allocate_output_buffers(output_channel, dimensions[0], dimensions[1]);
-            buffers_initialized = TRUE;
-        }
-        
         UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
         cl_mem frame_mem = (cl_mem) ufo_buffer_get_gpu_data(input, command_queue);
         cl_mem result_mem = (cl_mem) ufo_buffer_get_gpu_data(output, command_queue);
@@ -92,7 +87,7 @@ static void process_regular(UfoFilter *self,
         ufo_buffer_attach_event(output, event);
         ufo_channel_finalize_input_buffer(input_channel, input);
         ufo_channel_finalize_output_buffer(output_channel, output);
-        output = ufo_channel_get_input_buffer(input_channel);
+        input = ufo_channel_get_input_buffer(input_channel);
     }
 
     ufo_channel_finish(output_channel);
@@ -104,37 +99,34 @@ static void process_combine(UfoFilter *self,
         cl_kernel kernel)
 {
     UfoChannel *output_channel = ufo_filter_get_output_channel(self);
-    UfoResourceManager *manager = ufo_resource_manager();
     
     UfoChannel *input_a = ufo_filter_get_input_channel_by_name(self, "input1");
     UfoChannel *input_b = ufo_filter_get_input_channel_by_name(self, "input2");
 
     size_t local_work_size[2] = { 16, 16 };
-    size_t global_work_size[2];
     gint32 dimensions[4];
 
-    UfoBuffer *a = ufo_channel_pop(input_a);
-    UfoBuffer *b = ufo_channel_pop(input_b);
+    UfoBuffer *a = ufo_channel_get_input_buffer(input_a);
+    UfoBuffer *b = ufo_channel_get_input_buffer(input_b);
+    ufo_buffer_get_dimensions(a, dimensions);
+    ufo_channel_allocate_output_buffers(output_channel, dimensions[0], dimensions[1]);
 
+    size_t global_work_size[2];
+    global_work_size[0] = (size_t) dimensions[0];
+    global_work_size[1] = (size_t) dimensions[1];
     cl_event event;
 
     while ((a != NULL) && (b != NULL)) {
-        ufo_buffer_get_dimensions(a, dimensions);
-        global_work_size[0] = (size_t) dimensions[0];
-        global_work_size[1] = (size_t) dimensions[1];
-
-        UfoBuffer *result = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, command_queue);
+        UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
         cl_mem a_mem = (cl_mem) ufo_buffer_get_gpu_data(a, command_queue);
         cl_mem b_mem = (cl_mem) ufo_buffer_get_gpu_data(b, command_queue);
-        cl_mem result_mem = (cl_mem) ufo_buffer_get_gpu_data(result, command_queue);
+        cl_mem result_mem = (cl_mem) ufo_buffer_get_gpu_data(output, command_queue);
 
         CHECK_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &a_mem));
         CHECK_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &b_mem));
         CHECK_ERROR(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &result_mem));
         CHECK_ERROR(clSetKernelArg(kernel, 3, sizeof(float)*local_work_size[0]*local_work_size[1], NULL));
 
-        /* XXX: For AMD CPU, a clFinish must be issued before enqueuing the
-         * kernel. This should be moved to a ufo_kernel_launch method. */
         CHECK_ERROR(clEnqueueNDRangeKernel(command_queue,
             kernel,
             2, NULL, global_work_size, NULL,
@@ -142,22 +134,24 @@ static void process_combine(UfoFilter *self,
 
         switch (priv->static_argument) {
             case 0:
-                ufo_resource_manager_release_buffer(manager, a);
-                ufo_resource_manager_release_buffer(manager, b);
-                a = ufo_channel_pop(input_a);
-                b = ufo_channel_pop(input_b);
+                ufo_channel_finalize_input_buffer(input_a, a);
+                ufo_channel_finalize_input_buffer(input_b, b);
+                a = ufo_channel_get_input_buffer(input_a);
+                b = ufo_channel_get_input_buffer(input_b);
                 break;
             case 1:
-                ufo_resource_manager_release_buffer(manager, b);
-                b = ufo_channel_pop(input_b);
+                ufo_channel_finalize_input_buffer(input_b, b);
+                a = ufo_channel_get_input_buffer(input_a);
+                b = ufo_channel_get_input_buffer(input_b);
                 break;
             case 2:
-                ufo_resource_manager_release_buffer(manager, a);
-                a = ufo_channel_pop(input_a);
+                ufo_channel_finalize_input_buffer(input_a, a);
+                ufo_channel_finalize_input_buffer(input_b, b);
+                a = ufo_channel_get_input_buffer(input_a);
         }
         
-        ufo_buffer_attach_event(result, event);
-        ufo_channel_push(output_channel, result);
+        ufo_buffer_attach_event(output, event);
+        ufo_channel_finalize_output_buffer(output_channel, output);
     }
     ufo_channel_finish(output_channel);
 }
@@ -173,7 +167,6 @@ static void ufo_filter_cl_process(UfoFilter *filter)
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
 
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
-
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
 
