@@ -78,6 +78,7 @@ static void ufo_filter_fft_initialize(UfoFilter *filter)
     }
 }
 
+
 /*
  * This is the main method in which the filter processes one buffer after
  * another.
@@ -92,43 +93,35 @@ static void ufo_filter_fft_process(UfoFilter *filter)
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
     int err = CL_SUCCESS;
-    clFFT_Plan fft_plan = NULL;
-    UfoBuffer *input = (UfoBuffer *) ufo_channel_pop(input_channel);
+    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
     gint32 dimensions[4] = { 1, 1, 1, 1 }, width, height;
+    ufo_buffer_get_dimensions(input, dimensions);
+    width = dimensions[0];
+    height = dimensions[1];
+
+    /* Create FFT plan with appropriate size */
+    priv->fft_size.x = pow2round(width);
+    if (priv->fft_dimensions == clFFT_2D)
+        priv->fft_size.y = pow2round(height);
+
+    clFFT_Plan fft_plan = clFFT_CreatePlan(
+                (cl_context) ufo_resource_manager_get_context(manager),
+                priv->fft_size, priv->fft_dimensions,
+                clFFT_InterleavedComplexFormat, &err);
+
+    dimensions[0] = 2 * priv->fft_size.x;
+    dimensions[1] = priv->fft_dimensions == clFFT_1D ? height : priv->fft_size.y;
+    ufo_channel_allocate_output_buffers(output_channel, dimensions);
 
     while (input != NULL) {
-        ufo_buffer_get_2d_dimensions(input, &width, &height);
-
-        /* Check if we can re-use the old FFT plan */
-        if (priv->fft_size.x != pow2round(width)) {
-            priv->fft_size.x = pow2round(width);
-            if (priv->fft_dimensions == clFFT_2D)
-                priv->fft_size.y = pow2round(height);
-            clFFT_DestroyPlan(fft_plan);
-            fft_plan = NULL;
-        }
-
-        /* No, then create a new one */
-        if (fft_plan == NULL) {
-            fft_plan = clFFT_CreatePlan(
-                    (cl_context) ufo_resource_manager_get_context(manager),
-                    priv->fft_size, priv->fft_dimensions,
-                    clFFT_InterleavedComplexFormat, &err);
-        }
-
-        /* 1. Spread data for interleaved FFT */
-        UfoBuffer *fft_buffer = NULL;
-        
-        /* Create a new buffer large enough to hold complex numbers */
-        dimensions[0] = 2 * priv->fft_size.x;
-        dimensions[1] = priv->fft_dimensions == clFFT_1D ? height : priv->fft_size.y;
-        fft_buffer = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, command_queue);
+        UfoBuffer *fft_buffer = ufo_channel_get_output_buffer(output_channel);
 
         cl_mem fft_buffer_mem = (cl_mem) ufo_buffer_get_gpu_data(fft_buffer, command_queue);
         cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_gpu_data(input, command_queue);
         cl_event event, wait_on_event;
         size_t global_work_size[2];
 
+        /* Spread data for interleaved FFT */
         global_work_size[0] = priv->fft_size.x;
         global_work_size[1] = priv->fft_dimensions == clFFT_1D ? height : priv->fft_size.y;
         CHECK_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &fft_buffer_mem));
@@ -140,8 +133,6 @@ static void ufo_filter_fft_process(UfoFilter *filter)
                 2, NULL, global_work_size, NULL, 
                 0, NULL, &event));
         
-        ufo_filter_account_gpu_time(filter, (void **) &wait_on_event);
-
         /* FIXME: we should wait for previous computations */
         CHECK_ERROR(clWaitForEvents(1, &event));
         if (priv->fft_dimensions == clFFT_1D)
@@ -160,10 +151,10 @@ static void ufo_filter_fft_process(UfoFilter *filter)
         CHECK_ERROR(clFinish(command_queue));
 
         ufo_buffer_transfer_id(input, fft_buffer);
-        ufo_resource_manager_release_buffer(manager, input);
 
-        ufo_channel_push(output_channel, fft_buffer);
-        input = (UfoBuffer *) ufo_channel_pop(input_channel);
+        ufo_channel_finalize_input_buffer(input_channel, input);
+        ufo_channel_finalize_output_buffer(output_channel, fft_buffer);
+        input = ufo_channel_get_input_buffer(input_channel);
     }
 
     ufo_channel_finish(output_channel);

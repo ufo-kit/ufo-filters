@@ -320,7 +320,6 @@ static void ufo_filter_reader_process(UfoFilter *self)
         }
 
         output_buffer = ufo_channel_get_output_buffer(output_channel);
-        g_print("reader: out=%p\n", output_buffer);
 
         const guint16 bytes_per_sample = bits_per_sample >> 3;
         ufo_buffer_set_cpu_data(output_buffer, buffer, bytes_per_sample * width * height, NULL);

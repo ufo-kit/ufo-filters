@@ -91,9 +91,12 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
 
     gint32 dimensions[4] = { 1, 1, 1, 1 };
     ufo_buffer_get_dimensions(sinogram, dimensions);
-    ufo_channel_allocate_output_buffers(output_channel, dimensions);
     gint32 width = dimensions[0];
     gint32 num_projections = dimensions[1];
+
+    /* A slice is as tall and wide as a single sinogram row */
+    dimensions[1] = dimensions[0];
+    ufo_channel_allocate_output_buffers(output_channel, dimensions);
 
     /* create angle arrays */
     float *cos_tmp = g_malloc0(sizeof(float) * num_projections);

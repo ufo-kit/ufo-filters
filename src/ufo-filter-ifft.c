@@ -86,8 +86,34 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
 
     int err = CL_SUCCESS;
     clFFT_Plan ifft_plan = NULL;
-    UfoBuffer *input = ufo_channel_pop(input_channel);
+    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
+
     gint32 dimensions[4] = { 1, 1, 1, 1 };
+    ufo_buffer_get_dimensions(input, dimensions);
+    gint32 width = dimensions[0];
+    gint32 height = dimensions[1];
+
+    if (priv->ifft_size.x != width / 2) {
+        priv->ifft_size.x = width / 2;
+        if (priv->ifft_dimensions == clFFT_2D)
+            priv->ifft_size.y = height;
+        clFFT_DestroyPlan(ifft_plan);
+        ifft_plan = NULL;
+    }
+
+    if (ifft_plan == NULL) {
+        ifft_plan = clFFT_CreatePlan(
+            (cl_context) ufo_resource_manager_get_context(manager),
+            priv->ifft_size, priv->ifft_dimensions,
+            clFFT_InterleavedComplexFormat, &err);
+    }
+
+    width = (priv->final_width == -1) ? priv->ifft_size.x : priv->final_width;
+    height = (priv->final_height == -1) ? height : priv->final_height;
+    dimensions[0] = width;
+    dimensions[1] = height;
+    ufo_channel_allocate_output_buffers(output_channel, dimensions);
+
     gint32 batch_size;
 
     cl_event *events = NULL;
@@ -95,25 +121,6 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
     cl_event event;
 
     while (input != NULL) {
-        ufo_buffer_get_dimensions(input, dimensions);
-        gint32 width = dimensions[0];
-        gint32 height = dimensions[1];
-
-        if (priv->ifft_size.x != width / 2) {
-            priv->ifft_size.x = width / 2;
-            if (priv->ifft_dimensions == clFFT_2D)
-                priv->ifft_size.y = height;
-            clFFT_DestroyPlan(ifft_plan);
-            ifft_plan = NULL;
-        }
-
-        if (ifft_plan == NULL) {
-            ifft_plan = clFFT_CreatePlan(
-                (cl_context) ufo_resource_manager_get_context(manager),
-                priv->ifft_size, priv->ifft_dimensions,
-                clFFT_InterleavedComplexFormat, &err);
-        }
-
         cl_mem mem_fft = (cl_mem) ufo_buffer_get_gpu_data(input, command_queue);
 
         /* 1. Inverse FFT */
@@ -148,9 +155,8 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
         height = (priv->final_height == -1) ? height : priv->final_height;
         dimensions[0] = width;
         dimensions[1] = height;
-        UfoBuffer *result = ufo_resource_manager_request_buffer(manager,
-                UFO_BUFFER_2D, dimensions, NULL, command_queue);
-        
+
+        UfoBuffer *result = ufo_channel_get_output_buffer(output_channel);        
         global_work_size[0] = priv->ifft_size.x;
         global_work_size[1] = height;
 
@@ -165,14 +171,11 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
                 2, NULL, global_work_size, NULL,
                 0, NULL, &event);
 
-        ufo_filter_account_gpu_time(filter, (void **) &event);
         ufo_buffer_attach_event(result, event);
-
         ufo_buffer_transfer_id(input, result);
-        ufo_resource_manager_release_buffer(manager, input);
-
-        ufo_channel_push(output_channel, result);
-        input = ufo_channel_pop(input_channel);
+        ufo_channel_finalize_input_buffer(input_channel, input);
+        ufo_channel_finalize_output_buffer(output_channel, result);
+        input = ufo_channel_get_input_buffer(input_channel);
     }
     ufo_channel_finish(output_channel);
     clFFT_DestroyPlan(ifft_plan);

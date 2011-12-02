@@ -11,8 +11,6 @@
 
 #include "ufo-filter-null.h"
 
-struct _UfoFilterNullPrivate {
-};
 
 GType ufo_filter_null_get_type(void) G_GNUC_CONST;
 
@@ -90,9 +88,6 @@ static void ufo_filter_null_class_init(UfoFilterNullClass *klass)
     plugin_class->deactivated = deactivated;
     filter_class->initialize = ufo_filter_null_initialize;
     filter_class->process = ufo_filter_null_process;
-
-    /* install private data */
-    g_type_class_add_private(gobject_class, sizeof(UfoFilterNullPrivate));
 }
 
 static void ufo_filter_null_init(UfoFilterNull *self)

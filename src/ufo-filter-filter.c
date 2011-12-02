@@ -127,9 +127,9 @@ static void ufo_filter_filter_process(UfoFilter *filter)
                 2, NULL, global_work_size, NULL, 
                 0, NULL, &event));
 
-        ufo_filter_account_gpu_time(filter, (void **) &event);
-        ufo_buffer_attach_event(input, event);
-        
+        clFinish(command_queue);
+
+        ufo_buffer_attach_event(output, event);
         ufo_channel_finalize_input_buffer(input_channel, input);
         ufo_channel_finalize_output_buffer(output_channel, output);
 
