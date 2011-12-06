@@ -43,9 +43,8 @@ static void ufo_filter_null_process(UfoFilter *filter)
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
 
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    gint frames = 0;
     while (input != NULL) {
-        frames++;
+        ufo_channel_finalize_input_buffer(input_channel, input);
         input = ufo_channel_get_input_buffer(input_channel);
     }
 }

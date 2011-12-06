@@ -281,8 +281,8 @@ static void ufo_filter_backproject_class_init(UfoFilterBackprojectClass *klass)
         g_param_spec_double("angle-step",
             "Increment of angle in radians",
             "Increment of angle in radians",
-            -G_PI,  /* minimum */
-            +G_PI,  /* maximum */
+            -4.0 * G_PI,  /* minimum */
+            +4.0 * G_PI,  /* maximum */
             0.0,    /* default */
             G_PARAM_READWRITE);
 
