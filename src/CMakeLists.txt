@@ -109,8 +109,11 @@ foreach(_src ${ufofilter_SRCS})
         DESTINATION ${LIB_INSTALL_DIR})
 endforeach()
 
-# for now we just copy the kernels into the tests/ dir
+# copy kernels into $LIB_INSTALL_DIR
 foreach(_kernel ${ufofilter_KERNELS})
+    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${_kernel}
+        ${CMAKE_CURRENT_BINARY_DIR}/${_kernel})
+
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${_kernel}
         DESTINATION ${LIB_INSTALL_DIR})
 endforeach()
