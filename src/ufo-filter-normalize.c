@@ -59,6 +59,7 @@ static void ufo_filter_normalize_process(UfoFilter *filter)
         float scale = 1.0 / (max - min);
 
         UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
+
         /* This avoids an unneccessary GPU-to-host transfer */
         ufo_buffer_invalidate_gpu_data(output);
         float *out_data = ufo_buffer_get_cpu_data(output, command_queue);
