@@ -95,7 +95,6 @@ static void ufo_filter_uca_process(UfoFilter *self)
 {
     g_return_if_fail(UFO_IS_FILTER(self));
     UfoFilterUCAPrivate *priv = UFO_FILTER_UCA_GET_PRIVATE(self);
-    UfoResourceManager *manager = ufo_resource_manager();
     UfoChannel *output_channel = ufo_filter_get_output_channel(self);
 
     /* Camera subsystem could not be initialized, so flag end */
@@ -108,26 +107,22 @@ static void ufo_filter_uca_process(UfoFilter *self)
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(self);
     struct uca_camera *cam = priv->cam;
 
-    uint32_t width, height;
+    uint32_t width, height, bits;
     uca_cam_get_property(cam, UCA_PROP_WIDTH, &width, 0);
     uca_cam_get_property(cam, UCA_PROP_HEIGHT, &height, 0);
+    uca_cam_get_property(cam, UCA_PROP_BITDEPTH, &bits, 0);
     gint32 dimensions[4] = { width, height, 1, 1 };
+    ufo_channel_allocate_output_buffers(output_channel, dimensions);
 
     uca_cam_start_recording(cam);
     GTimer *timer = g_timer_new();
 
     for (guint i = 0; i < priv->count || g_timer_elapsed(timer, NULL) < priv->time; i++) {
-        UfoBuffer *buffer = ufo_resource_manager_request_buffer(manager, 
-                UFO_BUFFER_2D, dimensions, NULL, FALSE);
+        UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
+        uca_cam_grab(cam, (char *) ufo_buffer_get_cpu_data(output, command_queue), NULL);
 
-        uca_cam_grab(cam, (char *) ufo_buffer_get_cpu_data(buffer, command_queue), NULL);
-
-        /* FIXME: don't use hardcoded 8 bits per pixel */
-        ufo_buffer_reinterpret(buffer, 8, width * height);
-        while (ufo_channel_length(output_channel) > 2)
-            ;
-        
-        ufo_channel_push(output_channel, buffer);
+        ufo_buffer_reinterpret(output, bits, width * height);
+        ufo_channel_finalize_output_buffer(output_channel, output);
     }
 
     g_timer_destroy(timer);

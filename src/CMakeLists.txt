@@ -16,7 +16,6 @@ set(ufofilter_SRCS
     ufo-filter-normalize.c
     ufo-filter-null.c
     ufo-filter-sino-generator.c
-    ufo-filter-stripe-removal.c
     )
 
 set(ufofilter_KERNELS
