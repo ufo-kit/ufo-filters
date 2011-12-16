@@ -25,6 +25,9 @@ set(ufofilter_KERNELS
     filter.cl
     interpolator.cl
     complex.cl
+    filters.cl
+    lkflow.cl
+    motion.cl
     )
 
 set(ufofilter_LIBS
