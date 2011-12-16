@@ -467,6 +467,8 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 	tmp_region[1] = dimensions[1];
 	tmp_region[2] = 1;
 
+    size_t num_bytes = output_dimensions[0] * output_dimensions[1] * sizeof(float);
+
 	// Optical flow initialization
 	CHECK_ERROR(oflk_flow_init(context,
 					command_queue,
@@ -554,34 +556,45 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 								self->priv->g_p,
 								&flow_event));
 
+  			ufo_filter_account_gpu_time(filter, (void **) &flow_event);
+
 			/* result is the topmost flow pyramid */
 			// GPU memory transfer, does not work
-//			ufo_buffer_transfer_id(image_buffer, motion_vectors_buffer);
-//			ufo_buffer_set_cl_mem(motion_vectors_buffer, (gpointer) self->priv->flow_levels[0].mem);
-//			ufo_buffer_get_gpu_data(motion_vectors_buffer, command_queue); // otherwise result would be zeros
-//			ufo_filter_account_gpu_time(filter, (void **) &flow_event);
+            cl_event event;
+  			ufo_buffer_transfer_id(image_buffer, motion_vectors_buffer);
+            cl_mem motion_mem = ufo_buffer_get_gpu_data(motion_vectors_buffer, command_queue);
+            CHECK_ERROR(clEnqueueCopyBuffer(command_queue,
+                    self->priv->flow_levels[0].mem, motion_mem,
+                    0, 0, num_bytes,
+                    1, &flow_event, &event));
+
+            /* Actually, instead of using clWaitForEvents() we should attach the
+             * event to motion_vectors_buffer. However, the same event must be
+             * also used to synchronize further accesses to flow_levels[0].mem
+             * in order to prevent writes during reads. */
+            clWaitForEvents(1, &event);
 			// end of GPU memory transfer, does not work
 
 			// CPU memory transfer, works
-			int size = output_dimensions[0] * output_dimensions[1] * sizeof(cl_float);
-			float *res_buf = (float *) malloc(size);
-			if (res_buf == NULL) {
-				exit(2);
-			}
-		    CHECK_ERROR(clEnqueueReadBuffer(command_queue,
-		    		self->priv->flow_levels[0].mem,
-		    		CL_TRUE,
-		    		0,
-		    		size,
-		    		res_buf,
-		    		0,
-		    		NULL,
-		    		NULL));
+			/* int size = output_dimensions[0] * output_dimensions[1] * sizeof(cl_float); */
+			/* float *res_buf = (float *) malloc(size); */
+			/* if (res_buf == NULL) { */
+			/* 	exit(2); */
+			/* } */
+		    /* CHECK_ERROR(clEnqueueReadBuffer(command_queue, */
+		    		/* self->priv->flow_levels[0].mem, */
+		    		/* CL_TRUE, */
+		    		/* 0, */
+		    		/* size, */
+		    		/* res_buf, */
+		    		/* 0, */
+		    		/* NULL, */
+		    		/* NULL)); */
 
-		    ufo_buffer_set_cpu_data(motion_vectors_buffer,
-		    		res_buf,
-		    		size,
-		    		NULL);
+		    /* ufo_buffer_set_cpu_data(motion_vectors_buffer, */
+		    		/* res_buf, */
+		    		/* size, */
+		    		/* NULL); */
 			// end of CPU memory transfer, works
 
 			ufo_channel_finalize_output_buffer(output_channel, motion_vectors_buffer);
