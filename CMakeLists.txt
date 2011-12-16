@@ -32,6 +32,7 @@ include_directories(
     )
 
 add_definitions("-std=c99 -Wall -fPIC")
+add_definitions(-DG_LOG_DOMAIN="Ufo")
 
 add_subdirectory(src)
 

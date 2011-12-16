@@ -16,6 +16,7 @@ set(ufofilter_SRCS
     ufo-filter-normalize.c
     ufo-filter-null.c
     ufo-filter-sino-generator.c
+    ufo-filter-optical-flow-lucas-kanade.c
     )
 
 set(ufofilter_KERNELS
@@ -66,6 +67,13 @@ if (OPENCV_FOUND)
 endif ()
 
 
+# --- Add sources that belong to other libraries ------------------------------
+set(optical_flow_lucas_kanade_misc_SRCS
+    oflk_cl_buffer.c
+    oflk_cl_image.c
+    oflk_pyramid.c)
+
+
 # --- Target ------------------------------------------------------------------
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
@@ -83,13 +91,17 @@ foreach(_src ${ufofilter_SRCS})
     # find plugin suffix
     string(REGEX REPLACE "ufo-filter-([^ \\.]+).*" "\\1" filter "${_src}")
 
+    # build string to get miscalleanous sources
+    string(REPLACE "-" "_" _misc ${filter})
+    set(_misc "${_misc}_misc_SRCS")
+
     set(target "filter${filter}")
 
     # build single shared library per filter
     if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-        add_library(${target} MODULE ${_src})
+        add_library(${target} MODULE ${_src} ${${_misc}})
     else()
-        add_library(${target} SHARED ${_src})
+        add_library(${target} SHARED ${_src} ${${_misc}})
     endif()
 
     target_link_libraries(${target} ${ufofilter_LIBS})
