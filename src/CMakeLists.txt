@@ -33,7 +33,6 @@ set(ufofilter_KERNELS
 set(ufofilter_LIBS
     ${GLIB2_LIBRARIES}
     ${GOBJECT2_LIBRARIES}
-    ${ETHOS_LIBRARIES}
     )
 
 
