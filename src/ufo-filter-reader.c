@@ -188,17 +188,6 @@ static GList *filter_read_filenames(UfoFilterReaderPrivate *priv)
     return g_list_sort(filenames, (GCompareFunc) g_strcmp0);
 }
 
-/* 
- * virtual methods 
- */
-static void activated(EthosPlugin *plugin)
-{
-}
-
-static void deactivated(EthosPlugin *plugin)
-{
-}
-
 static void ufo_filter_reader_set_property(GObject *object,
     guint           property_id,
     const GValue    *value,
@@ -342,13 +331,10 @@ static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
     /* override methods */
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
-    EthosPluginClass *plugin_class = ETHOS_PLUGIN_CLASS(klass);
 
     gobject_class->set_property = ufo_filter_reader_set_property;
     gobject_class->get_property = ufo_filter_reader_get_property;
     filter_class->process = ufo_filter_reader_process;
-    plugin_class->activated = activated;
-    plugin_class->deactivated = deactivated;
 
     /* install properties */
     reader_properties[PROP_PREFIX] = 
@@ -410,7 +396,7 @@ static void ufo_filter_reader_init(UfoFilterReader *self)
     self->priv->blocking = FALSE;
 }
 
-G_MODULE_EXPORT EthosPlugin *ethos_plugin_register(void)
+G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_READER, NULL);
 }

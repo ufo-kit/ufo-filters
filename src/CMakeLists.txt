@@ -98,7 +98,7 @@ foreach(_src ${ufofilter_SRCS})
     string(REPLACE "-" "_" _misc ${filter})
     set(_misc "${_misc}_misc_SRCS")
 
-    set(target "filter${filter}")
+    set(target "${filter}")
 
     # build single shared library per filter
     if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -107,6 +107,7 @@ foreach(_src ${ufofilter_SRCS})
         add_library(${target} SHARED ${_src} ${${_misc}})
     endif()
 
+    set_target_properties(${target} PROPERTIES PREFIX "")
     target_link_libraries(${target} ${ufofilter_LIBS})
     
     # configure the ethos plugin description

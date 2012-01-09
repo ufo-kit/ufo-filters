@@ -58,16 +58,6 @@ static gboolean filter_write_tiff(float *buffer,
     return success;
 }
 
-/* 
- * virtual methods 
- */
-static void activated(EthosPlugin *plugin)
-{
-}
-
-static void deactivated(EthosPlugin *plugin)
-{
-}
 
 static void ufo_filter_writer_set_property(GObject *object,
     guint           property_id,
@@ -111,11 +101,6 @@ static void ufo_filter_writer_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_writer_dispose(GObject *object)
-{
-    G_OBJECT_CLASS(ufo_filter_writer_parent_class)->dispose(object);
-}
-
 static void ufo_filter_writer_process(UfoFilter *self)
 {
     g_return_if_fail(UFO_IS_FILTER(self));
@@ -152,19 +137,13 @@ static void ufo_filter_writer_process(UfoFilter *self)
 
 static void ufo_filter_writer_class_init(UfoFilterWriterClass *klass)
 {
-    /* override methods */
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
-    EthosPluginClass *plugin_class = ETHOS_PLUGIN_CLASS(klass);
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
 
     gobject_class->set_property = ufo_filter_writer_set_property;
     gobject_class->get_property = ufo_filter_writer_get_property;
-    gobject_class->dispose = ufo_filter_writer_dispose;
     filter_class->process = ufo_filter_writer_process;
-    plugin_class->activated = activated;
-    plugin_class->deactivated = deactivated;
 
-    /* install properties */
     reader_properties[PROP_PREFIX] = 
         g_param_spec_string("prefix",
             "Filename prefix",
@@ -182,7 +161,6 @@ static void ufo_filter_writer_class_init(UfoFilterWriterClass *klass)
     g_object_class_install_property(gobject_class, PROP_PATH, reader_properties[PROP_PATH]);
     g_object_class_install_property(gobject_class, PROP_PREFIX, reader_properties[PROP_PREFIX]);
 
-    /* install private data */
     g_type_class_add_private(gobject_class, sizeof(UfoFilterWriterPrivate));
 }
 
@@ -193,7 +171,7 @@ static void ufo_filter_writer_init(UfoFilterWriter *self)
     self->priv->prefix = NULL;
 }
 
-G_MODULE_EXPORT EthosPlugin *ethos_plugin_register(void)
+G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_WRITER, NULL);
 }

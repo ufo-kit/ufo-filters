@@ -12,8 +12,6 @@
 #include "ufo-filter-center-of-rotation.h"
 
 struct _UfoFilterCenterOfRotationPrivate {
-    /* add your private data here */
-    /* cl_kernel kernel; */
     gboolean use_sinograms; /**< FIXME: we should get this information from the buffer */
     float angle_step;
 };
@@ -164,17 +162,6 @@ static void center_of_rotation_projections(UfoFilter *filter)
     while (input != NULL);
 }
 
-static void activated(EthosPlugin *plugin)
-{
-}
-
-static void deactivated(EthosPlugin *plugin)
-{
-}
-
-/* 
- * virtual methods 
- */
 static void ufo_filter_center_of_rotation_initialize(UfoFilter *filter)
 {
     /* Here you can code, that is called for each newly instantiated filter */
@@ -249,13 +236,10 @@ static void ufo_filter_center_of_rotation_get_property(GObject *object,
 static void ufo_filter_center_of_rotation_class_init(UfoFilterCenterOfRotationClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
-    EthosPluginClass *plugin_class = ETHOS_PLUGIN_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
 
     gobject_class->set_property = ufo_filter_center_of_rotation_set_property;
     gobject_class->get_property = ufo_filter_center_of_rotation_get_property;
-    plugin_class->activated = activated;
-    plugin_class->deactivated = deactivated;
     filter_class->initialize = ufo_filter_center_of_rotation_initialize;
     filter_class->process = ufo_filter_center_of_rotation_process;
 
@@ -290,7 +274,7 @@ static void ufo_filter_center_of_rotation_init(UfoFilterCenterOfRotation *self)
     priv->use_sinograms = FALSE;
 }
 
-G_MODULE_EXPORT EthosPlugin *ethos_plugin_register(void)
+G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_CENTER_OF_ROTATION, NULL);
 }

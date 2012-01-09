@@ -30,16 +30,6 @@ enum {
 
 static GParamSpec *uca_properties[N_PROPERTIES] = { NULL, };
 
-/* 
- * virtual methods 
- */
-static void activated(EthosPlugin *plugin)
-{
-}
-
-static void deactivated(EthosPlugin *plugin)
-{
-}
 
 static void ufo_filter_uca_set_property(GObject *object,
     guint           property_id,
@@ -132,15 +122,12 @@ static void ufo_filter_uca_process(UfoFilter *self)
 static void ufo_filter_uca_class_init(UfoFilterUCAClass *klass)
 {
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
-    EthosPluginClass *plugin_class = ETHOS_PLUGIN_CLASS(klass);
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
 
     gobject_class->set_property = ufo_filter_uca_set_property;
     gobject_class->get_property = ufo_filter_uca_get_property;
     gobject_class->dispose = ufo_filter_uca_dispose;
     filter_class->process = ufo_filter_uca_process;
-    plugin_class->activated = activated;
-    plugin_class->deactivated = deactivated;
 
     uca_properties[PROP_COUNT] =
         g_param_spec_int("count",
@@ -180,7 +167,7 @@ static void ufo_filter_uca_init(UfoFilterUCA *self)
     uca_cam_alloc(self->priv->cam, 10);
 }
 
-G_MODULE_EXPORT EthosPlugin *ethos_plugin_register(void)
+G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_UCA, NULL);
 }
