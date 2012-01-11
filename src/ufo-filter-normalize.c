@@ -30,13 +30,11 @@ static void ufo_filter_normalize_process(UfoFilter *filter)
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    gint32 dimensions[4] = {1, 1, 1, 1};
-    ufo_buffer_get_dimensions(input, dimensions);
-    ufo_channel_allocate_output_buffers(output_channel, dimensions);
-    const gint32 num_elements = dimensions[0] * dimensions[1] * dimensions[2] * dimensions[3];
+    ufo_channel_allocate_output_buffers_like(output_channel, input);
+    const gint32 num_elements = ufo_buffer_get_size(input) / sizeof(float);
 
     while (input != NULL) {
-        float *in_data = ufo_buffer_get_cpu_data(input, command_queue);
+        float *in_data = ufo_buffer_get_host_array(input, command_queue);
 
         float min = 1.0, max = 0.0;
         for (int i = 0; i < num_elements; i++) {
@@ -51,7 +49,7 @@ static void ufo_filter_normalize_process(UfoFilter *filter)
 
         /* This avoids an unneccessary GPU-to-host transfer */
         ufo_buffer_invalidate_gpu_data(output);
-        float *out_data = ufo_buffer_get_cpu_data(output, command_queue);
+        float *out_data = ufo_buffer_get_host_array(output, command_queue);
         for (int i = 0; i < num_elements; i++) {
             out_data[i] = (in_data[i] - min) * scale;
         }

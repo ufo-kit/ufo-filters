@@ -45,10 +45,8 @@ static void filter_demux_process_simple(UfoFilterDemux *self)
     int current = 0;
 
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    gint32 dimensions[4];
-    ufo_buffer_get_dimensions(input, dimensions);
-    ufo_channel_allocate_output_buffers(output_channels[0], dimensions);
-    ufo_channel_allocate_output_buffers(output_channels[1], dimensions);
+    ufo_channel_allocate_output_buffers_like(output_channels[0], input);
+    ufo_channel_allocate_output_buffers_like(output_channels[1], input);
 
     while (input != NULL) {
         UfoBuffer *output = ufo_channel_get_output_buffer(output_channels[current]);
@@ -72,10 +70,8 @@ static void filter_demux_process_copy_same(UfoFilterDemux *self)
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(UFO_FILTER(self));
 
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    gint32 dimensions[4];
-    ufo_buffer_get_dimensions(input, dimensions);
-    ufo_channel_allocate_output_buffers(output_channels[0], dimensions);
-    ufo_channel_allocate_output_buffers(output_channels[1], dimensions);
+    ufo_channel_allocate_output_buffers_like(output_channels[0], input);
+    ufo_channel_allocate_output_buffers_like(output_channels[1], input);
     
     while (input != NULL) {
         /* Assign the current input a new id, so that it is ordered _after_ the
@@ -107,10 +103,8 @@ static void filter_demux_process_copy_delayed(UfoFilterDemux *self)
 
     UfoBuffer *input1 = ufo_channel_get_input_buffer(input_channel);
     UfoBuffer *output1 = NULL, *output2 = NULL, *input2 = NULL;
-    gint32 dimensions[4];
-    ufo_buffer_get_dimensions(input1, dimensions);
-    ufo_channel_allocate_output_buffers(output_channels[0], dimensions);
-    ufo_channel_allocate_output_buffers(output_channels[1], dimensions);
+    ufo_channel_allocate_output_buffers_like(output_channels[0], input1);
+    ufo_channel_allocate_output_buffers_like(output_channels[1], input1);
 
     while (input1 != NULL) {
         output1 = ufo_channel_get_output_buffer(output_channels[0]);

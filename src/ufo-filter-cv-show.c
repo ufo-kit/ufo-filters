@@ -60,11 +60,10 @@ static void ufo_filter_cv_show_process(UfoFilter *filter)
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
-    UfoFilterCvShow *self = UFO_FILTER_CV_SHOW(filter);
-    UfoFilterCvShowPrivate *priv = UFO_FILTER_CV_SHOW_GET_PRIVATE(self);
+    UfoFilterCvShowPrivate *priv = UFO_FILTER_CV_SHOW_GET_PRIVATE(filter);
 
     CvSize size;
-    UfoBuffer *input = ufo_channel_pop(input_channel);
+    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
     ufo_buffer_get_2d_dimensions(input, &size.width, &size.height);
 
     IplImage *image = cvCreateImageHeader(size, IPL_DEPTH_32F, 1);
@@ -80,7 +79,7 @@ static void ufo_filter_cv_show_process(UfoFilter *filter)
     CvHistogram *hist = cvCreateHist(1, &num_bins, CV_HIST_ARRAY, ranges, 1);
 
     while (input != NULL) {
-        image->imageData = (char *) ufo_buffer_get_cpu_data(input, command_queue);
+        image->imageData = (char *) ufo_buffer_get_host_array(input, command_queue);
 
         cvConvertImage(image, blit, 0);
         cvShowImage(window_name, image);
@@ -93,8 +92,8 @@ static void ufo_filter_cv_show_process(UfoFilter *filter)
         }
         cvWaitKey(30);
         
-        ufo_channel_push(output_channel, input);
-        input = ufo_channel_pop(input_channel);
+        ufo_channel_finalize_input_buffer(input_channel, input);
+        input = ufo_channel_get_input_buffer(input_channel);
     }
     cvWaitKey(10000);
     cvDestroyWindow(window_name);

@@ -34,38 +34,10 @@ static void ufo_filter_arg_max_process(UfoFilter *filter)
     g_return_if_fail(UFO_IS_FILTER(filter));
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    
-    cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
-    gint index[4] = {0, 0, 0, 0};
-    gint dims[4] = {1, 1, 1, 1};
 
     while (input != NULL) {
-        index[0] = index[1] = index[2] = index[3] = 0;
-        ufo_buffer_get_dimensions(input, dims);
-        float *data = ufo_buffer_get_cpu_data(input, command_queue);
-        float max_value = data[0];
-        
-        int y_offset = dims[0];
-        int z_offset = dims[0]*dims[1];
-        int t_offset = z_offset*dims[2];
-        
-        for (int x = 0; x < dims[0]; x++) {
-            for (int y = 0; y < dims[1]; y++) {
-                for (int z = 0; z < dims[2]; z++) {
-                    for (int t = 0; t < dims[3]; t++) {
-                        float v = data[x + y*y_offset + z*z_offset + t*t_offset];
-                        if (v > max_value) {
-                            max_value = v;
-                            index[0] = x; index[1] = y; index[2] = z; index[3] = t;
-                        }
-                    }
-                }
-            }
-        }
-        gint dx = index[0] > dims[0] / 2 ? index[0] - dims[0] : index[0];
-        gint dy = index[1] > dims[1] / 2 ? index[1] - dims[1] : index[1];
-        g_print("%i %i\n", dx, dy);
-
+        /* FIXME: redo this in a general way */
+        ufo_channel_finalize_input_buffer(input_channel, input);
         input = ufo_channel_get_input_buffer(input_channel);
     }
 }

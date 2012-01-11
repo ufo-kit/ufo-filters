@@ -86,10 +86,11 @@ static void ufo_filter_fft_process(UfoFilter *filter)
 
     int err = CL_SUCCESS;
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    gint32 dimensions[4] = { 1, 1, 1, 1 }, width, height;
-    ufo_buffer_get_dimensions(input, dimensions);
-    width = dimensions[0];
-    height = dimensions[1];
+    int num_dims = 0, width, height;
+    int *dim_size = NULL;
+    ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
+    width = dim_size[0];
+    height = dim_size[1];
 
     /* Create FFT plan with appropriate size */
     priv->fft_size.x = pow2round(width);
@@ -101,15 +102,15 @@ static void ufo_filter_fft_process(UfoFilter *filter)
                 priv->fft_size, priv->fft_dimensions,
                 clFFT_InterleavedComplexFormat, &err);
 
-    dimensions[0] = 2 * priv->fft_size.x;
-    dimensions[1] = priv->fft_dimensions == clFFT_1D ? height : priv->fft_size.y;
-    ufo_channel_allocate_output_buffers(output_channel, dimensions);
+    dim_size[0] = 2 * priv->fft_size.x;
+    dim_size[1] = priv->fft_dimensions == clFFT_1D ? height : priv->fft_size.y;
+    ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
 
     while (input != NULL) {
         UfoBuffer *fft_buffer = ufo_channel_get_output_buffer(output_channel);
 
-        cl_mem fft_buffer_mem = (cl_mem) ufo_buffer_get_gpu_data(fft_buffer, command_queue);
-        cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_gpu_data(input, command_queue);
+        cl_mem fft_buffer_mem = (cl_mem) ufo_buffer_get_device_array(fft_buffer, command_queue);
+        cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_device_array(input, command_queue);
         cl_event event, wait_on_event;
         size_t global_work_size[2];
 
@@ -151,6 +152,7 @@ static void ufo_filter_fft_process(UfoFilter *filter)
 
     ufo_channel_finish(output_channel);
     clFFT_DestroyPlan(fft_plan);
+    g_free(dim_size);
 }
 
 static void ufo_filter_fft_set_property(GObject *object,

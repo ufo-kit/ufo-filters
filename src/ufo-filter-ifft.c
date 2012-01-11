@@ -78,10 +78,11 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
     clFFT_Plan ifft_plan = NULL;
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
-    gint32 dimensions[4] = { 1, 1, 1, 1 };
-    ufo_buffer_get_dimensions(input, dimensions);
-    gint32 width = dimensions[0];
-    gint32 height = dimensions[1];
+    int num_dims = 0;
+    int *dim_size = NULL;
+    ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
+    gint32 width = dim_size[0];
+    gint32 height = dim_size[1];
 
     if (priv->ifft_size.x != width / 2) {
         priv->ifft_size.x = width / 2;
@@ -100,9 +101,9 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
 
     width = (priv->final_width == -1) ? priv->ifft_size.x : priv->final_width;
     height = (priv->final_height == -1) ? height : priv->final_height;
-    dimensions[0] = width;
-    dimensions[1] = height;
-    ufo_channel_allocate_output_buffers(output_channel, dimensions);
+    dim_size[0] = width;
+    dim_size[1] = height;
+    ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
 
     gint32 batch_size;
 
@@ -111,7 +112,7 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
     cl_event event;
 
     while (input != NULL) {
-        cl_mem mem_fft = (cl_mem) ufo_buffer_get_gpu_data(input, command_queue);
+        cl_mem mem_fft = (cl_mem) ufo_buffer_get_device_array(input, command_queue);
 
         /* 1. Inverse FFT */
         if (priv->ifft_dimensions == clFFT_1D)
@@ -143,14 +144,14 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
 
         width = (priv->final_width == -1) ? priv->ifft_size.x : priv->final_width;
         height = (priv->final_height == -1) ? height : priv->final_height;
-        dimensions[0] = width;
-        dimensions[1] = height;
+        dim_size[0] = width;
+        dim_size[1] = height;
 
         UfoBuffer *result = ufo_channel_get_output_buffer(output_channel);        
         global_work_size[0] = priv->ifft_size.x;
         global_work_size[1] = height;
 
-        cl_mem mem_result = (cl_mem) ufo_buffer_get_gpu_data(result, command_queue);
+        cl_mem mem_result = (cl_mem) ufo_buffer_get_device_array(result, command_queue);
 
         clSetKernelArg(priv->pack_kernel, 0, sizeof(cl_mem), (void *) &mem_fft);
         clSetKernelArg(priv->pack_kernel, 1, sizeof(cl_mem), (void *) &mem_result);
@@ -169,6 +170,7 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
     }
     ufo_channel_finish(output_channel);
     clFFT_DestroyPlan(ifft_plan);
+    g_free(dim_size);
 }
 
 static void ufo_filter_ifft_set_property(GObject *object,

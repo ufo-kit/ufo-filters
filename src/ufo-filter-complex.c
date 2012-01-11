@@ -67,15 +67,17 @@ static void ufo_filter_complex_binary(UfoFilter *filter, cl_kernel kernel)
     
     UfoBuffer *a = ufo_channel_get_input_buffer(input_channel_a);
     UfoBuffer *b = ufo_channel_get_input_buffer(input_channel_b);
-    gint dimensions_a[4] = { 1, 1, 1, 1 };
-    gint dimensions_b[4] = { 1, 1, 1, 1 };
+    int num_dims_a = 0, num_dims_b = 0;
+    int *dim_size_a = NULL;
+    int *dim_size_b = NULL;
 
-    ufo_buffer_get_dimensions(a, dimensions_a);
-    ufo_buffer_get_dimensions(b, dimensions_b);
-    for (int i = 0; i < 4; i++)
-        g_assert(dimensions_a[i] == dimensions_b[i]);
+    ufo_buffer_get_dimensions(a, &num_dims_a, &dim_size_a);
+    ufo_buffer_get_dimensions(b, &num_dims_b, &dim_size_b);
+    g_assert(num_dims_a == num_dims_b);
+    for (int i = 0; i < num_dims_a; i++)
+        g_assert(dim_size_a[i] == dim_size_b[i]);
 
-    ufo_channel_allocate_output_buffers(output_channel, dimensions_a);
+    ufo_channel_allocate_output_buffers(output_channel, num_dims_a, dim_size_a);
     
     cl_command_queue cmd_queue = ufo_filter_get_command_queue(filter);
     cl_mem mem_a, mem_b, mem_r;
@@ -86,13 +88,13 @@ static void ufo_filter_complex_binary(UfoFilter *filter, cl_kernel kernel)
     while ((a != NULL) && (b != NULL)) {
         UfoBuffer *r = ufo_channel_get_output_buffer(output_channel);
         
-        mem_a = ufo_buffer_get_gpu_data(a, cmd_queue);
-        mem_b = ufo_buffer_get_gpu_data(b, cmd_queue);
-        mem_r = ufo_buffer_get_gpu_data(r, cmd_queue);
+        mem_a = ufo_buffer_get_device_array(a, cmd_queue);
+        mem_b = ufo_buffer_get_device_array(b, cmd_queue);
+        mem_r = ufo_buffer_get_device_array(r, cmd_queue);
         
         /* Each thread processes the real and the imaginary part */
-        global_work_size[0] = dimensions_a[0] / 2;
-        global_work_size[1] = dimensions_a[1];
+        global_work_size[0] = dim_size_a[0] / 2;
+        global_work_size[1] = dim_size_a[1];
         clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &mem_a);
         clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &mem_b);
         clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &mem_r);
@@ -110,6 +112,8 @@ static void ufo_filter_complex_binary(UfoFilter *filter, cl_kernel kernel)
         b = ufo_channel_get_input_buffer(input_channel_b);
     }
     ufo_channel_finish(output_channel);
+    g_free(dim_size_a);
+    g_free(dim_size_b);
 }
 
 static void ufo_filter_complex_unary(UfoFilter* filter, cl_kernel kernel)
@@ -121,19 +125,20 @@ static void ufo_filter_complex_unary(UfoFilter* filter, cl_kernel kernel)
     cl_event wait_event;
     
     size_t global_work_size[2] = { 0, 0 };
-    gint32 dimensions[4] = { 1, 1, 1, 1 };
+    int num_dims = 0;
+    int *dim_size = NULL;
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    ufo_buffer_get_dimensions(input, dimensions);
-    ufo_channel_allocate_output_buffers(output_channel, dimensions);
+    ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
+    ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
 
     while (input != NULL) {
         UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
-        cl_mem input_mem = ufo_buffer_get_gpu_data(input, cmd_queue);
-        cl_mem output_mem = ufo_buffer_get_gpu_data(output, cmd_queue);
+        cl_mem input_mem = ufo_buffer_get_device_array(input, cmd_queue);
+        cl_mem output_mem = ufo_buffer_get_device_array(output, cmd_queue);
         
         /* Each thread processes the real and the imaginary part */
-        global_work_size[0] = dimensions[0] / 2;
-        global_work_size[1] = dimensions[1];
+        global_work_size[0] = dim_size[0] / 2;
+        global_work_size[1] = dim_size[1];
         clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &input_mem);
         clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &output_mem);
         clEnqueueNDRangeKernel(cmd_queue, kernel,
@@ -147,6 +152,7 @@ static void ufo_filter_complex_unary(UfoFilter* filter, cl_kernel kernel)
         ufo_channel_finalize_input_buffer(input_channel, input);
         input = ufo_channel_get_input_buffer(input_channel);
     }
+    g_free(dim_size);
     ufo_channel_finish(output_channel);
 }
 

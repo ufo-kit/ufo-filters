@@ -50,18 +50,20 @@ static void process_regular(UfoFilter *self,
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
     cl_event event;
-    gint32 dimensions[4] = { 1, 1, 1, 1 };
-    ufo_buffer_get_dimensions(input, dimensions);
-    ufo_channel_allocate_output_buffers(output_channel, dimensions);
+    int num_dims = 0;
+    int *dim_size = NULL;
+    ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
+    ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
 
+    /* We should reject anything that is not 2-dimensional */
     size_t global_work_size[2];
-    global_work_size[0] = (size_t) dimensions[0];
-    global_work_size[1] = (size_t) dimensions[1];
+    global_work_size[0] = (size_t) dim_size[0];
+    global_work_size[1] = (size_t) dim_size[1];
 
     while (input != NULL) { 
         UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
-        cl_mem frame_mem = (cl_mem) ufo_buffer_get_gpu_data(input, command_queue);
-        cl_mem result_mem = (cl_mem) ufo_buffer_get_gpu_data(output, command_queue);
+        cl_mem frame_mem = (cl_mem) ufo_buffer_get_device_array(input, command_queue);
+        cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(output, command_queue);
 
         CHECK_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &frame_mem));
         CHECK_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &result_mem));
@@ -79,6 +81,7 @@ static void process_regular(UfoFilter *self,
     }
 
     ufo_channel_finish(output_channel);
+    g_free(dim_size);
 }
 
 static void process_combine(UfoFilter *self,
@@ -92,23 +95,24 @@ static void process_combine(UfoFilter *self,
     UfoChannel *input_b = ufo_filter_get_input_channel_by_name(self, "input2");
 
     size_t local_work_size[2] = { 16, 16 };
-    gint32 dimensions[4];
+    int num_dims;
+    int *dim_size = NULL;
 
     UfoBuffer *a = ufo_channel_get_input_buffer(input_a);
     UfoBuffer *b = ufo_channel_get_input_buffer(input_b);
-    ufo_buffer_get_dimensions(a, dimensions);
-    ufo_channel_allocate_output_buffers(output_channel, dimensions);
+    ufo_buffer_get_dimensions(a, &num_dims, (int **) &dim_size);
+    ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
 
     size_t global_work_size[2];
-    global_work_size[0] = (size_t) dimensions[0];
-    global_work_size[1] = (size_t) dimensions[1];
+    global_work_size[0] = (size_t) dim_size[0];
+    global_work_size[1] = (size_t) dim_size[1];
     cl_event event;
 
     while ((a != NULL) && (b != NULL)) {
         UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
-        cl_mem a_mem = (cl_mem) ufo_buffer_get_gpu_data(a, command_queue);
-        cl_mem b_mem = (cl_mem) ufo_buffer_get_gpu_data(b, command_queue);
-        cl_mem result_mem = (cl_mem) ufo_buffer_get_gpu_data(output, command_queue);
+        cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(a, command_queue);
+        cl_mem b_mem = (cl_mem) ufo_buffer_get_device_array(b, command_queue);
+        cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(output, command_queue);
 
         CHECK_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &a_mem));
         CHECK_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &b_mem));
@@ -141,7 +145,9 @@ static void process_combine(UfoFilter *self,
         ufo_buffer_attach_event(output, event);
         ufo_channel_finalize_output_buffer(output_channel, output);
     }
+
     ufo_channel_finish(output_channel);
+    g_free(dim_size);
 }
 
 /*

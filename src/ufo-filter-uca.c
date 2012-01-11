@@ -101,15 +101,15 @@ static void ufo_filter_uca_process(UfoFilter *self)
     uca_cam_get_property(cam, UCA_PROP_WIDTH, &width, 0);
     uca_cam_get_property(cam, UCA_PROP_HEIGHT, &height, 0);
     uca_cam_get_property(cam, UCA_PROP_BITDEPTH, &bits, 0);
-    gint32 dimensions[4] = { width, height, 1, 1 };
-    ufo_channel_allocate_output_buffers(output_channel, dimensions);
+    gint32 dim_size[] = { width, height };
+    ufo_channel_allocate_output_buffers(output_channel, 2, dim_size);
 
     uca_cam_start_recording(cam);
     GTimer *timer = g_timer_new();
 
     for (guint i = 0; i < priv->count || g_timer_elapsed(timer, NULL) < priv->time; i++) {
         UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
-        uca_cam_grab(cam, (char *) ufo_buffer_get_cpu_data(output, command_queue), NULL);
+        uca_cam_grab(cam, (char *) ufo_buffer_get_host_array(output, command_queue), NULL);
 
         ufo_buffer_reinterpret(output, bits, width * height);
         ufo_channel_finalize_output_buffer(output_channel, output);

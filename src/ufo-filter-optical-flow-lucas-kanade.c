@@ -53,7 +53,6 @@ enum {
     N_PROPERTIES
 };
 
-static GParamSpec *optical_flow_lucas_kanade_properties[N_PROPERTIES] = { NULL, };
 
 // TODO supporting function for outputting images in text format, remove later
 void save_octave_intensity_float( oflk_cl_image img, cl_command_queue cmdq, const char *fname ) {
@@ -447,12 +446,10 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 
 	/* If you provide any output, you must allocate output buffers of the
 	   appropriate size */
-	gint32 dimensions[4] = { 1, 1, 1, 1 };
-	gint32 output_dimensions[4] = { 1, 1, 1, 1 };
-	ufo_buffer_get_dimensions(image_buffer, dimensions);
-	output_dimensions[0] = dimensions[0] * 2; // dx and dy for each pixel
-	output_dimensions[1] = dimensions[1];
-	output_dimensions[2] = 1;
+    int num_dims = 0;
+    int *dimensions = NULL;
+	ufo_buffer_get_dimensions(image_buffer, &num_dims, &dimensions);
+	int output_dimensions[2] = { dimensions[0] * 2, dimensions[1] };
 	tmp_region[0] = dimensions[0];
 	tmp_region[1] = dimensions[1];
 	tmp_region[2] = 1;
@@ -480,7 +477,7 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 		 * processing. Switch between two temporary storages for being
 		 * able to access an "old" image and a "new" image in one cycle.
 		 */
-		tmp_buf = (cl_mem) ufo_buffer_get_gpu_data(image_buffer, command_queue);
+		tmp_buf = (cl_mem) ufo_buffer_get_device_array(image_buffer, command_queue);
 		CHECK_ERROR(clEnqueueCopyBufferToImage(command_queue,
 										tmp_buf,
 										i % 2 == 0 ? self->priv->new_image.image_mem :
@@ -494,7 +491,7 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 
 		if (i > 0) {
 			if (!buffers_initialized) {
-				ufo_channel_allocate_output_buffers(output_channel, output_dimensions);
+				ufo_channel_allocate_output_buffers(output_channel, 2, output_dimensions);
 				buffers_initialized = TRUE;
 			}
 			motion_vectors_buffer = ufo_channel_get_output_buffer(output_channel);
@@ -552,7 +549,7 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 			// GPU memory transfer, does not work
             cl_event event;
   			ufo_buffer_transfer_id(image_buffer, motion_vectors_buffer);
-            cl_mem motion_mem = ufo_buffer_get_gpu_data(motion_vectors_buffer, command_queue);
+            cl_mem motion_mem = ufo_buffer_get_device_array(motion_vectors_buffer, command_queue);
             CHECK_ERROR(clEnqueueCopyBuffer(command_queue,
                     self->priv->flow_levels[0].mem, motion_mem,
                     0, 0, num_bytes,
@@ -613,6 +610,7 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 	/* Tell subsequent filters, that we are finished */
 	ufo_channel_finish(output_channel);
 	printf(">>>>> Output channel released <<<<<\n");
+    g_free(dimensions);
 }
 
 static void ufo_filter_optical_flow_lucas_kanade_set_property(GObject *object,

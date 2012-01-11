@@ -78,14 +78,15 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
     UfoBuffer *sinogram = ufo_channel_get_input_buffer(input_channel);
     UfoBuffer *slice = NULL;
 
-    gint32 dimensions[4] = { 1, 1, 1, 1 };
-    ufo_buffer_get_dimensions(sinogram, dimensions);
+    int num_dims = 0;
+    int *dimensions = NULL;
+    ufo_buffer_get_dimensions(sinogram, &num_dims, &dimensions);
     gint32 width = dimensions[0];
     gint32 num_projections = dimensions[1];
 
     /* A slice is as tall and wide as a single sinogram row */
     dimensions[1] = dimensions[0];
-    ufo_channel_allocate_output_buffers(output_channel, dimensions);
+    ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
 
     /* create angle arrays */
     float *cos_tmp = g_malloc0(sizeof(float) * num_projections);
@@ -144,8 +145,8 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
         slice = ufo_channel_get_output_buffer(output_channel);
         cl_event event;
 
-        cl_mem slice_mem = (cl_mem) ufo_buffer_get_gpu_data(slice, command_queue);
-        cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_gpu_data(sinogram, command_queue);
+        cl_mem slice_mem = (cl_mem) ufo_buffer_get_device_array(slice, command_queue);
+        cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_device_array(sinogram, command_queue);
 
         if (priv->use_texture) {
             size_t dest_origin[3] = { 0, 0, 0 };
@@ -182,6 +183,7 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
     CHECK_ERROR(clReleaseMemObject(axes_mem));
 
     ufo_channel_finish(output_channel);
+    g_free(dimensions);
 }
 
 static void ufo_filter_backproject_set_property(GObject *object,

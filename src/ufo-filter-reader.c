@@ -301,17 +301,16 @@ static void ufo_filter_reader_process(UfoFilter *self)
         if (buffer == NULL)
             break;
 
-        /* UfoBuffer *image = ufo_resource_manager_request_buffer(manager, UFO_BUFFER_2D, dimensions, NULL, NULL); */
         if (!buffers_initialized) {
-            gint32 dimensions[4] = { width, height, 1, 1};
-            ufo_channel_allocate_output_buffers(output_channel, dimensions);
+            gint32 dimensions[2] = { width, height };
+            ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
             buffers_initialized = TRUE;
         }
 
         output_buffer = ufo_channel_get_output_buffer(output_channel);
 
         const guint16 bytes_per_sample = bits_per_sample >> 3;
-        ufo_buffer_set_cpu_data(output_buffer, buffer, bytes_per_sample * width * height, NULL);
+        ufo_buffer_set_host_array(output_buffer, buffer, bytes_per_sample * width * height, NULL);
         if (bits_per_sample < 32)
             ufo_buffer_reinterpret(output_buffer, bits_per_sample, width * height);
 

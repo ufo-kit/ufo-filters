@@ -29,10 +29,6 @@ static void ufo_filter_averager_initialize(UfoFilter *filter)
 {
 }
 
-/*
- * This is the main method in which the filter processes one buffer after
- * another.
- */
 static void ufo_filter_averager_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
@@ -41,22 +37,19 @@ static void ufo_filter_averager_process(UfoFilter *filter)
     UfoResourceManager *manager = ufo_resource_manager();
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
-    gint32 dimensions[4] = {1, 1, 1, 1};
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-
-    ufo_buffer_get_dimensions(input, dimensions);
-    ufo_channel_allocate_output_buffers(output_channel, dimensions);
+    ufo_channel_allocate_output_buffers_like(input_channel, input);
     
     UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
-    float *out = ufo_buffer_get_cpu_data(output, command_queue);
+    float *out = ufo_buffer_get_host_array(output, command_queue);
     memset(out, 0, ufo_buffer_get_size(output));
 
     float num_input = 0.0f;
-    const int num_pixels = dimensions[0]*dimensions[1]*dimensions[2]*dimensions[3];
+    const int num_pixels = ufo_buffer_get_size(input) / sizeof(float);
 
     while (input != NULL) {
         num_input++;
-        float *in = ufo_buffer_get_cpu_data(input, command_queue);
+        float *in = ufo_buffer_get_host_array(input, command_queue);
         for (int i = 0; i < num_pixels; i++)
             out[i] += in[i];
 

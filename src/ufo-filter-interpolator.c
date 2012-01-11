@@ -67,19 +67,20 @@ static void ufo_filter_interpolator_process(UfoFilter *filter)
     /* We only pop one from each input */
     UfoBuffer *a = ufo_channel_get_input_buffer(input_a);
     UfoBuffer *b = ufo_channel_get_input_buffer(input_b);
-    cl_mem a_mem = (cl_mem) ufo_buffer_get_gpu_data(a, command_queue);
-    cl_mem b_mem = (cl_mem) ufo_buffer_get_gpu_data(b, command_queue);
+    cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(a, command_queue);
+    cl_mem b_mem = (cl_mem) ufo_buffer_get_device_array(b, command_queue);
     cl_kernel kernel = priv->kernel;
     cl_event event;
 
-    gint32 dimensions[4] = { 1, 1, 1, 1 };
-    ufo_buffer_get_dimensions(a, dimensions);
-    ufo_channel_allocate_output_buffers(output_channel, dimensions);
-    size_t global_work_size[2] = { (size_t) dimensions[0], (size_t) dimensions[1] };
+    int num_dims = 0;
+    int *dim_size = NULL;
+    ufo_buffer_get_dimensions(a, &num_dims, &dim_size);
+    ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
+    size_t global_work_size[2] = { (size_t) dim_size[0], (size_t) dim_size[1] };
 
     for (int i = 0; i < priv->num_steps; i++) {
         UfoBuffer *result = ufo_channel_get_output_buffer(output_channel);
-        cl_mem result_mem = (cl_mem) ufo_buffer_get_gpu_data(result, command_queue);
+        cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(result, command_queue);
 
         CHECK_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &a_mem));
         CHECK_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &b_mem));
@@ -96,6 +97,7 @@ static void ufo_filter_interpolator_process(UfoFilter *filter)
         ufo_channel_finalize_output_buffer(output_channel, result);
     }
     ufo_channel_finish(output_channel);
+    g_free(dim_size);
 }
 
 static void ufo_filter_interpolator_set_property(GObject *object,

@@ -112,18 +112,20 @@ static void ufo_filter_writer_process(UfoFilter *self)
     GString *filename = g_string_new("");
     gint id = -1, current_frame = 0;
 
-    gint32 dimensions[4] = { 1, 1, 1, 1 };
+    int num_dims = 0;
+    int *dim_size = NULL;
     gint32 counter = 0;
 
     while (input != NULL) {
-        ufo_buffer_get_dimensions(input, dimensions);
-        const gint32 width = dimensions[0];
-        const gint32 height = dimensions[1];
+        ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
+        g_assert(num_dims == 2);
+        const gint32 width = dim_size[0];
+        const gint32 height = dim_size[1];
         g_object_get(input, "id", &id, NULL);
         if (id == -1)
             id = current_frame++;
 
-        float *data = ufo_buffer_get_cpu_data(input, command_queue);
+        float *data = ufo_buffer_get_host_array(input, command_queue);
 
         g_string_printf(filename, "%s/%s-%05i.tif", priv->path, priv->prefix, counter++); 
         if (!filter_write_tiff(data, filename->str, width, height))
@@ -133,6 +135,7 @@ static void ufo_filter_writer_process(UfoFilter *self)
         input = ufo_channel_get_input_buffer(input_channel);
     }
     g_string_free(filename, TRUE);
+    g_free(dim_size);
 }
 
 static void ufo_filter_writer_class_init(UfoFilterWriterClass *klass)

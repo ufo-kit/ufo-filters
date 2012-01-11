@@ -47,10 +47,12 @@ static void ufo_filter_sino_generator_process(UfoFilter *filter)
     /* We pop the very first image, to determine the size w*h of a projection.
      * We then have to allocate h sinogram buffers with a height of
      * num_projections and width w */
-    gint32 width, height, sino_width, dimensions[4];
+    gint32 width, height, sino_width;
     guint received = 1;
     UfoBuffer *input = ufo_channel_pop(input_channel);
-    ufo_buffer_get_dimensions(input, dimensions);
+    int num_dims = 0;
+    int *dimensions = NULL;
+    ufo_buffer_get_dimensions(input, &num_dims, &dimensions);
     width = dimensions[0];
     height = dimensions[1];
 
@@ -85,6 +87,7 @@ static void ufo_filter_sino_generator_process(UfoFilter *filter)
 
     /* Third step: complete */
     ufo_channel_finish(output_channel);
+    g_free(dimensions);
 }
 
 static void ufo_filter_sino_generator_set_property(GObject *object,

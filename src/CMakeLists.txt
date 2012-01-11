@@ -97,7 +97,8 @@ foreach(_src ${ufofilter_SRCS})
     string(REPLACE "-" "_" _misc ${filter})
     set(_misc "${_misc}_misc_SRCS")
 
-    set(target "${filter}")
+    string(REPLACE "-" "" _targetname ${filter})
+    set(target "${_targetname}")
 
     # build single shared library per filter
     if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")

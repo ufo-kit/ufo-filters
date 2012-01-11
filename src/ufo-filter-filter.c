@@ -51,9 +51,9 @@ static UfoBuffer *filter_create_data(UfoFilterFilterPrivate *priv, guint32 width
         filter[k + 1] = filter[width - k + 1];
     }
 
-    gint32 dimensions[4] = { width, 1, 1, 1 };
+    const int dimensions = width;
     UfoBuffer *filter_buffer = ufo_resource_manager_request_buffer(
-            ufo_resource_manager(), UFO_BUFFER_1D, dimensions, filter, cmd_queue);
+            ufo_resource_manager(), 1, &dimensions, filter, cmd_queue);
     g_free(filter);
     return filter_buffer;
 }
@@ -94,19 +94,20 @@ static void ufo_filter_filter_process(UfoFilter *filter)
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
     UfoBuffer *input = (UfoBuffer *) ufo_channel_get_input_buffer(input_channel);
-    gint32 dimensions[4] = { 1, 1, 1, 1 }; 
-    ufo_buffer_get_dimensions(input, dimensions);
-    ufo_channel_allocate_output_buffers(output_channel, dimensions);
-    size_t global_work_size[2] = { dimensions[0], dimensions[1] };
+    int num_dims = 0;
+    int *dim_size = NULL;
+    ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
+    ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
+    size_t global_work_size[2] = { dim_size[0], dim_size[1] };
 
-    UfoBuffer *filter_buffer = filter_create_data(priv, dimensions[0], command_queue);
-    cl_mem filter_mem = (cl_mem) ufo_buffer_get_gpu_data(filter_buffer, command_queue);
+    UfoBuffer *filter_buffer = filter_create_data(priv, dim_size[0], command_queue);
+    cl_mem filter_mem = (cl_mem) ufo_buffer_get_device_array(filter_buffer, command_queue);
     cl_event event;
         
     while (input != NULL) {
         UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
-        cl_mem freq_out_mem = (cl_mem) ufo_buffer_get_gpu_data(output, command_queue);
-        cl_mem freq_in_mem = (cl_mem) ufo_buffer_get_gpu_data(input, command_queue);
+        cl_mem freq_out_mem = (cl_mem) ufo_buffer_get_device_array(output, command_queue);
+        cl_mem freq_in_mem = (cl_mem) ufo_buffer_get_device_array(input, command_queue);
 
         clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &freq_in_mem);
         clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &freq_out_mem);
@@ -126,6 +127,7 @@ static void ufo_filter_filter_process(UfoFilter *filter)
     }
     ufo_resource_manager_release_buffer(manager, filter_buffer);
     ufo_channel_finish(output_channel);
+    g_free(dim_size);
 }
 
 static void ufo_filter_filter_set_property(GObject *object,
