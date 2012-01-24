@@ -198,11 +198,11 @@ static void ufo_filter_reader_set_property(GObject *object,
     switch (property_id) {
         case PROP_PATH:
             g_free(priv->path);
-            priv->path = g_strdup(g_value_get_string(value));
+            priv->path = g_value_dup_string(value);
             break;
         case PROP_PREFIX:
             g_free(priv->prefix);
-            priv->prefix = g_strdup(g_value_get_string(value));
+            priv->prefix = g_value_dup_string(value);
             break;
         case PROP_COUNT:
             priv->count = g_value_get_int(value);
@@ -287,7 +287,7 @@ static void ufo_filter_reader_process(UfoFilter *self)
                 break;
         }
 
-        void *buffer;
+        void *buffer = NULL;
         if (g_str_has_suffix(filename->data, "tif"))
             buffer = filter_read_tiff((char *) filename->data,
                 &bits_per_sample, &samples_per_pixel,

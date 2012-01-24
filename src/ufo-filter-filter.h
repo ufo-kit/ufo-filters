@@ -20,17 +20,12 @@ typedef struct _UfoFilterFilterPrivate    UfoFilterFilterPrivate;
 struct _UfoFilterFilter {
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterFilterPrivate *priv;
 };
 
 struct _UfoFilterFilterClass {
     UfoFilterClass parent_class;
 };
-
-/* virtual public methods */
-
-/* non-virtual public methods */
 
 GType ufo_filter_filter_get_type(void);
 
