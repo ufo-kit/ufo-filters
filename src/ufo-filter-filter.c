@@ -82,7 +82,7 @@ static float *setup_butterworth(UfoFilterFilterPrivate *priv, guint32 width)
 
     for (int i = 0; i < n_samples; i++) {
         float coefficient = i / ((float) n_samples); 
-        filter[2*i] = coefficient * 1.0 / (1.0 + pow(coefficient / priv->bw_cutoff, (float) priv->bw_order));
+        filter[2*i] = coefficient * 1.0 / (1.0 + pow(coefficient / priv->bw_cutoff, 2.0 * priv->bw_order));
         filter[2*i+1] = filter[2*i];
     }
 
