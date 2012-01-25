@@ -39,53 +39,60 @@ static void ufo_filter_sino_generator_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterSinoGeneratorPrivate *priv = UFO_FILTER_SINO_GENERATOR_GET_PRIVATE(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
-    /* We pop the very first image, to determine the size w*h of a projection.
-     * We then have to allocate h sinogram buffers with a height of
-     * num_projections and width w */
-    gint32 width, height, sino_width;
-    guint received = 1;
-    UfoBuffer *input = ufo_channel_pop(input_channel);
+    /* We pop the very first image, to determine the size w*h of a projection. */
+    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
+
     int num_dims = 0;
     int *dimensions = NULL;
     ufo_buffer_get_dimensions(input, &num_dims, &dimensions);
-    width = dimensions[0];
-    height = dimensions[1];
 
-    sino_width = width;
+    const gint num_sinos = dimensions[1]; /* == proj_height */
+    const gint sino_width = dimensions[0]; /* == proj_width */
     const gint sino_height = priv->num_projections;
-    const gint num_sinos = height;
-    const gsize bytes_per_line = sino_width * sizeof(float);
+
     dimensions[0] = sino_width;
     dimensions[1] = sino_height;
+    ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
 
-    UfoBuffer **sinograms = g_malloc0(sizeof(UfoBuffer*) * num_sinos);
-    for (gint i = 0; i < num_sinos; i++)
-        sinograms[i] = ufo_resource_manager_request_buffer(manager, 2, dimensions, NULL, FALSE);
+    /* XXX: this is critical! */
+    float *sinograms = g_malloc0(sizeof(float) * num_sinos * sino_width * sino_height);
+    const size_t row_mem_offset = sino_width;
+    const size_t sino_mem_offset = row_mem_offset * sino_height;
+    guint projection = 1;
 
     /* First step: collect all projections and build sinograms */
-    while ((received < priv->num_projections) || (input != NULL)) {
-        float *src = ufo_buffer_get_cpu_data(input, command_queue);
-        for (gint i = 0; i < num_sinos; i++) {
-            float *dst = ufo_buffer_get_cpu_data(sinograms[i], command_queue);
-            dst += (received-1)*sino_width;
-            memcpy(dst, src + i*sino_width, bytes_per_line);
+    while ((projection < priv->num_projections) || (input != NULL)) {
+        float *src = ufo_buffer_get_host_array(input, command_queue);
+        int proj_index = 0;
+        int sino_index = (projection - 1) * row_mem_offset;
+
+        for (int i = 0; i < num_sinos; i++) {
+            memcpy(sinograms + sino_index, src + proj_index, sizeof(float) * row_mem_offset);
+            proj_index += row_mem_offset;
+            sino_index += sino_mem_offset;
         }
-        ufo_resource_manager_release_buffer(manager, input);
-        input = ufo_channel_pop(input_channel);
-        received++;
+
+        ufo_channel_finalize_input_buffer(input_channel, input);
+        input = ufo_channel_get_input_buffer(input_channel);
+        projection++;
     }
     
     /* Second step: push them one by one */
-    for (gint i = 0; i < num_sinos; i++)
-        ufo_channel_push(output_channel, sinograms[i]);
+    int sino_index = 0;
+    for (gint i = 0; i < num_sinos; i++) {
+        UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
+        ufo_buffer_set_host_array(output, sinograms + sino_index, sizeof(float) * sino_mem_offset, NULL);
+        ufo_channel_finalize_output_buffer(output_channel, output);
+        sino_index += sino_mem_offset;
+    }
 
     /* Third step: complete */
     ufo_channel_finish(output_channel);
+    g_free(sinograms);
     g_free(dimensions);
 }
 
@@ -135,19 +142,15 @@ static void ufo_filter_sino_generator_class_init(UfoFilterSinoGeneratorClass *kl
     filter_class->initialize = ufo_filter_sino_generator_initialize;
     filter_class->process = ufo_filter_sino_generator_process;
 
-    /* install properties */
     sino_generator_properties[PROP_NUM_PROJECTIONS] = 
         g_param_spec_int("num-projections",
             "Number of projections",
             "Number of projections corresponding to the sinogram height",
-            0,   /* minimum */
-            8192,   /* maximum */
-            1,   /* default */
+            0, 8192, 1,
             G_PARAM_READWRITE);
 
     g_object_class_install_property(gobject_class, PROP_NUM_PROJECTIONS, sino_generator_properties[PROP_NUM_PROJECTIONS]);
 
-    /* install private data */
     g_type_class_add_private(gobject_class, sizeof(UfoFilterSinoGeneratorPrivate));
 }
 
