@@ -110,18 +110,10 @@ foreach(_src ${ufofilter_SRCS})
     set_target_properties(${target} PROPERTIES PREFIX "")
     target_link_libraries(${target} ${ufofilter_LIBS})
     
-    # configure the ethos plugin description
-    set(UFO_PLUGIN_LIBRARY "${target}")
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${filter}.ufo-plugin.in
-        ${CMAKE_CURRENT_BINARY_DIR}/${filter}.ufo-plugin)
-    
     # install library and .ufo-plugin file
     install(TARGETS ${target}
         ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
         LIBRARY DESTINATION ${LIB_INSTALL_DIR})
-
-    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${filter}.ufo-plugin
-        DESTINATION ${LIB_INSTALL_DIR})
 endforeach()
 
 # copy kernels into $LIB_INSTALL_DIR
