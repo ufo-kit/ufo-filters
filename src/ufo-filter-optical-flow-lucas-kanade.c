@@ -446,10 +446,10 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 
 	/* If you provide any output, you must allocate output buffers of the
 	   appropriate size */
-    int num_dims = 0;
-    int *dimensions = NULL;
+    guint num_dims = 0;
+    guint *dimensions = NULL;
 	ufo_buffer_get_dimensions(image_buffer, &num_dims, &dimensions);
-	int output_dimensions[2] = { dimensions[0] * 2, dimensions[1] };
+	guint output_dimensions[2] = { dimensions[0] * 2, dimensions[1] };
 	tmp_region[0] = dimensions[0];
 	tmp_region[1] = dimensions[1];
 	tmp_region[2] = 1;

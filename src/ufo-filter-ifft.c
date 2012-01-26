@@ -78,11 +78,11 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
     clFFT_Plan ifft_plan = NULL;
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
-    int num_dims = 0;
-    int *dim_size = NULL;
+    guint num_dims = 0;
+    guint *dim_size = NULL;
     ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
-    gint32 width = dim_size[0];
-    gint32 height = dim_size[1];
+    guint width = dim_size[0];
+    guint height = dim_size[1];
 
     if (priv->ifft_size.x != width / 2) {
         priv->ifft_size.x = width / 2;

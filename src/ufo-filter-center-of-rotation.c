@@ -34,15 +34,15 @@ static GParamSpec *center_of_rotation_properties[N_PROPERTIES] = { NULL, };
 static void center_of_rotation_sinograms(UfoFilter *filter)
 {
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
-    UfoBuffer *sinogram = ufo_channel_pop(input_channel);
-    gint32 width, height;
+    UfoBuffer *sinogram = ufo_channel_get_input_buffer(input_channel);
+    guint width, height;
+
     while (sinogram != NULL) {
         ufo_buffer_get_2d_dimensions(sinogram, &width, &height);
 
-        float *proj_0 = ufo_buffer_get_cpu_data(sinogram, command_queue);
+        float *proj_0 = ufo_buffer_get_host_array(sinogram, command_queue);
         float *proj_180 = proj_0 + (height-1) * width;
 
         const gint max_displacement = width / 2;
@@ -78,37 +78,36 @@ static void center_of_rotation_sinograms(UfoFilter *filter)
 
         g_free(scores);
 
-        ufo_channel_push(output_channel, sinogram);
-        sinogram = ufo_channel_pop(input_channel);
+        ufo_channel_finalize_input_buffer(input_channel, sinogram);
+        sinogram = ufo_channel_get_input_buffer(input_channel);
     }
-    ufo_channel_finish(output_channel);
 }
 
 static void center_of_rotation_projections(UfoFilter *filter)
 {
     UfoFilterCenterOfRotationPrivate *priv = UFO_FILTER_CENTER_OF_ROTATION_GET_PRIVATE(filter);
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    UfoBuffer *input = NULL;
+    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
-    input = ufo_channel_pop(input_channel);
-    float *proj_0 = ufo_buffer_get_cpu_data(input, command_queue);
+    /* FIXME: we need to copy this to private memory */
+    float *proj_0 = ufo_buffer_get_host_array(input, command_queue);
     float *proj_180 = NULL;
     int counter = 0;
 
     /* Take all buffers until we got the opposite projection */
-    input = ufo_channel_pop(input_channel);
+    ufo_channel_finalize_input_buffer(input_channel, input);
+    input = ufo_channel_get_input_buffer(input_channel);
     while (input != NULL) {
         if (ABS((counter++ * priv->angle_step) - 180.0f) < 0.001f) {
-            proj_180 = ufo_buffer_get_cpu_data(input, command_queue); 
+            proj_180 = ufo_buffer_get_host_array(input, command_queue); 
             break;
         }
-        ufo_channel_push(output_channel, input);
-        input = ufo_channel_pop(input_channel);
+        ufo_channel_finalize_input_buffer(input_channel, input);
+        input = ufo_channel_get_input_buffer(input_channel);
     }
 
-    gint32 width, height;
+    guint width, height;
     ufo_buffer_get_2d_dimensions(input, &width, &height);
 
     /* We have basically two parameters for tuning the performance: decreasing
@@ -150,16 +149,6 @@ static void center_of_rotation_projections(UfoFilter *filter)
 
     g_free(grad);
     g_free(scores);
-
-    /* Push the 180° projection */
-    ufo_channel_push(output_channel, input);
-
-    /* Push any following projections */
-    do {
-        input = ufo_channel_pop(input_channel);
-        ufo_channel_push(output_channel, input);
-    }
-    while (input != NULL);
 }
 
 static void ufo_filter_center_of_rotation_initialize(UfoFilter *filter)

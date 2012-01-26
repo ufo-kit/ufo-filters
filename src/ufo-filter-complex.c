@@ -67,9 +67,9 @@ static void ufo_filter_complex_binary(UfoFilter *filter, cl_kernel kernel)
     
     UfoBuffer *a = ufo_channel_get_input_buffer(input_channel_a);
     UfoBuffer *b = ufo_channel_get_input_buffer(input_channel_b);
-    int num_dims_a = 0, num_dims_b = 0;
-    int *dim_size_a = NULL;
-    int *dim_size_b = NULL;
+    guint num_dims_a = 0, num_dims_b = 0;
+    guint *dim_size_a = NULL;
+    guint *dim_size_b = NULL;
 
     ufo_buffer_get_dimensions(a, &num_dims_a, &dim_size_a);
     ufo_buffer_get_dimensions(b, &num_dims_b, &dim_size_b);
@@ -125,8 +125,8 @@ static void ufo_filter_complex_unary(UfoFilter* filter, cl_kernel kernel)
     cl_event wait_event;
     
     size_t global_work_size[2] = { 0, 0 };
-    int num_dims = 0;
-    int *dim_size = NULL;
+    guint num_dims = 0;
+    guint *dim_size = NULL;
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
     ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
     ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);

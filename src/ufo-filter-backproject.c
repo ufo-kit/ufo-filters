@@ -78,11 +78,11 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
     UfoBuffer *sinogram = ufo_channel_get_input_buffer(input_channel);
     UfoBuffer *slice = NULL;
 
-    int num_dims = 0;
-    int *dimensions = NULL;
+    guint num_dims = 0;
+    guint *dimensions = NULL;
     ufo_buffer_get_dimensions(sinogram, &num_dims, &dimensions);
-    gint32 width = dimensions[0];
-    gint32 num_projections = dimensions[1];
+    guint width = dimensions[0];
+    guint num_projections = dimensions[1];
 
     /* A slice is as tall and wide as a single sinogram row */
     dimensions[1] = dimensions[0];

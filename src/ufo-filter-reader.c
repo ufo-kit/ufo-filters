@@ -256,7 +256,7 @@ static void ufo_filter_reader_process(UfoFilter *self)
     
     GList *filenames = filter_read_filenames(priv);
     const guint max_count = (priv->count == -1) ? G_MAXUINT : priv->count;
-    guint32 width, height;
+    guint width, height;
     guint16 bits_per_sample, samples_per_pixel;
 
     GList *filename = NULL;
@@ -302,7 +302,7 @@ static void ufo_filter_reader_process(UfoFilter *self)
             break;
 
         if (!buffers_initialized) {
-            gint32 dimensions[2] = { width, height };
+            guint dimensions[2] = { width, height };
             ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
             buffers_initialized = TRUE;
         }

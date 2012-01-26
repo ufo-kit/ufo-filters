@@ -50,8 +50,8 @@ static void process_regular(UfoFilter *self,
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
     cl_event event;
-    int num_dims = 0;
-    int *dim_size = NULL;
+    guint num_dims = 0;
+    guint *dim_size = NULL;
     ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
     ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
 
@@ -95,12 +95,12 @@ static void process_combine(UfoFilter *self,
     UfoChannel *input_b = ufo_filter_get_input_channel_by_name(self, "input2");
 
     size_t local_work_size[2] = { 16, 16 };
-    int num_dims;
-    int *dim_size = NULL;
+    guint num_dims;
+    guint *dim_size = NULL;
 
     UfoBuffer *a = ufo_channel_get_input_buffer(input_a);
     UfoBuffer *b = ufo_channel_get_input_buffer(input_b);
-    ufo_buffer_get_dimensions(a, &num_dims, (int **) &dim_size);
+    ufo_buffer_get_dimensions(a, &num_dims, &dim_size);
     ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
 
     size_t global_work_size[2];

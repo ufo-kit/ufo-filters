@@ -112,15 +112,15 @@ static void ufo_filter_writer_process(UfoFilter *self)
     GString *filename = g_string_new("");
     gint id = -1, current_frame = 0;
 
-    int num_dims = 0;
-    int *dim_size = NULL;
-    gint32 counter = 0;
+    guint num_dims = 0;
+    guint *dim_size = NULL;
+    guint counter = 0;
 
     while (input != NULL) {
         ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
         g_assert(num_dims == 2);
-        const gint32 width = dim_size[0];
-        const gint32 height = dim_size[1];
+        const guint width = dim_size[0];
+        const guint height = dim_size[1];
         g_object_get(input, "id", &id, NULL);
         if (id == -1)
             id = current_frame++;

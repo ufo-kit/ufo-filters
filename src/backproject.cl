@@ -44,15 +44,6 @@ __kernel void backproject_tex(const int num_proj,
     const int slice_width = get_global_size(0);
     const int slice_index = idy * slice_width + idx;
 
-    /*float x = (idx - slice_width/2);*/
-    /*float y = (idy - slice_width/2);*/
-    /*x *= x;*/
-    /*y *= y;*/
-    /*if (sqrt(x + y) > slice_width/2) {*/
-        /*slice[slice_index] = 0.0f;*/
-        /*return;*/
-    /*}*/
-
     float h;
     const float bx = idx + off_x;
     const float by = -(idy + off_y);
@@ -65,6 +56,5 @@ __kernel void backproject_tex(const int num_proj,
     }
     
     slice[slice_index] = sum;
-    /*slice[idy*slice_width + idx] = (float) lidx;*/
 }
 

@@ -64,7 +64,7 @@ static float *setup_pyhst_ramp(UfoFilterFilterPrivate *priv, guint32 width)
 static float *setup_ramp(UfoFilterFilterPrivate *priv, guint32 width)
 {
     float *filter = g_malloc0(width * sizeof(float));
-    float scale = 1.0 / width / 2.;
+    float scale = 0.5 / width / 2.;
 
     for (int i = 0; i < width / 4; i++) {
         filter[2*i] = i * scale;

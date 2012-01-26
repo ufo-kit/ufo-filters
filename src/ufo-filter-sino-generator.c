@@ -46,13 +46,13 @@ static void ufo_filter_sino_generator_process(UfoFilter *filter)
     /* We pop the very first image, to determine the size w*h of a projection. */
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
-    int num_dims = 0;
-    int *dimensions = NULL;
+    guint num_dims = 0;
+    guint *dimensions = NULL;
     ufo_buffer_get_dimensions(input, &num_dims, &dimensions);
 
-    const gint num_sinos = dimensions[1]; /* == proj_height */
-    const gint sino_width = dimensions[0]; /* == proj_width */
-    const gint sino_height = priv->num_projections;
+    const guint num_sinos = dimensions[1]; /* == proj_height */
+    const guint sino_width = dimensions[0]; /* == proj_width */
+    const guint sino_height = priv->num_projections;
 
     dimensions[0] = sino_width;
     dimensions[1] = sino_height;

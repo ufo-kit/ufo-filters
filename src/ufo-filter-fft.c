@@ -86,8 +86,8 @@ static void ufo_filter_fft_process(UfoFilter *filter)
 
     int err = CL_SUCCESS;
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    int num_dims = 0, width, height;
-    int *dim_size = NULL;
+    guint num_dims = 0, width, height;
+    guint *dim_size = NULL;
     ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
     width = dim_size[0];
     height = dim_size[1];
