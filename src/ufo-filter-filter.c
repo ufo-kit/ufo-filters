@@ -122,8 +122,8 @@ static void ufo_filter_filter_process(UfoFilter *filter)
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
     UfoBuffer *input = (UfoBuffer *) ufo_channel_get_input_buffer(input_channel);
-    int num_dims = 0;
-    int *dim_size = NULL;
+    guint num_dims = 0;
+    guint *dim_size = NULL;
     ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
     ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
     size_t global_work_size[2] = { dim_size[0], dim_size[1] };

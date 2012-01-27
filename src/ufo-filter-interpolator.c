@@ -72,8 +72,8 @@ static void ufo_filter_interpolator_process(UfoFilter *filter)
     cl_kernel kernel = priv->kernel;
     cl_event event;
 
-    int num_dims = 0;
-    int *dim_size = NULL;
+    guint num_dims = 0;
+    guint *dim_size = NULL;
     ufo_buffer_get_dimensions(a, &num_dims, &dim_size);
     ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
     size_t global_work_size[2] = { (size_t) dim_size[0], (size_t) dim_size[1] };
