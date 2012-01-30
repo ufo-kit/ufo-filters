@@ -5,6 +5,7 @@ set(ufofilter_SRCS
     ufo-filter-arg-max.c
     ufo-filter-averager.c
     ufo-filter-backproject.c
+    ufo-filter-forward-project.c
     ufo-filter-center-of-rotation.c
     ufo-filter-cl.c
     ufo-filter-complex.c
@@ -21,6 +22,7 @@ set(ufofilter_SRCS
 
 set(ufofilter_KERNELS
     backproject.cl
+    forwardproject.cl
     fft.cl
     filter.cl
     interpolator.cl
