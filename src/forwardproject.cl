@@ -20,7 +20,7 @@ __kernel void forwardproject(
 
     /* vector in detector direction */
     float2 D = (float2) (cos(angle), sin(angle)); 
-    D = D / sqrt(D.x*D.x + D.y*D.y);
+    D = normalize(D);
 
     /* vector perpendicular to the detector */
     const float2 N = (float2) (D.y, -D.x); 
