@@ -1,8 +1,0 @@
-[UFO Plugin]
-Name=opticalflowlucaskanade
-Module=filteroptical-flow-lucas-kanade
-IAge=1
-Authors=Tomas Farago
-Copyright=Public Domain
-Website=http://ufo.kit.edu
-Description=A meaningful description for this filter
