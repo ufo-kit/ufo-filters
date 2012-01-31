@@ -13,6 +13,7 @@ set(ufofilter_SRCS
     ufo-filter-demux.c
     ufo-filter-filter.c
     ufo-filter-interpolator.c
+    ufo-filter-meta-balls.c
     ufo-filter-mux.c
     ufo-filter-normalize.c
     ufo-filter-null.c
@@ -29,6 +30,7 @@ set(ufofilter_KERNELS
     complex.cl
     filters.cl
     lkflow.cl
+    metaballs.cl
     motion.cl
     )
 
