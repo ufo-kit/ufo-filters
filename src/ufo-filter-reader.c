@@ -15,6 +15,7 @@ struct _UfoFilterReaderPrivate {
     gint count;
     gint nth;
     gboolean blocking;
+    gboolean normalize;
 };
 
 GType ufo_filter_reader_get_type(void) G_GNUC_CONST;
@@ -31,6 +32,7 @@ enum {
     PROP_COUNT,
     PROP_BLOCKING,
     PROP_NTH,
+    PROP_NORMALIZE,
     N_PROPERTIES
 };
 
@@ -213,6 +215,9 @@ static void ufo_filter_reader_set_property(GObject *object,
         case PROP_BLOCKING:
             priv->blocking = g_value_get_boolean(value);
             break;
+        case PROP_NORMALIZE:
+            priv->normalize = g_value_get_boolean(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
@@ -241,6 +246,10 @@ static void ufo_filter_reader_get_property(GObject *object,
             break;
         case PROP_BLOCKING:
             g_value_set_boolean(value, priv->blocking);
+            break;
+        case PROP_NORMALIZE:
+            g_value_set_boolean(value, priv->normalize);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
@@ -312,7 +321,7 @@ static void ufo_filter_reader_process(UfoFilter *self)
         const guint16 bytes_per_sample = bits_per_sample >> 3;
         ufo_buffer_set_host_array(output_buffer, buffer, bytes_per_sample * width * height, NULL);
         if (bits_per_sample < 32)
-            ufo_buffer_reinterpret(output_buffer, bits_per_sample, width * height);
+            ufo_buffer_reinterpret(output_buffer, bits_per_sample, width * height, priv->normalize);
 
         ufo_channel_finalize_output_buffer(output_channel, output_buffer);
         g_free(buffer);
@@ -327,7 +336,6 @@ static void ufo_filter_reader_process(UfoFilter *self)
 
 static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
 {
-    /* override methods */
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
 
@@ -335,7 +343,6 @@ static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
     gobject_class->get_property = ufo_filter_reader_get_property;
     filter_class->process = ufo_filter_reader_process;
 
-    /* install properties */
     reader_properties[PROP_PREFIX] = 
         g_param_spec_string("prefix",
             "Filename prefix",
@@ -354,18 +361,14 @@ static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
         g_param_spec_int("count",
         "Number of files",
         "Number of files to read with -1 denoting all",
-        -1,     /* minimum */
-        8192,   /* maximum */
-        -1,     /* default */
+        -1, G_MAXINT, -1,
         G_PARAM_READWRITE);
 
     reader_properties[PROP_NTH] =
         g_param_spec_int("nth",
         "Start from nth file",
         "Start from nth file or first if -1",
-        -1,     /* minimum */
-        8192,   /* maximum */
-        -1,     /* default */
+        -1, G_MAXINT, -1,
         G_PARAM_READWRITE);
 
     reader_properties[PROP_BLOCKING] = 
@@ -375,24 +378,33 @@ static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
         FALSE,
         G_PARAM_READWRITE);
 
+    reader_properties[PROP_NORMALIZE] = 
+        g_param_spec_boolean("normalize",
+        "Normalize 8-bit or 16-bit values to [0.0, 1.0]",
+        "Normalize 8-bit or 16-bit values to [0.0, 1.0]",
+        FALSE,
+        G_PARAM_READWRITE);
+
     g_object_class_install_property(gobject_class, PROP_PATH, reader_properties[PROP_PATH]);
     g_object_class_install_property(gobject_class, PROP_PREFIX, reader_properties[PROP_PREFIX]);
     g_object_class_install_property(gobject_class, PROP_COUNT, reader_properties[PROP_COUNT]);
     g_object_class_install_property(gobject_class, PROP_NTH, reader_properties[PROP_NTH]);
     g_object_class_install_property(gobject_class, PROP_BLOCKING, reader_properties[PROP_BLOCKING]);
+    g_object_class_install_property(gobject_class, PROP_NORMALIZE, reader_properties[PROP_NORMALIZE]);
 
-    /* install private data */
     g_type_class_add_private(gobject_class, sizeof(UfoFilterReaderPrivate));
 }
 
 static void ufo_filter_reader_init(UfoFilterReader *self)
 {
-    self->priv = UFO_FILTER_READER_GET_PRIVATE(self);
-    self->priv->path = g_strdup(".");
-    self->priv->prefix = NULL;
-    self->priv->count = -1;
-    self->priv->nth = -1;
-    self->priv->blocking = FALSE;
+    UfoFilterReaderPrivate *priv = NULL;
+    self->priv = priv = UFO_FILTER_READER_GET_PRIVATE(self);
+    priv->path = g_strdup(".");
+    priv->prefix = NULL;
+    priv->count = -1;
+    priv->nth = -1;
+    priv->blocking = FALSE;
+    priv->normalize = FALSE;
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
