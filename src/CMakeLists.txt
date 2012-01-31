@@ -85,12 +85,6 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
 
-if (${LIB64} STREQUAL "TRUE" AND UNIX)
-    set (LIB_SUFFIX 64)
-else()
-    set (LIB_SUFFIX "")
-endif()
-
 set(LIB_INSTALL_DIR "lib${LIB_SUFFIX}/ufo")
 
 foreach(_src ${ufofilter_SRCS})
