@@ -22,7 +22,7 @@ G_DEFINE_TYPE(UfoFilterCopy, ufo_filter_copy, UFO_TYPE_FILTER);
 
 enum {
     PROP_0,
-    PROP_OUTPUTS, /* remove this or add more */
+    PROP_OUTPUTS,
     N_PROPERTIES
 };
 
@@ -41,26 +41,28 @@ static void ufo_filter_copy_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterCopyPrivate *priv = UFO_FILTER_COPY_GET_PRIVATE(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
+    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
-    char channel_name[256];
     UfoChannel **output_channels = g_malloc0(priv->num_outputs * sizeof(UfoChannel *));
+    char channel_name[256];
+    cl_command_queue command_queue = ufo_filter_get_command_queue(filter);
+
     for (int i = 0; i < priv->num_outputs; i++) {
         g_snprintf(channel_name, 256, "output%i", i+1); 
         output_channels[i] = ufo_filter_get_output_channel_by_name(filter, channel_name);
+        ufo_channel_allocate_output_buffers_like(output_channels[i], input);
     }
 
-    UfoBuffer *input = ufo_channel_pop(input_channel);
-
     while (input != NULL) {
-        for (int i = 1; i < priv->num_outputs; i++) {
-            UfoBuffer *copy = ufo_resource_manager_copy_buffer(manager, input);
-            ufo_channel_push(output_channels[i], copy);
+        for (int i = 0; i < priv->num_outputs; i++) {
+            UfoBuffer *output = ufo_channel_get_output_buffer(output_channels[i]);
+            ufo_buffer_copy(input, output, command_queue);
+            ufo_channel_finalize_output_buffer(output_channels[i], output);
         }
 
-        ufo_channel_push(output_channels[0], input);
-        input = ufo_channel_pop(input_channel);
+        ufo_channel_finalize_input_buffer(input_channel, input);
+        input = ufo_channel_get_input_buffer(input_channel);
     }
 
     for (int i = 0; i < priv->num_outputs; i++)
@@ -76,7 +78,6 @@ static void ufo_filter_copy_set_property(GObject *object,
 {
     UfoFilterCopy *self = UFO_FILTER_COPY(object);
 
-    /* Handle all properties accordingly */
     switch (property_id) {
         case PROP_OUTPUTS:
             self->priv->num_outputs = g_value_get_int(value);
@@ -94,7 +95,6 @@ static void ufo_filter_copy_get_property(GObject *object,
 {
     UfoFilterCopy *self = UFO_FILTER_COPY(object);
 
-    /* Handle all properties accordingly */
     switch (property_id) {
         case PROP_OUTPUTS:
             g_value_set_int(value, self->priv->num_outputs);
@@ -115,19 +115,15 @@ static void ufo_filter_copy_class_init(UfoFilterCopyClass *klass)
     filter_class->initialize = ufo_filter_copy_initialize;
     filter_class->process = ufo_filter_copy_process;
 
-    /* install properties */
     copy_properties[PROP_OUTPUTS] = 
         g_param_spec_int("outputs",
             "Number of outputs",
             "This filter copies the input to output channels \"output 1\" to \"output [outputs]\"",
-            1,   /* minimum */
-            1024,   /* maximum */
-            2,   /* default */
+            1, 1024, 2,
             G_PARAM_READWRITE);
 
     g_object_class_install_property(gobject_class, PROP_OUTPUTS, copy_properties[PROP_OUTPUTS]);
 
-    /* install private data */
     g_type_class_add_private(gobject_class, sizeof(UfoFilterCopyPrivate));
 }
 
