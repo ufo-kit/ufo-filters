@@ -34,11 +34,10 @@ static void ufo_filter_averager_process(UfoFilter *filter)
     g_return_if_fail(UFO_IS_FILTER(filter));
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    ufo_channel_allocate_output_buffers_like(input_channel, input);
+    ufo_channel_allocate_output_buffers_like(output_channel, input);
     
     UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
     float *out = ufo_buffer_get_host_array(output, command_queue);
@@ -48,12 +47,11 @@ static void ufo_filter_averager_process(UfoFilter *filter)
     const int num_pixels = ufo_buffer_get_size(input) / sizeof(float);
 
     while (input != NULL) {
-        num_input++;
+        num_input += 1.0f;
         float *in = ufo_buffer_get_host_array(input, command_queue);
         for (int i = 0; i < num_pixels; i++)
             out[i] += in[i];
 
-        ufo_resource_manager_release_buffer(manager, input);
         ufo_channel_finalize_input_buffer(input_channel, input);
         input = ufo_channel_get_input_buffer(input_channel);
     }
@@ -104,7 +102,6 @@ static void ufo_filter_averager_class_init(UfoFilterAveragerClass *klass)
 
 static void ufo_filter_averager_init(UfoFilterAverager *self)
 {
-    /* self->priv = UFO_FILTER_AVERAGER_GET_PRIVATE(self); */
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
