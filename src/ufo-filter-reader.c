@@ -171,8 +171,8 @@ static GSList *filter_read_filenames(UfoFilterReaderPrivate *priv)
 {
     GSList *result = NULL;
     glob_t glob_vector;
-    int i = (priv->nth < 0) ? 0 : priv->nth - 1;
-    const int count = priv->count + i;
+    gint i = (priv->nth < 0) ? 0 : priv->nth - 1;
+    const gint count = (priv->count < 0) ? G_MAXINT : priv->count + i;
 
     glob(priv->path, GLOB_MARK | GLOB_TILDE, NULL, &glob_vector);
 

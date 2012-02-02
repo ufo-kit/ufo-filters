@@ -108,7 +108,6 @@ foreach(_src ${ufofilter_SRCS})
     set_target_properties(${target} PROPERTIES PREFIX "")
     target_link_libraries(${target} ${ufofilter_LIBS})
     
-    # install library and .ufo-plugin file
     install(TARGETS ${target}
         ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
         LIBRARY DESTINATION ${LIB_INSTALL_DIR})
