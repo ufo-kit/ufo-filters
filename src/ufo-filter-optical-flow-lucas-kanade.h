@@ -2,7 +2,6 @@
 #define __UFO_FILTER_OPTICAL_FLOW_LUCAS_KANADE_H
 
 #include <glib.h>
-#include <glib-object.h>
 
 #include <ufo/ufo-filter.h>
 

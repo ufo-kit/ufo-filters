@@ -2,7 +2,6 @@
 #define __UFO_FILTER_READER_H
 
 #include <glib.h>
-#include <glib-object.h>
 
 #include <ufo/ufo-filter.h>
 
@@ -18,9 +17,9 @@ typedef struct _UfoFilterReaderClass      UfoFilterReaderClass;
 typedef struct _UfoFilterReaderPrivate    UfoFilterReaderPrivate;
 
 struct _UfoFilterReader {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterReaderPrivate *priv;
 };
 
