@@ -59,8 +59,8 @@ static void ufo_filter_interpolator_process(UfoFilter *filter)
     g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterInterpolatorPrivate *priv = UFO_FILTER_INTERPOLATOR_GET_PRIVATE(filter);
 
-    UfoChannel *input_a = ufo_filter_get_input_channel_by_name(filter, "input1");
-    UfoChannel *input_b = ufo_filter_get_input_channel_by_name(filter, "input2");
+    UfoChannel *input_a = ufo_filter_get_input_channel_by_name(filter, "input0");
+    UfoChannel *input_b = ufo_filter_get_input_channel_by_name(filter, "input1");
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
@@ -149,9 +149,7 @@ static void ufo_filter_interpolator_class_init(UfoFilterInterpolatorClass *klass
         g_param_spec_int("num-steps",
             "Number of steps to interpolate between",
             "Number of steps to interpolate between",
-            1,   /* minimum */
-            8192,   /* maximum */
-            2,   /* default */
+            1, 8192, 2,
             G_PARAM_READWRITE);
 
     g_object_class_install_property(gobject_class, PROP_STEPS, interpolator_properties[PROP_STEPS]);
@@ -165,6 +163,10 @@ static void ufo_filter_interpolator_init(UfoFilterInterpolator *self)
     UfoFilterInterpolatorPrivate *priv = self->priv = UFO_FILTER_INTERPOLATOR_GET_PRIVATE(self);
     priv->kernel = NULL;
     priv->num_steps = 2;
+
+    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
+    ufo_filter_register_input(UFO_FILTER(self), "input1", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "image", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

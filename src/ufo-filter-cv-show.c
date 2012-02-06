@@ -58,7 +58,6 @@ static void ufo_filter_cv_show_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
     UfoFilterCvShowPrivate *priv = UFO_FILTER_CV_SHOW_GET_PRIVATE(filter);
 
@@ -98,8 +97,6 @@ static void ufo_filter_cv_show_process(UfoFilter *filter)
     cvWaitKey(10000);
     cvDestroyWindow(window_name);
     g_free(window_name);
-
-    ufo_channel_finish(output_channel);
 }
 
 static void ufo_filter_cv_show_set_property(GObject *object,
@@ -166,6 +163,8 @@ static void ufo_filter_cv_show_init(UfoFilterCvShow *self)
 {
     UfoFilterCvShowPrivate *priv = self->priv = UFO_FILTER_CV_SHOW_GET_PRIVATE(self);
     priv->show_histogram = FALSE;
+
+    ufo_filter_register_input(UFO_FILTER(self), "image", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

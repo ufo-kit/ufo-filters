@@ -30,7 +30,6 @@ static GParamSpec *copy_properties[N_PROPERTIES] = { NULL, };
 
 static void ufo_filter_copy_initialize(UfoFilter *filter)
 {
-    /* Here you can code, that is called for each newly instantiated filter */
 }
 
 /*
@@ -44,12 +43,15 @@ static void ufo_filter_copy_process(UfoFilter *filter)
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
+    if (input == NULL)
+        return;
+
     UfoChannel **output_channels = g_malloc0(priv->num_outputs * sizeof(UfoChannel *));
     char channel_name[256];
     cl_command_queue command_queue = ufo_filter_get_command_queue(filter);
 
-    for (int i = 0; i < priv->num_outputs; i++) {
-        g_snprintf(channel_name, 256, "output%i", i+1); 
+    for (guint i = 0; i < priv->num_outputs; i++) {
+        g_snprintf(channel_name, 256, "output%i", i); 
         output_channels[i] = ufo_filter_get_output_channel_by_name(filter, channel_name);
         ufo_channel_allocate_output_buffers_like(output_channels[i], input);
     }
@@ -65,7 +67,7 @@ static void ufo_filter_copy_process(UfoFilter *filter)
         input = ufo_channel_get_input_buffer(input_channel);
     }
 
-    for (int i = 0; i < priv->num_outputs; i++)
+    for (guint i = 0; i < priv->num_outputs; i++)
         ufo_channel_finish(output_channels[i]);
 
     g_free(output_channels);
@@ -76,11 +78,17 @@ static void ufo_filter_copy_set_property(GObject *object,
     const GValue    *value,
     GParamSpec      *pspec)
 {
-    UfoFilterCopy *self = UFO_FILTER_COPY(object);
+    UfoFilterCopyPrivate *priv = UFO_FILTER_COPY_GET_PRIVATE(object);
+    char output_name[256];
 
     switch (property_id) {
         case PROP_OUTPUTS:
-            self->priv->num_outputs = g_value_get_int(value);
+            priv->num_outputs = g_value_get_int(value);
+            /* FIXME: Output must depend on input type! */
+            for (guint i = 0; i < priv->num_outputs; i++) {
+                g_snprintf(output_name, 256, "output%i", i); 
+                ufo_filter_register_output(UFO_FILTER(object), output_name, 2);
+            }
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -131,6 +139,10 @@ static void ufo_filter_copy_init(UfoFilterCopy *self)
 {
     UfoFilterCopyPrivate *priv = self->priv = UFO_FILTER_COPY_GET_PRIVATE(self);
     priv->num_outputs = 2;
+
+    ufo_filter_register_input(UFO_FILTER(self), "image", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output1", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

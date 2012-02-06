@@ -244,36 +244,28 @@ static void ufo_filter_fft_class_init(UfoFilterFFTClass *klass)
         g_param_spec_int("dimensions",
             "Number of FFT dimensions from 1 to 3",
             "Number of FFT dimensions from 1 to 3",
-            1,   /* minimum */
-            3,   /* maximum */
-            1,   /* default */
+            1, 3, 1,
             G_PARAM_READWRITE);
 
     fft_properties[PROP_SIZE_X] = 
         g_param_spec_int("size-x",
             "Size of the FFT transform in x-direction",
             "Size of the FFT transform in x-direction",
-            1,      /* minimum */
-            8192,   /* maximum */
-            1,      /* default */
+            1, 8192, 1,
             G_PARAM_READWRITE);
 
     fft_properties[PROP_SIZE_Y] = 
         g_param_spec_int("size-y",
             "Size of the FFT transform in y-direction",
             "Size of the FFT transform in y-direction",
-            1,      /* minimum */
-            8192,   /* maximum */
-            1,      /* default */
+            1, 8192, 1,
             G_PARAM_READWRITE);
 
     fft_properties[PROP_SIZE_Z] = 
         g_param_spec_int("size-z",
             "Size of the FFT transform in z-direction",
             "Size of the FFT transform in z-direction",
-            1,      /* minimum */
-            8192,   /* maximum */
-            1,      /* default */
+            1, 8192, 1,
             G_PARAM_READWRITE);
 
     g_object_class_install_property(gobject_class, PROP_DIMENSIONS, fft_properties[PROP_DIMENSIONS]);
@@ -293,6 +285,9 @@ static void ufo_filter_fft_init(UfoFilterFFT *self)
     priv->fft_size.y = 1;
     priv->fft_size.z = 1;
     priv->kernel = NULL;
+
+    ufo_filter_register_input(UFO_FILTER(self), "image", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "freqs", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

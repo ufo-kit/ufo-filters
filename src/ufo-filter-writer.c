@@ -169,6 +169,8 @@ static void ufo_filter_writer_init(UfoFilterWriter *self)
     self->priv = UFO_FILTER_WRITER_GET_PRIVATE(self);
     self->priv->path = g_strdup(".");
     self->priv->prefix = NULL;
+
+    ufo_filter_register_input(UFO_FILTER(self), "image", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

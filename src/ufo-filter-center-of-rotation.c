@@ -187,7 +187,6 @@ static void ufo_filter_center_of_rotation_set_property(GObject *object,
 {
     UfoFilterCenterOfRotation *self = UFO_FILTER_CENTER_OF_ROTATION(object);
 
-    /* Handle all properties accordingly */
     switch (property_id) {
         case PROP_ANGLE_STEP:
             self->priv->angle_step = g_value_get_double(value);
@@ -208,7 +207,6 @@ static void ufo_filter_center_of_rotation_get_property(GObject *object,
 {
     UfoFilterCenterOfRotation *self = UFO_FILTER_CENTER_OF_ROTATION(object);
 
-    /* Handle all properties accordingly */
     switch (property_id) {
         case PROP_ANGLE_STEP:
             g_value_set_double(value, self->priv->angle_step);
@@ -237,9 +235,7 @@ static void ufo_filter_center_of_rotation_class_init(UfoFilterCenterOfRotationCl
         g_param_spec_double("angle-step",
             "Step between two successive projections",
             "Step between two successive projections",
-            0.00001,   /* minimum */
-            180.0,   /* maximum */
-            1.0,   /* default */
+            0.00001, 180.0, 1.0,
             G_PARAM_READWRITE);
 
     center_of_rotation_properties[PROP_USE_SINOGRAMS] = 
@@ -252,7 +248,6 @@ static void ufo_filter_center_of_rotation_class_init(UfoFilterCenterOfRotationCl
     g_object_class_install_property(gobject_class, PROP_ANGLE_STEP, center_of_rotation_properties[PROP_ANGLE_STEP]);
     g_object_class_install_property(gobject_class, PROP_USE_SINOGRAMS, center_of_rotation_properties[PROP_USE_SINOGRAMS]);
 
-    /* install private data */
     g_type_class_add_private(gobject_class, sizeof(UfoFilterCenterOfRotationPrivate));
 }
 
@@ -261,6 +256,8 @@ static void ufo_filter_center_of_rotation_init(UfoFilterCenterOfRotation *self)
     UfoFilterCenterOfRotationPrivate *priv = self->priv = UFO_FILTER_CENTER_OF_ROTATION_GET_PRIVATE(self);
     priv->angle_step = 1.0;
     priv->use_sinograms = FALSE;
+
+    ufo_filter_register_input(UFO_FILTER(self), "image", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

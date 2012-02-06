@@ -266,6 +266,8 @@ static void ufo_filter_meta_balls_init(UfoFilterMetaBalls *self)
     priv->height = 512;
     priv->num_iterations = 1;
     priv->run_infinitely = FALSE;
+
+    ufo_filter_register_output(UFO_FILTER(self), "image", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

@@ -251,27 +251,21 @@ static void ufo_filter_backproject_class_init(UfoFilterBackprojectClass *klass)
         g_param_spec_int("num-sinograms",
             "Number of sinograms",
             "Number of to process",
-            -1,   /* minimum */
-            8192,   /* maximum */
-            1,   /* default */
+            -1, 8192, 1,
             G_PARAM_READWRITE);
 
     backproject_properties[PROP_AXIS_POSITION] = 
         g_param_spec_double("axis-pos",
             "Position of rotation axis",
             "Position of rotation axis",
-            -8192.0,   /* minimum */
-            +8192.0,   /* maximum */
-            0.0,   /* default */
+            -8192.0, +8192.0, 0.0,
             G_PARAM_READWRITE);
 
     backproject_properties[PROP_ANGLE_STEP] = 
         g_param_spec_double("angle-step",
             "Increment of angle in radians",
             "Increment of angle in radians",
-            -4.0 * G_PI,  /* minimum */
-            +4.0 * G_PI,  /* maximum */
-            0.0,    /* default */
+            -4.0 * G_PI, +4.0 * G_PI, 0.0,
             G_PARAM_READWRITE);
 
     backproject_properties[PROP_USE_TEXTURE] = 
@@ -294,6 +288,9 @@ static void ufo_filter_backproject_init(UfoFilterBackproject *self)
 {
     self->priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(self);
     self->priv->use_texture = TRUE;
+
+    ufo_filter_register_input(UFO_FILTER(self), "sinogram", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "slice", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

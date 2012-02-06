@@ -274,54 +274,42 @@ static void ufo_filter_ifft_class_init(UfoFilterIFFTClass *klass)
         g_param_spec_int("dimensions",
             "Number of FFT dimensions from 1 to 3",
             "Number of FFT dimensions from 1 to 3",
-            1,   /* minimum */
-            3,   /* maximum */
-            1,   /* default */
+            1, 3, 1,
             G_PARAM_READWRITE);
 
     ifft_properties[PROP_SIZE_X] = 
         g_param_spec_int("size-x",
             "Size of the FFT transform in x-direction",
             "Size of the FFT transform in x-direction",
-            1,      /* minimum */
-            8192,   /* maximum */
-            1,      /* default */
+            1, 8192, 1,
             G_PARAM_READWRITE);
 
     ifft_properties[PROP_SIZE_Y] = 
         g_param_spec_int("size-y",
             "Size of the FFT transform in y-direction",
             "Size of the FFT transform in y-direction",
-            1,      /* minimum */
-            8192,   /* maximum */
-            1,      /* default */
+            1, 8192, 1,
             G_PARAM_READWRITE);
 
     ifft_properties[PROP_SIZE_Z] = 
         g_param_spec_int("size-z",
             "Size of the FFT transform in z-direction",
             "Size of the FFT transform in z-direction",
-            1,      /* minimum */
-            8192,   /* maximum */
-            1,      /* default */
+            1, 8192, 1,
             G_PARAM_READWRITE);
 
     ifft_properties[PROP_FINAL_WIDTH] = 
         g_param_spec_int("final-width",
             "Specify if target width is smaller than FFT size",
             "Specify if target width is smaller than FFT size",
-            -1,      /* minimum */
-            8192,   /* maximum */
-            -1,     /* default -1 means "use FFT size" */
+            -1, 8192, -1,
             G_PARAM_READWRITE);
 
     ifft_properties[PROP_FINAL_HEIGHT] = 
         g_param_spec_int("final-height",
             "Specify if target height is smaller than FFT size",
             "Specify if target height is smaller than FFT size",
-            -1,      /* minimum */
-            8192,   /* maximum */
-            -1,     /* default -1 means "use FFT size" */
+            -1, 8192, -1,
             G_PARAM_READWRITE);
 
     g_object_class_install_property(gobject_class, PROP_DIMENSIONS, ifft_properties[PROP_DIMENSIONS]);
@@ -344,6 +332,9 @@ static void ufo_filter_ifft_init(UfoFilterIFFT *self)
     priv->ifft_size.z = 1;
     priv->final_width = -1;
     priv->final_height = -1;
+
+    ufo_filter_register_input(UFO_FILTER(self), "freqs", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "image", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

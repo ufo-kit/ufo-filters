@@ -170,6 +170,9 @@ static void ufo_filter_forward_project_class_init(UfoFilterForwardProjectClass *
 static void ufo_filter_forward_project_init(UfoFilterForwardProject *self)
 {
     self->priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(self);
+
+    ufo_filter_register_input(UFO_FILTER(self), "slice", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "sinogram", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

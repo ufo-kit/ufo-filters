@@ -91,8 +91,8 @@ static void process_combine(UfoFilter *self,
 {
     UfoChannel *output_channel = ufo_filter_get_output_channel(self);
     
-    UfoChannel *input_a = ufo_filter_get_input_channel_by_name(self, "input1");
-    UfoChannel *input_b = ufo_filter_get_input_channel_by_name(self, "input2");
+    UfoChannel *input_a = ufo_filter_get_input_channel_by_name(self, "input0");
+    UfoChannel *input_b = ufo_filter_get_input_channel_by_name(self, "input1");
 
     size_t local_work_size[2] = { 16, 16 };
     guint num_dims;
@@ -281,9 +281,7 @@ static void ufo_filter_cl_class_init(UfoFilterClClass *klass)
         g_param_spec_int("static-argument",
             "Input of channel k is used for each iteration",
             "Input of channel k is used for each iteration",
-            0,
-            2,
-            2,
+            0, 2, 2,
             G_PARAM_READWRITE);
 
     g_object_class_install_property(gobject_class, PROP_FILE_NAME, cl_properties[PROP_FILE_NAME]);
@@ -301,6 +299,10 @@ static void ufo_filter_cl_init(UfoFilterCl *self)
     priv->kernel_name = NULL;
     priv->kernel = NULL;
     priv->static_argument = 0;
+
+    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
+    ufo_filter_register_input(UFO_FILTER(self), "input1", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "image", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

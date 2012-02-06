@@ -433,6 +433,10 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 	UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
 	UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
 	UfoBuffer *image_buffer = ufo_channel_get_input_buffer(input_channel);
+
+    if (image_buffer == NULL)
+        return;
+
 	UfoBuffer *motion_vectors_buffer = NULL;
 	UfoResourceManager *manager = ufo_resource_manager();
 	cl_context context = (cl_context) ufo_resource_manager_get_context(manager);
@@ -448,6 +452,7 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 	   appropriate size */
     guint num_dims = 0;
     guint *dimensions = NULL;
+
 	ufo_buffer_get_dimensions(image_buffer, &num_dims, &dimensions);
 	guint output_dimensions[2] = { dimensions[0] * 2, dimensions[1] };
 	tmp_region[0] = dimensions[0];
@@ -562,28 +567,6 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
             clWaitForEvents(1, &event);
 			// end of GPU memory transfer, does not work
 
-			// CPU memory transfer, works
-			/* int size = output_dimensions[0] * output_dimensions[1] * sizeof(cl_float); */
-			/* float *res_buf = (float *) malloc(size); */
-			/* if (res_buf == NULL) { */
-			/* 	exit(2); */
-			/* } */
-		    /* CHECK_ERROR(clEnqueueReadBuffer(command_queue, */
-		    		/* self->priv->flow_levels[0].mem, */
-		    		/* CL_TRUE, */
-		    		/* 0, */
-		    		/* size, */
-		    		/* res_buf, */
-		    		/* 0, */
-		    		/* NULL, */
-		    		/* NULL)); */
-
-		    /* ufo_buffer_set_cpu_data(motion_vectors_buffer, */
-		    		/* res_buf, */
-		    		/* size, */
-		    		/* NULL); */
-			// end of CPU memory transfer, works
-
 			ufo_channel_finalize_output_buffer(output_channel, motion_vectors_buffer);
 		}
 
@@ -647,13 +630,15 @@ static void ufo_filter_optical_flow_lucas_kanade_class_init(UfoFilterOpticalFlow
     filter_class->initialize = ufo_filter_optical_flow_lucas_kanade_initialize;
     filter_class->process = ufo_filter_optical_flow_lucas_kanade_process;
 
-    /* install private data */
     g_type_class_add_private(gobject_class, sizeof(UfoFilterOpticalFlowLucasKanadePrivate));
 }
 
 static void ufo_filter_optical_flow_lucas_kanade_init(UfoFilterOpticalFlowLucasKanade *self)
 {
     self->priv = UFO_FILTER_OPTICAL_FLOW_LUCAS_KANADE_GET_PRIVATE(self);
+
+    ufo_filter_register_input(UFO_FILTER(self), "image", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "vectorfield", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

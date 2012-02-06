@@ -45,6 +45,9 @@ static void ufo_filter_sino_generator_process(UfoFilter *filter)
 
     /* We pop the very first image, to determine the size w*h of a projection. */
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
+    
+    if (input == NULL)
+        return;
 
     guint num_dims = 0;
     guint *dimensions = NULL;
@@ -158,6 +161,9 @@ static void ufo_filter_sino_generator_init(UfoFilterSinoGenerator *self)
 {
     UfoFilterSinoGeneratorPrivate *priv = self->priv = UFO_FILTER_SINO_GENERATOR_GET_PRIVATE(self);
     priv->num_projections = 1;
+
+    ufo_filter_register_input(UFO_FILTER(self), "projection", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "sinogram", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

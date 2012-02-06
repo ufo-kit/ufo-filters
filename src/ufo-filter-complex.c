@@ -61,8 +61,8 @@ static void ufo_filter_complex_initialize(UfoFilter *filter)
 
 static void ufo_filter_complex_binary(UfoFilter *filter, cl_kernel kernel)
 {
-    UfoChannel *input_channel_a = ufo_filter_get_input_channel_by_name(filter, "input1");
-    UfoChannel *input_channel_b = ufo_filter_get_input_channel_by_name(filter, "input2");
+    UfoChannel *input_channel_a = ufo_filter_get_input_channel_by_name(filter, "input0");
+    UfoChannel *input_channel_b = ufo_filter_get_input_channel_by_name(filter, "input1");
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     
     UfoBuffer *a = ufo_channel_get_input_buffer(input_channel_a);
@@ -118,7 +118,7 @@ static void ufo_filter_complex_binary(UfoFilter *filter, cl_kernel kernel)
 
 static void ufo_filter_complex_unary(UfoFilter* filter, cl_kernel kernel)
 {
-    UfoChannel *input_channel = ufo_filter_get_input_channel_by_name(filter, "default");
+    UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     
     cl_command_queue cmd_queue = ufo_filter_get_command_queue(filter);
@@ -229,7 +229,6 @@ static void ufo_filter_complex_class_init(UfoFilterComplexClass *klass)
 
     g_object_class_install_property(gobject_class, PROP_OP, complex_properties[PROP_OP]);
 
-    /* install private data */
     g_type_class_add_private(gobject_class, sizeof(UfoFilterComplexPrivate));
 }
 
@@ -237,6 +236,10 @@ static void ufo_filter_complex_init(UfoFilterComplex *self)
 {
     UfoFilterComplexPrivate *priv = self->priv = UFO_FILTER_COMPLEX_GET_PRIVATE(self);
     priv->operation = OP_ADD;
+
+    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
+    ufo_filter_register_input(UFO_FILTER(self), "input1", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "result", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
