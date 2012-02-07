@@ -109,7 +109,7 @@ static void ufo_filter_meta_balls_process(UfoFilter *filter)
     CHECK_ERROR(clSetKernelArg(kernel, 3, sizeof(cl_uint), &priv->num_balls));
 
     GTimer *timer = g_timer_new();
-    const gdouble seconds_per_frame = 1.0 / ((gdouble) priv->fps);
+    const gdouble seconds_per_frame = 1.0 / ((gdouble) priv->frames_per_second);
     int i = 0;
 
     while (priv->run_infinitely || (i++ < priv->num_iterations)) {
@@ -143,7 +143,7 @@ static void ufo_filter_meta_balls_process(UfoFilter *filter)
                 0, NULL, NULL));
 
         g_timer_stop(timer);
-        if (priv->fps > 0) {
+        if (priv->frames_per_second > 0) {
             const gdouble elapsed = g_timer_elapsed(timer, NULL);
             const gdouble delta = seconds_per_frame - elapsed;
             if (delta > 0.0)
