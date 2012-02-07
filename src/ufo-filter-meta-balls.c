@@ -17,6 +17,7 @@ struct _UfoFilterMetaBallsPrivate {
     guint num_balls;
     gint num_iterations;
     gboolean run_infinitely;
+    guint frames_per_second;
 };
 
 GType ufo_filter_meta_balls_get_type(void) G_GNUC_CONST;
@@ -32,6 +33,7 @@ enum {
     PROP_NUM_BALLS,
     PROP_NUM_ITERATIONS,
     PROP_RUN_INFINITELY,
+    PROP_FRAMES_PER_SECOND,
     N_PROPERTIES
 };
 
@@ -106,8 +108,12 @@ static void ufo_filter_meta_balls_process(UfoFilter *filter)
     CHECK_ERROR(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &sizes_mem));
     CHECK_ERROR(clSetKernelArg(kernel, 3, sizeof(cl_uint), &priv->num_balls));
 
+    GTimer *timer = g_timer_new();
+    const gdouble seconds_per_frame = 1.0 / ((gdouble) priv->fps);
     int i = 0;
+
     while (priv->run_infinitely || (i++ < priv->num_iterations)) {
+        g_timer_start(timer);
         output = ufo_channel_get_output_buffer(output_channel);
         cl_mem output_mem = (cl_mem) ufo_buffer_get_device_array(output, command_queue);
         CHECK_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &output_mem));
@@ -135,6 +141,14 @@ static void ufo_filter_meta_balls_process(UfoFilter *filter)
                 positions_mem, CL_FALSE, 
                 0, num_position_bytes, positions, 
                 0, NULL, NULL));
+
+        g_timer_stop(timer);
+        if (priv->fps > 0) {
+            const gdouble elapsed = g_timer_elapsed(timer, NULL);
+            const gdouble delta = seconds_per_frame - elapsed;
+            if (delta > 0.0)
+                g_usleep((gulong) G_USEC_PER_SEC * delta); 
+        }
     }
     
     ufo_channel_finish(output_channel);
@@ -145,6 +159,7 @@ static void ufo_filter_meta_balls_process(UfoFilter *filter)
     g_free(sizes);
     g_free(positions);
     g_free(velocities);
+    g_timer_destroy(timer);
 }
 
 static void ufo_filter_meta_balls_set_property(GObject *object,
@@ -169,6 +184,9 @@ static void ufo_filter_meta_balls_set_property(GObject *object,
             break;
         case PROP_RUN_INFINITELY:
             priv->run_infinitely = g_value_get_boolean(value);
+            break;
+        case PROP_FRAMES_PER_SECOND:
+            priv->frames_per_second = g_value_get_uint(value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -199,6 +217,9 @@ static void ufo_filter_meta_balls_get_property(GObject *object,
         case PROP_RUN_INFINITELY:
             g_value_set_boolean(value, priv->run_infinitely);
             break;
+        case PROP_FRAMES_PER_SECOND:
+            g_value_set_uint(value, priv->frames_per_second);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
@@ -217,44 +238,52 @@ static void ufo_filter_meta_balls_class_init(UfoFilterMetaBallsClass *klass)
 
     meta_balls_properties[PROP_WIDTH] = 
         g_param_spec_uint("width",
-            "Width of the output",
-            "Width of the output",
-            1, 8192, 512,
-            G_PARAM_READWRITE);
+                "Width of the output",
+                "Width of the output",
+                1, 8192, 512,
+                G_PARAM_READWRITE);
 
     meta_balls_properties[PROP_HEIGHT] = 
         g_param_spec_uint("height",
-            "Height of the output",
-            "Height of the output",
-            1, 8192, 512,
-            G_PARAM_READWRITE);
+                "Height of the output",
+                "Height of the output",
+                1, 8192, 512,
+                G_PARAM_READWRITE);
 
     meta_balls_properties[PROP_NUM_BALLS] = 
         g_param_spec_uint("num-balls",
-            "Number of meta balls",
-            "Number of meta balls",
-            1, 256, 1,
-            G_PARAM_READWRITE);
+                "Number of meta balls",
+                "Number of meta balls",
+                1, 256, 1,
+                G_PARAM_READWRITE);
 
     meta_balls_properties[PROP_NUM_ITERATIONS] = 
         g_param_spec_uint("num-iterations",
-            "Number of iterations",
-            "Number of iterations",
-            1, G_MAXUINT, 1,
-            G_PARAM_READWRITE);
+                "Number of iterations",
+                "Number of iterations",
+                1, G_MAXUINT, 1,
+                G_PARAM_READWRITE);
 
     meta_balls_properties[PROP_RUN_INFINITELY] = 
         g_param_spec_boolean("run-infinitely",
-            "Run infinitely",
-            "Run infinitely",
-            FALSE,
-            G_PARAM_READWRITE);
+                "Run infinitely",
+                "Run infinitely",
+                FALSE,
+                G_PARAM_READWRITE);
+
+    meta_balls_properties[PROP_FRAMES_PER_SECOND] =
+        g_param_spec_uint("frames-per-second",
+                "Number of frames per second (0 for maximum possible rate)",
+                "Number of frames per second (0 for maximum possible rate)",
+                0, G_MAXINT, 0,
+                G_PARAM_READWRITE);
 
     g_object_class_install_property(gobject_class, PROP_WIDTH, meta_balls_properties[PROP_WIDTH]);
     g_object_class_install_property(gobject_class, PROP_HEIGHT, meta_balls_properties[PROP_HEIGHT]);
     g_object_class_install_property(gobject_class, PROP_NUM_BALLS, meta_balls_properties[PROP_NUM_BALLS]);
     g_object_class_install_property(gobject_class, PROP_NUM_ITERATIONS, meta_balls_properties[PROP_NUM_ITERATIONS]);
     g_object_class_install_property(gobject_class, PROP_RUN_INFINITELY, meta_balls_properties[PROP_RUN_INFINITELY]);
+    g_object_class_install_property(gobject_class, PROP_FRAMES_PER_SECOND, meta_balls_properties[PROP_FRAMES_PER_SECOND]);
 
     g_type_class_add_private(gobject_class, sizeof(UfoFilterMetaBallsPrivate));
 }
@@ -266,6 +295,7 @@ static void ufo_filter_meta_balls_init(UfoFilterMetaBalls *self)
     priv->height = 512;
     priv->num_iterations = 1;
     priv->run_infinitely = FALSE;
+    priv->frames_per_second = 0;
 
     ufo_filter_register_output(UFO_FILTER(self), "image", 2);
 }
