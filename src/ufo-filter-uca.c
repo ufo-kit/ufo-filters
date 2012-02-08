@@ -10,7 +10,7 @@
 struct _UfoFilterUCAPrivate {
     struct uca *u;
     struct uca_camera *cam;
-    gint count;
+    guint count;
     double time;
 };
 
@@ -40,7 +40,7 @@ static void ufo_filter_uca_set_property(GObject *object,
 
     switch (property_id) {
         case PROP_COUNT:
-            filter->priv->count = g_value_get_int(value);
+            filter->priv->count = g_value_get_uint(value);
             break;
         case PROP_TIME:
             filter->priv->time = g_value_get_double(value);
@@ -60,7 +60,7 @@ static void ufo_filter_uca_get_property(GObject *object,
 
     switch (property_id) {
         case PROP_COUNT:
-            g_value_set_int(value, filter->priv->count);
+            g_value_set_uint(value, filter->priv->count);
             break;
         case PROP_TIME:
             g_value_set_double(value, filter->priv->time);
@@ -101,7 +101,7 @@ static void ufo_filter_uca_process(UfoFilter *self)
     uca_cam_get_property(cam, UCA_PROP_WIDTH, &width, 0);
     uca_cam_get_property(cam, UCA_PROP_HEIGHT, &height, 0);
     uca_cam_get_property(cam, UCA_PROP_BITDEPTH, &bits, 0);
-    gint32 dim_size[] = { width, height };
+    guint dim_size[] = { width, height };
     ufo_channel_allocate_output_buffers(output_channel, 2, dim_size);
 
     uca_cam_start_recording(cam);
@@ -111,7 +111,7 @@ static void ufo_filter_uca_process(UfoFilter *self)
         UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
         uca_cam_grab(cam, (char *) ufo_buffer_get_host_array(output, command_queue), NULL);
 
-        ufo_buffer_reinterpret(output, bits, width * height);
+        ufo_buffer_reinterpret(output, bits, width * height, FALSE);
         ufo_channel_finalize_output_buffer(output_channel, output);
     }
 
@@ -130,26 +130,21 @@ static void ufo_filter_uca_class_init(UfoFilterUCAClass *klass)
     filter_class->process = ufo_filter_uca_process;
 
     uca_properties[PROP_COUNT] =
-        g_param_spec_int("count",
+        g_param_spec_uint("count",
         "Number of frames to record",
         "Number of frames to record",
-        0,     /* minimum */
-        8192,   /* maximum */
-        0,     /* default */
+        0, G_MAXUINT, 0,
         G_PARAM_READWRITE);
 
     uca_properties[PROP_TIME] = g_param_spec_double("time",
         "Maximum time for recording in fraction of seconds",
         "Maximum time for recording in fraction of seconds",
-         0.0,       /* minimum */
-         3600.0,    /* maximum */
-         5.0,       /* default */
+         0.0, 3600.0, 5.0,
         G_PARAM_READWRITE);
 
     g_object_class_install_property(gobject_class, PROP_COUNT, uca_properties[PROP_COUNT]);
     g_object_class_install_property(gobject_class, PROP_TIME, uca_properties[PROP_TIME]);
 
-    /* install private data */
     g_type_class_add_private(gobject_class, sizeof(UfoFilterUCAPrivate));
 }
 
