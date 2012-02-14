@@ -17,6 +17,7 @@ struct _UfoFilterBackprojectPrivate {
     cl_kernel normal_kernel;
     cl_kernel texture_kernel;
     gint num_sinograms;
+    guint num_projections;
     float axis_position;
     float angle_step;
     gboolean use_texture;
@@ -34,6 +35,7 @@ enum {
     PROP_AXIS_POSITION,
     PROP_ANGLE_STEP,
     PROP_NUM_SINOGRAMS,
+    PROP_NUM_PROJECTIONS,
     PROP_USE_TEXTURE,
     N_PROPERTIES
 };
@@ -82,7 +84,7 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
     guint *dimensions = NULL;
     ufo_buffer_get_dimensions(sinogram, &num_dims, &dimensions);
     guint width = dimensions[0];
-    guint num_projections = dimensions[1];
+    guint num_projections = priv->num_projections == 0 ? dimensions[1] : MIN(dimensions[1], priv->num_projections);
 
     /* A slice is as tall and wide as a single sinogram row */
     dimensions[1] = dimensions[0];
@@ -193,8 +195,8 @@ static void ufo_filter_backproject_set_property(GObject *object,
 {
     UfoFilterBackproject *self = UFO_FILTER_BACKPROJECT(object);
     switch (property_id) {
-        case PROP_NUM_SINOGRAMS:
-            self->priv->num_sinograms = g_value_get_int(value);
+        case PROP_NUM_PROJECTIONS:
+            self->priv->num_projections = g_value_get_uint(value);
             break;
         case PROP_AXIS_POSITION:
             self->priv->axis_position = (float) g_value_get_double(value);
@@ -218,6 +220,9 @@ static void ufo_filter_backproject_get_property(GObject *object,
 {
     UfoFilterBackproject *self = UFO_FILTER_BACKPROJECT(object);
     switch (property_id) {
+        case PROP_NUM_PROJECTIONS:
+            g_value_set_uint(value, self->priv->num_projections);
+            break;
         case PROP_NUM_SINOGRAMS:
             g_value_set_int(value, self->priv->num_sinograms);
             break;
@@ -246,12 +251,18 @@ static void ufo_filter_backproject_class_init(UfoFilterBackprojectClass *klass)
     filter_class->initialize = ufo_filter_backproject_initialize;
     filter_class->process = ufo_filter_backproject_process;
 
-    /* install properties */
     backproject_properties[PROP_NUM_SINOGRAMS] = 
         g_param_spec_int("num-sinograms",
             "Number of sinograms",
             "Number of to process",
             -1, 8192, 1,
+            G_PARAM_READWRITE);
+
+    backproject_properties[PROP_NUM_PROJECTIONS] = 
+        g_param_spec_uint("num-projections",
+            "Number of 1D projections to respect (0 to use all projections in a sinogram)",
+            "Number of 1D projections to respect (0 to use all projections in a sinogram)",
+            0, 8192, 1,
             G_PARAM_READWRITE);
 
     backproject_properties[PROP_AXIS_POSITION] = 
@@ -275,6 +286,7 @@ static void ufo_filter_backproject_class_init(UfoFilterBackprojectClass *klass)
             FALSE,
             G_PARAM_READWRITE);
 
+    g_object_class_install_property(gobject_class, PROP_NUM_PROJECTIONS, backproject_properties[PROP_NUM_PROJECTIONS]);
     g_object_class_install_property(gobject_class, PROP_NUM_SINOGRAMS, backproject_properties[PROP_NUM_SINOGRAMS]);
     g_object_class_install_property(gobject_class, PROP_AXIS_POSITION, backproject_properties[PROP_AXIS_POSITION]);
     g_object_class_install_property(gobject_class, PROP_ANGLE_STEP, backproject_properties[PROP_ANGLE_STEP]);
@@ -287,6 +299,7 @@ static void ufo_filter_backproject_class_init(UfoFilterBackprojectClass *klass)
 static void ufo_filter_backproject_init(UfoFilterBackproject *self)
 {
     self->priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(self);
+    self->priv->num_projections = 0;
     self->priv->use_texture = TRUE;
 
     ufo_filter_register_input(UFO_FILTER(self), "sinogram", 2);
