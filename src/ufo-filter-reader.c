@@ -200,6 +200,7 @@ static void ufo_filter_reader_process(UfoFilter *self)
 
     while (filename != NULL) {
         void *buffer = NULL;
+        
         if (g_str_has_suffix(filename->data, "tif")) {
             buffer = filter_read_tiff((char *) filename->data,
                     &bits_per_sample, &samples_per_pixel,

@@ -23,7 +23,7 @@ __kernel void fft_pack(__global float *in, __global float *out, const int width)
     const int dpitch = get_global_size(0)*2;
 
     if (idx < width)
-        out[idy*width + idx] = in[idy*dpitch + 2*idx];
+        out[idy*width + idx] = in[idy*dpitch + 2*idx] / width;
 }
 
 __kernel void fft_normalize(__global float *data)

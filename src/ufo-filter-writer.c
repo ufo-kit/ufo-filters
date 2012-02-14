@@ -90,6 +90,7 @@ static void ufo_filter_writer_process(UfoFilter *self)
         ufo_channel_finalize_input_buffer(input_channel, input);
         input = ufo_channel_get_input_buffer(input_channel);
     }
+
     g_string_free(filename, TRUE);
     g_free(dim_size);
 }
