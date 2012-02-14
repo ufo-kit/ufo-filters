@@ -150,7 +150,6 @@ static void ufo_filter_filter_process(UfoFilter *filter)
 
         clFinish(command_queue);
 
-        ufo_buffer_attach_event(output, event);
         ufo_channel_finalize_input_buffer(input_channel, input);
         ufo_channel_finalize_output_buffer(output_channel, output);
 

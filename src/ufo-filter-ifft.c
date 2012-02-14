@@ -162,7 +162,6 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
                 2, NULL, global_work_size, NULL,
                 0, NULL, &event);
 
-        ufo_buffer_attach_event(result, event);
         ufo_buffer_transfer_id(input, result);
         ufo_channel_finalize_input_buffer(input_channel, input);
         ufo_channel_finalize_output_buffer(output_channel, result);

@@ -170,7 +170,6 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
 
         ufo_filter_account_gpu_time(filter, (void **) &event);
         ufo_buffer_transfer_id(sinogram, slice);
-        ufo_buffer_attach_event(slice, (void *) event);
 
         ufo_channel_finalize_input_buffer(input_channel, sinogram);
         ufo_channel_finalize_output_buffer(output_channel, slice);
