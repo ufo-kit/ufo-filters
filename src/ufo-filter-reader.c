@@ -1,3 +1,11 @@
+/**
+ * SECTION:ufo-filter-reader
+ * @Short_description: Read TIFF and EDF files
+ * @Title: UfoFilterReader
+ *
+ * The reader node loads single files from disk and provides them as a stream in
+ * output "image".
+ */
 #include <gmodule.h>
 #include <stdlib.h>
 #include <tiffio.h>
@@ -319,42 +327,50 @@ static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
 
     reader_properties[PROP_PATH] = 
         g_param_spec_string("path",
-            "Glob-style pattern describing the file path",
-            "Glob-style pattern describing the file path",
+            "Glob-style pattern.",
+            "Glob-style pattern that describes the file path.",
             "*.tif",
             G_PARAM_READWRITE);
 
     reader_properties[PROP_COUNT] =
         g_param_spec_int("count",
         "Number of files",
-        "Number of files to read with -1 denoting all",
+        "Number of files to read.",
         -1, G_MAXINT, -1,
         G_PARAM_READWRITE);
 
     reader_properties[PROP_NTH] =
         g_param_spec_int("nth",
-        "Start from nth file",
-        "Start from nth file or first if -1",
+        "Read from nth file",
+        "Read from nth file.",
         -1, G_MAXINT, -1,
         G_PARAM_READWRITE);
 
     reader_properties[PROP_BLOCKING] = 
         g_param_spec_boolean("blocking",
-        "Block until all <count> files are read",
-        "Block until all <count> files are read",
+        "Block reader",
+        "Block until all files are read.",
         FALSE,
         G_PARAM_READWRITE);
 
     reader_properties[PROP_NORMALIZE] = 
         g_param_spec_boolean("normalize",
-        "Normalize 8-bit or 16-bit values to [0.0, 1.0]",
-        "Normalize 8-bit or 16-bit values to [0.0, 1.0]",
+        "Normalize values",
+        "Whether 8-bit or 16-bit values are normalized to [0.0, 1.0]",
         FALSE,
         G_PARAM_READWRITE);
 
     g_object_class_install_property(gobject_class, PROP_PATH, reader_properties[PROP_PATH]);
     g_object_class_install_property(gobject_class, PROP_COUNT, reader_properties[PROP_COUNT]);
     g_object_class_install_property(gobject_class, PROP_NTH, reader_properties[PROP_NTH]);
+
+    /**
+     * UfoFilterReader:blocking:
+     *
+     * Block the reader and do not return unless #UfoFilterReader:count files
+     * have been read. This is useful in case not all files are available the
+     * time the reader was started.
+     */
     g_object_class_install_property(gobject_class, PROP_BLOCKING, reader_properties[PROP_BLOCKING]);
     g_object_class_install_property(gobject_class, PROP_NORMALIZE, reader_properties[PROP_NORMALIZE]);
 

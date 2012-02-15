@@ -23,7 +23,13 @@ struct _UfoFilterReader {
     UfoFilterReaderPrivate *priv;
 };
 
+/**
+ * UfoFilterReaderClass:
+ *
+ * #UfoFilterReader class
+ */
 struct _UfoFilterReaderClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
 
