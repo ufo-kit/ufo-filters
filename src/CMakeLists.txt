@@ -33,6 +33,7 @@ set(ufofilter_KERNELS
     lkflow.cl
     metaballs.cl
     motion.cl
+    nlm.cl
     )
 
 set(ufofilter_LIBS
