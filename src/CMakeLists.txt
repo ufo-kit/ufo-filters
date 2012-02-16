@@ -103,7 +103,7 @@ foreach(_src ${ufofilter_SRCS})
     set(_misc "${_misc}_misc_SRCS")
 
     string(REPLACE "-" "" _targetname ${filter})
-    set(target "${_targetname}")
+    set(target "ufofilter${_targetname}")
     set(shared_objects "${shared_objects} -l${target}")
 
     # build single shared library per filter
