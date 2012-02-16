@@ -1,11 +1,3 @@
-/**
- * SECTION:ufo-filter-reader
- * @Short_description: Read TIFF and EDF files
- * @Title: UfoFilterReader
- *
- * The reader node loads single files from disk and provides them as a stream in
- * output "image".
- */
 #include <gmodule.h>
 #include <stdlib.h>
 #include <tiffio.h>
@@ -17,6 +9,14 @@
 
 #include "ufo-filter-reader.h"
 
+/**
+ * SECTION:ufo-filter-reader
+ * @Short_description: Read TIFF and EDF files
+ * @Title: reader 
+ *
+ * The reader node loads single files from disk and provides them as a stream in
+ * output "image".
+ */
 
 struct _UfoFilterReaderPrivate {
     gchar *path;
@@ -346,6 +346,13 @@ static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
         -1, G_MAXINT, -1,
         G_PARAM_READWRITE);
 
+    /**
+     * UfoFilterReader:blocking:
+     *
+     * Block the reader and do not return unless #UfoFilterReader:count files
+     * have been read. This is useful in case not all files are available the
+     * time the reader was started.
+     */
     reader_properties[PROP_BLOCKING] = 
         g_param_spec_boolean("blocking",
         "Block reader",
@@ -363,14 +370,6 @@ static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
     g_object_class_install_property(gobject_class, PROP_PATH, reader_properties[PROP_PATH]);
     g_object_class_install_property(gobject_class, PROP_COUNT, reader_properties[PROP_COUNT]);
     g_object_class_install_property(gobject_class, PROP_NTH, reader_properties[PROP_NTH]);
-
-    /**
-     * UfoFilterReader:blocking:
-     *
-     * Block the reader and do not return unless #UfoFilterReader:count files
-     * have been read. This is useful in case not all files are available the
-     * time the reader was started.
-     */
     g_object_class_install_property(gobject_class, PROP_BLOCKING, reader_properties[PROP_BLOCKING]);
     g_object_class_install_property(gobject_class, PROP_NORMALIZE, reader_properties[PROP_NORMALIZE]);
 

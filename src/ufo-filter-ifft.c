@@ -12,6 +12,15 @@
 
 #include "ufo-filter-ifft.h"
 
+/**
+ * SECTION:ufo-filter-ifft
+ * @Short_description: Compute inverse discrete Fourier transform
+ * @Title: ifft
+ *
+ * Compute inverse discrete Fourier transform using Apples OpenCL FFT library
+ * that is provides as liboclfft.
+ */
+
 struct _UfoFilterIFFTPrivate {
     cl_kernel pack_kernel;
     cl_kernel normalize_kernel;

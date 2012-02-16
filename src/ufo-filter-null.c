@@ -11,6 +11,13 @@
 
 #include "ufo-filter-null.h"
 
+/**
+ * SECTION:ufo-filter-null
+ * @Short_description: Discard input
+ * @Title: null
+ *
+ * This node discards any input similar to what /dev/null provides.
+ */
 
 GType ufo_filter_null_get_type(void) G_GNUC_CONST;
 

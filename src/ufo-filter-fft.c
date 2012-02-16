@@ -12,6 +12,15 @@
 
 #include "ufo-filter-fft.h"
 
+/**
+ * SECTION:ufo-filter-fft
+ * @Short_description: Compute discrete Fourier transform
+ * @Title: fft
+ *
+ * Compute discrete Fourier transform using Apples OpenCL FFT library that is
+ * provides as liboclfft.
+ */
+
 struct _UfoFilterFFTPrivate {
     cl_kernel kernel;
     clFFT_Dimension fft_dimensions;

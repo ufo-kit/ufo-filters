@@ -157,9 +157,8 @@ if(GTK_DOC_FOUND)
         find_program(GTK_DOC_MKDB gtkdoc-mkdb REQUIRED)
         find_program(GTK_DOC_MKHTML gtkdoc-mkhtml REQUIRED)
 
-        set(doc_in "${CMAKE_CURRENT_SOURCE_DIR}/../docs")
-        set(doc_out "${CMAKE_CURRENT_BINARY_DIR}/../docs/reference")
-        set(doc_html "${CMAKE_CURRENT_BINARY_DIR}/../docs/reference/html")
+        set(doc_base "${CMAKE_CURRENT_BINARY_DIR}/../docs")
+        set(doc_out "${doc_base}/reference")
 
         set(_xml_doc_input)
 
@@ -173,7 +172,7 @@ if(GTK_DOC_FOUND)
         configure_file("${CMAKE_CURRENT_SOURCE_DIR}/scangobj.sh.in" "${doc_out}/scangobj.sh")
         configure_file("${CMAKE_CURRENT_SOURCE_DIR}/UfoFilters.types.in" "${doc_out}/UfoFilters.types")
 
-        add_custom_command(OUTPUT ${doc_out}/Ufo-decl.txt
+        add_custom_command(OUTPUT ${doc_out}/UfoFilters-decl.txt
             COMMAND ${GTK_DOC_SCAN}
                     --module=UfoFilters
                     --source-dir=${CMAKE_CURRENT_SOURCE_DIR}/../src
@@ -182,7 +181,7 @@ if(GTK_DOC_FOUND)
 
         add_custom_command(OUTPUT ${doc_out}/UfoFilters.args
             COMMAND sh scangobj.sh
-            DEPENDS ${doc_out}/Ufo-decl.txt ${all_targets}
+            DEPENDS ${ufofilter_SRCS} ${all_targets}
             WORKING_DIRECTORY ${doc_out})
 
         add_custom_command(OUTPUT ${doc_out}/sgml.stamp
@@ -190,16 +189,16 @@ if(GTK_DOC_FOUND)
                     --module=UfoFilters
                     --source-dir=${CMAKE_CURRENT_SOURCE_DIR}
                     --output-format=xml
-                    DEPENDS ${doc_out}/UfoFilters.args
+            DEPENDS ${ufofilter_SRCS}
             WORKING_DIRECTORY ${doc_out})
 
-        add_custom_command(OUTPUT ${doc_out}/html.stamp
+        add_custom_command(OUTPUT ${doc_base}/html.stamp
             COMMAND ${GTK_DOC_MKHTML}
                     UfoFilters
                     ${doc_out}/UfoFilters-docs.xml
             DEPENDS ${doc_out}/sgml.stamp
             WORKING_DIRECTORY ${doc_out})
 
-        add_custom_target(reference ALL DEPENDS ${doc_out}/html.stamp)
+        add_custom_target(reference ALL DEPENDS ${doc_base}/html.stamp)
     endif()
 endif(GTK_DOC_FOUND)

@@ -7,6 +7,16 @@
 
 #include "ufo-filter-writer.h"
 
+/**
+ * SECTION:ufo-filter-writer
+ * @Short_description: Write TIFF files
+ * @Title: writer
+ *
+ * The writer node writes each incoming image as a TIFF using libtiff to disk.
+ * Each file is prefixed with #UfoFilterWriter:prefix and written into
+ * #UfoFilterWriter:path.
+ */
+
 struct _UfoFilterWriterPrivate {
     gchar *path;
     gchar *prefix;
@@ -145,17 +155,24 @@ static void ufo_filter_writer_class_init(UfoFilterWriterClass *klass)
     gobject_class->get_property = ufo_filter_writer_get_property;
     filter_class->process = ufo_filter_writer_process;
 
+    /**
+     * UfoFilterWriter:prefix:
+     *
+     * Specifies the prefix that is prepended to each written file. Currently,
+     * the filename is made up according to the format string ("%s%05i.tif" %
+     * (prefix, current image number)).
+     */
     reader_properties[PROP_PREFIX] = 
         g_param_spec_string("prefix",
             "Filename prefix",
-            "Prefix of output filename",
+            "Prefix of output filename.",
             "",
             G_PARAM_READWRITE);
 
     reader_properties[PROP_PATH] = 
         g_param_spec_string("path",
             "File path",
-            "Path where to store files",
+            "Path where to store files.",
             ".",
             G_PARAM_READWRITE);
 
