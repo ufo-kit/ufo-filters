@@ -37,6 +37,7 @@ set(ufofilter_KERNELS
     )
 
 set(ufofilter_LIBS
+    ${UFO_LIBRARIES}
     ${GLIB2_LIBRARIES}
     ${GOBJECT2_LIBRARIES}
     )
@@ -136,6 +137,21 @@ pkg_check_modules(GTK_DOC gtk-doc)
 if(GTK_DOC_FOUND)
     option(WITH_GTK_DOC "Build filter documentation" ON)
     if (WITH_GTK_DOC)
+        get_directory_property(_current_include_dirs INCLUDE_DIRECTORIES)
+
+        set(GTK_DOC_CFLAGS)
+        foreach(_incl ${_current_include_dirs})
+            set(GTK_DOC_CFLAGS "-I${_incl} ${GTK_DOC_CFLAGS}")
+        endforeach()
+
+        set(GTK_DOC_LDFLAGS)
+        foreach(_lib ${ufofilter_LIBS})
+            # check if we have an absolute library path
+            if (NOT ${_lib} MATCHES "^[/]")
+                set(GTK_DOC_LDFLAGS "-l${_lib} ${GTK_DOC_LDFLAGS}")
+            endif()
+        endforeach()
+
         find_program(GTK_DOC_SCAN gtkdoc-scan REQUIRED)
         find_program(GTK_DOC_SCANGOBJ gtkdoc-scangobj REQUIRED)
         find_program(GTK_DOC_MKDB gtkdoc-mkdb REQUIRED)
