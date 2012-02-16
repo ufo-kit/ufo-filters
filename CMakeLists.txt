@@ -25,7 +25,7 @@ find_package(OpenCL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLIB2 glib-2.0>=2.24 REQUIRED)
 pkg_check_modules(GOBJECT2 gobject-2.0>=2.24 REQUIRED)
-pkg_check_modules(UFO ufo>=0.1 REQUIRED)
+pkg_check_modules(UFO ufo>=0.2 REQUIRED)
 
 include_directories(
     ${GLIB2_INCLUDE_DIRS}
