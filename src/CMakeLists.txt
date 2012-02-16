@@ -181,7 +181,7 @@ if(GTK_DOC_FOUND)
 
         add_custom_command(OUTPUT ${doc_out}/UfoFilters.args
             COMMAND sh scangobj.sh
-            DEPENDS ${ufofilter_SRCS} ${all_targets}
+            DEPENDS ${ufofilter_SRCS} ${doc_out}/UfoFilters-decl.txt ${all_targets}
             WORKING_DIRECTORY ${doc_out})
 
         add_custom_command(OUTPUT ${doc_out}/sgml.stamp
@@ -189,7 +189,7 @@ if(GTK_DOC_FOUND)
                     --module=UfoFilters
                     --source-dir=${CMAKE_CURRENT_SOURCE_DIR}
                     --output-format=xml
-            DEPENDS ${ufofilter_SRCS}
+            DEPENDS ${ufofilter_SRCS} ${doc_out}/UfoFilters.args
             WORKING_DIRECTORY ${doc_out})
 
         add_custom_command(OUTPUT ${doc_base}/html.stamp
