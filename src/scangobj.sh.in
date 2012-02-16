@@ -1,1 +1,1 @@
-LD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR} CC=gcc CFLAGS="$(pkg-config --cflags glib-2.0 gobject-2.0 ufo)" LDFLAGS="$(pkg-config --libs glib-2.0 gobject-2.0 ufo) -L${CMAKE_CURRENT_BINARY_DIR} ${shared_objects}" gtkdoc-scangobj --module=UfoFilters
+LD_LIBRARY_PATH=${CMAKE_CURRENT_BINARY_DIR} CC=gcc CFLAGS="$(pkg-config --cflags glib-2.0 gobject-2.0 ufo uca)" LDFLAGS="$(pkg-config --libs glib-2.0 gobject-2.0 ufo uca) -L${CMAKE_CURRENT_BINARY_DIR} ${shared_objects}" gtkdoc-scangobj --module=UfoFilters
