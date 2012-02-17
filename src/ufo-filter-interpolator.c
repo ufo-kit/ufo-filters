@@ -10,6 +10,17 @@
 #include <ufo/ufo-buffer.h>
 #include "ufo-filter-interpolator.h"
 
+/**
+ * SECTION:ufo-filter-interpolator
+ * @Short_description: Interpolate between two images
+ * @Title: interpolator
+ *
+ * This node reads exactly one two-dimensional image from each of its two inputs
+ * "input0" and "input1". Then it outputs #UfoFilterInterpolator:num-steps
+ * frames that are the result of a linear interpolation (blended with a*i1 +
+ * (1-a)*i2, 0 <= a <= 1) between those two input images.
+ */
+
 struct _UfoFilterInterpolatorPrivate {
     cl_kernel kernel;
     int num_steps;

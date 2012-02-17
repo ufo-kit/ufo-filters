@@ -17,19 +17,22 @@ typedef struct _UfoFilterComplexClass      UfoFilterComplexClass;
 typedef struct _UfoFilterComplexPrivate    UfoFilterComplexPrivate;
 
 struct _UfoFilterComplex {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterComplexPrivate *priv;
 };
 
+/**
+ * UfoFilterComplexComplexass:
+ *
+ * #UfoFilterComplex class
+ */
 struct _UfoFilterComplexClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
 
-/* virtual public methods */
-
-/* non-virtual public methods */
 
 GType ufo_filter_complex_get_type(void);
 

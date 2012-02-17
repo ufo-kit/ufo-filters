@@ -17,19 +17,21 @@ typedef struct _UfoFilterDemuxClass      UfoFilterDemuxClass;
 typedef struct _UfoFilterDemuxPrivate    UfoFilterDemuxPrivate;
 
 struct _UfoFilterDemux {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterDemuxPrivate *priv;
 };
 
+/**
+ * UfoFilterCvShowClass:
+ *
+ * #UfoFilterCvShow class
+ */
 struct _UfoFilterDemuxClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
-
-/* virtual public methods */
-
-/* non-virtual public methods */
 
 GType ufo_filter_demux_get_type(void);
 

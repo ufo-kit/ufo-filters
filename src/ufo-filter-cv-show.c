@@ -8,6 +8,15 @@
 
 #include "ufo-filter-cv-show.h"
 
+/**
+ * SECTION:ufo-filter-cv-show
+ * @Short_description: Show input using OpenCV
+ * @Title: cvshow
+ *
+ * Display any data using the OpenCV library. An optional histogram can be shown
+ * if #UfoFilterCvShow:show-histogram is enabled.
+ */
+
 struct _UfoFilterCvShowPrivate {
     gboolean show_histogram;
 };

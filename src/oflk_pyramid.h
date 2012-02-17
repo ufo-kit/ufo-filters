@@ -23,6 +23,11 @@
 
 typedef struct _oflk_pyramid *oflk_pyramid_p; /** pointer to the pyramid structure */
 
+/**
+ * olfk_pyramid_p:
+ *
+ * Optical flow pyramid.
+ */
 struct _oflk_pyramid {
 	int levels; /** number of image pyramid levels */
 	cl_image_format image_format;
@@ -35,18 +40,19 @@ struct _oflk_pyramid {
 };
 
 /**
+ * oflk_pyramid_init:
+ * @levels: number of pyramid levels
+ * @channel_order: channel order
+ * @channel_type: channel_type
+ * @context: cl_context
+ * @command_queue: cl_command_queue
+ * @width: width of an image at the 0th level (not undersampled)
+ * @height: height of an image at the 0th level (not undersampled)
+ * @err_num: pointer to cl_int error number
+ *
  * Initialize pyramid.
  *
- * \param levels number of pyramid levels
- * \param channel_order channel order
- * \param channel_type channel_type
- * \param context cl_context
- * \param command_queue cl_command_queue
- * \param width width of an image at the 0th level (not undersampled)
- * \param height height of an image at the 0th level (not undersampled)
- * \param *err_num pointer to cl_int error number
- *
- * \return pointer to oflk_pyramid
+ * Returns: pointer to oflk_pyramid
  */
 oflk_pyramid_p oflk_pyramid_init(int levels,
 						cl_channel_order channel_order,
@@ -58,25 +64,27 @@ oflk_pyramid_p oflk_pyramid_init(int levels,
 						cl_int *err_num);
 
 /**
- * Release specified pyramid.
- *
- * \param *pyramid_p pointer to a pointer to the pyramid to be released. Double
+ * oflk_pyramid_release:
+ * @pyramid_p: pointer to a pointer to the pyramid to be released. Double
  * 			pointer enables us to make the actual pointer to the pyramid
  * 			to point to a NULL structure.
  *
- * \return 0 on success, opencl error code caused by releasing obejcts otherwise
+ * Release specified pyramid.
+ *
+ * Returns: 0 on success, opencl error code caused by releasing objects otherwise
  */
 cl_int oflk_pyramid_release(oflk_pyramid_p *pyramid_p);
 
 /**
+ * oflk_pyramid_fill:
+ * @pyramid_p: pointer to a pyramid
+ * @oflk_image: oflk_cl_image structure holidng the data
+ * @downfilter_x: cl_kernel subsampler in x direction
+ * @downfilter_y: cl_kernel subsampler in y direction
+ *
  * Fill a pyramid with subsampled levels.
  *
- * \param pyramid_p pointer to a pyramid
- * \param oflk_image oflk_cl_image structure holidng the data
- * \param downfilter_x cl_kernel subsampler in x direction
- * \param downfilter_x cl_kernel subsampler in y direction
- *
- * \return opencl error code
+ * Returns: opencl error code
  */
 cl_int oflk_pyramid_fill(oflk_pyramid_p pyramid_p,
 						oflk_cl_image *oflk_image,
@@ -84,16 +92,17 @@ cl_int oflk_pyramid_fill(oflk_pyramid_p pyramid_p,
 						cl_kernel downfilter_y);
 
 /**
+ * oflk_pyramid_fill_derivative:
+ * @pyramid_p: pyramid which will be filled with derivatves
+ * @other_pyramid_p: pyramid from which the derivatives will be calculated
+ * @kernel_x: cl_kernel kernel derivating in x-direction
+ * @kernel_y: cl_kernel kernel derivating in y-direction
+ * @w_x: weights for x-direction
+ * @w_y: weights for y-direction
+ *
  * Fill a pyramid with derivatives.
  *
- * \param pyramid_p pyramid which will be filled with derivatves
- * \param other_pyramid_p pyramid from which the derivatives will be calculated
- * \param kernel_x cl_kernel kernel derivating in x-direction
- * \param kernel_y cl_kernel kernel derivating in y-direction
- * \param w_x weights for x-direction
- * \param w_y weights for y-direction
- *
- * \return opencl error code
+ * Returns: opencl error code
  */
 cl_int oflk_pyramid_fill_derivative(oflk_pyramid_p pyramid_p,
 						oflk_pyramid_p other_pyramid_p,
@@ -103,14 +112,15 @@ cl_int oflk_pyramid_fill_derivative(oflk_pyramid_p pyramid_p,
 						cl_int4 w_y);
 
 /**
+ * oflk_pyramid_g_fill:
+ * @pyramid_p: pyramid which will be filled with the matrix
+ * @derivative_x_p: derivation pyramid of one image
+ * @derivative_y_p: derivation pyramid of the other image
+ * @kernel_g: cl_kernel computing the matrix
+ *
  * Fill a pyramid with 2x2 covariance matrix on the derivatives.
  *
- * \param pyramid_p pyramid which will be filled with the matrix
- * \param derivative_x_p derivation pyramid of one image
- * \param derivative_y_p derivation pyramid of the other image
- * \param kernel_g cl_kernel computing the matrix
- *
- * \return opencl error code
+ * Returns: opencl error code
  */
 cl_int oflk_pyramid_g_fill(oflk_pyramid_p pyramid_p,
 						oflk_pyramid_p derivative_x_p,
@@ -118,17 +128,18 @@ cl_int oflk_pyramid_g_fill(oflk_pyramid_p pyramid_p,
 						cl_kernel  kernel_g);
 
 /**
+ * oflk_pyramid_flow_fill:
+ * @pyramid_p: pyramid which will be filled with the motion vectors
+ * @img_p: pyramid holding one image's data
+ * @img2_p: pyramid holding the other image's data
+ * @derivative_x_p: derivation pyramid of one image
+ * @derivative_y_p: derivation pyramid of the other image
+ * @g_p: pyramid holding covariance matrix
+ * @kernel_lkflow: cl_kernel for computing optical flow
+ *
  * Fill a pyramid with motion vectors (optical flow).
  *
- * \param pyramid_p pyramid which will be filled with the motion vectors
- * \param img_p pyramid holding one image's data
- * \param img2_p pyramid holding the other image's data
- * \param derivative_x_p derivation pyramid of one image
- * \param derivative_y_p derivation pyramid of the other image
- * \param g_p pyramid holding covariance matrix
- * \param kernel_lkflow cl_kernel for computing optical flow
- *
- * \return opencl error code
+ * Returns: opencl error code
  */
 cl_int oflk_pyramid_flow_fill(oflk_pyramid_p pyramid_p,
 						oflk_pyramid_p img_p,

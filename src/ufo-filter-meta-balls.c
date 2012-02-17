@@ -10,6 +10,15 @@
 #include <ufo/ufo-buffer.h>
 #include "ufo-filter-meta-balls.h"
 
+/**
+ * SECTION:ufo-filter-meta-balls
+ * @Short_description: Generate sample data
+ * @Title: metaballs
+ *
+ * Generate randomized sample data. This node provides so-called meta balls, a
+ * physically incorrect approximation of merging perfect-circled bubbles.
+ */
+
 struct _UfoFilterMetaBallsPrivate {
     cl_kernel kernel;
     guint width;

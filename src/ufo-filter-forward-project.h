@@ -17,12 +17,19 @@ typedef struct _UfoFilterForwardProjectClass      UfoFilterForwardProjectClass;
 typedef struct _UfoFilterForwardProjectPrivate    UfoFilterForwardProjectPrivate;
 
 struct _UfoFilterForwardProject {
+    /*< private >*/
     UfoFilter parent_instance;
 
     UfoFilterForwardProjectPrivate *priv;
 };
 
+/**
+ * UfoFilterFilterClass:
+ *
+ * #UfoFilterFilter class
+ */
 struct _UfoFilterForwardProjectClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
 

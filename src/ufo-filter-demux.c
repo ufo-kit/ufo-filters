@@ -11,6 +11,12 @@
 
 #include "ufo-filter-demux.h"
 
+/**
+ * SECTION:ufo-filter-demux
+ * @Short_description: De-multiplex an input stream
+ * @Title: demux
+ */
+
 typedef enum {
     COPY_NA,
     COPY_SAME,

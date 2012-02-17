@@ -17,16 +17,20 @@ typedef struct _UfoFilterBackprojectClass      UfoFilterBackprojectClass;
 typedef struct _UfoFilterBackprojectPrivate    UfoFilterBackprojectPrivate;
 
 struct _UfoFilterBackproject {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterBackprojectPrivate *priv;
 };
 
+/**
+ * UfoFilterBackprojectClass:
+ *
+ * #UfoFilterBackproject class
+ */
 struct _UfoFilterBackprojectClass {
+    /*< private >*/
     UfoFilterClass parent_class;
-
-    /* virtual public methods */
 };
 
 GType ufo_filter_backproject_get_type(void);

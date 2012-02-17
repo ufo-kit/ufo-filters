@@ -17,19 +17,21 @@ typedef struct _UfoFilterNormalizeClass      UfoFilterNormalizeClass;
 typedef struct _UfoFilterNormalizePrivate    UfoFilterNormalizePrivate;
 
 struct _UfoFilterNormalize {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterNormalizePrivate *priv;
 };
 
+/**
+ * UfoFilterNormalizeClass:
+ *
+ * #UfoFilterNormalize class
+ */
 struct _UfoFilterNormalizeClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
-
-/* virtual public methods */
-
-/* non-virtual public methods */
 
 GType ufo_filter_normalize_get_type(void);
 

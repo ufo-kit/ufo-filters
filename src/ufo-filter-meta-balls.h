@@ -17,12 +17,19 @@ typedef struct _UfoFilterMetaBallsClass      UfoFilterMetaBallsClass;
 typedef struct _UfoFilterMetaBallsPrivate    UfoFilterMetaBallsPrivate;
 
 struct _UfoFilterMetaBalls {
+    /*< private >*/
     UfoFilter parent_instance;
 
     UfoFilterMetaBallsPrivate *priv;
 };
 
+/**
+ * UfoFilterMetaBallsClass:
+ *
+ * #UfoFilterMetaBalls class
+ */
 struct _UfoFilterMetaBallsClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
 

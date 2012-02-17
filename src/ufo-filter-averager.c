@@ -11,6 +11,15 @@
 #include <ufo/ufo-buffer.h>
 #include "ufo-filter-averager.h"
 
+/**
+ * SECTION:ufo-filter-averager
+ * @Short_description: Average incoming images
+ * @Title: average
+ *
+ * Sum all incoming images and divide by their number, effectively computing the
+ * average of all images.
+ */
+
 struct _UfoFilterAveragerPrivate {
 };
 

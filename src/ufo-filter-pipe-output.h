@@ -18,12 +18,19 @@ typedef struct _UfoFilterPipeOutputClass      UfoFilterPipeOutputClass;
 typedef struct _UfoFilterPipeOutputPrivate    UfoFilterPipeOutputPrivate;
 
 struct _UfoFilterPipeOutput {
+    /*< private >*/
     UfoFilter parent_instance;
 
     UfoFilterPipeOutputPrivate *priv;
 };
 
+/**
+ * UfoFilterPipeOutputClass:
+ *
+ * #UfoFilterPipeOutput class
+ */
 struct _UfoFilterPipeOutputClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
 

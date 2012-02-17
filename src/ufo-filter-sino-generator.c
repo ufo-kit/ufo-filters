@@ -8,6 +8,16 @@
 
 #include "ufo-filter-sino-generator.h"
 
+/**
+ * SECTION:ufo-filter-sino-generator
+ * @Short_description: Generate sinograms from projections
+ * @Title: sinogenerator
+ *
+ * Reads two-dimensional projections and generates an appropriate amount of
+ * sinograms. If all projections are laid on top of each other this results in a
+ * rotation of the three-dimensional matrix and slicing again.
+ */
+
 struct _UfoFilterSinoGeneratorPrivate {
     guint num_projections;
 };

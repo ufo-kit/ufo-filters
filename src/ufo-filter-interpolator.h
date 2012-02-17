@@ -17,19 +17,21 @@ typedef struct _UfoFilterInterpolatorClass      UfoFilterInterpolatorClass;
 typedef struct _UfoFilterInterpolatorPrivate    UfoFilterInterpolatorPrivate;
 
 struct _UfoFilterInterpolator {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterInterpolatorPrivate *priv;
 };
 
+/**
+ * UfoFilterInterpolatorClass:
+ *
+ * #UfoFilterInterpolator class
+ */
 struct _UfoFilterInterpolatorClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
-
-/* virtual public methods */
-
-/* non-virtual public methods */
 
 GType ufo_filter_interpolator_get_type(void);
 

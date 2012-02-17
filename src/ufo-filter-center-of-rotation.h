@@ -17,19 +17,21 @@ typedef struct _UfoFilterCenterOfRotationClass      UfoFilterCenterOfRotationCla
 typedef struct _UfoFilterCenterOfRotationPrivate    UfoFilterCenterOfRotationPrivate;
 
 struct _UfoFilterCenterOfRotation {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterCenterOfRotationPrivate *priv;
 };
 
+/**
+ * UfoFilterCenterOfRotationClass:
+ *
+ * #UfoFilterCenterOfRotation class
+ */
 struct _UfoFilterCenterOfRotationClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
-
-/* virtual public methods */
-
-/* non-virtual public methods */
 
 GType ufo_filter_center_of_rotation_get_type(void);
 

@@ -11,6 +11,15 @@
 
 #include "ufo-filter-cl.h"
 
+/**
+ * SECTION:ufo-filter-cl
+ * @Short_description: Execute arbitrary OpenCL kernels
+ * @Title: cl
+ *
+ * Execute an OpenCL kernel specified by #UfoFilterCl:kernel and load from
+ * #UfoFilterCl:file on two-dimensional input.
+ */
+
 struct _UfoFilterClPrivate {
     cl_kernel kernel;
     gchar *file_name;

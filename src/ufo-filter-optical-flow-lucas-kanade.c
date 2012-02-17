@@ -17,6 +17,15 @@
 
 #define LEVELS 3
 
+/**
+ * SECTION:ufo-filter-optical-flow-lucas-kanade
+ * @Short_description: Compute the optical flow
+ * @Title: opticalflowlucaskanade
+ *
+ * Processes two adjacent input images and computes the motion vectors between
+ * them. The output is an image with twice the width.
+ */
+
 struct _UfoFilterOpticalFlowLucasKanadePrivate {
     /* add your private data here */
 	cl_kernel downfilter_x_kernel;

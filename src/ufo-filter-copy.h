@@ -17,19 +17,21 @@ typedef struct _UfoFilterCopyClass      UfoFilterCopyClass;
 typedef struct _UfoFilterCopyPrivate    UfoFilterCopyPrivate;
 
 struct _UfoFilterCopy {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterCopyPrivate *priv;
 };
 
+/**
+ * UfoFilterCopyClass:
+ *
+ * #UfoFilterCopy class
+ */
 struct _UfoFilterCopyClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
-
-/* virtual public methods */
-
-/* non-virtual public methods */
 
 GType ufo_filter_copy_get_type(void);
 

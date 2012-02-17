@@ -17,13 +17,19 @@ typedef struct _UfoFilterAveragerClass      UfoFilterAveragerClass;
 typedef struct _UfoFilterAveragerPrivate    UfoFilterAveragerPrivate;
 
 struct _UfoFilterAverager {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterAveragerPrivate *priv;
 };
 
+/**
+ * UfoFilterAveragerClass:
+ *
+ * #UfoFilterAverage class
+ */
 struct _UfoFilterAveragerClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
 

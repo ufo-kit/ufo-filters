@@ -16,7 +16,7 @@
 /**
  * SECTION:ufo-filter-pipe-output
  * @Short_description: Write input to a named pipe
- * @Title: pipe
+ * @Title: pipeoutput
  *
  * To communicate with foreign processes a named pipe (also called FIFO) can be
  * used. To create a named pipe call mkfifo FILENAME and point to FILENAME with

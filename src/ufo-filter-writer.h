@@ -17,13 +17,19 @@ typedef struct _UfoFilterWriterClass      UfoFilterWriterClass;
 typedef struct _UfoFilterWriterPrivate    UfoFilterWriterPrivate;
 
 struct _UfoFilterWriter {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterWriterPrivate *priv;
 };
 
+/**
+ * UfoFilterWriterClass:
+ *
+ * #UfoFilterWriter class
+ */
 struct _UfoFilterWriterClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
 

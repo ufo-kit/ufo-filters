@@ -10,6 +10,16 @@
 #include <ufo/ufo-buffer.h>
 #include "ufo-filter-forward-project.h"
 
+/**
+ * SECTION:ufo-filter-forward-project
+ * @Short_description: Forward project slices
+ * @Title: forwardproject
+ *
+ * Forward project slice data to simulate a parallel-beam detector. The output
+ * is a sinogram with projections taken at angles space
+ * #UfoFilterForwardProject:angle-step units apart.
+ */
+
 struct _UfoFilterForwardProjectPrivate {
     cl_kernel kernel;
     gfloat angle_step;

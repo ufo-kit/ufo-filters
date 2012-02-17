@@ -12,6 +12,12 @@
 
 #include "ufo-filter-filter.h"
 
+/**
+ * SECTION:ufo-filter-filter
+ * @Short_description: One-dimensional filtering in frequency space
+ * @Title: filter
+ */
+
 typedef float* (*filter_setup_func)(UfoFilterFilterPrivate *priv, guint32 width);
 
 struct _UfoFilterFilterPrivate {

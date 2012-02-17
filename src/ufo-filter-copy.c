@@ -10,6 +10,15 @@
 #include <ufo/ufo-buffer.h>
 #include "ufo-filter-copy.h"
 
+/**
+ * SECTION:ufo-filter-copy
+ * @Short_description: Copy input to multiple outputs
+ * @Title: copy
+ *
+ * To use data from a single source in #UfoFilterCopy:num-outputs different
+ * processing nodes the data must be replicated with this node.
+ */
+
 struct _UfoFilterCopyPrivate {
     guint num_outputs;
 };

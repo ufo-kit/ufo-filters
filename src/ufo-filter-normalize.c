@@ -6,6 +6,14 @@
 
 #include "ufo-filter-normalize.h"
 
+/**
+ * SECTION:ufo-filter-normalize
+ * @Short_description: Normalize to [0.0, 1.0]
+ * @Title: normalize
+ *
+ * Normalize input to closed unit interval.
+ */
+
 GType ufo_filter_normalize_get_type(void) G_GNUC_CONST;
 
 G_DEFINE_TYPE(UfoFilterNormalize, ufo_filter_normalize, UFO_TYPE_FILTER);
@@ -15,13 +23,8 @@ G_DEFINE_TYPE(UfoFilterNormalize, ufo_filter_normalize, UFO_TYPE_FILTER);
 
 static void ufo_filter_normalize_initialize(UfoFilter *filter)
 {
-    /* Here you can code, that is called for each newly instantiated filter */
 }
 
-/*
- * This is the main method in which the filter processes one buffer after
- * another.
- */
 static void ufo_filter_normalize_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));

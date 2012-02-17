@@ -12,6 +12,16 @@
 
 #include "ufo-filter-backproject.h"
 
+/**
+ * SECTION:ufo-filter-backproject
+ * @Short_description: Back-project incoming sinograms
+ * @Title: backproject
+ *
+ * Project all 1-dimensional projections from a sinogram back into space to
+ * compute a slice. This is most likely only useful for filtered sinograms. In
+ * case you have unfiltered projections you can filter them by chaining 
+ * #UfoFilterFFT, #UfoFilterFilter and #UfoFilterIFFT together.
+ */
 
 struct _UfoFilterBackprojectPrivate {
     cl_kernel normal_kernel;

@@ -7,6 +7,15 @@
 
 #include "ufo-filter-uca.h"
 
+/**
+ * SECTION:ufo-filter-uca
+ * @Short_description: Provide images from 2D detectors
+ * @Title: uca
+ *
+ * This node reads images from cameras supported by libuca. This filter is only
+ * built if libuca was found at build time.
+ */
+
 struct _UfoFilterUCAPrivate {
     struct uca *u;
     struct uca_camera *cam;

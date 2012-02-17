@@ -17,19 +17,21 @@ typedef struct _UfoFilterOpticalFlowLucasKanadeClass      UfoFilterOpticalFlowLu
 typedef struct _UfoFilterOpticalFlowLucasKanadePrivate    UfoFilterOpticalFlowLucasKanadePrivate;
 
 struct _UfoFilterOpticalFlowLucasKanade {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterOpticalFlowLucasKanadePrivate *priv;
 };
 
+/**
+ * UfoFilterOpticalFlowLucasKanadeClass:
+ *
+ * #UfoFilterOpticalFlowLucasKanade class
+ */
 struct _UfoFilterOpticalFlowLucasKanadeClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
-
-/* virtual public methods */
-
-/* non-virtual public methods */
 
 GType ufo_filter_optical_flow_lucas_kanade_get_type(void);
 

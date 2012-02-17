@@ -11,6 +11,12 @@
 
 #include "ufo-filter-mux.h"
 
+/**
+ * SECTION:ufo-filter-mux
+ * @Short_description: Multiplex two input streams
+ * @Title: mux
+ */
+
 struct _UfoFilterMuxPrivate {
 };
 
@@ -29,10 +35,6 @@ static void ufo_filter_mux_initialize(UfoFilter *filter)
 {
 }
 
-/*
- * This is the main method in which the filter processes one buffer after
- * another.
- */
 static void ufo_filter_mux_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));

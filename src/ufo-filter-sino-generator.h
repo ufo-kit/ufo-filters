@@ -17,19 +17,21 @@ typedef struct _UfoFilterSinoGeneratorClass      UfoFilterSinoGeneratorClass;
 typedef struct _UfoFilterSinoGeneratorPrivate    UfoFilterSinoGeneratorPrivate;
 
 struct _UfoFilterSinoGenerator {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterSinoGeneratorPrivate *priv;
 };
 
+/**
+ * UfoFilterPipeOutputClass:
+ *
+ * #UfoFilterPipeOutput class
+ */
 struct _UfoFilterSinoGeneratorClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
-
-/* virtual public methods */
-
-/* non-virtual public methods */
 
 GType ufo_filter_sino_generator_get_type(void);
 

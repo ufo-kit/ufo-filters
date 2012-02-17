@@ -17,19 +17,22 @@ typedef struct _UfoFilterArgMaxClass      UfoFilterArgMaxClass;
 typedef struct _UfoFilterArgMaxPrivate    UfoFilterArgMaxPrivate;
 
 struct _UfoFilterArgMax {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterArgMaxPrivate *priv;
 };
 
+/**
+ * UfoFilterArgMaxClass:
+ *
+ * #UfoFilterArgMax class
+ */
 struct _UfoFilterArgMaxClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
 
-/* virtual public methods */
-
-/* non-virtual public methods */
 
 GType ufo_filter_arg_max_get_type(void);
 

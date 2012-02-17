@@ -17,19 +17,21 @@ typedef struct _UfoFilterFFTClass      UfoFilterFFTClass;
 typedef struct _UfoFilterFFTPrivate    UfoFilterFFTPrivate;
 
 struct _UfoFilterFFT {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterFFTPrivate *priv;
 };
 
+/**
+ * UfoFilterFFTClass:
+ *
+ * #UfoFilterFFT class
+ */
 struct _UfoFilterFFTClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
-
-/* virtual public methods */
-
-/* non-virtual public methods */
 
 GType ufo_filter_fft_get_type(void);
 

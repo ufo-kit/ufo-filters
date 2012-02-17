@@ -11,6 +11,15 @@
 
 #include "ufo-filter-complex.h"
 
+/**
+ * SECTION:ufo-filter-complex
+ * @Short_description: Complex arithmetics
+ * @Title: complex
+ *
+ * The reader node loads single files from disk and provides them as a stream in
+ * output "image".
+ */
+
 typedef enum {
     OP_ADD = 0,
     OP_MUL,

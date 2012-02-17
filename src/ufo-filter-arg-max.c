@@ -10,6 +10,14 @@
 #include <ufo/ufo-buffer.h>
 #include "ufo-filter-arg-max.h"
 
+/**
+ * SECTION:ufo-filter-arg-max
+ * @Short_description: Compute position with maximum value
+ * @Title: argmax 
+ *
+ * Compute the position in a 2-dimensional input that has maximum value.
+ */
+
 GType ufo_filter_arg_max_get_type(void) G_GNUC_CONST;
 
 G_DEFINE_TYPE(UfoFilterArgMax, ufo_filter_arg_max, UFO_TYPE_FILTER);

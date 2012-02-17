@@ -11,6 +11,15 @@
 
 #include "ufo-filter-center-of-rotation.h"
 
+/**
+ * SECTION:ufo-filter-center-of-rotation
+ * @Short_description: Computer the center-of-rotation
+ * @Title: centerofrotation
+ *
+ * Computes the center-of-rotation by registrating projections that are space
+ * apart in a semi-circle.
+ */
+
 struct _UfoFilterCenterOfRotationPrivate {
     gboolean use_sinograms; /**< FIXME: we should get this information from the buffer */
     float angle_step;

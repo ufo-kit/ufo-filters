@@ -17,19 +17,21 @@ typedef struct _UfoFilterMuxClass      UfoFilterMuxClass;
 typedef struct _UfoFilterMuxPrivate    UfoFilterMuxPrivate;
 
 struct _UfoFilterMux {
+    /*< private >*/
     UfoFilter parent_instance;
 
-    /* private */
     UfoFilterMuxPrivate *priv;
 };
 
+/**
+ * UfoFilterMuxClass:
+ *
+ * #UfoFilterMux class
+ */
 struct _UfoFilterMuxClass {
+    /*< private >*/
     UfoFilterClass parent_class;
 };
-
-/* virtual public methods */
-
-/* non-virtual public methods */
 
 GType ufo_filter_mux_get_type(void);
 
