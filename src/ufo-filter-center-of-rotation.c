@@ -22,7 +22,8 @@
 
 struct _UfoFilterCenterOfRotationPrivate {
     gboolean use_sinograms; /**< FIXME: we should get this information from the buffer */
-    float angle_step;
+    gfloat angle_step;
+    gdouble center;
 };
 
 GType ufo_filter_center_of_rotation_get_type(void) G_GNUC_CONST;
@@ -33,8 +34,9 @@ G_DEFINE_TYPE(UfoFilterCenterOfRotation, ufo_filter_center_of_rotation, UFO_TYPE
 
 enum {
     PROP_0,
-    PROP_ANGLE_STEP, /* remove this or add more */
+    PROP_ANGLE_STEP,
     PROP_USE_SINOGRAMS,
+    PROP_CENTER,
     N_PROPERTIES
 };
 
@@ -42,6 +44,7 @@ static GParamSpec *center_of_rotation_properties[N_PROPERTIES] = { NULL, };
 
 static void center_of_rotation_sinograms(UfoFilter *filter)
 {
+    UfoFilterCenterOfRotationPrivate *priv = UFO_FILTER_CENTER_OF_ROTATION_GET_PRIVATE(filter);
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
@@ -76,15 +79,16 @@ static void center_of_rotation_sinograms(UfoFilter *filter)
         
         int score_index = 0;
         float min_score = scores[0];
+
         for (int i = 1; i < N; i++) {
             if (scores[i] < min_score) {
                 score_index = i;
                 min_score = scores[i];
             } 
         }
-        float center = (width + score_index - max_displacement + 1) / 2.0;
-        g_message("Center of Rotation: %f", center);
 
+        priv->center = (width + score_index - max_displacement + 1) / 2.0;
+        g_debug("Center of Rotation: %f", priv->center);
         g_free(scores);
 
         ufo_channel_finalize_input_buffer(input_channel, sinogram);
@@ -152,9 +156,12 @@ static void center_of_rotation_projections(UfoFilter *filter)
 
     /* Find local minima. Actually, if max_displacement is not to large (like
      * width/2) the global maximum is always the correct maximum. */
-    for (int i = 1; i < N; i++) 
-        if (grad[i-1] < 0.0 && grad[i] > 0.0) 
-            g_message("Local minimum at %f: %f", (width + i - max_displacement + 1) / 2.0, scores[i]);
+    for (int i = 1; i < N; i++) {
+        if (grad[i-1] < 0.0 && grad[i] > 0.0) {
+            priv->center = (width + i - max_displacement + 1) / 2.0;
+            g_debug("Local minimum at %f: %f", priv->center, scores[i]);
+        }
+    }
 
     g_free(grad);
     g_free(scores);
@@ -162,7 +169,6 @@ static void center_of_rotation_projections(UfoFilter *filter)
 
 static void ufo_filter_center_of_rotation_initialize(UfoFilter *filter)
 {
-    /* Here you can code, that is called for each newly instantiated filter */
 }
 
 /*
@@ -194,14 +200,14 @@ static void ufo_filter_center_of_rotation_set_property(GObject *object,
     const GValue    *value,
     GParamSpec      *pspec)
 {
-    UfoFilterCenterOfRotation *self = UFO_FILTER_CENTER_OF_ROTATION(object);
+    UfoFilterCenterOfRotationPrivate *priv = UFO_FILTER_CENTER_OF_ROTATION_GET_PRIVATE(object);
 
     switch (property_id) {
         case PROP_ANGLE_STEP:
-            self->priv->angle_step = g_value_get_double(value);
+            priv->angle_step = g_value_get_double(value);
             break;
         case PROP_USE_SINOGRAMS:
-            self->priv->use_sinograms = g_value_get_boolean(value);
+            priv->use_sinograms = g_value_get_boolean(value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -214,14 +220,17 @@ static void ufo_filter_center_of_rotation_get_property(GObject *object,
     GValue      *value,
     GParamSpec  *pspec)
 {
-    UfoFilterCenterOfRotation *self = UFO_FILTER_CENTER_OF_ROTATION(object);
+    UfoFilterCenterOfRotationPrivate *priv = UFO_FILTER_CENTER_OF_ROTATION_GET_PRIVATE(object);
 
     switch (property_id) {
         case PROP_ANGLE_STEP:
-            g_value_set_double(value, self->priv->angle_step);
+            g_value_set_double(value, priv->angle_step);
             break;
         case PROP_USE_SINOGRAMS:
-            g_value_set_boolean(value, self->priv->use_sinograms);
+            g_value_set_boolean(value, priv->use_sinograms);
+            break;
+        case PROP_CENTER:
+            g_value_set_double(value, priv->center);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -239,7 +248,6 @@ static void ufo_filter_center_of_rotation_class_init(UfoFilterCenterOfRotationCl
     filter_class->initialize = ufo_filter_center_of_rotation_initialize;
     filter_class->process = ufo_filter_center_of_rotation_process;
 
-    /* install properties */
     center_of_rotation_properties[PROP_ANGLE_STEP] = 
         g_param_spec_double("angle-step",
             "Step between two successive projections",
@@ -254,8 +262,17 @@ static void ufo_filter_center_of_rotation_class_init(UfoFilterCenterOfRotationCl
             FALSE,
             G_PARAM_READWRITE);
 
+    center_of_rotation_properties[PROP_CENTER] = 
+        g_param_spec_double("center",
+            "Center of rotation",
+            "The calculated center of rotation",
+            -G_MAXDOUBLE, G_MAXDOUBLE, 0.0,
+            G_PARAM_READABLE);
+
+
     g_object_class_install_property(gobject_class, PROP_ANGLE_STEP, center_of_rotation_properties[PROP_ANGLE_STEP]);
     g_object_class_install_property(gobject_class, PROP_USE_SINOGRAMS, center_of_rotation_properties[PROP_USE_SINOGRAMS]);
+    g_object_class_install_property(gobject_class, PROP_CENTER, center_of_rotation_properties[PROP_CENTER]);
 
     g_type_class_add_private(gobject_class, sizeof(UfoFilterCenterOfRotationPrivate));
 }
