@@ -20,6 +20,7 @@ set(ufofilter_SRCS
     ufo-filter-pipe-output.c
     ufo-filter-sino-generator.c
     ufo-filter-optical-flow-lucas-kanade.c
+    ufo-filter-volume-renderer.c
     )
 
 set(ufofilter_KERNELS
@@ -34,6 +35,7 @@ set(ufofilter_KERNELS
     metaballs.cl
     motion.cl
     nlm.cl
+    volume.cl
     )
 
 set(ufofilter_LIBS
