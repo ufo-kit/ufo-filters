@@ -101,27 +101,34 @@ foreach(_src ${ufofilter_SRCS})
 
     # build string to get miscalleanous sources
     string(REPLACE "-" "_" _misc ${filter})
+    string(TOUPPER ${_misc} _misc_upper)
 
-    set(documented_types "${documented_types}\nufo_filter_${_misc}_get_type")
-    set(_misc "${_misc}_misc_SRCS")
+    # create an option name and add this to disable filters
+    set(target_option "ENABLE_${_misc_upper}")
+    option(${target_option} "Build filter ${filter}" ON)
 
-    string(REPLACE "-" "" _targetname ${filter})
-    set(target "ufofilter${_targetname}")
-    set(shared_objects "${shared_objects} -l${target}")
+    if(${target_option})
+        set(documented_types "${documented_types}\nufo_filter_${_misc}_get_type")
+        set(_misc "${_misc}_misc_SRCS")
 
-    # build single shared library per filter
-    if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-        add_library(${target} MODULE ${_src} ${${_misc}})
-    else()
-        add_library(${target} SHARED ${_src} ${${_misc}})
+        string(REPLACE "-" "" _targetname ${filter})
+        set(target "ufofilter${_targetname}")
+        set(shared_objects "${shared_objects} -l${target}")
+
+        # build single shared library per filter
+        if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+            add_library(${target} MODULE ${_src} ${${_misc}})
+        else()
+            add_library(${target} SHARED ${_src} ${${_misc}})
+        endif()
+
+        target_link_libraries(${target} ${ufofilter_LIBS})
+        list(APPEND all_targets ${target})
+        
+        install(TARGETS ${target}
+            ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
+            LIBRARY DESTINATION ${LIB_INSTALL_DIR})
     endif()
-
-    target_link_libraries(${target} ${ufofilter_LIBS})
-    list(APPEND all_targets ${target})
-    
-    install(TARGETS ${target}
-        ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
-        LIBRARY DESTINATION ${LIB_INSTALL_DIR})
 endforeach()
 
 # copy kernels into $LIB_INSTALL_DIR
