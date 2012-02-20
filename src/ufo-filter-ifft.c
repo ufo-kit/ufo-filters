@@ -166,10 +166,10 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
         clSetKernelArg(priv->pack_kernel, 1, sizeof(cl_mem), (void *) &mem_result);
         clSetKernelArg(priv->pack_kernel, 2, sizeof(int), &width);
 
-        clEnqueueNDRangeKernel(command_queue,
+        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue,
                 priv->pack_kernel,
                 2, NULL, global_work_size, NULL,
-                0, NULL, &event);
+                0, NULL, &event));
 
         ufo_buffer_transfer_id(input, result);
         ufo_channel_finalize_input_buffer(input_channel, input);

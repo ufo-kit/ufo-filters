@@ -81,7 +81,7 @@ void save_octave_intensity_float( oflk_cl_image img, cl_command_queue cmdq, cons
     region[1] = img.height;
     region[2] = 1;
 
-    CHECK_ERROR(clEnqueueReadImage(cmdq,
+    CHECK_OPENCL_ERROR(clEnqueueReadImage(cmdq,
 								img.image_mem,
 								CL_TRUE,
 								origin,
@@ -115,7 +115,7 @@ void save_octave_float2(oflk_cl_buffer img, cl_command_queue cmdq, const char *f
 
     printf("%s : reading stride: %d->%lu\n", fname, img.width, img.width*sizeof(cl_float) * 2);
 
-    CHECK_ERROR(clEnqueueReadBuffer( cmdq, img.mem, CL_TRUE,
+    CHECK_OPENCL_ERROR(clEnqueueReadBuffer( cmdq, img.mem, CL_TRUE,
         0, img.width*img.height*sizeof(cl_float)*2, h_img_float2, 0, NULL, NULL ));
 
 
@@ -471,7 +471,7 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
     size_t num_bytes = output_dimensions[0] * output_dimensions[1] * sizeof(float);
 
 	// Optical flow initialization
-	CHECK_ERROR(oflk_flow_init(context,
+	CHECK_OPENCL_ERROR(oflk_flow_init(context,
 					command_queue,
 					&self->priv->img_p,
 					&self->priv->img2_p,
@@ -492,7 +492,7 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 		 * able to access an "old" image and a "new" image in one cycle.
 		 */
 		tmp_buf = (cl_mem) ufo_buffer_get_device_array(image_buffer, command_queue);
-		CHECK_ERROR(clEnqueueCopyBufferToImage(command_queue,
+		CHECK_OPENCL_ERROR(clEnqueueCopyBufferToImage(command_queue,
 										tmp_buf,
 										i % 2 == 0 ? self->priv->new_image.image_mem :
 												self->priv->old_image.image_mem,
@@ -515,13 +515,13 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 										i % 2 == 0 ? &self->priv->new_image : &self->priv->old_image,
 										self->priv->downfilter_x_kernel,
 										self->priv->downfilter_y_kernel);
-			CHECK_ERROR(err_num);
+			CHECK_OPENCL_ERROR(err_num);
 
 			err_num = oflk_pyramid_fill(self->priv->img2_p,
 										i % 2 == 0 ? &self->priv->old_image : &self->priv->new_image,
 										self->priv->downfilter_x_kernel,
 										self->priv->downfilter_y_kernel);
-			CHECK_ERROR(err_num);
+			CHECK_OPENCL_ERROR(err_num);
 
 			err_num = oflk_pyramid_fill_derivative(self->priv->derivative_x_p,
 													self->priv->img_p,
@@ -529,7 +529,7 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 													self->priv->filter_1x3_kernel,
 													self->priv->dx_Wx,
 													self->priv->dx_Wy);
-			CHECK_ERROR(err_num);
+			CHECK_OPENCL_ERROR(err_num);
 
 			err_num = oflk_pyramid_fill_derivative(self->priv->derivative_y_p,
 													self->priv->img_p,
@@ -537,17 +537,17 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 													self->priv->filter_1x3_kernel,
 													self->priv->dy_Wx,
 													self->priv->dy_Wy);
-			CHECK_ERROR(err_num);
+			CHECK_OPENCL_ERROR(err_num);
 
 			err_num = oflk_pyramid_g_fill(self->priv->g_p,
 											self->priv->derivative_x_p,
 											self->priv->derivative_y_p,
 											self->priv->filter_g_kernel);
-			CHECK_ERROR(err_num);
+			CHECK_OPENCL_ERROR(err_num);
 			// end of optical flow preprocessing computation
 
 			// Optical flow Lucas Kanade computation
-			CHECK_ERROR(oflk_flow_calc_flow(self->priv->flow_levels,
+			CHECK_OPENCL_ERROR(oflk_flow_calc_flow(self->priv->flow_levels,
 								self->priv->lkflow_kernel,
 								command_queue,
 								self->priv->img_p,
@@ -564,7 +564,7 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
             cl_event event;
   			ufo_buffer_transfer_id(image_buffer, motion_vectors_buffer);
             cl_mem motion_mem = ufo_buffer_get_device_array(motion_vectors_buffer, command_queue);
-            CHECK_ERROR(clEnqueueCopyBuffer(command_queue,
+            CHECK_OPENCL_ERROR(clEnqueueCopyBuffer(command_queue,
                     self->priv->flow_levels[0].mem, motion_mem,
                     0, 0, num_bytes,
                     1, &flow_event, &event));
@@ -586,7 +586,7 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 	}
 
 	/* release memory used by OF */
-	CHECK_ERROR(oflk_flow_release(&self->priv->img_p,
+	CHECK_OPENCL_ERROR(oflk_flow_release(&self->priv->img_p,
 									&self->priv->img2_p,
 									&self->priv->derivative_x_p,
 									&self->priv->derivative_y_p,
@@ -594,9 +594,9 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 									self->priv->flow_levels));
 
 	/* release temporary memory */
-	CHECK_ERROR(clReleaseMemObject(self->priv->old_image.image_mem));
-	CHECK_ERROR(clReleaseMemObject(self->priv->new_image.image_mem));
-	CHECK_ERROR(clReleaseMemObject(tmp_buf));
+	CHECK_OPENCL_ERROR(clReleaseMemObject(self->priv->old_image.image_mem));
+	CHECK_OPENCL_ERROR(clReleaseMemObject(self->priv->new_image.image_mem));
+	CHECK_OPENCL_ERROR(clReleaseMemObject(tmp_buf));
 
 	printf(">>>>> Releasing output channel <<<<<\n");
 	/* Tell subsequent filters, that we are finished */

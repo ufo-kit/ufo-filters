@@ -126,17 +126,17 @@ static void ufo_filter_fft_process(UfoFilter *filter)
         /* Spread data for interleaved FFT */
         global_work_size[0] = priv->fft_size.x;
         global_work_size[1] = priv->fft_dimensions == clFFT_1D ? height : priv->fft_size.y;
-        CHECK_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &fft_buffer_mem));
-        CHECK_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &sinogram_mem));
-        CHECK_ERROR(clSetKernelArg(priv->kernel, 2, sizeof(int), &width));
-        CHECK_ERROR(clSetKernelArg(priv->kernel, 3, sizeof(int), &height));
-        CHECK_ERROR(clEnqueueNDRangeKernel(command_queue,
+        CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &fft_buffer_mem));
+        CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &sinogram_mem));
+        CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 2, sizeof(int), &width));
+        CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 3, sizeof(int), &height));
+        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue,
                 priv->kernel, 
                 2, NULL, global_work_size, NULL, 
                 0, NULL, &event));
         
         /* FIXME: we should wait for previous computations */
-        CHECK_ERROR(clWaitForEvents(1, &event));
+        CHECK_OPENCL_ERROR(clWaitForEvents(1, &event));
         if (priv->fft_dimensions == clFFT_1D)
             clFFT_ExecuteInterleaved(command_queue,
                 fft_plan, height, clFFT_Forward, 
@@ -150,7 +150,7 @@ static void ufo_filter_fft_process(UfoFilter *filter)
 
         /* XXX: FFT execution does _not_ return event */
         /*ufo_filter_account_gpu_time(filter, (void **) &event);*/
-        CHECK_ERROR(clFinish(command_queue));
+        CHECK_OPENCL_ERROR(clFinish(command_queue));
 
         ufo_buffer_transfer_id(input, fft_buffer);
 

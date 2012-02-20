@@ -149,7 +149,7 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
     errcode |= clSetKernelArg(kernel, 4, sizeof(cl_mem), (void *) &cos_mem);
     errcode |= clSetKernelArg(kernel, 5, sizeof(cl_mem), (void *) &sin_mem);
     errcode |= clSetKernelArg(kernel, 6, sizeof(cl_mem), (void *) &axes_mem);
-    CHECK_ERROR(errcode);
+    CHECK_OPENCL_ERROR(errcode);
 
     size_t global_work_size[2] = { width, width };
 
@@ -163,7 +163,7 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
         if (priv->use_texture) {
             size_t dest_origin[3] = { 0, 0, 0 };
             size_t dest_region[3] = { width, num_projections, 1 };
-            CHECK_ERROR(clEnqueueCopyBufferToImage(command_queue,
+            CHECK_OPENCL_ERROR(clEnqueueCopyBufferToImage(command_queue,
                     sinogram_mem, texture, 0, dest_origin, dest_region,
                     0, NULL, &event));
             errcode |= clSetKernelArg(kernel, 7, sizeof(cl_mem), (void *) &texture);
@@ -172,9 +172,9 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
             errcode |= clSetKernelArg(kernel, 7, sizeof(cl_mem), (void *) &sinogram_mem);
 
         errcode |= clSetKernelArg(kernel, 8, sizeof(cl_mem), (void *) &slice_mem);
-        CHECK_ERROR(errcode);
+        CHECK_OPENCL_ERROR(errcode);
 
-        CHECK_ERROR(clEnqueueNDRangeKernel(command_queue, kernel,
+        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue, kernel,
                 2, NULL, global_work_size, NULL,
                 0, NULL, &event));
 
@@ -189,9 +189,9 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
     if (priv->use_texture)
         clReleaseMemObject(texture);
 
-    CHECK_ERROR(clReleaseMemObject(cos_mem));
-    CHECK_ERROR(clReleaseMemObject(sin_mem));
-    CHECK_ERROR(clReleaseMemObject(axes_mem));
+    CHECK_OPENCL_ERROR(clReleaseMemObject(cos_mem));
+    CHECK_OPENCL_ERROR(clReleaseMemObject(sin_mem));
+    CHECK_OPENCL_ERROR(clReleaseMemObject(axes_mem));
 
     ufo_channel_finish(output_channel);
     g_free(dimensions);

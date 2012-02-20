@@ -74,11 +74,11 @@ static void process_regular(UfoFilter *self,
         cl_mem frame_mem = (cl_mem) ufo_buffer_get_device_array(input, command_queue);
         cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(output, command_queue);
 
-        CHECK_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &frame_mem));
-        CHECK_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &result_mem));
-        CHECK_ERROR(clSetKernelArg(kernel, 2, sizeof(float)*16*16, NULL));
+        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &frame_mem));
+        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &result_mem));
+        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 2, sizeof(float)*16*16, NULL));
 
-        CHECK_ERROR(clEnqueueNDRangeKernel(command_queue,
+        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue,
             kernel,
             2, NULL, global_work_size, NULL,
             0, NULL, &event));
@@ -123,12 +123,12 @@ static void process_combine(UfoFilter *self,
         cl_mem b_mem = (cl_mem) ufo_buffer_get_device_array(b, command_queue);
         cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(output, command_queue);
 
-        CHECK_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &a_mem));
-        CHECK_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &b_mem));
-        CHECK_ERROR(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &result_mem));
-        CHECK_ERROR(clSetKernelArg(kernel, 3, sizeof(float)*local_work_size[0]*local_work_size[1], NULL));
+        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &a_mem));
+        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &b_mem));
+        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &result_mem));
+        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 3, sizeof(float)*local_work_size[0]*local_work_size[1], NULL));
 
-        CHECK_ERROR(clEnqueueNDRangeKernel(command_queue,
+        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue,
             kernel,
             2, NULL, global_work_size, NULL,
             0, NULL, &event));

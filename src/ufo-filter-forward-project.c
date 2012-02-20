@@ -75,8 +75,8 @@ static void ufo_filter_forward_project_process(UfoFilter *filter)
                                    CL_MEM_READ_ONLY, &image_format, dim_size[0], dim_size[1],
                                    0, NULL, &errcode);
 
-    CHECK_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &slice));
-    CHECK_ERROR(clSetKernelArg(kernel, 2, sizeof(float), &priv->angle_step));
+    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &slice));
+    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 2, sizeof(float), &priv->angle_step));
 
     const gsize src_origin[3] = { 0, 0, 0 };
     const gsize region[3] = { dim_size[0], dim_size[1], 1 };
@@ -87,15 +87,15 @@ static void ufo_filter_forward_project_process(UfoFilter *filter)
 
     while (input != NULL) {
         cl_mem input_mem = (cl_mem) ufo_buffer_get_device_array(input, command_queue);
-        CHECK_ERROR(clEnqueueCopyBufferToImage(command_queue,
+        CHECK_OPENCL_ERROR(clEnqueueCopyBufferToImage(command_queue,
                                                input_mem, slice,
                                                0, src_origin, region,
                                                0, NULL, NULL));
 
         output = ufo_channel_get_output_buffer(output_channel);
         cl_mem output_mem = (cl_mem) ufo_buffer_get_device_array(output, command_queue);
-        CHECK_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &output_mem));
-        CHECK_ERROR(clEnqueueNDRangeKernel(command_queue, kernel,
+        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &output_mem));
+        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue, kernel,
                                            2, NULL, global_work_size, NULL,
                                            0, NULL, NULL));
 

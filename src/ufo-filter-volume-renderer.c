@@ -98,12 +98,12 @@ static void ufo_filter_volume_renderer_process(UfoFilter *filter)
             &volume_format,
             width, height, slices,
             0, 0, input, &error); 
-    CHECK_ERROR(error);
+    CHECK_OPENCL_ERROR(error);
 
     cl_mem view_mem = clCreateBuffer(context,
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 
             4 * 4 * sizeof(float), view_matrix, &error);
-    CHECK_ERROR(error);
+    CHECK_OPENCL_ERROR(error);
 
     cl_kernel kernel = priv->kernel;
     gfloat step_size = 0.003;
@@ -121,45 +121,45 @@ static void ufo_filter_volume_renderer_process(UfoFilter *filter)
     error |= clSetKernelArg(kernel, 6, sizeof(gfloat), &linear_ramp_slope);
     error |= clSetKernelArg(kernel, 7, sizeof(gfloat), &linear_ramp_constant);
     error |= clSetKernelArg(kernel, 8, sizeof(gfloat), &threshold);
-    CHECK_ERROR(error);
+    CHECK_OPENCL_ERROR(error);
 
     const size_t global_work_size[] = { 512, 512 };
     const guint dimensions[2] = { 512, 512 };
     ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
     gfloat angle = 0.0f;
 
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < 256; i++) {
         output = ufo_channel_get_output_buffer(output_channel);
         cl_mem output_mem = ufo_buffer_get_device_array(output, command_queue);
 
         error = clSetKernelArg(kernel, 1, sizeof(cl_mem), &output_mem);
-        CHECK_ERROR(error);
+        CHECK_OPENCL_ERROR(error);
 
         /* TODO: manage copy event so that we don't have to block here */
-        CHECK_ERROR(clEnqueueWriteBuffer(command_queue,
+        CHECK_OPENCL_ERROR(clEnqueueWriteBuffer(command_queue,
                     view_mem, CL_TRUE,
                     0, 4 * 4 * sizeof(float), view_matrix,
                     0, NULL, NULL));
 
-        CHECK_ERROR(clEnqueueNDRangeKernel(command_queue, kernel,
+        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue, kernel,
                     2, NULL, global_work_size, NULL,
                     0, NULL, NULL));
 
         ufo_channel_finalize_output_buffer(output_channel, output);
 
         /* rotate around the x-axis for now */
-        gfloat cos_angle = cos(angle);
-        gfloat sin_angle = sin(angle);
-        view_matrix[1][1] = cos_angle;
-        view_matrix[1][2] = -sin_angle;
-        view_matrix[2][1] = sin_angle;
+        const gfloat cos_angle = cos(angle);
+        const gfloat sin_angle = sin(angle);
+        view_matrix[0][0] = cos_angle;
+        view_matrix[0][2] = -sin_angle;
+        view_matrix[2][0] = sin_angle;
         view_matrix[2][2] = cos_angle;
 
         angle += 0.01f;
     }
 
-    clReleaseMemObject(volume_mem); 
-    clReleaseMemObject(view_mem);
+    CHECK_OPENCL_ERROR(clReleaseMemObject(volume_mem)); 
+    CHECK_OPENCL_ERROR(clReleaseMemObject(view_mem));
     ufo_channel_finish(output_channel);
     g_free(input);
 }

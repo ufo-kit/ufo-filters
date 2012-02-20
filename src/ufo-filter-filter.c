@@ -149,7 +149,7 @@ static void ufo_filter_filter_process(UfoFilter *filter)
         clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &freq_in_mem);
         clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &freq_out_mem);
         clSetKernelArg(priv->kernel, 2, sizeof(cl_mem), (void *) &filter_mem);
-        CHECK_ERROR(clEnqueueNDRangeKernel(command_queue,
+        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue,
                 priv->kernel, 
                 2, NULL, global_work_size, NULL, 
                 0, NULL, &event));

@@ -93,13 +93,13 @@ static void ufo_filter_interpolator_process(UfoFilter *filter)
         UfoBuffer *result = ufo_channel_get_output_buffer(output_channel);
         cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(result, command_queue);
 
-        CHECK_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &a_mem));
-        CHECK_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &b_mem));
-        CHECK_ERROR(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &result_mem));
-        CHECK_ERROR(clSetKernelArg(kernel, 3, sizeof(cl_int), &i));
-        CHECK_ERROR(clSetKernelArg(kernel, 4, sizeof(cl_int), &priv->num_steps))
+        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &a_mem));
+        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &b_mem));
+        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &result_mem));
+        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 3, sizeof(cl_int), &i));
+        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 4, sizeof(cl_int), &priv->num_steps))
 
-        CHECK_ERROR(clEnqueueNDRangeKernel(command_queue,
+        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue,
             priv->kernel,
             2, NULL, global_work_size, NULL,
             0, NULL, &event));

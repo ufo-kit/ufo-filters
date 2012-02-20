@@ -106,16 +106,16 @@ static void ufo_filter_meta_balls_process(UfoFilter *filter)
     cl_mem positions_mem = clCreateBuffer(context, 
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 
             num_position_bytes, positions, &error);
-    CHECK_ERROR(error);
+    CHECK_OPENCL_ERROR(error);
 
     cl_mem sizes_mem = clCreateBuffer(context,
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
             num_sizes_bytes, sizes, &error);
-    CHECK_ERROR(error);
+    CHECK_OPENCL_ERROR(error);
 
-    CHECK_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &positions_mem));
-    CHECK_ERROR(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &sizes_mem));
-    CHECK_ERROR(clSetKernelArg(kernel, 3, sizeof(cl_uint), &priv->num_balls));
+    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &positions_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &sizes_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 3, sizeof(cl_uint), &priv->num_balls));
 
     GTimer *timer = g_timer_new();
     const gdouble seconds_per_frame = 1.0 / ((gdouble) priv->frames_per_second);
@@ -125,9 +125,9 @@ static void ufo_filter_meta_balls_process(UfoFilter *filter)
         g_timer_start(timer);
         output = ufo_channel_get_output_buffer(output_channel);
         cl_mem output_mem = (cl_mem) ufo_buffer_get_device_array(output, command_queue);
-        CHECK_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &output_mem));
+        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &output_mem));
 
-        CHECK_ERROR(clEnqueueNDRangeKernel(command_queue, kernel,
+        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue, kernel,
                 2, NULL, global_work_size, NULL,
                 0, NULL, NULL));
 
@@ -146,7 +146,7 @@ static void ufo_filter_meta_balls_process(UfoFilter *filter)
                 velocities[y] = -velocities[y];
         }
 
-        CHECK_ERROR(clEnqueueWriteBuffer(command_queue,
+        CHECK_OPENCL_ERROR(clEnqueueWriteBuffer(command_queue,
                 positions_mem, CL_FALSE, 
                 0, num_position_bytes, positions, 
                 0, NULL, NULL));
