@@ -44,6 +44,8 @@ set(ufofilter_LIBS
     ${GOBJECT2_LIBRARIES}
     )
 
+link_directories(${UFO_LIBRARY_DIRS})
+
 
 # --- Add filters that depend on other libraries ------------------------------
 find_package(TIFF)
