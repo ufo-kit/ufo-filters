@@ -49,7 +49,7 @@ pkg_check_modules(UCA uca)
 pkg_check_modules(OPENCV opencv)
 
 if (UCA_INCLUDE_DIRS AND UCA_LIBRARIES)
-    set(ufofilter_SRCS ${ufofilter_SRCS} ufo-filter-uca.c)
+    set(ufofilter_SRCS ${ufofilter_SRCS} ufo-filter-cam-access.c)
     set(ufofilter_LIBS ${ufofilter_LIBS} ${UCA_LIBRARIES})
     include_directories(${UCA_INCLUDE_DIRS})
 endif ()
