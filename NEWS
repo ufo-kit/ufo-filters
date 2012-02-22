@@ -1,0 +1,5 @@
+Changes from ufo-filters 0.1.0 to 0.1.1
+---------------------------------------
+
+- Fix mux-filter
+- Renamed ufo-filter-uca.* to uca-filter-cam-access.* 
