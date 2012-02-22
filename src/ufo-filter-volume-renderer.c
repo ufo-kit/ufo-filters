@@ -22,7 +22,8 @@
 
 struct _UfoFilterVolumeRendererPrivate {
     cl_kernel kernel;
-    float example;
+    guint width;
+    guint height;
 };
 
 GType ufo_filter_volume_renderer_get_type(void) G_GNUC_CONST;
@@ -33,6 +34,8 @@ G_DEFINE_TYPE(UfoFilterVolumeRenderer, ufo_filter_volume_renderer, UFO_TYPE_FILT
 
 enum {
     PROP_0,
+    PROP_WIDTH,
+    PROP_HEIGHT,
     N_PROPERTIES
 };
 
@@ -89,7 +92,7 @@ static void ufo_filter_volume_renderer_process(UfoFilter *filter)
         { 1.0, 0.0, 0.0, 0.0 },
         { 0.0, 1.0, 0.0, 0.0 },
         { 0.0, 0.0, 1.0, 0.0 },
-        { 0.0, 0.0, 0.0, 1.0 }
+        { 0.5, 0.0, 0.5, 1.0 }
     };
 
     cl_int error = CL_SUCCESS;
@@ -123,8 +126,8 @@ static void ufo_filter_volume_renderer_process(UfoFilter *filter)
     error |= clSetKernelArg(kernel, 8, sizeof(gfloat), &threshold);
     CHECK_OPENCL_ERROR(error);
 
-    const size_t global_work_size[] = { 512, 512 };
-    const guint dimensions[2] = { 512, 512 };
+    const size_t global_work_size[] = { priv->width, priv->height };
+    const guint dimensions[2] = { priv->width, priv->height };
     ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
     gfloat angle = 0.0f;
 
@@ -151,11 +154,11 @@ static void ufo_filter_volume_renderer_process(UfoFilter *filter)
         const gfloat cos_angle = cos(angle);
         const gfloat sin_angle = sin(angle);
         view_matrix[0][0] = cos_angle;
-        view_matrix[0][2] = -sin_angle;
-        view_matrix[2][0] = sin_angle;
+        view_matrix[0][2] = sin_angle;
+        view_matrix[2][0] = -sin_angle;
         view_matrix[2][2] = cos_angle;
 
-        angle += 0.01f;
+        angle += 0.05f;
     }
 
     CHECK_OPENCL_ERROR(clReleaseMemObject(volume_mem)); 
@@ -169,7 +172,15 @@ static void ufo_filter_volume_renderer_set_property(GObject *object,
     const GValue    *value,
     GParamSpec      *pspec)
 {
+    UfoFilterVolumeRendererPrivate *priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(object);
+
     switch (property_id) {
+        case PROP_WIDTH:
+            priv->width = g_value_get_uint(value);
+            break;
+        case PROP_HEIGHT:
+            priv->height = g_value_get_uint(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
@@ -181,7 +192,15 @@ static void ufo_filter_volume_renderer_get_property(GObject *object,
     GValue      *value,
     GParamSpec  *pspec)
 {
+    UfoFilterVolumeRendererPrivate *priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(object);
+
     switch (property_id) {
+        case PROP_WIDTH:
+            g_value_set_uint(value, priv->width);
+            break;
+        case PROP_HEIGHT:
+            g_value_set_uint(value, priv->height);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
@@ -198,12 +217,31 @@ static void ufo_filter_volume_renderer_class_init(UfoFilterVolumeRendererClass *
     filter_class->initialize = ufo_filter_volume_renderer_initialize;
     filter_class->process = ufo_filter_volume_renderer_process;
 
+    volume_renderer_properties[PROP_WIDTH] = 
+        g_param_spec_uint("width",
+            "Width",
+            "Width of the output image",
+            1, 8192, 512,
+            G_PARAM_READWRITE);
+
+    volume_renderer_properties[PROP_HEIGHT] = 
+        g_param_spec_uint("height",
+            "Height",
+            "Height of the output image",
+            1, 8192, 512,
+            G_PARAM_READWRITE);
+
+    g_object_class_install_property(gobject_class, PROP_WIDTH, volume_renderer_properties[PROP_WIDTH]);
+    g_object_class_install_property(gobject_class, PROP_HEIGHT, volume_renderer_properties[PROP_HEIGHT]);
+
     g_type_class_add_private(gobject_class, sizeof(UfoFilterVolumeRendererPrivate));
 }
 
 static void ufo_filter_volume_renderer_init(UfoFilterVolumeRenderer *self)
 {
-    UfoFilterVolumeRendererPrivate *priv = self->priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(self);
+    self->priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(self);
+    self->priv->width = 512;
+    self->priv->height = 512;
 
     ufo_filter_register_output(UFO_FILTER(self), "output", 2);
 }
