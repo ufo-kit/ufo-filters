@@ -18,6 +18,7 @@ set(ufofilter_SRCS
     ufo-filter-normalize.c
     ufo-filter-null.c
     ufo-filter-pipe-output.c
+    ufo-filter-region-of-interest.c
     ufo-filter-sino-generator.c
     ufo-filter-optical-flow-lucas-kanade.c
     ufo-filter-volume-renderer.c
