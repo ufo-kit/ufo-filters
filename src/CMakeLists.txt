@@ -5,6 +5,7 @@ set(ufofilter_SRCS
     ufo-filter-arg-max.c
     ufo-filter-averager.c
     ufo-filter-backproject.c
+    ufo-filter-buffer-input.c
     ufo-filter-forward-project.c
     ufo-filter-center-of-rotation.c
     ufo-filter-cl.c
