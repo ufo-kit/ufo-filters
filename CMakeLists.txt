@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.6)
-project(ufo)
+project(ufo C)
 
 set(TARNAME "ufo-filters")
 set(UFO_FILTERS_VERSION_MAJOR "0")
