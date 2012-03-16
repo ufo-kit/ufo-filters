@@ -102,6 +102,8 @@ static void ufo_filter_averager_class_init(UfoFilterAveragerClass *klass)
 
 static void ufo_filter_averager_init(UfoFilterAverager *self)
 {
+    ufo_filter_register_input(UFO_FILTER(self), "input", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "averaged", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
