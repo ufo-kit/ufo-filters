@@ -70,8 +70,8 @@ static void ufo_filter_sino_generator_process(UfoFilter *filter)
     /* First step: collect all projections and build sinograms */
     while ((projection < priv->num_projections) || (input != NULL)) {
         float *src = ufo_buffer_get_host_array(input, command_queue);
-        int proj_index = 0;
-        int sino_index = (projection - 1) * row_mem_offset;
+        guint proj_index = 0;
+        guint sino_index = (projection - 1) * row_mem_offset;
 
         for (int i = 0; i < num_sinos; i++) {
             memcpy(sinograms + sino_index, src + proj_index, sizeof(float) * row_mem_offset);
