@@ -83,9 +83,8 @@ static void ufo_filter_region_of_interest_process(UfoFilter *filter)
         gfloat *out_data = ufo_buffer_get_host_array(output, cmd_queue);
 
         for (guint y = 0; y < rd_height; y++) {
-            /* g_memmove(out_data + y*priv->width, in_data + (y + y1)*in_width + x1, rd_width); */
-            for (guint x = 0; x < rd_width; x++)
-                out_data[y*priv->width + x] = in_data[(y + y1)*in_width + x + x1];
+            g_memmove(out_data + y*priv->width, in_data + (y + y1)*in_width + x1, 
+                    rd_width * sizeof(gfloat));
         }
 
         ufo_channel_finalize_input_buffer(input_channel, input);
