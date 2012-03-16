@@ -1,5 +1,10 @@
 #include <gmodule.h>
 #include <uca/uca.h>
+#ifdef __APPLE__
+#include <OpenCL/cl.h>
+#else
+#include <CL/cl.h>
+#endif
 
 #include <ufo/ufo-filter.h>
 #include <ufo/ufo-buffer.h>
