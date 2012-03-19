@@ -23,9 +23,7 @@ struct _UfoFilterCopyPrivate {
     guint num_outputs;
 };
 
-GType ufo_filter_copy_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterCopy, ufo_filter_copy, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterCopy, ufo_filter_copy, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_COPY_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_COPY, UfoFilterCopyPrivate))
 
@@ -66,7 +64,7 @@ static void ufo_filter_copy_process(UfoFilter *filter)
     }
 
     while (input != NULL) {
-        for (int i = 0; i < priv->num_outputs; i++) {
+        for (guint i = 0; i < priv->num_outputs; i++) {
             UfoBuffer *output = ufo_channel_get_output_buffer(output_channels[i]);
             ufo_buffer_copy(input, output, command_queue);
             ufo_channel_finalize_output_buffer(output_channels[i], output);
@@ -92,7 +90,7 @@ static void ufo_filter_copy_set_property(GObject *object,
 
     switch (property_id) {
         case PROP_OUTPUTS:
-            priv->num_outputs = g_value_get_int(value);
+            priv->num_outputs = g_value_get_uint(value);
             /* FIXME: Output must depend on input type! */
             for (guint i = 0; i < priv->num_outputs; i++) {
                 g_snprintf(output_name, 256, "output%i", i); 
@@ -114,7 +112,7 @@ static void ufo_filter_copy_get_property(GObject *object,
 
     switch (property_id) {
         case PROP_OUTPUTS:
-            g_value_set_int(value, self->priv->num_outputs);
+            g_value_set_uint(value, self->priv->num_outputs);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -133,7 +131,7 @@ static void ufo_filter_copy_class_init(UfoFilterCopyClass *klass)
     filter_class->process = ufo_filter_copy_process;
 
     copy_properties[PROP_OUTPUTS] = 
-        g_param_spec_int("outputs",
+        g_param_spec_uint("outputs",
             "Number of outputs",
             "This filter copies the input to output channels \"output 1\" to \"output [outputs]\"",
             1, 1024, 2,

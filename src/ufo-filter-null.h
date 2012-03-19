@@ -34,5 +34,6 @@ struct _UfoFilterNullClass {
 };
 
 GType ufo_filter_null_get_type(void);
+UfoFilter *ufo_filter_plugin_new(void);
 
 #endif

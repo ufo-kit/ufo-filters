@@ -35,5 +35,6 @@ struct _UfoFilterArgMaxClass {
 
 
 GType ufo_filter_arg_max_get_type(void);
+UfoFilter *ufo_filter_plugin_new(void);
 
 #endif

@@ -26,9 +26,7 @@ struct _UfoFilterForwardProjectPrivate {
     guint num_projections;
 };
 
-GType ufo_filter_forward_project_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterForwardProject, ufo_filter_forward_project, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterForwardProject, ufo_filter_forward_project, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_FORWARD_PROJECT, UfoFilterForwardProjectPrivate))
 
@@ -162,7 +160,9 @@ static void ufo_filter_forward_project_class_init(UfoFilterForwardProjectClass *
         g_param_spec_float("angle-step",
                            "Increment of angle in radians",
                            "Increment of angle in radians",
-                           -4.0f * G_PI, +4.0f * G_PI, 0.0f,
+                           -4.0f * ((gfloat) G_PI), 
+                           +4.0f * ((gfloat) G_PI), 
+                           0.0f,
                            G_PARAM_READWRITE);
 
     forward_project_properties[PROP_NUM_PROJECTIONS] =

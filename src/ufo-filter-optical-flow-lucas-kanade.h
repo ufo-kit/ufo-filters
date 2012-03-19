@@ -34,5 +34,6 @@ struct _UfoFilterOpticalFlowLucasKanadeClass {
 };
 
 GType ufo_filter_optical_flow_lucas_kanade_get_type(void);
+UfoFilter *ufo_filter_plugin_new(void);
 
 #endif

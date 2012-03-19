@@ -18,18 +18,16 @@
  * @Title: filter
  */
 
-typedef float* (*filter_setup_func)(UfoFilterFilterPrivate *priv, guint32 width);
+typedef float* (*filter_setup_func)(UfoFilterFilterPrivate *priv, guint width);
 
 struct _UfoFilterFilterPrivate {
     cl_kernel kernel;
     filter_setup_func filter_setup;
-    float bw_cutoff;
-    int bw_order;
+    gfloat bw_cutoff;
+    gfloat bw_order;
 };
 
-GType ufo_filter_filter_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterFilter, ufo_filter_filter, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterFilter, ufo_filter_filter, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_FILTER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_FILTER, UfoFilterFilterPrivate))
 
@@ -43,23 +41,38 @@ enum {
 
 static GParamSpec *filter_properties[N_PROPERTIES] = { NULL, };
 
-static void mirror_coefficients(float *filter, int width)
+static void mirror_coefficients(float *filter, guint width)
 {
-    for (int k = width/2; k < width; k += 2) {
+    for (guint k = width/2; k < width; k += 2) {
         filter[k] = filter[width - k];
         filter[k + 1] = filter[width - k + 1];
     }
 }
 
-static float *setup_pyhst_ramp(UfoFilterFilterPrivate *priv, guint32 width)
-{
-    float *filter = g_malloc0(width * sizeof(float));
-    const float scale = 2.0 / width / width;
-    filter[0] = 0.0;
-    filter[1] = 1.0 / width;
+/* static float *setup_pyhst_ramp(UfoFilterFilterPrivate *priv, guint width) */
+/* { */
+/*     gfloat *filter = g_malloc0(width * sizeof(float)); */
+/*     const gfloat f_width = (float) width; */
+/*     const gfloat scale = 2.0f / f_width / f_width; */
+/*     filter[0] = 0.0f; */
+/*     filter[1] = 1.0f / f_width; */
 
-    for (int k = 1; k < width / 4; k++) {
-        filter[2*k] = k*scale;
+/*     for (guint k = 1; k < width / 4; k++) { */
+/*         filter[2*k] = ((gfloat) k) * scale; */
+/*         filter[2*k + 1] = filter[2*k]; */
+/*     } */
+
+/*     mirror_coefficients(filter, width); */
+/*     return filter; */
+/* } */
+
+static float *setup_ramp(UfoFilterFilterPrivate *priv, guint width)
+{
+    gfloat *filter = g_malloc0(width * sizeof(float));
+    gfloat scale = 0.5f / ((gfloat) width) / 2.0f;
+
+    for (guint k = 1; k < width / 4; k++) {
+        filter[2*k] = ((gfloat) k) * scale;
         filter[2*k + 1] = filter[2*k];
     }
 
@@ -67,28 +80,14 @@ static float *setup_pyhst_ramp(UfoFilterFilterPrivate *priv, guint32 width)
     return filter;
 }
 
-static float *setup_ramp(UfoFilterFilterPrivate *priv, guint32 width)
+static float *setup_butterworth(UfoFilterFilterPrivate *priv, guint width)
 {
-    float *filter = g_malloc0(width * sizeof(float));
-    float scale = 0.5 / width / 2.;
+    gfloat *filter = g_malloc0(width * sizeof(float));
+    guint n_samples = width / 4; /* because width = n_samples * complex_parts * 2 */
 
-    for (int i = 0; i < width / 4; i++) {
-        filter[2*i] = i * scale;
-        filter[2*i+1] = i * scale;
-    }
-
-    mirror_coefficients(filter, width);
-    return filter;
-}
-
-static float *setup_butterworth(UfoFilterFilterPrivate *priv, guint32 width)
-{
-    float *filter = g_malloc0(width * sizeof(float));
-    int n_samples = width / 4; /* because width = n_samples * complex_parts * 2 */
-
-    for (int i = 0; i < n_samples; i++) {
-        float coefficient = i / ((float) n_samples); 
-        filter[2*i] = coefficient * 1.0 / (1.0 + pow(coefficient / priv->bw_cutoff, 2.0 * priv->bw_order));
+    for (guint i = 0; i < n_samples; i++) {
+        gfloat coefficient = ((gfloat) i) / ((float) n_samples); 
+        filter[2*i] = coefficient * 1.0f / (1.0f + ((gfloat) pow(coefficient / priv->bw_cutoff, 2.0f * priv->bw_order)));
         filter[2*i+1] = filter[2*i];
     }
 
@@ -183,10 +182,10 @@ static void ufo_filter_filter_set_property(GObject *object,
             }
             break;
         case PROP_BW_CUTOFF:
-            priv->bw_cutoff = (float) g_value_get_float(value);
+            priv->bw_cutoff = g_value_get_float(value);
             break;
         case PROP_BW_ORDER:
-            priv->bw_order = (float) g_value_get_int(value);
+            priv->bw_order = g_value_get_float(value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -211,7 +210,7 @@ static void ufo_filter_filter_get_property(GObject *object,
             g_value_set_float(value, priv->bw_cutoff);
             break;
         case PROP_BW_ORDER:
-            g_value_set_int(value, priv->bw_order);
+            g_value_set_float(value, priv->bw_order);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -240,14 +239,14 @@ static void ufo_filter_filter_class_init(UfoFilterFilterClass *klass)
         g_param_spec_float("bw-cutoff",
             "Relative cutoff frequency",
             "Relative cutoff frequency of the Butterworth filter",
-            0.0, 1.0, 0.5,
+            0.0f, 1.0f, 0.5f,
             G_PARAM_READWRITE);
 
     filter_properties[PROP_BW_ORDER] = 
-        g_param_spec_int("bw-order",
+        g_param_spec_float("bw-order",
             "Order of the Butterworth filter",
             "Order of the Butterworth filter",
-            2, 32, 4,
+            2.0f, 32.0f, 4.0f,
             G_PARAM_READWRITE);
 
     g_object_class_install_property(gobject_class, PROP_FILTER_TYPE, filter_properties[PROP_FILTER_TYPE]);
@@ -263,7 +262,7 @@ static void ufo_filter_filter_init(UfoFilterFilter *self)
     priv->kernel = NULL;
     priv->filter_setup = &setup_ramp;
     priv->bw_cutoff = 0.5f;
-    priv->bw_order = 4;
+    priv->bw_order = 4.0f;
 
     ufo_filter_register_input(UFO_FILTER(self), "freqs", 2);
     ufo_filter_register_output(UFO_FILTER(self), "freqs", 2);

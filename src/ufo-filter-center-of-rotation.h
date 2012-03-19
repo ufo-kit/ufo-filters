@@ -34,5 +34,6 @@ struct _UfoFilterCenterOfRotationClass {
 };
 
 GType ufo_filter_center_of_rotation_get_type(void);
+UfoFilter *ufo_filter_plugin_new(void);
 
 #endif

@@ -26,9 +26,7 @@ struct _UfoFilterCenterOfRotationPrivate {
     gdouble center;
 };
 
-GType ufo_filter_center_of_rotation_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterCenterOfRotation, ufo_filter_center_of_rotation, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterCenterOfRotation, ufo_filter_center_of_rotation, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_CENTER_OF_ROTATION_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_CENTER_OF_ROTATION, UfoFilterCenterOfRotationPrivate))
 
@@ -54,33 +52,34 @@ static void center_of_rotation_sinograms(UfoFilter *filter)
     while (sinogram != NULL) {
         ufo_buffer_get_2d_dimensions(sinogram, &width, &height);
 
-        float *proj_0 = ufo_buffer_get_host_array(sinogram, command_queue);
-        float *proj_180 = proj_0 + (height-1) * width;
+        gfloat *proj_0 = ufo_buffer_get_host_array(sinogram, command_queue);
+        gfloat *proj_180 = proj_0 + (height-1) * width;
 
-        const gint max_displacement = width / 2;
-        const gsize N = max_displacement * 2 - 1;
-        float *scores = g_malloc0(N * sizeof(float));
+        const guint max_displacement = width / 2;
+        const guint N = max_displacement * 2 - 1;
+        gfloat *scores = g_malloc0(N * sizeof(float));
 
-        for (int displacement = (-max_displacement + 1); displacement < 0; displacement++) {
-            const int index = displacement + max_displacement - 1;
-            for (int x = 0; x < width-ABS(displacement); x++) {
-                float diff = proj_0[x] - proj_180[(width-ABS(displacement) - x + 1)];    
+        for (gint displacement = (-((gint) max_displacement) + 1); displacement < 0; displacement++) {
+            const guint index = (guint) displacement + max_displacement - 1;
+            const guint max_x = width - ((guint) ABS(displacement));
+            for (guint x = 0; x < max_x; x++) {
+                gfloat diff = proj_0[x] - proj_180[(max_x - x + 1)];    
                 scores[index] += diff * diff;
             }
         }
 
-        for (int displacement = 0; displacement < max_displacement; displacement++) {
-            const int index = displacement + max_displacement - 1; 
-            for (int x = 0; x < width-displacement; x++) {
-                float diff = proj_0[x+displacement] - proj_180[(width-x+1)];    
+        for (guint displacement = 0; displacement < max_displacement; displacement++) {
+            const guint index = displacement + max_displacement - 1; 
+            for (guint x = 0; x < width-displacement; x++) {
+                gfloat diff = proj_0[x+displacement] - proj_180[(width-x+1)];    
                 scores[index] += diff * diff;
             }
         }
         
-        int score_index = 0;
-        float min_score = scores[0];
+        guint score_index = 0;
+        gfloat min_score = scores[0];
 
-        for (int i = 1; i < N; i++) {
+        for (guint i = 1; i < N; i++) {
             if (scores[i] < min_score) {
                 score_index = i;
                 min_score = scores[i];
@@ -112,7 +111,7 @@ static void center_of_rotation_projections(UfoFilter *filter)
     ufo_channel_finalize_input_buffer(input_channel, input);
     input = ufo_channel_get_input_buffer(input_channel);
     while (input != NULL) {
-        if (ABS((counter++ * priv->angle_step) - 180.0f) < 0.001f) {
+        if (ABS((((gfloat) counter++) * priv->angle_step) - 180.0f) < 0.001f) {
             proj_180 = ufo_buffer_get_host_array(input, command_queue); 
             break;
         }
@@ -126,37 +125,40 @@ static void center_of_rotation_projections(UfoFilter *filter)
     /* We have basically two parameters for tuning the performance: decreasing
      * max_displacement and not considering the whole images but just some of
      * the lines */
-    const gint max_displacement = width / 2;
-    const gsize N = max_displacement * 2 - 1;
-    float *scores = g_malloc0(N * sizeof(float));
-    float *grad = g_malloc0(N * sizeof(float));
+    const guint max_displacement = width / 2;
+    const guint N = max_displacement * 2 - 1;
+    gfloat *scores = g_malloc0(N * sizeof(gfloat));
+    gfloat *grad = g_malloc0(N * sizeof(gfloat));
 
-    for (int displacement = (-max_displacement + 1); displacement < 0; displacement++) {
-        const int index = displacement + max_displacement - 1;
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width-ABS(displacement); x++) {
-                float diff = proj_0[y*width+x] - proj_180[y*width + (width-ABS(displacement) - x + 1)];    
+    for (gint displacement = (-((gint) max_displacement) + 1); displacement < 0; displacement++) {
+        const guint index = (guint) displacement + max_displacement - 1;
+        for (guint y = 0; y < height; y++) {
+            const guint max_x = width - ((guint) ABS(displacement));
+            for (guint x = 0; x < max_x; x++) {
+                gfloat diff = proj_0[y*width+x] - proj_180[y*width + (max_x - x + 1)];    
                 scores[index] += diff * diff;
             }
         }
     }
 
-    for (int displacement = 0; displacement < max_displacement; displacement++) {
-        const int index = displacement + max_displacement - 1; 
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width-displacement; x++) {
-                float diff = proj_0[y*width+x+displacement] - proj_180[y*width + (width-x+1)];    
+    for (guint displacement = 0; displacement < max_displacement; displacement++) {
+        const guint index = displacement + max_displacement - 1; 
+        for (guint y = 0; y < height; y++) {
+            for (guint x = 0; x < width-displacement; x++) {
+                gfloat diff = proj_0[y*width+x+displacement] - proj_180[y*width + (width-x+1)];    
                 scores[index] += diff * diff;
             }
         }
     }
+
     grad[0] = 0.0;
-    for (int i = 1; i < N; i++)
+
+    for (guint i = 1; i < N; i++)
         grad[i] = scores[i] - scores[i-1];
 
     /* Find local minima. Actually, if max_displacement is not to large (like
      * width/2) the global maximum is always the correct maximum. */
-    for (int i = 1; i < N; i++) {
+    for (guint i = 1; i < N; i++) {
         if (grad[i-1] < 0.0 && grad[i] > 0.0) {
             priv->center = (width + i - max_displacement + 1) / 2.0;
             g_debug("Local minimum at %f: %f", priv->center, scores[i]);
@@ -204,7 +206,7 @@ static void ufo_filter_center_of_rotation_set_property(GObject *object,
 
     switch (property_id) {
         case PROP_ANGLE_STEP:
-            priv->angle_step = g_value_get_double(value);
+            priv->angle_step = g_value_get_float(value);
             break;
         case PROP_USE_SINOGRAMS:
             priv->use_sinograms = g_value_get_boolean(value);
@@ -224,7 +226,7 @@ static void ufo_filter_center_of_rotation_get_property(GObject *object,
 
     switch (property_id) {
         case PROP_ANGLE_STEP:
-            g_value_set_double(value, priv->angle_step);
+            g_value_set_float(value, priv->angle_step);
             break;
         case PROP_USE_SINOGRAMS:
             g_value_set_boolean(value, priv->use_sinograms);
@@ -249,10 +251,10 @@ static void ufo_filter_center_of_rotation_class_init(UfoFilterCenterOfRotationCl
     filter_class->process = ufo_filter_center_of_rotation_process;
 
     center_of_rotation_properties[PROP_ANGLE_STEP] = 
-        g_param_spec_double("angle-step",
+        g_param_spec_float("angle-step",
             "Step between two successive projections",
             "Step between two successive projections",
-            0.00001, 180.0, 1.0,
+            0.00001f, 180.0f, 1.0f,
             G_PARAM_READWRITE);
 
     center_of_rotation_properties[PROP_USE_SINOGRAMS] = 
@@ -280,7 +282,7 @@ static void ufo_filter_center_of_rotation_class_init(UfoFilterCenterOfRotationCl
 static void ufo_filter_center_of_rotation_init(UfoFilterCenterOfRotation *self)
 {
     UfoFilterCenterOfRotationPrivate *priv = self->priv = UFO_FILTER_CENTER_OF_ROTATION_GET_PRIVATE(self);
-    priv->angle_step = 1.0;
+    priv->angle_step = 1.0f;
     priv->use_sinograms = FALSE;
 
     ufo_filter_register_input(UFO_FILTER(self), "image", 2);

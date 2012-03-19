@@ -27,9 +27,7 @@ struct _UfoFilterRegionOfInterestPrivate {
     guint height;
 };
 
-GType ufo_filter_region_of_interest_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterRegionOfInterest, ufo_filter_region_of_interest, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterRegionOfInterest, ufo_filter_region_of_interest, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_REGION_OF_INTEREST_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_REGION_OF_INTEREST, UfoFilterRegionOfInterestPrivate))
 
@@ -185,7 +183,7 @@ static void ufo_filter_region_of_interest_class_init(UfoFilterRegionOfInterestCl
             1, G_MAXUINT, 256,
             G_PARAM_READWRITE);
 
-    for (int i = PROP_0 + 1; i < N_PROPERTIES; i++)
+    for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property(gobject_class, i, region_of_interest_properties[i]);
 
     g_type_class_add_private(gobject_class, sizeof(UfoFilterRegionOfInterestPrivate));

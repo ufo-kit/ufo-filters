@@ -19,9 +19,7 @@
  * This node discards any input similar to what /dev/null provides.
  */
 
-GType ufo_filter_null_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterNull, ufo_filter_null, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterNull, ufo_filter_null, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_NULL_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_NULL, UfoFilterNullPrivate))
 

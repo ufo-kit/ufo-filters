@@ -27,10 +27,7 @@ struct _UfoFilterWriterPrivate {
     gchar *prefix;
 };
 
-GType ufo_filter_writer_get_type(void) G_GNUC_CONST;
-
-/* Inherit from UFO_TYPE_FILTER */
-G_DEFINE_TYPE(UfoFilterWriter, ufo_filter_writer, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterWriter, ufo_filter_writer, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_WRITER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_WRITER, UfoFilterWriterPrivate))
 
@@ -44,10 +41,8 @@ enum {
 static GParamSpec *reader_properties[N_PROPERTIES] = { NULL, };
 
 
-static gboolean filter_write_tiff(float *buffer, 
-    const gchar *name, 
-    gint32 width, 
-    gint32 height)
+static gboolean filter_write_tiff(float *buffer, const gchar *name, 
+    guint width, guint height)
 {
     gboolean success = TRUE;
     TIFF *tif = TIFFOpen(name, "w");
@@ -65,7 +60,7 @@ static gboolean filter_write_tiff(float *buffer,
     const guint32 rows_per_strip = TIFFDefaultStripSize(tif, (guint32)-1);
     TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rows_per_strip);
 
-    for (int y = 0; y < height; y++, buffer += width)
+    for (guint y = 0; y < height; y++, buffer += width)
         TIFFWriteScanline(tif, buffer, y, 0);
 
     TIFFClose(tif);

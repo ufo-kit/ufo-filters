@@ -51,9 +51,7 @@ struct _UfoFilterOpticalFlowLucasKanadePrivate {
     cl_int4 dy_Wy;
 };
 
-GType ufo_filter_optical_flow_lucas_kanade_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterOpticalFlowLucasKanade, ufo_filter_optical_flow_lucas_kanade, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterOpticalFlowLucasKanade, ufo_filter_optical_flow_lucas_kanade, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_OPTICAL_FLOW_LUCAS_KANADE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_OPTICAL_FLOW_LUCAS_KANADE, UfoFilterOpticalFlowLucasKanadePrivate))
 
@@ -64,79 +62,79 @@ enum {
 
 
 // TODO supporting function for outputting images in text format, remove later
-void save_octave_intensity_float( oflk_cl_image img, cl_command_queue cmdq, const char *fname ) {
-	unsigned int j, i;
-	float *h_img_ub;
-	size_t origin[3] = {0,0,0}, region[3];
-	FILE *fd;
+/* static void save_octave_intensity_float( oflk_cl_image img, cl_command_queue cmdq, const char *fname ) { */
+/* 	unsigned int j, i; */
+/* 	float *h_img_ub; */
+/* 	size_t origin[3] = {0,0,0}, region[3]; */
+/* 	FILE *fd; */
 
-	if (img.image_format.image_channel_order != CL_INTENSITY ||
-			img.image_format.image_channel_data_type != CL_FLOAT) {
-		fprintf(stderr, "Wrong image format.\n");
-		exit(1);
-	}
+/* 	if (img.image_format.image_channel_order != CL_INTENSITY || */
+/* 			img.image_format.image_channel_data_type != CL_FLOAT) { */
+/* 		fprintf(stderr, "Wrong image format.\n"); */
+/* 		exit(1); */
+/* 	} */
 
-	h_img_ub = (float *) malloc(sizeof(float) * img.width * img.height) ;
-    region[0] = img.width;
-    region[1] = img.height;
-    region[2] = 1;
+/* 	h_img_ub = (float *) malloc(sizeof(float) * img.width * img.height) ; */
+/*     region[0] = img.width; */
+/*     region[1] = img.height; */
+/*     region[2] = 1; */
 
-    CHECK_OPENCL_ERROR(clEnqueueReadImage(cmdq,
-								img.image_mem,
-								CL_TRUE,
-								origin,
-								region,
-								0,
-								0,
-								(void *) h_img_ub,
-								0,
-								NULL,
-								NULL));
+/*     CHECK_OPENCL_ERROR(clEnqueueReadImage(cmdq, */
+/* 								img.image_mem, */
+/* 								CL_TRUE, */
+/* 								origin, */
+/* 								region, */
+/* 								0, */
+/* 								0, */
+/* 								(void *) h_img_ub, */
+/* 								0, */
+/* 								NULL, */
+/* 								NULL)); */
 
-    fd = fopen(fname, "w");
-    if (fd != NULL) {
-        for ( j=0 ; j<img.height ; j++ ) {
-            for ( i=0 ; i<img.width ; i++ ) {
-                fprintf(fd, "%f ", h_img_ub[j*img.width+i] );
-            }
-            fprintf(fd, "\n");
-        }
-        fclose(fd);
-        printf("Wrote: %s\n", fname);
-    }
-    free( h_img_ub );
-}
+/*     fd = fopen(fname, "w"); */
+/*     if (fd != NULL) { */
+/*         for ( j=0 ; j<img.height ; j++ ) { */
+/*             for ( i=0 ; i<img.width ; i++ ) { */
+/*                 fprintf(fd, "%f ", h_img_ub[j*img.width+i] ); */
+/*             } */
+/*             fprintf(fd, "\n"); */
+/*         } */
+/*         fclose(fd); */
+/*         printf("Wrote: %s\n", fname); */
+/*     } */
+/*     free( h_img_ub ); */
+/* } */
 
 // TODO supporting function for outputting motion field in text format, remove later
-void save_octave_float2(oflk_cl_buffer img, cl_command_queue cmdq, const char *fname ) {
-    unsigned int j, i;
-    FILE *fd;
-    cl_float *h_img_float2 = (cl_float *)malloc( (img.width) * img.height * sizeof( cl_float) * 2 ) ;
+/* static void save_octave_float2(oflk_cl_buffer img, cl_command_queue cmdq, const char *fname ) { */
+/*     unsigned int j, i; */
+/*     FILE *fd; */
+/*     cl_float *h_img_float2 = (cl_float *)malloc( (img.width) * img.height * sizeof( cl_float) * 2 ) ; */
 
-    printf("%s : reading stride: %d->%lu\n", fname, img.width, img.width*sizeof(cl_float) * 2);
+/*     printf("%s : reading stride: %d->%lu\n", fname, img.width, img.width*sizeof(cl_float) * 2); */
 
-    CHECK_OPENCL_ERROR(clEnqueueReadBuffer( cmdq, img.mem, CL_TRUE,
-        0, img.width*img.height*sizeof(cl_float)*2, h_img_float2, 0, NULL, NULL ));
+/*     CHECK_OPENCL_ERROR(clEnqueueReadBuffer( cmdq, img.mem, CL_TRUE, */
+/*         0, img.width*img.height*sizeof(cl_float)*2, h_img_float2, 0, NULL, NULL )); */
 
 
-    fd = fopen(fname, "w");
-    if (fd != NULL) {
-         for(j=0 ; j<img.height ; j++ ) {
-            for(i=0 ; i<img.width ; i+=2 ) {
-                fprintf(fd, "%f ", h_img_float2[j*img.width+i] );
-                fprintf(fd, "%f ", h_img_float2[j*img.width+i+1] );
-            }
-            fprintf(fd, "\n");
-        }
-        fclose(fd);
-        printf("Wrote: %s\n", fname);
-    } else {
-    	perror(fname);
-    	exit(1);
-    }
+/*     fd = fopen(fname, "w"); */
+/*     if (fd != NULL) { */
+/*          for(j=0 ; j<img.height ; j++ ) { */
+/*             for(i=0 ; i<img.width ; i+=2 ) { */
+/*                 fprintf(fd, "%f ", h_img_float2[j*img.width+i] ); */
+/*                 fprintf(fd, "%f ", h_img_float2[j*img.width+i+1] ); */
+/*             } */
+/*             fprintf(fd, "\n"); */
+/*         } */
+/*         fclose(fd); */
+/*         printf("Wrote: %s\n", fname); */
+/*     } else { */
+/*     	perror(fname); */
+/*     	exit(1); */
+/*     } */
 
-    free(h_img_float2);
-}
+/*     free(h_img_float2); */
+/* } */
 
 static cl_int oflk_flow_init(cl_context context,
 							cl_command_queue command_queue,
@@ -148,10 +146,11 @@ static cl_int oflk_flow_init(cl_context context,
 							oflk_cl_buffer flow_levels[LEVELS],
 							oflk_cl_image *image_data1_p,
 							oflk_cl_image *image_data2_p,
-							int width,
-							int height) {
+							guint width,
+							guint height) {
     cl_int err_num = CL_SUCCESS;
-	int i, size;
+	gint i;
+    gsize size;
 
     /* initialize structure holding image data, static structures, thus no
      * memory allocation for them!
@@ -236,17 +235,13 @@ static cl_int oflk_flow_init(cl_context context,
     RETURN_IF_CL_ERROR(err_num);
 
     /* simulate a CL_RG buffer in global memory, for lack of support for CL_RG */
-    for(i = 0; i < 3; i++) {
-    	if (i == 0) {
-    		flow_levels[i].width = width << 1;
-    	} else {
-    		flow_levels[i].width = width >> (i - 1);
-    	}
+    for (i = 0; i < 3; i++) {
+    	flow_levels[i].width = i == 0 ? width << 1 : width >> (i - 1);
     	flow_levels[i].height = height >> i;
     	flow_levels[i].image_format.image_channel_data_type = CL_FLOAT;
     	flow_levels[i].image_format.image_channel_order = CL_INTENSITY;
         /* *2 because of dx and dy components of a motion vector */
-    	size = flow_levels[i].width * flow_levels[i].height * sizeof(cl_float) * 2;
+    	size = (gsize) flow_levels[i].width * flow_levels[i].height * sizeof(cl_float) * 2;
         flow_levels[i].mem = clCreateBuffer(context,
 												CL_MEM_READ_WRITE,
 												size,
@@ -295,7 +290,7 @@ static cl_int oflk_flow_calc_flow(oflk_cl_buffer flow_levels[LEVELS],
 
     /* beginning at the top level work down the base (largest) */
     for(i = LEVELS-1; i >= 0 ; i--) {
-        int arg_count = 0;
+        cl_uint arg_count = 0;
         int use_guess = 0;
         if( i <LEVELS-1 ) use_guess = 1;
 

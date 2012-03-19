@@ -35,5 +35,6 @@ struct _UfoFilterRegionOfInterestClass {
 };
 
 GType ufo_filter_region_of_interest_get_type(void);
+UfoFilter *ufo_filter_plugin_new(void);
 
 #endif

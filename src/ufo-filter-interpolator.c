@@ -26,9 +26,7 @@ struct _UfoFilterInterpolatorPrivate {
     int num_steps;
 };
 
-GType ufo_filter_interpolator_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterInterpolator, ufo_filter_interpolator, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterInterpolator, ufo_filter_interpolator, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_INTERPOLATOR_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_INTERPOLATOR, UfoFilterInterpolatorPrivate))
 

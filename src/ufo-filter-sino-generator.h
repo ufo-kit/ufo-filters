@@ -34,5 +34,6 @@ struct _UfoFilterSinoGeneratorClass {
 };
 
 GType ufo_filter_sino_generator_get_type(void);
+UfoFilter *ufo_filter_plugin_new(void);
 
 #endif

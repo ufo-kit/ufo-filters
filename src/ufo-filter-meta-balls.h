@@ -34,5 +34,6 @@ struct _UfoFilterMetaBallsClass {
 };
 
 GType ufo_filter_meta_balls_get_type(void);
+UfoFilter *ufo_filter_plugin_new(void);
 
 #endif

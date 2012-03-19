@@ -17,12 +17,7 @@
  * @Title: mux
  */
 
-struct _UfoFilterMuxPrivate {
-};
-
-GType ufo_filter_mux_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterMux, ufo_filter_mux, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterMux, ufo_filter_mux, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_MUX_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_MUX, UfoFilterMuxPrivate))
 

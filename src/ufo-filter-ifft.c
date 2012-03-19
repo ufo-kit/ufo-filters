@@ -26,13 +26,11 @@ struct _UfoFilterIFFTPrivate {
     cl_kernel normalize_kernel;
     clFFT_Dimension ifft_dimensions;
     clFFT_Dim3 ifft_size;
-    gint32 final_width;
-    gint32 final_height;
+    guint final_width;
+    guint final_height;
 };
 
-GType ufo_filter_ifft_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterIFFT, ufo_filter_ifft, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterIFFT, ufo_filter_ifft, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_IFFT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_IFFT, UfoFilterIFFTPrivate))
 
@@ -108,13 +106,13 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
             clFFT_InterleavedComplexFormat, &err);
     }
 
-    width = (priv->final_width == -1) ? priv->ifft_size.x : priv->final_width;
-    height = (priv->final_height == -1) ? height : priv->final_height;
+    width = (priv->final_width == 0) ? priv->ifft_size.x : priv->final_width;
+    height = (priv->final_height == 0) ? height : priv->final_height;
     dim_size[0] = width;
     dim_size[1] = height;
     ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
 
-    gint32 batch_size;
+    const cl_int batch_size = priv->ifft_dimensions == clFFT_1D ? (cl_int) height : 1;
 
     cl_event *events = NULL;
     cl_uint num_events = 0;
@@ -124,11 +122,6 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
         cl_mem mem_fft = (cl_mem) ufo_buffer_get_device_array(input, command_queue);
 
         /* 1. Inverse FFT */
-        if (priv->ifft_dimensions == clFFT_1D)
-            batch_size = height;
-        else
-            batch_size = 1;
-        
         /* XXX: clFFT_ExecuteInterleaved does not respect given events nor does
          * it return an event object. Therefore, we:
          *
@@ -151,8 +144,8 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
         /* 2. Pack interleaved complex numbers */
         size_t global_work_size[2];
 
-        width = (priv->final_width == -1) ? priv->ifft_size.x : priv->final_width;
-        height = (priv->final_height == -1) ? height : priv->final_height;
+        width = (priv->final_width == 0) ? priv->ifft_size.x : priv->final_width;
+        height = (priv->final_height == 0) ? height : priv->final_height;
         dim_size[0] = width;
         dim_size[1] = height;
 
@@ -191,7 +184,7 @@ static void ufo_filter_ifft_set_property(GObject *object,
     /* Handle all properties accordingly */
     switch (property_id) {
         case PROP_DIMENSIONS:
-            switch(g_value_get_int(value)) {
+            switch(g_value_get_uint(value)) {
                 case 1:
                     self->priv->ifft_dimensions = clFFT_1D;
                     break;
@@ -204,19 +197,19 @@ static void ufo_filter_ifft_set_property(GObject *object,
             }
             break;
         case PROP_SIZE_X:
-            self->priv->ifft_size.x = g_value_get_int(value);
+            self->priv->ifft_size.x = g_value_get_uint(value);
             break;
         case PROP_SIZE_Y:
-            self->priv->ifft_size.y = g_value_get_int(value);
+            self->priv->ifft_size.y = g_value_get_uint(value);
             break;
         case PROP_SIZE_Z:
-            self->priv->ifft_size.z = g_value_get_int(value);
+            self->priv->ifft_size.z = g_value_get_uint(value);
             break;
         case PROP_FINAL_WIDTH:
-            self->priv->final_width = g_value_get_int(value);
+            self->priv->final_width = g_value_get_uint(value);
             break;
         case PROP_FINAL_HEIGHT:
-            self->priv->final_height = g_value_get_int(value);
+            self->priv->final_height = g_value_get_uint(value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -236,30 +229,30 @@ static void ufo_filter_ifft_get_property(GObject *object,
         case PROP_DIMENSIONS:
             switch (self->priv->ifft_dimensions) {
                 case clFFT_1D:
-                    g_value_set_int(value, 1);
+                    g_value_set_uint(value, 1);
                     break;
                 case clFFT_2D:
-                    g_value_set_int(value, 2);
+                    g_value_set_uint(value, 2);
                     break;
                 case clFFT_3D:
-                    g_value_set_int(value, 3);
+                    g_value_set_uint(value, 3);
                     break;
             }
             break;
         case PROP_SIZE_X:
-            g_value_set_int(value, self->priv->ifft_size.x);
+            g_value_set_uint(value, self->priv->ifft_size.x);
             break;
         case PROP_SIZE_Y:
-            g_value_set_int(value, self->priv->ifft_size.y);
+            g_value_set_uint(value, self->priv->ifft_size.y);
             break;
         case PROP_SIZE_Z:
-            g_value_set_int(value, self->priv->ifft_size.z);
+            g_value_set_uint(value, self->priv->ifft_size.z);
             break;
         case PROP_FINAL_WIDTH:
-            g_value_set_int(value, self->priv->final_width);
+            g_value_set_uint(value, self->priv->final_width);
             break;
         case PROP_FINAL_HEIGHT:
-            g_value_set_int(value, self->priv->final_height);
+            g_value_set_uint(value, self->priv->final_height);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -279,7 +272,7 @@ static void ufo_filter_ifft_class_init(UfoFilterIFFTClass *klass)
 
     /* install properties */
     ifft_properties[PROP_DIMENSIONS] = 
-        g_param_spec_int("dimensions",
+        g_param_spec_uint("dimensions",
             "Number of FFT dimensions from 1 to 3",
             "Number of FFT dimensions from 1 to 3",
             1, 3, 1,
@@ -307,17 +300,17 @@ static void ufo_filter_ifft_class_init(UfoFilterIFFTClass *klass)
             G_PARAM_READWRITE);
 
     ifft_properties[PROP_FINAL_WIDTH] = 
-        g_param_spec_int("final-width",
+        g_param_spec_uint("final-width",
             "Specify if target width is smaller than FFT size",
             "Specify if target width is smaller than FFT size",
-            -1, 8192, -1,
+            0, 8192, 0,
             G_PARAM_READWRITE);
 
     ifft_properties[PROP_FINAL_HEIGHT] = 
-        g_param_spec_int("final-height",
+        g_param_spec_uint("final-height",
             "Specify if target height is smaller than FFT size",
             "Specify if target height is smaller than FFT size",
-            -1, 8192, -1,
+            0, 8192, 0,
             G_PARAM_READWRITE);
 
     g_object_class_install_property(gobject_class, PROP_DIMENSIONS, ifft_properties[PROP_DIMENSIONS]);
@@ -338,8 +331,8 @@ static void ufo_filter_ifft_init(UfoFilterIFFT *self)
     priv->ifft_size.x = 1;
     priv->ifft_size.y = 1;
     priv->ifft_size.z = 1;
-    priv->final_width = -1;
-    priv->final_height = -1;
+    priv->final_width = 0;
+    priv->final_height = 0;
 
     ufo_filter_register_input(UFO_FILTER(self), "freqs", 2);
     ufo_filter_register_output(UFO_FILTER(self), "image", 2);

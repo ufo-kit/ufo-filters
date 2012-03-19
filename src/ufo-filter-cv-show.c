@@ -26,9 +26,7 @@ struct _UfoFilterCvShowPrivate {
     gboolean show_histogram;
 };
 
-GType ufo_filter_cv_show_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterCvShow, ufo_filter_cv_show, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterCvShow, ufo_filter_cv_show, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_CV_SHOW_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_CV_SHOW, UfoFilterCvShowPrivate))
 
@@ -44,40 +42,15 @@ static void ufo_filter_cv_show_initialize(UfoFilter *filter)
 {
 }
 
-static IplImage *draw_histogram(CvHistogram *hist, float scale_x, float scale_y)
-{
-    float hist_max = 0.0;
-    cvGetMinMaxHistValue(hist, 0, &hist_max, 0, 0);
-    IplImage *img = cvCreateImage(cvSize(256*scale_x, 64*scale_y), 8, 1);
-    cvZero(img);
-    for (int i = 0; i < 255; i++) {
-        float hist_value = cvQueryHistValue_1D(hist, i); 
-        float next_value = cvQueryHistValue_1D(hist, i+1); 
-        CvPoint p1 = cvPoint(i*scale_x, 64*scale_y);
-        CvPoint p2 = cvPoint(i*scale_x+scale_x, 64*scale_y);
-        CvPoint p3 = cvPoint(i*scale_x+scale_x, (64-next_value*64/hist_max)*scale_y);
-        CvPoint p4 = cvPoint(i*scale_x, (64-hist_value*64/hist_max)*scale_y);
-        int num_points = 5;
-        CvPoint points[] = {p1, p2, p3, p4, p1};
-        cvFillConvexPoly(img, points, num_points, cvScalar(255, 0, 0, 0), 8, 0);
-    }
-    return img;
-}
-
-/*
- * This is the main method in which the filter processes one buffer after
- * another.
- */
 static void ufo_filter_cv_show_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
-    UfoFilterCvShowPrivate *priv = UFO_FILTER_CV_SHOW_GET_PRIVATE(filter);
 
     CvSize size;
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    ufo_buffer_get_2d_dimensions(input, &size.width, &size.height);
+    ufo_buffer_get_2d_dimensions(input, (guint *) &size.width, (guint *) &size.height);
 
     IplImage *image = cvCreateImageHeader(size, IPL_DEPTH_32F, 1);
     IplImage *blit = cvCreateImage(size, IPL_DEPTH_8U, 1);
@@ -86,23 +59,11 @@ static void ufo_filter_cv_show_process(UfoFilter *filter)
     cvNamedWindow(window_name, CV_WINDOW_AUTOSIZE);
     cvMoveWindow(window_name, 100, 100);
 
-    int num_bins = 256;
-    float range[] = {0, 255};
-    float *ranges[] = { range };
-    CvHistogram *hist = cvCreateHist(1, &num_bins, CV_HIST_ARRAY, ranges, 1);
-
     while (input != NULL) {
         image->imageData = (char *) ufo_buffer_get_host_array(input, command_queue);
 
         cvConvertImage(image, blit, 0);
         cvShowImage(window_name, image);
-
-        if (priv->show_histogram) {
-            cvCalcHist(&blit, hist, 0, 0);
-            IplImage *img_hist = draw_histogram(hist, 1.0, 1.0);
-            cvClearHist(hist);
-            cvShowImage("Histogram", img_hist);
-        }
         cvWaitKey(30);
         
         ufo_channel_finalize_input_buffer(input_channel, input);

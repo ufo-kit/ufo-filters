@@ -38,5 +38,6 @@ struct _UfoFilterAveragerClass {
 /* non-virtual public methods */
 
 GType ufo_filter_averager_get_type(void);
+UfoFilter *ufo_filter_plugin_new(void);
 
 #endif

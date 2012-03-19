@@ -35,5 +35,6 @@ struct _UfoFilterBufferInputClass {
 };
 
 GType ufo_filter_buffer_input_get_type(void);
+UfoFilter *ufo_filter_plugin_new(void);
 
 #endif

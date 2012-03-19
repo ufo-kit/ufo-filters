@@ -22,9 +22,7 @@ struct _UfoFilterBufferInputPrivate {
     GValueArray *buffers;
 };
 
-GType ufo_filter_buffer_input_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterBufferInput, ufo_filter_buffer_input, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterBufferInput, ufo_filter_buffer_input, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_BUFFER_INPUT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_BUFFER_INPUT, UfoFilterBufferInputPrivate))
 

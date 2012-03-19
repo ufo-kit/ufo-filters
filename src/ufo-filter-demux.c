@@ -27,9 +27,7 @@ struct _UfoFilterDemuxPrivate {
     CopyMode mode; 
 };
 
-GType ufo_filter_demux_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterDemux, ufo_filter_demux, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterDemux, ufo_filter_demux, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_DEMUX_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_DEMUX, UfoFilterDemuxPrivate))
 

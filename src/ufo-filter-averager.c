@@ -20,12 +20,7 @@
  * average of all images.
  */
 
-struct _UfoFilterAveragerPrivate {
-};
-
-GType ufo_filter_averager_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterAverager, ufo_filter_averager, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterAverager, ufo_filter_averager, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_AVERAGER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_AVERAGER, UfoFilterAveragerPrivate))
 
@@ -53,12 +48,12 @@ static void ufo_filter_averager_process(UfoFilter *filter)
     memset(out, 0, ufo_buffer_get_size(output));
 
     float num_input = 0.0f;
-    const int num_pixels = ufo_buffer_get_size(input) / sizeof(float);
+    const gsize num_pixels = ufo_buffer_get_size(input) / sizeof(float);
 
     while (input != NULL) {
         num_input += 1.0f;
         float *in = ufo_buffer_get_host_array(input, command_queue);
-        for (int i = 0; i < num_pixels; i++)
+        for (gsize i = 0; i < num_pixels; i++)
             out[i] += in[i];
 
         ufo_channel_finalize_input_buffer(input_channel, input);
@@ -66,7 +61,7 @@ static void ufo_filter_averager_process(UfoFilter *filter)
     }
 
     if (num_input > 0.0f) {
-        for (int i = 0; i < num_pixels; i++)
+        for (gsize i = 0; i < num_pixels; i++)
             out[i] /= num_input;
     }
 

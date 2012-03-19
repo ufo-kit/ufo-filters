@@ -26,9 +26,7 @@ struct _UfoFilterReaderPrivate {
     gboolean normalize;
 };
 
-GType ufo_filter_reader_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterReader, ufo_filter_reader, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterReader, ufo_filter_reader, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_READER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_READER, UfoFilterReaderPrivate))
 
@@ -47,13 +45,13 @@ static GParamSpec *reader_properties[N_PROPERTIES] = { NULL, };
 
 static gboolean filter_decode_tiff(TIFF *tif, void *buffer)
 {
-    const int strip_size = TIFFStripSize(tif);
-    const int n_strips = TIFFNumberOfStrips(tif);
+    const tsize_t strip_size = TIFFStripSize(tif);
+    const guint n_strips = TIFFNumberOfStrips(tif);
     int offset = 0;
-    int result = 0;
+    tsize_t result = 0;
 
-    for (int strip = 0; strip < n_strips; strip++) {
-        result = TIFFReadEncodedStrip(tif, strip, buffer+offset, strip_size);
+    for (guint strip = 0; strip < n_strips; strip++) {
+        result = TIFFReadEncodedStrip(tif, strip, ((gchar *) buffer) +offset, strip_size);
         if (result == -1)
             return FALSE;
         offset += result;
@@ -115,16 +113,16 @@ static void *filter_read_edf(const gchar *filename,
     gchar **tokens = g_strsplit(header, ";", 0);
     gboolean big_endian = FALSE;
     int index = 0;
-    int w = 0, h = 0, size = 0;
+    guint w = 0, h = 0, size = 0;
 
     while (tokens[index] != NULL) {
         gchar **key_value = g_strsplit(tokens[index], "=", 0);
         if (g_strcmp0(g_strstrip(key_value[0]), "Dim_1") == 0)
-            w = atoi(key_value[1]);
+            w = (guint) atoi(key_value[1]);
         else if (g_strcmp0(g_strstrip(key_value[0]), "Dim_2") == 0)
-            h = atoi(key_value[1]);
+            h = (guint) atoi(key_value[1]);
         else if (g_strcmp0(g_strstrip(key_value[0]), "Size") == 0)
-            size = atoi(key_value[1]);
+            size = (guint) atoi(key_value[1]);
         else if ((g_strcmp0(g_strstrip(key_value[0]), "ByteOrder") == 0) &&
                  (g_strcmp0(g_strstrip(key_value[1]), "HighByteFirst") == 0))
             big_endian = TRUE;
@@ -147,7 +145,7 @@ static void *filter_read_edf(const gchar *filename,
 
     /* Skip header */
     fseek(fp, 0L, SEEK_END);
-    size_t file_size = ftell(fp);
+    gssize file_size = (gssize) ftell(fp);
     fseek(fp, file_size - size, SEEK_SET);
 
     /* Read data */
@@ -161,7 +159,7 @@ static void *filter_read_edf(const gchar *filename,
 
     if ((G_BYTE_ORDER == G_LITTLE_ENDIAN) && big_endian) {
         guint32 *data = (guint32 *) buffer;    
-        for (int i = 0; i < w*h; i++)
+        for (guint i = 0; i < w*h; i++)
             data[i] = g_ntohl(data[i]);
     }
     return buffer;
@@ -179,8 +177,8 @@ static GSList *filter_read_filenames(UfoFilterReaderPrivate *priv)
 {
     GSList *result = NULL;
     glob_t glob_vector;
-    gint i = (priv->nth < 0) ? 0 : priv->nth - 1;
-    const gint count = (priv->count < 0) ? G_MAXINT : priv->count + i;
+    guint i = (priv->nth < 0) ? 0 : (guint) priv->nth - 1;
+    const guint count = (priv->count < 0) ? G_MAXUINT : (guint) priv->count + i;
 
     glob(priv->path, GLOB_MARK | GLOB_TILDE, NULL, &glob_vector);
 

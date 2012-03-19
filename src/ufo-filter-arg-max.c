@@ -18,9 +18,7 @@
  * Compute the position in a 2-dimensional input that has maximum value.
  */
 
-GType ufo_filter_arg_max_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterArgMax, ufo_filter_arg_max, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterArgMax, ufo_filter_arg_max, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_ARG_MAX_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_ARG_MAX, UfoFilterArgMaxPrivate))
 

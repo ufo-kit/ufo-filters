@@ -29,7 +29,7 @@ typedef struct _oflk_pyramid *oflk_pyramid_p; /** pointer to the pyramid structu
  * Optical flow pyramid.
  */
 struct _oflk_pyramid {
-	int levels; /** number of image pyramid levels */
+	unsigned int levels; /** number of image pyramid levels */
 	cl_image_format image_format;
 	oflk_cl_image *image_levels; /** array of oflk_cl_image structures holding data for different levels */
     oflk_cl_buffer scratch_buf; /** tmp buffer */
@@ -54,7 +54,7 @@ struct _oflk_pyramid {
  *
  * Returns: pointer to oflk_pyramid
  */
-oflk_pyramid_p oflk_pyramid_init(int levels,
+oflk_pyramid_p oflk_pyramid_init(unsigned int levels,
 						cl_channel_order channel_order,
 						cl_channel_type channel_type,
 						cl_context context,

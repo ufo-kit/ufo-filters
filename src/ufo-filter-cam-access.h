@@ -36,5 +36,6 @@ struct _UfoFilterCamAccessClass {
 
 
 GType ufo_filter_cam_access_get_type(void);
+UfoFilter *ufo_filter_plugin_new(void);
 
 #endif

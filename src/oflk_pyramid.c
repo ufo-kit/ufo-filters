@@ -19,7 +19,7 @@
 #include "oflk_pyramid.h"
 #include "oflk_util.h"
 
-oflk_pyramid_p oflk_pyramid_init(int levels,
+oflk_pyramid_p oflk_pyramid_init(unsigned int levels,
 						cl_channel_order channel_order,
 						cl_channel_type channel_type,
 						cl_context context,
@@ -28,7 +28,7 @@ oflk_pyramid_p oflk_pyramid_init(int levels,
 						unsigned int height,
 						cl_int *err_num) {
 	cl_mem_flags mem_flag;
-	int i, sz, size;
+	unsigned int i, sz, size;
 	oflk_cl_image *image_levels;
 	oflk_pyramid_p pyramid_p;
 
@@ -125,7 +125,6 @@ oflk_pyramid_p oflk_pyramid_init(int levels,
 }
 
 cl_int oflk_pyramid_release(oflk_pyramid_p *pyramid_p) {
-	int i;
 	cl_int err_num;
 
 	/* release OpenCL structures */
@@ -134,7 +133,7 @@ cl_int oflk_pyramid_release(oflk_pyramid_p *pyramid_p) {
 	if ((*pyramid_p)->event != NULL) {
 		err_num = clReleaseEvent((*pyramid_p)->event);
 	}
-	for (i = 0; i < (*pyramid_p)->levels; i++) {
+	for (unsigned int i = 0; i < (*pyramid_p)->levels; i++) {
 		err_num = oflk_cl_image_release(&(*pyramid_p)->image_levels[i]);
 	}
 
@@ -161,11 +160,7 @@ cl_int oflk_pyramid_fill(oflk_pyramid_p pyramid_p,
     size_t region[3];
     size_t global_work_size[2];
     size_t local_work_size[2];
-	int i, arg_count;
-
-    region[0] = oflk_image->width;
-    region[1] = oflk_image->height;
-    region[2] = 1;
+    cl_uint arg_count;
 
 	if (oflk_image->image_format.image_channel_order != CL_INTENSITY ||
 		oflk_image->image_format.image_channel_data_type != CL_FLOAT) {
@@ -173,6 +168,9 @@ cl_int oflk_pyramid_fill(oflk_pyramid_p pyramid_p,
 	}
 
 	/* copy level 0 image (full size) */
+    region[0] = oflk_image->width;
+    region[1] = oflk_image->height;
+    region[2] = 1;
 	err_num = clEnqueueCopyImage(pyramid_p->command_queue,
 									oflk_image->image_mem,
 									pyramid_p->image_levels[0].image_mem,
@@ -184,7 +182,7 @@ cl_int oflk_pyramid_fill(oflk_pyramid_p pyramid_p,
 									NULL);
 	RETURN_IF_CL_ERROR(err_num);
 
-	for (i = 1; i < pyramid_p->levels; i++) {
+	for (unsigned int i = 1; i < pyramid_p->levels; i++) {
 		arg_count = 0;
 		local_work_size[0] = 32;
         local_work_size[1] = 4;
@@ -212,7 +210,6 @@ cl_int oflk_pyramid_fill(oflk_pyramid_p pyramid_p,
          * when image writes are not available */
         {
 			size_t origin[3] = {0,0,0};
-			size_t region[3];
 			region[0] = pyramid_p->image_levels[i-1].width;
 			region[1] = pyramid_p->image_levels[i-1].height;
 			region[2] = 1;
@@ -256,7 +253,6 @@ cl_int oflk_pyramid_fill(oflk_pyramid_p pyramid_p,
 		 * when image writes are not available */
         { /* XX all wrong indexing! */
 			size_t origin[3] = {0,0,0};
-			size_t region[3];
 			region[0] = pyramid_p->image_levels[i].width;
 			region[1] = pyramid_p->image_levels[i].height;
 			region[2] = 1;
@@ -285,7 +281,6 @@ cl_int oflk_pyramid_fill_derivative(oflk_pyramid_p pyramid_p,
     cl_int err_num = CL_SUCCESS;
     size_t global_work_size[2];
     size_t local_work_size[2];
-    int i, arg_count;
 
     if (other_pyramid_p->levels != 3 ||
 		other_pyramid_p->image_format.image_channel_order != CL_INTENSITY ||
@@ -293,8 +288,8 @@ cl_int oflk_pyramid_fill_derivative(oflk_pyramid_p pyramid_p,
     	return OFLK_INVALID_PYRAMID_TYPE;
     }
 
-    for (i = 0; i < pyramid_p->levels; i++) {
-    	arg_count = 0;
+    for (unsigned int i = 0; i < pyramid_p->levels; i++) {
+    	cl_uint arg_count = 0;
         local_work_size[0] = 32;
         local_work_size[1] = 4;
 
@@ -393,7 +388,6 @@ cl_int oflk_pyramid_g_fill(oflk_pyramid_p pyramid_p, /* changed to pointer! */
     cl_int err_num = CL_SUCCESS;
     size_t global_work_size[2];
     size_t local_work_size[2];
-    int i, arg_count;
 
     if (derivative_x_p->levels != 3 ||
 		derivative_x_p->image_format.image_channel_order != CL_INTENSITY ||
@@ -406,8 +400,8 @@ cl_int oflk_pyramid_g_fill(oflk_pyramid_p pyramid_p, /* changed to pointer! */
     	return OFLK_INVALID_PYRAMID_TYPE;
     }
 
-    for (i = 0; i < pyramid_p->levels; i++) {
-    	arg_count = 0;
+    for (unsigned int i = 0; i < pyramid_p->levels; i++) {
+    	cl_uint arg_count = 0;
         local_work_size[0] = 32;
         local_work_size[1] = 4;
 
@@ -465,7 +459,7 @@ cl_int oflk_pyramid_flow_fill(oflk_pyramid_p pyramid_p, /* changed to pointer! *
     cl_int err_num = CL_SUCCESS;
     size_t global_work_size[2];
     size_t local_work_size[2];
-    int i, arg_count, use_guess = 0;
+    int use_guess = 0;
 
     if (img_p->levels != 3 ||
 		img_p->image_format.image_channel_order != CL_INTENSITY ||
@@ -494,9 +488,9 @@ cl_int oflk_pyramid_flow_fill(oflk_pyramid_p pyramid_p, /* changed to pointer! *
     }
 
     /* beginning at the top level work down the base (largest) */
-    for (i = pyramid_p->levels - 1; i >= 0; i--) {
-    	arg_count = 0;
-    	if (i < pyramid_p->levels - 1) {
+    for (int i = ((int) pyramid_p->levels) - 1; i >= 0; i--) {
+    	cl_uint arg_count = 0;
+    	if (i < ((int) pyramid_p->levels) - 1) {
     		use_guess = 1;
     	}
         local_work_size[0] = 16;

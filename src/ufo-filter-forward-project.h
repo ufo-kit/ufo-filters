@@ -34,5 +34,6 @@ struct _UfoFilterForwardProjectClass {
 };
 
 GType ufo_filter_forward_project_get_type(void);
+UfoFilter *ufo_filter_plugin_new(void);
 
 #endif

@@ -34,5 +34,6 @@ struct _UfoFilterCvShowClass {
 };
 
 GType ufo_filter_cv_show_get_type(void);
+UfoFilter *ufo_filter_plugin_new(void);
 
 #endif

@@ -24,14 +24,12 @@ struct _UfoFilterMetaBallsPrivate {
     guint width;
     guint height;
     guint num_balls;
-    gint num_iterations;
+    guint num_iterations;
     gboolean run_infinitely;
     guint frames_per_second;
 };
 
-GType ufo_filter_meta_balls_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterMetaBalls, ufo_filter_meta_balls, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterMetaBalls, ufo_filter_meta_balls, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_META_BALLS_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_META_BALLS, UfoFilterMetaBallsPrivate))
 
@@ -94,11 +92,14 @@ static void ufo_filter_meta_balls_process(UfoFilter *filter)
     const gsize num_sizes_bytes = priv->num_balls * sizeof(float);
     float *sizes = g_malloc0(num_sizes_bytes);
 
-    for (int i = 0; i < priv->num_balls; i++) {
-        const int x = 2*i, y = 2*i + 1;
-        sizes[i] = (float) g_random_double_range(priv->width / 50.0f, priv->width / 10.0f);
-        positions[x] = (float) g_random_double_range(0.0, (double) priv->width); 
-        positions[y] = (float) g_random_double_range(0.0, (double) priv->height); 
+    const gfloat f_width = (gfloat) priv->width;
+    const gfloat f_height = (gfloat) priv->height;
+
+    for (guint i = 0; i < priv->num_balls; i++) {
+        const guint x = 2*i, y = 2*i + 1;
+        sizes[i] = (float) g_random_double_range(f_width / 50.0f, f_width / 10.0f);
+        positions[x] = (float) g_random_double_range(0.0, (double) f_width); 
+        positions[y] = (float) g_random_double_range(0.0, (double) f_height); 
         velocities[x] = (float) g_random_double_range(-4.0, 4.0);
         velocities[y] = (float) g_random_double_range(-4.0, 4.0);
     };
@@ -119,7 +120,7 @@ static void ufo_filter_meta_balls_process(UfoFilter *filter)
 
     GTimer *timer = g_timer_new();
     const gdouble seconds_per_frame = 1.0 / ((gdouble) priv->frames_per_second);
-    int i = 0;
+    guint i = 0;
 
     while (priv->run_infinitely || (i++ < priv->num_iterations)) {
         g_timer_start(timer);
@@ -134,8 +135,8 @@ static void ufo_filter_meta_balls_process(UfoFilter *filter)
         ufo_channel_finalize_output_buffer(output_channel, output);
 
         /* Update positions and velocities */
-        for (guint i = 0; i < priv->num_balls; i++) {
-            const int x = 2*i, y = 2*i + 1;
+        for (guint j = 0; j < priv->num_balls; j++) {
+            const guint x = 2*j, y = 2*j + 1;
             positions[x] += velocities[x]; 
             positions[y] += velocities[y]; 
 
@@ -156,7 +157,7 @@ static void ufo_filter_meta_balls_process(UfoFilter *filter)
             const gdouble elapsed = g_timer_elapsed(timer, NULL);
             const gdouble delta = seconds_per_frame - elapsed;
             if (delta > 0.0)
-                g_usleep((gulong) G_USEC_PER_SEC * delta); 
+                g_usleep(G_USEC_PER_SEC * ((gulong) delta)); 
         }
     }
     

@@ -33,10 +33,7 @@ struct _UfoFilterBackprojectPrivate {
     gboolean use_texture;
 };
 
-GType ufo_filter_backproject_get_type(void) G_GNUC_CONST;
-
-/* Inherit from UFO_TYPE_FILTER */
-G_DEFINE_TYPE(UfoFilterBackproject, ufo_filter_backproject, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterBackproject, ufo_filter_backproject, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_BACKPROJECT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_BACKPROJECT, UfoFilterBackprojectPrivate))
 
@@ -106,9 +103,9 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
     float *axes_tmp = g_malloc0(sizeof(float) * num_projections);
 
     float step = priv->angle_step;
-    for (int i = 0; i < num_projections; i++) {
-        cos_tmp[i] = cos(i*step);
-        sin_tmp[i] = sin(i*step);
+    for (guint i = 0; i < num_projections; i++) {
+        cos_tmp[i] = (gfloat) cos((gfloat) i*step);
+        sin_tmp[i] = (gfloat) sin((gfloat) i*step);
         axes_tmp[i] = priv->axis_position;
     }
     const float offset_x = -priv->axis_position;

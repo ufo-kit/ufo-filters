@@ -28,9 +28,7 @@ struct _UfoFilterClPrivate {
     gint static_argument;
 };
 
-GType ufo_filter_cl_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterCl, ufo_filter_cl, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterCl, ufo_filter_cl, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_CL_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_CL, UfoFilterClPrivate))
 

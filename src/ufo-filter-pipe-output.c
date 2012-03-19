@@ -27,9 +27,7 @@ struct _UfoFilterPipeOutputPrivate {
     gchar *pipe_name;
 };
 
-GType ufo_filter_pipe_output_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterPipeOutput, ufo_filter_pipe_output, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterPipeOutput, ufo_filter_pipe_output, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_PIPE_OUTPUT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_PIPE_OUTPUT, UfoFilterPipeOutputPrivate))
 
@@ -66,12 +64,12 @@ static void ufo_filter_pipe_output_process(UfoFilter *filter)
 
     while (input != NULL) {
         ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
-        const gsize size = sizeof(float) * dim_size[0] * dim_size[1];
-        void *data = (void *) ufo_buffer_get_host_array(input, command_queue);
-        gsize written = 0;
+        const gssize size = (gssize) sizeof(float) * dim_size[0] * dim_size[1];
+        gchar *data = (gchar *) ufo_buffer_get_host_array(input, command_queue);
+        gssize written = 0;
 
         while (written < size) {
-            gsize result = write(fd, data + written, size - written);
+            gssize result = (gssize) write(fd, data + written, (gsize) (size - written));
 
             if (result < 0) {
                 g_error("Error writing to pipe %s\n", priv->pipe_name);

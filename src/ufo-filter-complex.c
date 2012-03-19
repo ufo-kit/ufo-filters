@@ -35,9 +35,7 @@ struct _UfoFilterComplexPrivate {
      ComplexOperation operation;
 };
 
-GType ufo_filter_complex_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterComplex, ufo_filter_complex, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterComplex, ufo_filter_complex, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_COMPLEX_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_COMPLEX, UfoFilterComplexPrivate))
 
@@ -83,7 +81,8 @@ static void ufo_filter_complex_binary(UfoFilter *filter, cl_kernel kernel)
     ufo_buffer_get_dimensions(a, &num_dims_a, &dim_size_a);
     ufo_buffer_get_dimensions(b, &num_dims_b, &dim_size_b);
     g_assert(num_dims_a == num_dims_b);
-    for (int i = 0; i < num_dims_a; i++)
+
+    for (guint i = 0; i < num_dims_a; i++)
         g_assert(dim_size_a[i] == dim_size_b[i]);
 
     ufo_channel_allocate_output_buffers(output_channel, num_dims_a, dim_size_a);

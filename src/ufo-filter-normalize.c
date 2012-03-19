@@ -19,9 +19,7 @@
  * Normalize input to closed unit interval.
  */
 
-GType ufo_filter_normalize_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterNormalize, ufo_filter_normalize, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterNormalize, ufo_filter_normalize, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_NORMALIZE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_NORMALIZE, UfoFilterNormalizePrivate))
 
@@ -39,28 +37,29 @@ static void ufo_filter_normalize_process(UfoFilter *filter)
 
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
     ufo_channel_allocate_output_buffers_like(output_channel, input);
-    const gint32 num_elements = ufo_buffer_get_size(input) / sizeof(float);
+    const gsize num_elements = ufo_buffer_get_size(input) / sizeof(float);
 
     while (input != NULL) {
         float *in_data = ufo_buffer_get_host_array(input, command_queue);
 
         float min = 1.0, max = 0.0;
-        for (int i = 0; i < num_elements; i++) {
+        for (guint i = 0; i < num_elements; i++) {
             if (in_data[i] < min)
                 min = in_data[i];
             if (in_data[i] > max)
                 max = in_data[i];
         }
-        float scale = 1.0 / (max - min);
 
         UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
 
         /* This avoids an unneccessary GPU-to-host transfer */
         ufo_buffer_invalidate_gpu_data(output);
+        float scale = 1.0f / (max - min);
         float *out_data = ufo_buffer_get_host_array(output, command_queue);
-        for (int i = 0; i < num_elements; i++) {
+
+        for (guint i = 0; i < num_elements; i++) 
             out_data[i] = (in_data[i] - min) * scale;
-        }
+
         ufo_channel_finalize_input_buffer(input_channel, input);
         ufo_channel_finalize_output_buffer(output_channel, output);
         input = ufo_channel_get_input_buffer(input_channel);

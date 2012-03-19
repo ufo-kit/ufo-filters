@@ -27,9 +27,7 @@ struct _UfoFilterSinoGeneratorPrivate {
     guint num_projections;
 };
 
-GType ufo_filter_sino_generator_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterSinoGenerator, ufo_filter_sino_generator, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterSinoGenerator, ufo_filter_sino_generator, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_SINO_GENERATOR_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_SINO_GENERATOR, UfoFilterSinoGeneratorPrivate))
 
@@ -85,10 +83,10 @@ static void ufo_filter_sino_generator_process(UfoFilter *filter)
     /* First step: collect all projections and build sinograms */
     while ((projection < priv->num_projections) || (input != NULL)) {
         float *src = ufo_buffer_get_host_array(input, command_queue);
-        guint proj_index = 0;
-        guint sino_index = (projection - 1) * row_mem_offset;
+        gsize proj_index = 0;
+        gsize sino_index = (projection - 1) * row_mem_offset;
 
-        for (int i = 0; i < num_sinos; i++) {
+        for (guint i = 0; i < num_sinos; i++) {
             memcpy(sinograms + sino_index, src + proj_index, sizeof(float) * row_mem_offset);
             proj_index += row_mem_offset;
             sino_index += sino_mem_offset;
@@ -100,8 +98,8 @@ static void ufo_filter_sino_generator_process(UfoFilter *filter)
     }
     
     /* Second step: push them one by one */
-    int sino_index = 0;
-    for (gint i = 0; i < num_sinos; i++) {
+    gsize sino_index = 0;
+    for (guint i = 0; i < num_sinos; i++) {
         UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
         ufo_buffer_set_host_array(output, sinograms + sino_index, sizeof(float) * sino_mem_offset, NULL);
         ufo_channel_finalize_output_buffer(output_channel, output);
@@ -124,7 +122,7 @@ static void ufo_filter_sino_generator_set_property(GObject *object,
     /* Handle all properties accordingly */
     switch (property_id) {
         case PROP_NUM_PROJECTIONS:
-            self->priv->num_projections = g_value_get_int(value);
+            self->priv->num_projections = g_value_get_uint(value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -142,7 +140,7 @@ static void ufo_filter_sino_generator_get_property(GObject *object,
     /* Handle all properties accordingly */
     switch (property_id) {
         case PROP_NUM_PROJECTIONS:
-            g_value_set_int(value, self->priv->num_projections);
+            g_value_set_uint(value, self->priv->num_projections);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -161,7 +159,7 @@ static void ufo_filter_sino_generator_class_init(UfoFilterSinoGeneratorClass *kl
     filter_class->process = ufo_filter_sino_generator_process;
 
     sino_generator_properties[PROP_NUM_PROJECTIONS] = 
-        g_param_spec_int("num-projections",
+        g_param_spec_uint("num-projections",
             "Number of projections",
             "Number of projections corresponding to the sinogram height",
             0, 8192, 1,

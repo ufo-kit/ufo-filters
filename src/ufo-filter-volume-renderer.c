@@ -26,9 +26,7 @@ struct _UfoFilterVolumeRendererPrivate {
     guint height;
 };
 
-GType ufo_filter_volume_renderer_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterVolumeRenderer, ufo_filter_volume_renderer, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterVolumeRenderer, ufo_filter_volume_renderer, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_VOLUME_RENDERER, UfoFilterVolumeRendererPrivate))
 
@@ -109,12 +107,12 @@ static void ufo_filter_volume_renderer_process(UfoFilter *filter)
     CHECK_OPENCL_ERROR(error);
 
     cl_kernel kernel = priv->kernel;
-    gfloat step_size = 0.003;
-    gfloat displacement = -0.3;
+    gfloat step_size = 0.003f;
+    gfloat displacement = -0.3f;
     gfloat linear_ramp_slope = 0.1f;
     gfloat linear_ramp_constant = 0.01f;
     gfloat threshold = 0.083f;
-    cl_uint steps = (cl_uint) ((1.414 + fabs(displacement)) / step_size);
+    cl_uint steps = (cl_uint) ((1.414f + fabs(displacement)) / step_size);
 
     error |= clSetKernelArg(kernel, 0, sizeof(cl_mem), &volume_mem);
     error |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &view_mem);
@@ -151,8 +149,8 @@ static void ufo_filter_volume_renderer_process(UfoFilter *filter)
         ufo_channel_finalize_output_buffer(output_channel, output);
 
         /* rotate around the x-axis for now */
-        const gfloat cos_angle = cos(angle);
-        const gfloat sin_angle = sin(angle);
+        const gfloat cos_angle = (gfloat) cos(angle);
+        const gfloat sin_angle = (gfloat) sin(angle);
         view_matrix[0][0] = cos_angle;
         view_matrix[0][2] = sin_angle;
         view_matrix[2][0] = -sin_angle;

@@ -28,10 +28,7 @@ struct _UfoFilterCamAccessPrivate {
     double time;
 };
 
-GType ufo_filter_cam_access_get_type(void) G_GNUC_CONST;
-
-/* Inherit from UFO_TYPE_FILTER */
-G_DEFINE_TYPE(UfoFilterCamAccess, ufo_filter_cam_access, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterCamAccess, ufo_filter_cam_access, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_CAM_ACCESS_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_CAM_ACCESS, UfoFilterCamAccessPrivate))
 

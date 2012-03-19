@@ -27,9 +27,7 @@ struct _UfoFilterFFTPrivate {
     clFFT_Dim3 fft_size;
 };
 
-GType ufo_filter_fft_get_type(void) G_GNUC_CONST;
-
-G_DEFINE_TYPE(UfoFilterFFT, ufo_filter_fft, UFO_TYPE_FILTER);
+G_DEFINE_TYPE(UfoFilterFFT, ufo_filter_fft, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_FFT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_FFT, UfoFilterFFTPrivate))
 
@@ -139,7 +137,7 @@ static void ufo_filter_fft_process(UfoFilter *filter)
         CHECK_OPENCL_ERROR(clWaitForEvents(1, &event));
         if (priv->fft_dimensions == clFFT_1D)
             clFFT_ExecuteInterleaved(command_queue,
-                fft_plan, height, clFFT_Forward, 
+                fft_plan, (cl_int) height, clFFT_Forward, 
                 fft_buffer_mem, fft_buffer_mem,
                 1, &wait_on_event, &event);
         else
@@ -174,7 +172,7 @@ static void ufo_filter_fft_set_property(GObject *object,
     /* Handle all properties accordingly */
     switch (property_id) {
         case PROP_DIMENSIONS:
-            switch(g_value_get_int(value)) {
+            switch(g_value_get_uint(value)) {
                 case 1:
                     self->priv->fft_dimensions = clFFT_1D;
                     break;
@@ -187,13 +185,13 @@ static void ufo_filter_fft_set_property(GObject *object,
             }
             break;
         case PROP_SIZE_X:
-            self->priv->fft_size.x = g_value_get_int(value);
+            self->priv->fft_size.x = g_value_get_uint(value);
             break;
         case PROP_SIZE_Y:
-            self->priv->fft_size.y = g_value_get_int(value);
+            self->priv->fft_size.y = g_value_get_uint(value);
             break;
         case PROP_SIZE_Z:
-            self->priv->fft_size.z = g_value_get_int(value);
+            self->priv->fft_size.z = g_value_get_uint(value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -213,24 +211,24 @@ static void ufo_filter_fft_get_property(GObject *object,
         case PROP_DIMENSIONS:
             switch (self->priv->fft_dimensions) {
                 case clFFT_1D:
-                    g_value_set_int(value, 1);
+                    g_value_set_uint(value, 1);
                     break;
                 case clFFT_2D:
-                    g_value_set_int(value, 2);
+                    g_value_set_uint(value, 2);
                     break;
                 case clFFT_3D:
-                    g_value_set_int(value, 3);
+                    g_value_set_uint(value, 3);
                     break;
             }
             break;
         case PROP_SIZE_X:
-            g_value_set_int(value, self->priv->fft_size.x);
+            g_value_set_uint(value, self->priv->fft_size.x);
             break;
         case PROP_SIZE_Y:
-            g_value_set_int(value, self->priv->fft_size.y);
+            g_value_set_uint(value, self->priv->fft_size.y);
             break;
         case PROP_SIZE_Z:
-            g_value_set_int(value, self->priv->fft_size.z);
+            g_value_set_uint(value, self->priv->fft_size.z);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -250,28 +248,28 @@ static void ufo_filter_fft_class_init(UfoFilterFFTClass *klass)
 
     /* install properties */
     fft_properties[PROP_DIMENSIONS] = 
-        g_param_spec_int("dimensions",
+        g_param_spec_uint("dimensions",
             "Number of FFT dimensions from 1 to 3",
             "Number of FFT dimensions from 1 to 3",
             1, 3, 1,
             G_PARAM_READWRITE);
 
     fft_properties[PROP_SIZE_X] = 
-        g_param_spec_int("size-x",
+        g_param_spec_uint("size-x",
             "Size of the FFT transform in x-direction",
             "Size of the FFT transform in x-direction",
             1, 8192, 1,
             G_PARAM_READWRITE);
 
     fft_properties[PROP_SIZE_Y] = 
-        g_param_spec_int("size-y",
+        g_param_spec_uint("size-y",
             "Size of the FFT transform in y-direction",
             "Size of the FFT transform in y-direction",
             1, 8192, 1,
             G_PARAM_READWRITE);
 
     fft_properties[PROP_SIZE_Z] = 
-        g_param_spec_int("size-z",
+        g_param_spec_uint("size-z",
             "Size of the FFT transform in z-direction",
             "Size of the FFT transform in z-direction",
             1, 8192, 1,
