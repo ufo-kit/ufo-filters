@@ -140,16 +140,15 @@ static void process_combine(UfoFilter *self,
                 break;
             case 1:
                 ufo_channel_finalize_input_buffer(input_b, b);
-                a = ufo_channel_get_input_buffer(input_a);
                 b = ufo_channel_get_input_buffer(input_b);
                 break;
             case 2:
                 ufo_channel_finalize_input_buffer(input_a, a);
-                ufo_channel_finalize_input_buffer(input_b, b);
                 a = ufo_channel_get_input_buffer(input_a);
+                break;
         }
         
-        ufo_buffer_attach_event(output, event);
+        /* ufo_buffer_attach_event(output, event); */
         ufo_channel_finalize_output_buffer(output_channel, output);
     }
 
