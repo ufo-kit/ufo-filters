@@ -38,6 +38,7 @@ set(ufofilter_KERNELS
     motion.cl
     nlm.cl
     volume.cl
+    stdp.cl
     )
 
 set(ufofilter_LIBS
