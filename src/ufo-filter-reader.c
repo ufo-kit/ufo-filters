@@ -42,6 +42,8 @@ enum {
 
 static GParamSpec *reader_properties[N_PROPERTIES] = { NULL, };
 
+static gpointer image_buffer = NULL;
+static gsize image_size = 0;
 
 static gboolean filter_decode_tiff(TIFF *tif, void *buffer)
 {
@@ -80,14 +82,19 @@ static void *filter_read_tiff(const gchar *filename,
         /* goto error_close; */
     }
 
-    size_t bytes_per_sample = *bits_per_sample >> 3;
-    void *buffer = g_malloc0(bytes_per_sample * (*width) * (*height));
+    gsize bytes_per_sample = *bits_per_sample >> 3;
+    gsize size = bytes_per_sample * (*width) * (*height);
 
-    if (!filter_decode_tiff(tif, buffer))
+    if ((image_buffer == NULL) || (image_size != size)) {
+        image_buffer = g_malloc0(size); 
+        image_size = size;
+    }
+
+    if (!filter_decode_tiff(tif, image_buffer))
         goto error_close;
 
     TIFFClose(tif);
-    return buffer;
+    return image_buffer;
 
 error_close:
     TIFFClose(tif);
@@ -149,20 +156,24 @@ static void *filter_read_edf(const gchar *filename,
     fseek(fp, file_size - size, SEEK_SET);
 
     /* Read data */
-    gchar *buffer = g_malloc0(size); 
-    num_bytes = fread(buffer, 1, size, fp);
+    if ((image_buffer == NULL) || (image_size != size)) {
+        image_buffer = g_malloc(size);
+        image_size = size;
+    }
+
+    num_bytes = fread(image_buffer, 1, size, fp);
     fclose(fp);
     if (num_bytes != size) {
-        g_free(buffer);
+        g_free(image_buffer);
         return NULL;
     }
 
     if ((G_BYTE_ORDER == G_LITTLE_ENDIAN) && big_endian) {
-        guint32 *data = (guint32 *) buffer;    
+        guint32 *data = (guint32 *) image_buffer;    
         for (guint i = 0; i < w*h; i++)
             data[i] = g_ntohl(data[i]);
     }
-    return buffer;
+    return image_buffer;
 }
 
 static void filter_dispose_filenames(GSList *filenames)
@@ -236,7 +247,6 @@ static void ufo_filter_reader_process(UfoFilter *self)
             ufo_buffer_reinterpret(output_buffer, bits_per_sample, width * height, priv->normalize);
 
         ufo_channel_finalize_output_buffer(output_channel, output_buffer);
-        g_free(buffer);
         filename = g_slist_next(filename);
     }
 
@@ -309,6 +319,9 @@ static void ufo_filter_reader_finalize(GObject *object)
 
     if (priv->path)
         g_free(priv->path);
+
+    if (image_buffer != NULL)
+        g_free(image_buffer);
 
     G_OBJECT_CLASS(ufo_filter_reader_parent_class)->finalize(object);
 }
