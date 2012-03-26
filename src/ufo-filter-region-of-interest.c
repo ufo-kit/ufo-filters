@@ -80,9 +80,19 @@ static void ufo_filter_region_of_interest_process(UfoFilter *filter)
         gfloat *in_data = ufo_buffer_get_host_array(input, cmd_queue);
         gfloat *out_data = ufo_buffer_get_host_array(output, cmd_queue);
 
-        for (guint y = 0; y < rd_height; y++) {
-            g_memmove(out_data + y*priv->width, in_data + (y + y1)*in_width + x1, 
-                    rd_width * sizeof(gfloat));
+        /*
+         * Removing the for loop for "width aligned" regions gives a marginal
+         * speed-up of ~4 per cent.
+         */
+        if (rd_width == in_width) {
+            g_memmove(out_data, in_data + y1*in_width, 
+                    rd_width * rd_height * sizeof(gfloat));
+        }
+        else {
+            for (guint y = 0; y < rd_height; y++) {
+                g_memmove(out_data + y*priv->width, in_data + (y + y1)*in_width + x1, 
+                        rd_width * sizeof(gfloat));
+            }
         }
 
         ufo_channel_finalize_input_buffer(input_channel, input);
@@ -90,6 +100,7 @@ static void ufo_filter_region_of_interest_process(UfoFilter *filter)
         input = ufo_channel_get_input_buffer(input_channel);
     }
 
+    g_timer_destroy(timer);
     ufo_channel_finish(output_channel);
 }
 

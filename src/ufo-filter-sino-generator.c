@@ -76,9 +76,9 @@ static void ufo_filter_sino_generator_process(UfoFilter *filter)
 
     /* XXX: this is critical! */
     float *sinograms = g_malloc0(sizeof(float) * num_sinos * sino_width * sino_height);
-    const size_t row_mem_offset = sino_width;
-    const size_t sino_mem_offset = row_mem_offset * sino_height;
-    guint projection = 1;
+    const gsize row_mem_offset = sino_width;
+    const gsize sino_mem_offset = row_mem_offset * sino_height;
+    gsize projection = 1;
 
     /* First step: collect all projections and build sinograms */
     while ((projection < priv->num_projections) || (input != NULL)) {
