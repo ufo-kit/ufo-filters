@@ -100,7 +100,6 @@ static void ufo_filter_region_of_interest_process(UfoFilter *filter)
         input = ufo_channel_get_input_buffer(input_channel);
     }
 
-    g_timer_destroy(timer);
     ufo_channel_finish(output_channel);
 }
 

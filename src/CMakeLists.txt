@@ -112,7 +112,7 @@ foreach(_src ${ufofilter_SRCS})
     set(target_option "ENABLE_${_misc_upper}")
     option(${target_option} "Build filter ${filter}" ON)
 
-    if(${target_option})
+    if (${target_option})
         set(documented_types "${documented_types}\nufo_filter_${_misc}_get_type")
         set(_misc "${_misc}_misc_SRCS")
 
@@ -126,6 +126,9 @@ foreach(_src ${ufofilter_SRCS})
         else()
             add_library(${target} SHARED ${_src} ${${_misc}})
         endif()
+
+        set_target_properties(${target} PROPERTIES 
+            COMPILE_DEFINITIONS "G_LOG_DOMAIN=\"${filter}\"")
 
         target_link_libraries(${target} ${ufofilter_LIBS})
         list(APPEND all_targets ${target})
