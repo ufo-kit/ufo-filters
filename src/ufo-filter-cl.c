@@ -170,20 +170,19 @@ static void ufo_filter_cl_process(UfoFilter *filter)
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
 
-    /* TODO: right now it's not possible to have the kernel be loaded upfront... */
-    ufo_resource_manager_add_program(manager, priv->file_name, NULL, &error);
-
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);
         return;
     }
 
-    cl_kernel kernel = ufo_resource_manager_get_kernel(manager, priv->kernel_name, &error);
+    cl_kernel kernel = ufo_resource_manager_get_kernel(manager, priv->file_name, priv->kernel_name, &error);
+
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);
     }
+    
     if (!kernel) {
         ufo_channel_finish(output_channel);
         return;
@@ -193,8 +192,8 @@ static void ufo_filter_cl_process(UfoFilter *filter)
         process_combine(filter, priv, command_queue, kernel);
     else
         process_regular(filter, priv, command_queue, kernel);
-    
-    clReleaseKernel(kernel);
+
+    g_print("%p: done\n", filter);
 }
 
 static void ufo_filter_cl_set_property(GObject *object,

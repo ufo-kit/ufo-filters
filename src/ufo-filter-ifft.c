@@ -53,15 +53,9 @@ static void ufo_filter_ifft_initialize(UfoFilter *filter)
     UfoFilterIFFT *self = UFO_FILTER_IFFT(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
-    ufo_resource_manager_add_program(manager, "fft.cl", NULL, &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-        return;
-    }
+    self->priv->pack_kernel = ufo_resource_manager_get_kernel(manager, "fft.cl", "fft_pack", &error);
+    self->priv->normalize_kernel = ufo_resource_manager_get_kernel(manager, "fft.cl","fft_normalize", &error);
 
-    self->priv->pack_kernel = ufo_resource_manager_get_kernel(manager, "fft_pack", &error);
-    self->priv->normalize_kernel = ufo_resource_manager_get_kernel(manager, "fft_normalize", &error);
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);

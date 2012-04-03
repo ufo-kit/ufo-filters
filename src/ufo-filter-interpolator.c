@@ -43,16 +43,8 @@ static void ufo_filter_interpolator_initialize(UfoFilter *filter)
     UfoFilterInterpolatorPrivate *priv = UFO_FILTER_INTERPOLATOR_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
-    priv->kernel = NULL;
+    priv->kernel = ufo_resource_manager_get_kernel(manager, "interpolator.cl", "interpolate", &error);
 
-    ufo_resource_manager_add_program(manager, "interpolator.cl", NULL, &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-        return;
-    }
-
-    priv->kernel = ufo_resource_manager_get_kernel(manager, "interpolate", &error);
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);

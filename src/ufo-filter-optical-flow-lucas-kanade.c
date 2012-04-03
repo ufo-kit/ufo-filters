@@ -350,56 +350,38 @@ static void ufo_filter_optical_flow_lucas_kanade_initialize(UfoFilter *filter)
     self->priv->update_motion_kernel = NULL;
 
     ufo_resource_manager_add_paths(manager, "/home/farago/workspace/C++/filtertest/Debug"); // a must since ufo-core revision 323
-    ufo_resource_manager_add_program(manager, "filters.cl", NULL, &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-        return;
-    }
-    ufo_resource_manager_add_program(manager, "lkflow.cl", NULL, &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-        return;
-    }
-    ufo_resource_manager_add_program(manager, "motion.cl", NULL, &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-        return;
-    }
 
-    self->priv->downfilter_x_kernel = ufo_resource_manager_get_kernel(manager, "downfilter_x_g", &error);
+    self->priv->downfilter_x_kernel = ufo_resource_manager_get_kernel(manager, "filters.cl", "downfilter_x_g", &error);
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);
     }
-    self->priv->downfilter_y_kernel = ufo_resource_manager_get_kernel(manager, "downfilter_y_g", &error);
+    self->priv->downfilter_y_kernel = ufo_resource_manager_get_kernel(manager, "filters.cl", "downfilter_y_g", &error);
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);
     }
-    self->priv->filter_3x1_kernel = ufo_resource_manager_get_kernel(manager, "filter_3x1_g", &error);
+    self->priv->filter_3x1_kernel = ufo_resource_manager_get_kernel(manager, "filters.cl", "filter_3x1_g", &error);
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);
     }
-    self->priv->filter_1x3_kernel = ufo_resource_manager_get_kernel(manager, "filter_1x3_g", &error);
+    self->priv->filter_1x3_kernel = ufo_resource_manager_get_kernel(manager, "filters.cl", "filter_1x3_g", &error);
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);
     }
-    self->priv->filter_g_kernel = ufo_resource_manager_get_kernel(manager, "filter_G", &error);
+    self->priv->filter_g_kernel = ufo_resource_manager_get_kernel(manager, "filters.cl", "filter_G", &error);
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);
     }
-    self->priv->lkflow_kernel = ufo_resource_manager_get_kernel(manager, "lkflow", &error);
+    self->priv->lkflow_kernel = ufo_resource_manager_get_kernel(manager, "lkflow.cl", "lkflow", &error);
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);
     }
-    self->priv->update_motion_kernel = ufo_resource_manager_get_kernel(manager, "motion", &error);
+    self->priv->update_motion_kernel = ufo_resource_manager_get_kernel(manager, "motion.cl", "motion", &error);
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);

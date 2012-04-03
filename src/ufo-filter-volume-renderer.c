@@ -45,16 +45,8 @@ static void ufo_filter_volume_renderer_initialize(UfoFilter *filter)
     UfoFilterVolumeRenderer *self = UFO_FILTER_VOLUME_RENDERER(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
-    self->priv->kernel = NULL;
+    self->priv->kernel = ufo_resource_manager_get_kernel(manager, "volume.cl", "rayCastVolume", &error);
 
-    ufo_resource_manager_add_program(manager, "volume.cl", NULL, &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-        return;
-    }
-
-    self->priv->kernel = ufo_resource_manager_get_kernel(manager, "rayCastVolume", &error);
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);

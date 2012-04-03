@@ -61,16 +61,8 @@ static void ufo_filter_fft_initialize(UfoFilter *filter)
     UfoFilterFFT *self = UFO_FILTER_FFT(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
-    self->priv->kernel = NULL;
+    self->priv->kernel = ufo_resource_manager_get_kernel(manager, "fft.cl", "fft_spread", &error);
 
-    ufo_resource_manager_add_program(manager, "fft.cl", NULL, &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-        return;
-    }
-
-    self->priv->kernel = ufo_resource_manager_get_kernel(manager, "fft_spread", &error);
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);
