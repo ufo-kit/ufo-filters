@@ -63,9 +63,7 @@ static void process_regular(UfoFilter *self,
     ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
 
     /* We should reject anything that is not 2-dimensional */
-    size_t global_work_size[2];
-    global_work_size[0] = (size_t) dim_size[0];
-    global_work_size[1] = (size_t) dim_size[1];
+    size_t global_work_size[2] = { (size_t) dim_size[0], (size_t) dim_size[1] };
 
     while (input != NULL) { 
         UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
@@ -166,8 +164,8 @@ static void ufo_filter_cl_process(UfoFilter *filter)
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
 
-    cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
     UfoResourceManager *manager = ufo_resource_manager();
+    cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
     GError *error = NULL;
 
     if (error != NULL) {
@@ -192,8 +190,6 @@ static void ufo_filter_cl_process(UfoFilter *filter)
         process_combine(filter, priv, command_queue, kernel);
     else
         process_regular(filter, priv, command_queue, kernel);
-
-    g_print("%p: done\n", filter);
 }
 
 static void ufo_filter_cl_set_property(GObject *object,

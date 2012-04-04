@@ -100,16 +100,8 @@ static void ufo_filter_filter_initialize(UfoFilter *filter)
     UfoFilterFilter *self = UFO_FILTER_FILTER(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
-    self->priv->kernel = NULL;
+    self->priv->kernel = ufo_resource_manager_get_kernel(manager, "filter.cl", "filter", &error);
 
-    ufo_resource_manager_add_program(manager, "filter.cl", NULL, &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-        return;
-    }
-
-    self->priv->kernel = ufo_resource_manager_get_kernel(manager, "filter", &error);
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);
