@@ -16,14 +16,14 @@ __kernel void fft_spread(__global float *out, __global float *in, const int widt
     }
 }
 
-__kernel void fft_pack(__global float *in, __global float *out, const int width)
+__kernel void fft_pack(__global float *in, __global float *out, const int width, const float scale)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
     const int dpitch = get_global_size(0)*2;
 
     if (idx < width)
-        out[idy*width + idx] = in[idy*dpitch + 2*idx] / width;
+        out[idy*width + idx] = in[idy*dpitch + 2*idx] * scale;
 }
 
 __kernel void fft_normalize(__global float *data)

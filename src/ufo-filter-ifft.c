@@ -147,11 +147,17 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
         global_work_size[0] = priv->ifft_size.x;
         global_work_size[1] = height;
 
+        float scale = 1.0f / ((float) width);
+
+        if (priv->ifft_dimensions == clFFT_2D)
+            scale /= (float) width;
+
         cl_mem mem_result = (cl_mem) ufo_buffer_get_device_array(result, command_queue);
 
         clSetKernelArg(priv->pack_kernel, 0, sizeof(cl_mem), (void *) &mem_fft);
         clSetKernelArg(priv->pack_kernel, 1, sizeof(cl_mem), (void *) &mem_result);
         clSetKernelArg(priv->pack_kernel, 2, sizeof(int), &width);
+        clSetKernelArg(priv->pack_kernel, 3, sizeof(float), &scale);
 
         CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue,
                 priv->pack_kernel,
