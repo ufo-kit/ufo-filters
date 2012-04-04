@@ -84,15 +84,14 @@ static gboolean filter_read_tiff(TIFF *tif,
     gsize bytes_per_sample = *bits_per_sample >> 3;
     gsize size = bytes_per_sample * (*width) * (*height);
 
-    if ((image_buffer == NULL) || (image_size != size)) {
-        image_buffer = g_malloc0(size); 
+    if ((*buffer == NULL) || (image_size != size)) {
+        *buffer = g_malloc0(size); 
         image_size = size;
     }
 
-    if (!filter_decode_tiff(tif, image_buffer))
+    if (!filter_decode_tiff(tif, *buffer))
         goto error_close;
 
-    *buffer = image_buffer;
     return TIFFReadDirectory(tif) == 1;
 
 error_close:
@@ -200,14 +199,6 @@ static GSList *filter_read_filenames(UfoFilterReaderPrivate *priv)
 static void filter_push_data(UfoChannel *output_channel, void *buffer, 
         guint width, guint height, guint bits_per_sample, gboolean normalize)
 {
-    static gboolean buffers_initialized = FALSE;
-
-    if (!buffers_initialized) {
-        guint dimensions[2] = { width, height };
-        ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
-        buffers_initialized = TRUE;
-    }
-
     const guint bytes_per_sample = bits_per_sample >> 3;
     UfoBuffer *output_buffer = ufo_channel_get_output_buffer(output_channel);
     ufo_buffer_set_host_array(output_buffer, buffer, bytes_per_sample * width * height, NULL);
@@ -232,10 +223,10 @@ static void ufo_filter_reader_process(UfoFilter *self)
     guint width, height;
     guint16 bits_per_sample, samples_per_pixel;
     gboolean normalize = priv->normalize;
+    gboolean buffers_initialized = FALSE;
+    gpointer frame_buffer = NULL;
 
     while ((filename != NULL) && (current_frame < count)) {
-        void *buffer = NULL;
-        
         if (g_str_has_suffix(filename->data, "tif")) {;
             TIFF *tif = TIFFOpen(filename->data, "r");
 
@@ -245,25 +236,31 @@ static void ufo_filter_reader_process(UfoFilter *self)
             gboolean more_pages = TRUE;
 
             while ((current_frame < count) && more_pages) {
-                more_pages = filter_read_tiff(tif, &buffer,
+                more_pages = filter_read_tiff(tif, &frame_buffer,
                     &bits_per_sample, &samples_per_pixel, &width, &height);
 
-                if (buffer == NULL)
+                if (frame_buffer == NULL)
                     break;
 
-                filter_push_data(output_channel, buffer, width, height, bits_per_sample, normalize);
+                if (!buffers_initialized) {
+                    guint dimensions[2] = { width, height };
+                    ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
+                    buffers_initialized = TRUE;
+                }
+
+                filter_push_data(output_channel, frame_buffer, width, height, bits_per_sample, normalize);
                 current_frame++;
             }
         }
         else {
-            buffer = filter_read_edf((char *) filename->data,
+            frame_buffer = filter_read_edf((char *) filename->data,
                     &bits_per_sample, &samples_per_pixel,
                     &width, &height);
 
-            if (buffer == NULL)
+            if (frame_buffer == NULL)
                 break;
 
-            filter_push_data(output_channel, buffer, width, height, bits_per_sample, normalize);
+            filter_push_data(output_channel, frame_buffer, width, height, bits_per_sample, normalize);
             current_frame++;
         }
 
@@ -272,6 +269,7 @@ static void ufo_filter_reader_process(UfoFilter *self)
 
     ufo_channel_finish(output_channel);
     filter_dispose_filenames(filenames);
+    g_free(frame_buffer);
 }
 
 static void ufo_filter_reader_set_property(GObject *object,
