@@ -66,6 +66,11 @@ static void ufo_filter_backproject_initialize(UfoFilter *filter)
 #define BLOCK_SIZE_X 16
 #define BLOCK_SIZE_Y 16
 
+static gboolean axis_is_positive(GValue *value, gpointer user_data)
+{
+    return g_value_get_double(value) > 0.0;
+}
+
 static void ufo_filter_backproject_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
@@ -74,6 +79,8 @@ static void ufo_filter_backproject_process(UfoFilter *filter)
     UfoResourceManager *manager = ufo_resource_manager();
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
+
+    ufo_filter_wait_until(filter, backproject_properties[PROP_AXIS_POSITION], &axis_is_positive, NULL);
 
     UfoBuffer *sinogram = ufo_channel_get_input_buffer(input_channel);
     UfoBuffer *slice = NULL;
@@ -266,7 +273,7 @@ static void ufo_filter_backproject_class_init(UfoFilterBackprojectClass *klass)
         g_param_spec_double("axis-pos",
             "Position of rotation axis",
             "Position of rotation axis",
-            -8192.0, +8192.0, 0.0,
+            -1.0, +8192.0, 0.0,
             G_PARAM_READWRITE);
 
     backproject_properties[PROP_ANGLE_STEP] = 
@@ -298,6 +305,7 @@ static void ufo_filter_backproject_init(UfoFilterBackproject *self)
     self->priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(self);
     self->priv->num_projections = 0;
     self->priv->use_texture = TRUE;
+    self->priv->axis_position = -1.0;
 
     ufo_filter_register_input(UFO_FILTER(self), "sinogram", 2);
     ufo_filter_register_output(UFO_FILTER(self), "slice", 2);

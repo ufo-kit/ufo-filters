@@ -87,7 +87,8 @@ static void center_of_rotation_sinograms(UfoFilter *filter)
         }
 
         priv->center = (width + score_index - max_displacement + 1) / 2.0;
-        g_debug("Center of Rotation: %f", priv->center);
+        /* g_debug("Center of Rotation: %f", priv->center); */
+        g_object_notify(G_OBJECT(filter), "center");
         g_free(scores);
 
         ufo_channel_finalize_input_buffer(input_channel, sinogram);
