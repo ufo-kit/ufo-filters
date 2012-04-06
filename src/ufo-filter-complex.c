@@ -53,17 +53,15 @@ static void ufo_filter_complex_initialize(UfoFilter *filter)
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
 
-    ufo_resource_manager_add_program(manager, "complex.cl", NULL, &error);
+    self->priv->kernels[OP_ADD] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_add", &error);
+    self->priv->kernels[OP_MUL] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_mul", &error);
+    self->priv->kernels[OP_DIV] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_div", &error);
+    self->priv->kernels[OP_CONJ] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_conj", &error);
+
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);
-        return;
     }
-
-    self->priv->kernels[OP_ADD] = ufo_resource_manager_get_kernel(manager, "c_add", &error);
-    self->priv->kernels[OP_MUL] = ufo_resource_manager_get_kernel(manager, "c_mul", &error);
-    self->priv->kernels[OP_DIV] = ufo_resource_manager_get_kernel(manager, "c_div", &error);
-    self->priv->kernels[OP_CONJ] = ufo_resource_manager_get_kernel(manager, "c_conj", &error);
 }
 
 static void ufo_filter_complex_binary(UfoFilter *filter, cl_kernel kernel)

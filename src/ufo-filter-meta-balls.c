@@ -46,21 +46,13 @@ enum {
 
 static GParamSpec *meta_balls_properties[N_PROPERTIES] = { NULL, };
 
-
 static void ufo_filter_meta_balls_initialize(UfoFilter *filter)
 {
-    UfoFilterMetaBallsPrivate *priv = UFO_FILTER_META_BALLS_GET_PRIVATE(filter);
+    UfoFilterMetaBalls *self = UFO_FILTER_META_BALLS(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
+    self->priv->kernel = ufo_resource_manager_get_kernel(manager, "metaballs.cl", "draw_metaballs", &error);
 
-    ufo_resource_manager_add_program(manager, "metaballs.cl", NULL, &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-        return;
-    }
-
-    priv->kernel = ufo_resource_manager_get_kernel(manager, "draw_metaballs", &error);
     if (error != NULL) {
         g_warning("%s", error->message);
         g_error_free(error);

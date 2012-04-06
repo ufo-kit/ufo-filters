@@ -41,11 +41,17 @@ static GParamSpec *forward_project_properties[N_PROPERTIES] = { NULL, };
 
 static void ufo_filter_forward_project_initialize(UfoFilter *filter)
 {
-    UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(filter);
+    UfoFilterForwardProject *self = UFO_FILTER_FORWARD_PROJECT(filter);
     UfoResourceManager *manager = ufo_resource_manager();
-    ufo_resource_manager_add_program(manager, "forwardproject.cl", NULL, NULL);
-    priv->kernel = ufo_resource_manager_get_kernel(manager, "forwardproject", NULL);
+    GError *error = NULL;
+    self->priv->kernel = ufo_resource_manager_get_kernel(manager, "forwardproject.cl","forwardproject", NULL);
+
+    if (error != NULL) {
+        g_warning("%s", error->message);
+        g_error_free(error);
+    }
 }
+
 
 static void ufo_filter_forward_project_process(UfoFilter *filter)
 {
