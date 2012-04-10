@@ -1,7 +1,13 @@
 #include <gmodule.h>
 #include <stdlib.h>
+#include <string.h>
 #include <tiffio.h>
 #include <glob.h>
+#ifdef __APPLE__
+#include <OpenCL/cl.h>
+#else
+#include <CL/cl.h>
+#endif
 
 #include <ufo/ufo-filter.h>
 #include <ufo/ufo-buffer.h>
@@ -15,7 +21,9 @@
  * @Title: reader 
  *
  * The reader node loads single files from disk and provides them as a stream in
- * output "image".
+ * output "image". The nominal resolution can be decreased by specifying the
+ * UfoFilterReader:x and UfoFilterReader::y coordinates, and the
+ * UfoFilterReader:width and UfoFilterReader:height of a region of interest.
  */
 
 struct _UfoFilterReaderPrivate {
@@ -24,6 +32,12 @@ struct _UfoFilterReaderPrivate {
     gint nth;
     gboolean blocking;
     gboolean normalize;
+
+    gboolean roi;
+    guint roi_x;
+    guint roi_y;
+    guint roi_width;
+    guint roi_height;
 };
 
 G_DEFINE_TYPE(UfoFilterReader, ufo_filter_reader, UFO_TYPE_FILTER)
@@ -37,6 +51,11 @@ enum {
     PROP_BLOCKING,
     PROP_NTH,
     PROP_NORMALIZE,
+    PROP_ROI,
+    PROP_ROI_X,
+    PROP_ROI_Y,
+    PROP_ROI_WIDTH,
+    PROP_ROI_HEIGHT,
     N_PROPERTIES
 };
 
@@ -197,16 +216,64 @@ static GSList *filter_read_filenames(UfoFilterReaderPrivate *priv)
     return result;
 }
 
-static void filter_push_data(UfoChannel *output_channel, void *buffer, 
-        guint width, guint height, guint bytes_per_sample, gboolean normalize)
+static void filter_push_data(UfoFilter *reader, UfoChannel *output_channel, void *buffer, 
+        guint src_width, guint src_height, guint bytes_per_sample)
 {
-    UfoBuffer *output_buffer = ufo_channel_get_output_buffer(output_channel);
-    ufo_buffer_set_host_array(output_buffer, buffer, bytes_per_sample * width * height, NULL);
+    UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(reader);
+    UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue(reader);
 
-    if (bytes_per_sample < 4)
-        ufo_buffer_reinterpret(output_buffer, bytes_per_sample << 3, width * height, normalize);
+    if (!priv->roi) {
+        ufo_buffer_set_host_array(output, buffer, bytes_per_sample * src_width * src_height, NULL);
 
-    ufo_channel_finalize_output_buffer(output_channel, output_buffer);
+        if (bytes_per_sample < 4)
+            ufo_buffer_reinterpret(output, bytes_per_sample << 3, src_width * src_height, priv->normalize);
+    }
+    else {
+        guint x1 = priv->roi_x, y1 = priv->roi_y;
+        guint x2 = x1 + priv->roi_width, y2 = y1 + priv->roi_height;
+
+        /* Don't do anything if we are completely out of bounds */
+        if (x1 <= src_width && y1 <= src_height) {
+
+            guint rd_width = x2 > src_width ? src_width - x1 : priv->roi_width;
+            guint rd_height = y2 > src_height ? src_height - y1 : priv->roi_height;
+            gfloat *in_data = (gfloat *) buffer;
+            gfloat *out_data = ufo_buffer_get_host_array(output, cmd_queue);
+
+            if (rd_width == src_width) {
+                g_memmove(out_data, in_data + y1*src_width, 
+                        rd_width * rd_height * sizeof(gfloat));
+            }
+            else {
+                for (guint y = 0; y < rd_height; y++) {
+                    g_memmove(out_data + y*priv->roi_width, in_data + (y + y1)*src_width + x1, 
+                            rd_width * sizeof(gfloat));
+                }
+            }
+
+            if (bytes_per_sample < 4)
+                g_warning("Region of interest with non-float data is not yet supported!");
+        }
+    }
+
+    ufo_channel_finalize_output_buffer(output_channel, output);
+}
+
+static void filter_initialize_buffers(UfoFilterReaderPrivate *priv, UfoChannel *output_channel, guint src_width, guint src_height)
+{
+    guint dimensions[2];
+
+    if (!priv->roi || (priv->roi_width == 0) || (priv->roi_height == 0)) {
+        dimensions[0] = src_width;
+        dimensions[1] = src_height;
+    }
+    else {
+        dimensions[0] = priv->roi_width;
+        dimensions[1] = priv->roi_height;
+    }
+
+    ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
 }
 
 static void ufo_filter_reader_process(UfoFilter *self)
@@ -222,18 +289,16 @@ static void ufo_filter_reader_process(UfoFilter *self)
     guint current_frame = 0;
     guint src_width, src_height;
     guint16 bytes_per_sample, samples_per_pixel;
-    gboolean normalize = priv->normalize;
     gboolean buffers_initialized = FALSE;
     gpointer frame_buffer = NULL;
 
     while ((filename != NULL) && (current_frame < count)) {
-        if (g_str_has_suffix(filename->data, "tif")) {;
+        if (g_str_has_suffix(filename->data, "tif")) {
+            gboolean more_pages = TRUE;
             TIFF *tif = TIFFOpen(filename->data, "r");
 
             if (tif == NULL)
                 break;
-
-            gboolean more_pages = TRUE;
 
             while ((current_frame < count) && more_pages) {
                 more_pages = filter_read_tiff(tif, &frame_buffer,
@@ -243,12 +308,11 @@ static void ufo_filter_reader_process(UfoFilter *self)
                     break;
 
                 if (!buffers_initialized) {
-                    guint dimensions[2] = { src_width, src_height };
-                    ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
+                    filter_initialize_buffers(priv, output_channel, src_width, src_height);
                     buffers_initialized = TRUE;
                 }
 
-                filter_push_data(output_channel, frame_buffer, src_width, src_height, bytes_per_sample, normalize);
+                filter_push_data(self, output_channel, frame_buffer, src_width, src_height, bytes_per_sample);
                 current_frame++;
             }
         }
@@ -260,7 +324,12 @@ static void ufo_filter_reader_process(UfoFilter *self)
             if (frame_buffer == NULL)
                 break;
 
-            filter_push_data(output_channel, frame_buffer, src_width, src_height, bytes_per_sample, normalize);
+            if (!buffers_initialized) {
+                filter_initialize_buffers(priv, output_channel, src_width, src_height);
+                buffers_initialized = TRUE;
+            }
+
+            filter_push_data(self, output_channel, frame_buffer, src_width, src_height, bytes_per_sample);
             current_frame++;
         }
 
@@ -296,6 +365,21 @@ static void ufo_filter_reader_set_property(GObject *object,
         case PROP_NORMALIZE:
             priv->normalize = g_value_get_boolean(value);
             break;
+        case PROP_ROI:
+            priv->roi = g_value_get_boolean(value);
+            break;
+        case PROP_ROI_X:
+            priv->roi_x = g_value_get_uint(value);
+            break;
+        case PROP_ROI_Y:
+            priv->roi_y = g_value_get_uint(value);
+            break;
+        case PROP_ROI_WIDTH:
+            priv->roi_width = g_value_get_uint(value);
+            break;
+        case PROP_ROI_HEIGHT:
+            priv->roi_height = g_value_get_uint(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
@@ -324,6 +408,21 @@ static void ufo_filter_reader_get_property(GObject *object,
             break;
         case PROP_NORMALIZE:
             g_value_set_boolean(value, priv->normalize);
+            break;
+        case PROP_ROI:
+            g_value_set_boolean(value, priv->roi);
+            break;
+        case PROP_ROI_X:
+            g_value_set_uint(value, priv->roi_x);
+            break;
+        case PROP_ROI_Y:
+            g_value_set_uint(value, priv->roi_y);
+            break;
+        case PROP_ROI_WIDTH:
+            g_value_set_uint(value, priv->roi_width);
+            break;
+        case PROP_ROI_HEIGHT:
+            g_value_set_uint(value, priv->roi_height);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -396,11 +495,43 @@ static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
         FALSE,
         G_PARAM_READWRITE);
 
-    g_object_class_install_property(gobject_class, PROP_PATH, reader_properties[PROP_PATH]);
-    g_object_class_install_property(gobject_class, PROP_COUNT, reader_properties[PROP_COUNT]);
-    g_object_class_install_property(gobject_class, PROP_NTH, reader_properties[PROP_NTH]);
-    g_object_class_install_property(gobject_class, PROP_BLOCKING, reader_properties[PROP_BLOCKING]);
-    g_object_class_install_property(gobject_class, PROP_NORMALIZE, reader_properties[PROP_NORMALIZE]);
+    reader_properties[PROP_ROI] = 
+        g_param_spec_boolean("region-of-interest",
+        "Read region of interest",
+        "Read region of interest instead of full image",
+        FALSE,
+        G_PARAM_READWRITE);
+
+    reader_properties[PROP_ROI_X] = 
+        g_param_spec_uint("x",
+            "Horizontal coordinate",
+            "Horizontal coordinate from where to start the ROI",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
+
+    reader_properties[PROP_ROI_Y] = 
+        g_param_spec_uint("y",
+            "Vertical coordinate",
+            "Vertical coordinate from where to start the ROI",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
+
+    reader_properties[PROP_ROI_WIDTH] = 
+        g_param_spec_uint("width",
+            "Width",
+            "Width of the region of interest",
+            1, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
+
+    reader_properties[PROP_ROI_HEIGHT] = 
+        g_param_spec_uint("height",
+            "Height",
+            "Height of the region of interest",
+            1, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
+
+    for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
+        g_object_class_install_property(gobject_class, i, reader_properties[i]);
 
     g_type_class_add_private(gobject_class, sizeof(UfoFilterReaderPrivate));
 }
@@ -414,6 +545,8 @@ static void ufo_filter_reader_init(UfoFilterReader *self)
     priv->nth = -1;
     priv->blocking = FALSE;
     priv->normalize = FALSE;
+    priv->roi = FALSE;
+    priv->roi_x = priv->roi_y = priv->roi_width = priv->roi_height = 0;
 
     ufo_filter_register_output(UFO_FILTER(self), "image", 2);
 }
