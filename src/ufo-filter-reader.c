@@ -22,8 +22,8 @@
  *
  * The reader node loads single files from disk and provides them as a stream in
  * output "image". The nominal resolution can be decreased by specifying the
- * UfoFilterReader:x and UfoFilterReader::y coordinates, and the
- * UfoFilterReader:width and UfoFilterReader:height of a region of interest.
+ * #UfoFilterReader:x and #UfoFilterReader:y coordinates, and the
+ * #UfoFilterReader:width and #UfoFilterReader:height of a region of interest.
  */
 
 struct _UfoFilterReaderPrivate {
@@ -520,14 +520,14 @@ static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
         g_param_spec_uint("width",
             "Width",
             "Width of the region of interest",
-            1, G_MAXUINT, 0,
+            0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
     reader_properties[PROP_ROI_HEIGHT] = 
         g_param_spec_uint("height",
             "Height",
             "Height of the region of interest",
-            1, G_MAXUINT, 0,
+            0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
