@@ -68,21 +68,22 @@ static gboolean filter_decode_tiff(TIFF *tif, void *buffer)
  */
 static gboolean filter_read_tiff(TIFF *tif,
     gpointer *buffer,
-    guint16 *bits_per_sample,
+    guint16 *bytes_per_sample,
     guint16 *samples_per_pixel,
     guint32 *width,
     guint32 *height)
 {
-    TIFFGetField(tif, TIFFTAG_BITSPERSAMPLE, bits_per_sample);
+    guint16 bits_per_sample = 8;
+    TIFFGetField(tif, TIFFTAG_BITSPERSAMPLE, &bits_per_sample);
     TIFFGetField(tif, TIFFTAG_SAMPLESPERPIXEL, samples_per_pixel);
     TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, width);
     TIFFGetField(tif, TIFFTAG_IMAGELENGTH, height);
 
     if (*samples_per_pixel > 1)
-        g_warning("TIFF has %i samples per pixel (%i bps)", *samples_per_pixel, *bits_per_sample);
+        g_warning("TIFF has %i samples per pixel", *samples_per_pixel);
 
-    gsize bytes_per_sample = *bits_per_sample >> 3;
-    gsize size = bytes_per_sample * (*width) * (*height);
+    *bytes_per_sample = bits_per_sample >> 3;
+    gsize size = *bytes_per_sample * (*width) * (*height);
 
     if ((*buffer == NULL) || (image_size != size)) {
         *buffer = g_malloc0(size); 
@@ -100,7 +101,7 @@ error_close:
 }
 
 static void *filter_read_edf(const gchar *filename, 
-    guint16 *bits_per_sample,
+    guint16 *bytes_per_sample,
     guint16 *samples_per_pixel,
     guint32 *width, 
     guint32 *height)
@@ -143,7 +144,7 @@ static void *filter_read_edf(const gchar *filename,
         return NULL;
     }
 
-    *bits_per_sample = 32;
+    *bytes_per_sample = 4;
     *samples_per_pixel = 1;
     *width = w;
     *height = h;
@@ -197,14 +198,13 @@ static GSList *filter_read_filenames(UfoFilterReaderPrivate *priv)
 }
 
 static void filter_push_data(UfoChannel *output_channel, void *buffer, 
-        guint width, guint height, guint bits_per_sample, gboolean normalize)
+        guint width, guint height, guint bytes_per_sample, gboolean normalize)
 {
-    const guint bytes_per_sample = bits_per_sample >> 3;
     UfoBuffer *output_buffer = ufo_channel_get_output_buffer(output_channel);
     ufo_buffer_set_host_array(output_buffer, buffer, bytes_per_sample * width * height, NULL);
 
-    if (bits_per_sample < 32)
-        ufo_buffer_reinterpret(output_buffer, bits_per_sample, width * height, normalize);
+    if (bytes_per_sample < 4)
+        ufo_buffer_reinterpret(output_buffer, bytes_per_sample << 3, width * height, normalize);
 
     ufo_channel_finalize_output_buffer(output_channel, output_buffer);
 }
@@ -220,8 +220,8 @@ static void ufo_filter_reader_process(UfoFilter *self)
     GSList *filename = filenames;
     guint count = priv->count == -1 ? G_MAXUINT : (guint) priv->count;
     guint current_frame = 0;
-    guint width, height;
-    guint16 bits_per_sample, samples_per_pixel;
+    guint src_width, src_height;
+    guint16 bytes_per_sample, samples_per_pixel;
     gboolean normalize = priv->normalize;
     gboolean buffers_initialized = FALSE;
     gpointer frame_buffer = NULL;
@@ -237,30 +237,30 @@ static void ufo_filter_reader_process(UfoFilter *self)
 
             while ((current_frame < count) && more_pages) {
                 more_pages = filter_read_tiff(tif, &frame_buffer,
-                    &bits_per_sample, &samples_per_pixel, &width, &height);
+                    &bytes_per_sample, &samples_per_pixel, &src_width, &src_height);
 
                 if (frame_buffer == NULL)
                     break;
 
                 if (!buffers_initialized) {
-                    guint dimensions[2] = { width, height };
+                    guint dimensions[2] = { src_width, src_height };
                     ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
                     buffers_initialized = TRUE;
                 }
 
-                filter_push_data(output_channel, frame_buffer, width, height, bits_per_sample, normalize);
+                filter_push_data(output_channel, frame_buffer, src_width, src_height, bytes_per_sample, normalize);
                 current_frame++;
             }
         }
         else {
             frame_buffer = filter_read_edf((char *) filename->data,
-                    &bits_per_sample, &samples_per_pixel,
-                    &width, &height);
+                    &bytes_per_sample, &samples_per_pixel,
+                    &src_width, &src_height);
 
             if (frame_buffer == NULL)
                 break;
 
-            filter_push_data(output_channel, frame_buffer, width, height, bits_per_sample, normalize);
+            filter_push_data(output_channel, frame_buffer, src_width, src_height, bytes_per_sample, normalize);
             current_frame++;
         }
 
