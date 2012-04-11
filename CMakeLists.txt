@@ -46,6 +46,7 @@ add_definitions(-DG_LOG_DOMAIN="Ufo")
 
 add_subdirectory(src)
 
+
 # --- Package generation ------------------------------------------------------
 set(CPACK_PACKAGE_DESCRIPTION ${UFO_DESCRIPTION})
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY ${UFO_DESCRIPTION_SUMMARY})
