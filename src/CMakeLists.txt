@@ -53,7 +53,7 @@ link_directories(${UFO_LIBRARY_DIRS})
 # --- Add filters that depend on other libraries ------------------------------
 find_package(TIFF)
 find_package(OCLFFT)
-pkg_check_modules(UCA uca)
+pkg_check_modules(UCA uca>=0.6)
 pkg_check_modules(OPENCV opencv)
 
 if (UCA_INCLUDE_DIRS AND UCA_LIBRARIES)
