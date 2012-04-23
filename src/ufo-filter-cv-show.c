@@ -50,6 +50,10 @@ static void ufo_filter_cv_show_process(UfoFilter *filter)
 
     CvSize size;
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
+
+    if (input == NULL)
+        return;
+
     ufo_buffer_get_2d_dimensions(input, (guint *) &size.width, (guint *) &size.height);
 
     IplImage *image = cvCreateImageHeader(size, IPL_DEPTH_32F, 1);
