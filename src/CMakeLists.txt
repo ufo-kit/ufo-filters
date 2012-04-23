@@ -13,6 +13,7 @@ set(ufofilter_SRCS
     ufo-filter-copy.c
     ufo-filter-demux.c
     ufo-filter-filter.c
+    ufo-filter-gaussian-blur.c
     ufo-filter-interpolator.c
     ufo-filter-meta-balls.c
     ufo-filter-mux.c
@@ -30,6 +31,7 @@ set(ufofilter_KERNELS
     forwardproject.cl
     fft.cl
     filter.cl
+    gaussian.cl
     interpolator.cl
     complex.cl
     filters.cl
