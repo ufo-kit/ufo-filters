@@ -293,9 +293,11 @@ static void ufo_filter_reader_process(UfoFilter *self)
     gpointer frame_buffer = NULL;
 
     while ((filename != NULL) && (current_frame < count)) {
-        if (g_str_has_suffix(filename->data, "tif")) {
+        gchar *name = (gchar *) filename->data;
+
+        if (g_str_has_suffix(name, "tif")) {
             gboolean more_pages = TRUE;
-            TIFF *tif = TIFFOpen(filename->data, "r");
+            TIFF *tif = TIFFOpen(name, "r");
 
             if (tif == NULL)
                 break;
@@ -317,7 +319,7 @@ static void ufo_filter_reader_process(UfoFilter *self)
             }
         }
         else {
-            frame_buffer = filter_read_edf((char *) filename->data,
+            frame_buffer = filter_read_edf((char *) name,
                     &bytes_per_sample, &samples_per_pixel,
                     &src_width, &src_height);
 
@@ -548,7 +550,7 @@ static void ufo_filter_reader_init(UfoFilterReader *self)
     priv->roi = FALSE;
     priv->roi_x = priv->roi_y = priv->roi_width = priv->roi_height = 0;
 
-    ufo_filter_register_output(UFO_FILTER(self), "image", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
