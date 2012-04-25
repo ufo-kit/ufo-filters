@@ -84,9 +84,9 @@ static void ufo_filter_gaussian_blur_process(UfoFilter *filter)
     const guint half_kernel_size = kernel_size / 2;
     gfloat *weights = g_malloc0(kernel_size * sizeof(gfloat));
     gfloat weight_sum = 0.0;
-    
+
     for (guint i = 0; i < half_kernel_size + 1; i++) {
-        gfloat x = (gfloat) half_kernel_size - i;
+        gfloat x = (gfloat) (half_kernel_size - i);
         weights[i] = (gfloat) 1.0 / (priv->sigma * sqrt(2*G_PI)) * exp((x * x) / (-2.0 * priv->sigma * priv->sigma));
         weights[kernel_size-i-1] = weights[i];
     }

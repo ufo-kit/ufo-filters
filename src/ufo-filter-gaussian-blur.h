@@ -35,5 +35,6 @@ struct _UfoFilterGaussianBlurClass {
 };
 
 GType ufo_filter_gaussian_blur_get_type(void);
+UfoFilter *ufo_filter_plugin_new(void);
 
 #endif
