@@ -157,10 +157,11 @@ static void *filter_read_edf(const gchar *filename,
 
     g_strfreev(tokens);
     g_free(header);
+    gsize expected_size = w * h * sizeof(float);
 
-    if (w * h * sizeof(float) != size) {
-        fclose(fp);
-        return NULL;
+    if (expected_size != size) {
+        g_warning("header value size is %i bytes rather than %lu bytes", size, expected_size);
+        size = (guint) expected_size;
     }
 
     *bytes_per_sample = 4;
