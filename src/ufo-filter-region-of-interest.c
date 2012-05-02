@@ -207,8 +207,8 @@ static void ufo_filter_region_of_interest_init(UfoFilterRegionOfInterest *self)
     priv->width = 256;
     priv->height = 256;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output", 2);
+    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

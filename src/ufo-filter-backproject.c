@@ -307,8 +307,8 @@ static void ufo_filter_backproject_init(UfoFilterBackproject *self)
     self->priv->use_texture = TRUE;
     self->priv->axis_position = -1.0;
 
-    ufo_filter_register_input(UFO_FILTER(self), "sinogram", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "slice", 2);
+    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

@@ -235,7 +235,7 @@ static void ufo_filter_cam_access_init(UfoFilterCamAccess *self)
     self->priv->camera = NULL;
     self->priv->count = 0;
 
-    ufo_filter_register_output(UFO_FILTER(self), "output", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

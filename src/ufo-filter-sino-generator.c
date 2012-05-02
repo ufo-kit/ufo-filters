@@ -175,8 +175,8 @@ static void ufo_filter_sino_generator_init(UfoFilterSinoGenerator *self)
     UfoFilterSinoGeneratorPrivate *priv = self->priv = UFO_FILTER_SINO_GENERATOR_GET_PRIVATE(self);
     priv->num_projections = 1;
 
-    ufo_filter_register_input(UFO_FILTER(self), "projection", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "sinogram", 2);
+    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

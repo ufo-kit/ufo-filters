@@ -147,7 +147,7 @@ static void ufo_filter_copy_init(UfoFilterCopy *self)
     UfoFilterCopyPrivate *priv = self->priv = UFO_FILTER_COPY_GET_PRIVATE(self);
     priv->num_outputs = 2;
 
-    ufo_filter_register_input(UFO_FILTER(self), "image", 2);
+    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
     ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
     ufo_filter_register_output(UFO_FILTER(self), "output1", 2);
 }

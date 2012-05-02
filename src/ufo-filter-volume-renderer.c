@@ -233,7 +233,7 @@ static void ufo_filter_volume_renderer_init(UfoFilterVolumeRenderer *self)
     self->priv->width = 512;
     self->priv->height = 512;
 
-    ufo_filter_register_output(UFO_FILTER(self), "output", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

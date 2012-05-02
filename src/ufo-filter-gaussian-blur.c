@@ -87,7 +87,7 @@ static void ufo_filter_gaussian_blur_process(UfoFilter *filter)
 
     for (guint i = 0; i < half_kernel_size + 1; i++) {
         gfloat x = (gfloat) (half_kernel_size - i);
-        weights[i] = (gfloat) 1.0 / (priv->sigma * sqrt(2*G_PI)) * exp((x * x) / (-2.0 * priv->sigma * priv->sigma));
+        weights[i] = (gfloat) (1.0 / (priv->sigma * sqrt(2*G_PI)) * exp((x * x) / (-2.0 * priv->sigma * priv->sigma)));
         weights[kernel_size-i-1] = weights[i];
     }
 
@@ -221,8 +221,8 @@ static void ufo_filter_gaussian_blur_init(UfoFilterGaussianBlur *self)
 
     priv->size = 5;
     priv->sigma = 1.0f;
-    ufo_filter_register_input(UFO_FILTER(self), "input", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output", 2);
+    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

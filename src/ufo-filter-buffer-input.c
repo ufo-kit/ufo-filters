@@ -139,7 +139,7 @@ static void ufo_filter_buffer_input_init(UfoFilterBufferInput *self)
     UfoFilterBufferInputPrivate *priv = self->priv = UFO_FILTER_BUFFER_INPUT_GET_PRIVATE(self);
     priv->buffers = NULL;
 
-    ufo_filter_register_output(UFO_FILTER(self), "output", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

@@ -143,7 +143,7 @@ static void ufo_filter_cv_show_init(UfoFilterCvShow *self)
     UfoFilterCvShowPrivate *priv = self->priv = UFO_FILTER_CV_SHOW_GET_PRIVATE(self);
     priv->show_histogram = FALSE;
 
-    ufo_filter_register_input(UFO_FILTER(self), "image", 2);
+    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

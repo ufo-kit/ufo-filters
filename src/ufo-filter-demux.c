@@ -43,8 +43,8 @@ static void filter_demux_process_simple(UfoFilterDemux *self)
 {
     UfoChannel *input_channel = ufo_filter_get_input_channel(UFO_FILTER(self));
     UfoChannel *output_channels[2] = { NULL, NULL };
-    output_channels[0] = ufo_filter_get_output_channel_by_name(UFO_FILTER(self), "output1");
-    output_channels[1] = ufo_filter_get_output_channel_by_name(UFO_FILTER(self), "output2");
+    output_channels[0] = ufo_filter_get_output_channel_by_name(UFO_FILTER(self), "output0");
+    output_channels[1] = ufo_filter_get_output_channel_by_name(UFO_FILTER(self), "output1");
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(UFO_FILTER(self));
     int current = 0;
 
@@ -69,8 +69,8 @@ static void filter_demux_process_copy_same(UfoFilterDemux *self)
 {
     UfoChannel *input_channel = ufo_filter_get_input_channel(UFO_FILTER(self));
     UfoChannel *output_channels[2] = { NULL, NULL };
-    output_channels[0] = ufo_filter_get_output_channel_by_name(UFO_FILTER(self), "output1");
-    output_channels[1] = ufo_filter_get_output_channel_by_name(UFO_FILTER(self), "output2");
+    output_channels[0] = ufo_filter_get_output_channel_by_name(UFO_FILTER(self), "output0");
+    output_channels[1] = ufo_filter_get_output_channel_by_name(UFO_FILTER(self), "output1");
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(UFO_FILTER(self));
 
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);

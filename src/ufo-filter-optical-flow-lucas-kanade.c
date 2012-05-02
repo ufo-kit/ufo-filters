@@ -623,8 +623,8 @@ static void ufo_filter_optical_flow_lucas_kanade_init(UfoFilterOpticalFlowLucasK
 {
     self->priv = UFO_FILTER_OPTICAL_FLOW_LUCAS_KANADE_GET_PRIVATE(self);
 
-    ufo_filter_register_input(UFO_FILTER(self), "image", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "vectorfield", 2);
+    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

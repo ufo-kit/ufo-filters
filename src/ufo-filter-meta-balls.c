@@ -299,7 +299,7 @@ static void ufo_filter_meta_balls_init(UfoFilterMetaBalls *self)
     priv->run_infinitely = FALSE;
     priv->frames_per_second = 0;
 
-    ufo_filter_register_output(UFO_FILTER(self), "image", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

@@ -82,7 +82,7 @@ static void ufo_filter_null_class_init(UfoFilterNullClass *klass)
 
 static void ufo_filter_null_init(UfoFilterNull *self)
 {
-    ufo_filter_register_input(UFO_FILTER(self), "anything", 2);
+    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

@@ -303,7 +303,7 @@ static void ufo_filter_cl_init(UfoFilterCl *self)
 
     ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
     ufo_filter_register_input(UFO_FILTER(self), "input1", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "image", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

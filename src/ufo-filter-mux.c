@@ -34,8 +34,8 @@ static void ufo_filter_mux_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
     UfoChannel *input_channels[2] = { NULL, NULL };
-    input_channels[0] = ufo_filter_get_input_channel_by_name(filter, "input1");
-    input_channels[1] = ufo_filter_get_input_channel_by_name(filter, "input2");
+    input_channels[0] = ufo_filter_get_input_channel_by_name(filter, "input0");
+    input_channels[1] = ufo_filter_get_input_channel_by_name(filter, "input1");
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
 
     UfoBuffer *input1 = ufo_channel_get_input_buffer(input_channels[0]);

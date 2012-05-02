@@ -256,8 +256,8 @@ static void ufo_filter_filter_init(UfoFilterFilter *self)
     priv->bw_cutoff = 0.5f;
     priv->bw_order = 4.0f;
 
-    ufo_filter_register_input(UFO_FILTER(self), "freqs", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "freqs", 2);
+    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

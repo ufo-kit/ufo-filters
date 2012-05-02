@@ -551,7 +551,7 @@ static void ufo_filter_reader_init(UfoFilterReader *self)
     priv->roi = FALSE;
     priv->roi_x = priv->roi_y = priv->roi_width = priv->roi_height = 0;
 
-    ufo_filter_register_output(UFO_FILTER(self), "output", 2);
+    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

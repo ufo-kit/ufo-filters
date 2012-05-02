@@ -286,7 +286,7 @@ static void ufo_filter_center_of_rotation_init(UfoFilterCenterOfRotation *self)
     priv->angle_step = 1.0f;
     priv->use_sinograms = FALSE;
 
-    ufo_filter_register_input(UFO_FILTER(self), "image", 2);
+    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
