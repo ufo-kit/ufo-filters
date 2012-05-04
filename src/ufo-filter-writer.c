@@ -74,6 +74,10 @@ static void ufo_filter_writer_process(UfoFilter *self)
     UfoFilterWriterPrivate *priv = UFO_FILTER_WRITER_GET_PRIVATE(self);
     UfoChannel *input_channel = ufo_filter_get_input_channel(self);
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
+
+    if (input == NULL)
+        return;
+
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(self);
     GString *filename = g_string_new("");
     gint id = -1, current_frame = 0;

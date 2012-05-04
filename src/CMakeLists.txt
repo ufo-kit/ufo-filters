@@ -14,6 +14,7 @@ set(ufofilter_SRCS
     ufo-filter-demux.c
     ufo-filter-filter.c
     ufo-filter-histogram-threshold.c
+    ufo-filter-expr.c
     ufo-filter-gaussian-blur.c
     ufo-filter-interpolator.c
     ufo-filter-meta-balls.c
@@ -53,10 +54,12 @@ set(ufofilter_LIBS
 
 link_directories(${UFO_LIBRARY_DIRS})
 
+include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
 # --- Add filters that depend on other libraries ------------------------------
 find_package(TIFF)
 find_package(OCLFFT)
+find_program(RE2C re2c)
 pkg_check_modules(UCA uca>=0.6)
 pkg_check_modules(OPENCV opencv)
 
@@ -93,10 +96,20 @@ set(optical_flow_lucas_kanade_misc_SRCS
     oflk_cl_image.c
     oflk_pyramid.c)
 
+if (RE2C)
+    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/expr-scanner.c
+        COMMAND ${RE2C} 
+                -o ${CMAKE_CURRENT_BINARY_DIR}/expr-scanner.c
+                ${CMAKE_CURRENT_SOURCE_DIR}/expr-scanner.c.in
+                DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/expr-scanner.c.in)
+
+    set(expr_misc_SRCS
+        expr-parser.c
+        ${CMAKE_CURRENT_BINARY_DIR}/expr-scanner.c)
+endif ()
+
 
 # --- Target ------------------------------------------------------------------
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
-
 get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
 
 set(LIB_INSTALL_DIR "lib${LIB_SUFFIX}/ufo")
