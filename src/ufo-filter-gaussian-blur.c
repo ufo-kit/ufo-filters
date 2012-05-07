@@ -40,7 +40,7 @@ enum {
 static GParamSpec *gaussian_blur_properties[N_PROPERTIES] = { NULL, };
 
 
-static void ufo_filter_gaussian_blur_initialize(UfoFilter *filter)
+static void ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterGaussianBlur *self = UFO_FILTER_GAUSSIAN_BLUR(filter);
     UfoResourceManager *manager = ufo_resource_manager();

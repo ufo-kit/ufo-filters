@@ -53,10 +53,7 @@ static guint32 pow2round(guint32 x)
     return x+1;
 }
 
-/* 
- * virtual methods 
- */
-static void ufo_filter_fft_initialize(UfoFilter *filter)
+static void ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterFFT *self = UFO_FILTER_FFT(filter);
     UfoResourceManager *manager = ufo_resource_manager();
@@ -69,11 +66,6 @@ static void ufo_filter_fft_initialize(UfoFilter *filter)
     }
 }
 
-
-/*
- * This is the main method in which the filter processes one buffer after
- * another.
- */
 static void ufo_filter_fft_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));

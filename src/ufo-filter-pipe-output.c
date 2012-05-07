@@ -40,10 +40,6 @@ enum {
 static GParamSpec *pipe_output_properties[N_PROPERTIES] = { NULL, };
 
 
-static void ufo_filter_pipe_output_initialize(UfoFilter *filter)
-{
-}
-
 static void ufo_filter_pipe_output_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
@@ -129,7 +125,6 @@ static void ufo_filter_pipe_output_class_init(UfoFilterPipeOutputClass *klass)
 
     gobject_class->set_property = ufo_filter_pipe_output_set_property;
     gobject_class->get_property = ufo_filter_pipe_output_get_property;
-    filter_class->initialize = ufo_filter_pipe_output_initialize;
     filter_class->process = ufo_filter_pipe_output_process;
 
     pipe_output_properties[PROP_PIPE_NAME] = 

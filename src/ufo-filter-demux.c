@@ -132,10 +132,6 @@ static void filter_demux_process_copy_delayed(UfoFilterDemux *self)
     ufo_channel_finish(output_channels[1]);
 }
 
-static void ufo_filter_demux_initialize(UfoFilter *filter)
-{
-}
-
 static void ufo_filter_demux_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
@@ -207,7 +203,6 @@ static void ufo_filter_demux_class_init(UfoFilterDemuxClass *klass)
 
     gobject_class->set_property = ufo_filter_demux_set_property;
     gobject_class->get_property = ufo_filter_demux_get_property;
-    filter_class->initialize = ufo_filter_demux_initialize;
     filter_class->process = ufo_filter_demux_process;
     
     /* install properties */

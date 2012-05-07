@@ -95,7 +95,7 @@ static float *setup_butterworth(UfoFilterFilterPrivate *priv, guint width)
     return filter;
 }
 
-static void ufo_filter_filter_initialize(UfoFilter *filter)
+static void ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterFilter *self = UFO_FILTER_FILTER(filter);
     UfoResourceManager *manager = ufo_resource_manager();

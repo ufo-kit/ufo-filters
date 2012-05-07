@@ -43,10 +43,6 @@ enum {
 static GParamSpec *region_of_interest_properties[N_PROPERTIES] = { NULL, };
 
 
-static void ufo_filter_region_of_interest_initialize(UfoFilter *filter)
-{
-}
-
 static void ufo_filter_region_of_interest_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
@@ -162,7 +158,6 @@ static void ufo_filter_region_of_interest_class_init(UfoFilterRegionOfInterestCl
 
     gobject_class->set_property = ufo_filter_region_of_interest_set_property;
     gobject_class->get_property = ufo_filter_region_of_interest_get_property;
-    filter_class->initialize = ufo_filter_region_of_interest_initialize;
     filter_class->process = ufo_filter_region_of_interest_process;
 
     region_of_interest_properties[PROP_X] = 

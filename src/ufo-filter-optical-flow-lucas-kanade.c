@@ -335,7 +335,7 @@ static cl_int oflk_flow_calc_flow(oflk_cl_buffer flow_levels[LEVELS],
     return err_num;
 }
 
-static void ufo_filter_optical_flow_lucas_kanade_initialize(UfoFilter *filter)
+static void ufo_filter_optical_flow_lucas_kanade_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     /* Here you can code, that is called for each newly instantiated filter */
 	UfoFilterOpticalFlowLucasKanade *self = UFO_FILTER_OPTICAL_FLOW_LUCAS_KANADE(filter);

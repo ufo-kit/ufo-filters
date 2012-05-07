@@ -43,10 +43,6 @@ enum {
 
 static GParamSpec *cl_properties[N_PROPERTIES] = { NULL, };
 
-static void ufo_filter_cl_initialize(UfoFilter *filter)
-{
-}
-
 static void process_regular(UfoFilter *self,
         UfoFilterClPrivate *priv, 
         cl_command_queue command_queue, 
@@ -254,7 +250,6 @@ static void ufo_filter_cl_class_init(UfoFilterClClass *klass)
 
     gobject_class->set_property = ufo_filter_cl_set_property;
     gobject_class->get_property = ufo_filter_cl_get_property;
-    filter_class->initialize = ufo_filter_cl_initialize;
     filter_class->process = ufo_filter_cl_process;
 
     cl_properties[PROP_FILE_NAME] = 

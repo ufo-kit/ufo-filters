@@ -144,9 +144,6 @@ foreach(_src ${ufofilter_SRCS})
             add_library(${target} SHARED ${_src} ${${_misc}})
         endif()
 
-        set_target_properties(${target} PROPERTIES 
-            COMPILE_DEFINITIONS "G_LOG_DOMAIN=\"${filter}\"")
-
         target_link_libraries(${target} ${ufofilter_LIBS})
         list(APPEND all_targets ${target})
         

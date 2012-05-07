@@ -39,15 +39,6 @@ enum {
 
 static GParamSpec *sino_generator_properties[N_PROPERTIES] = { NULL, };
 
-static void ufo_filter_sino_generator_initialize(UfoFilter *filter)
-{
-    /* Here you can code, that is called for each newly instantiated filter */
-}
-
-/*
- * This is the main method in which the filter processes one buffer after
- * another.
- */
 static void ufo_filter_sino_generator_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
@@ -155,7 +146,6 @@ static void ufo_filter_sino_generator_class_init(UfoFilterSinoGeneratorClass *kl
 
     gobject_class->set_property = ufo_filter_sino_generator_set_property;
     gobject_class->get_property = ufo_filter_sino_generator_get_property;
-    filter_class->initialize = ufo_filter_sino_generator_initialize;
     filter_class->process = ufo_filter_sino_generator_process;
 
     sino_generator_properties[PROP_NUM_PROJECTIONS] = 

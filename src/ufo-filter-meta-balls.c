@@ -46,7 +46,7 @@ enum {
 
 static GParamSpec *meta_balls_properties[N_PROPERTIES] = { NULL, };
 
-static void ufo_filter_meta_balls_initialize(UfoFilter *filter)
+static void ufo_filter_meta_balls_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterMetaBalls *self = UFO_FILTER_META_BALLS(filter);
     UfoResourceManager *manager = ufo_resource_manager();

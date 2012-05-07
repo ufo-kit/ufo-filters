@@ -170,14 +170,6 @@ static void center_of_rotation_projections(UfoFilter *filter)
     g_free(scores);
 }
 
-static void ufo_filter_center_of_rotation_initialize(UfoFilter *filter)
-{
-}
-
-/*
- * This is the main method in which the filter processes one buffer after
- * another.
- */
 static void ufo_filter_center_of_rotation_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
@@ -248,7 +240,6 @@ static void ufo_filter_center_of_rotation_class_init(UfoFilterCenterOfRotationCl
 
     gobject_class->set_property = ufo_filter_center_of_rotation_set_property;
     gobject_class->get_property = ufo_filter_center_of_rotation_get_property;
-    filter_class->initialize = ufo_filter_center_of_rotation_initialize;
     filter_class->process = ufo_filter_center_of_rotation_process;
 
     center_of_rotation_properties[PROP_ANGLE_STEP] = 

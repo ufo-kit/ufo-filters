@@ -29,10 +29,6 @@ enum {
     N_PROPERTIES
 };
 
-static void ufo_filter_averager_initialize(UfoFilter *filter)
-{
-}
-
 static void ufo_filter_averager_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
@@ -100,7 +96,6 @@ static void ufo_filter_averager_class_init(UfoFilterAveragerClass *klass)
 
     gobject_class->set_property = ufo_filter_averager_set_property;
     gobject_class->get_property = ufo_filter_averager_get_property;
-    filter_class->initialize = ufo_filter_averager_initialize;
     filter_class->process = ufo_filter_averager_process;
 }
 

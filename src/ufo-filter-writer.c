@@ -175,3 +175,4 @@ G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_WRITER, NULL);
 }
+

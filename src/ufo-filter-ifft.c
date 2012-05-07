@@ -48,7 +48,7 @@ enum {
 static GParamSpec *ifft_properties[N_PROPERTIES] = { NULL, };
 
 
-static void ufo_filter_ifft_initialize(UfoFilter *filter)
+static void ufo_filter_ifft_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterIFFT *self = UFO_FILTER_IFFT(filter);
     UfoResourceManager *manager = ufo_resource_manager();

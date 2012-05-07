@@ -38,7 +38,7 @@ enum {
 
 static GParamSpec *interpolator_properties[N_PROPERTIES] = { NULL, };
 
-static void ufo_filter_interpolator_initialize(UfoFilter *filter)
+static void ufo_filter_interpolator_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterInterpolatorPrivate *priv = UFO_FILTER_INTERPOLATOR_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();

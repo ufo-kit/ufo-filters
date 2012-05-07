@@ -24,10 +24,6 @@ G_DEFINE_TYPE(UfoFilterNormalize, ufo_filter_normalize, UFO_TYPE_FILTER)
 #define UFO_FILTER_NORMALIZE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_NORMALIZE, UfoFilterNormalizePrivate))
 
 
-static void ufo_filter_normalize_initialize(UfoFilter *filter)
-{
-}
-
 static void ufo_filter_normalize_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
@@ -98,7 +94,6 @@ static void ufo_filter_normalize_class_init(UfoFilterNormalizeClass *klass)
 
     gobject_class->set_property = ufo_filter_normalize_set_property;
     gobject_class->get_property = ufo_filter_normalize_get_property;
-    filter_class->initialize = ufo_filter_normalize_initialize;
     filter_class->process = ufo_filter_normalize_process;
 }
 

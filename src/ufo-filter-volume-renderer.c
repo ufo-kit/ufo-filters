@@ -40,7 +40,7 @@ enum {
 static GParamSpec *volume_renderer_properties[N_PROPERTIES] = { NULL, };
 
 
-static void ufo_filter_volume_renderer_initialize(UfoFilter *filter)
+static void ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterVolumeRenderer *self = UFO_FILTER_VOLUME_RENDERER(filter);
     UfoResourceManager *manager = ufo_resource_manager();

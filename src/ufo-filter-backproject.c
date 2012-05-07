@@ -49,7 +49,7 @@ enum {
 
 static GParamSpec *backproject_properties[N_PROPERTIES] = { NULL, };
 
-static void ufo_filter_backproject_initialize(UfoFilter *filter)
+static void ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterBackproject *self = UFO_FILTER_BACKPROJECT(filter);
     UfoResourceManager *manager = ufo_resource_manager();
