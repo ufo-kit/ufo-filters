@@ -22,11 +22,12 @@ __kernel void threshold(__global float *input, __global float *histogram, __glob
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
     const int width = get_global_size(0);
-    const float intensity = input[idy*width + idx];
+    const int index = idy * width + idx;
+    const float intensity = input[index];
     const int h_index = (int) (intensity * 256.0);
 
     if (histogram[h_index] < 0.03)
-        output[idy*width + idx] = intensity;
+        output[index] = intensity;
     else
-        output[idy*width + idx] = 0.0f;
+        output[index] = 0.0f;
 }
