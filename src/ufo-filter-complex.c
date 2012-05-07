@@ -47,7 +47,7 @@ enum {
 
 static GParamSpec *complex_properties[N_PROPERTIES] = { NULL, };
 
-static void ufo_filter_complex_initialize(UfoFilter *filter)
+static void ufo_filter_complex_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterComplex *self = UFO_FILTER_COMPLEX(filter);
     UfoResourceManager *manager = ufo_resource_manager();

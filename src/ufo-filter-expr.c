@@ -36,15 +36,6 @@ enum {
 
 static GParamSpec *expr_properties[N_PROPERTIES] = { NULL, };
 
-
-static void ufo_filter_expr_initialize(UfoFilter *filter)
-{
-}
-
-/*
- * This is the main method in which the filter processes one buffer after
- * another.
- */
 static void ufo_filter_expr_process(UfoFilter *filter)
 {
     g_return_if_fail(UFO_IS_FILTER(filter));
@@ -160,7 +151,6 @@ static void ufo_filter_expr_class_init(UfoFilterExprClass *klass)
     gobject_class->set_property = ufo_filter_expr_set_property;
     gobject_class->get_property = ufo_filter_expr_get_property;
     gobject_class->finalize = ufo_filter_expr_finalize;
-    filter_class->initialize = ufo_filter_expr_initialize;
     filter_class->process = ufo_filter_expr_process;
     
     expr_properties[PROP_EXPRESSION] = 

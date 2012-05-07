@@ -68,7 +68,7 @@ static gboolean filter_write_tiff(float *buffer, const gchar *name,
     return success;
 }
 
-static void ufo_filter_writer_process_cpu(UfoFilter *self, UfoBuffer *params[])
+static void ufo_filter_writer_process_cpu(UfoFilter *self, UfoBuffer *params[], UfoBuffer *results[])
 {
     UfoFilterWriterPrivate *priv = UFO_FILTER_WRITER_GET_PRIVATE(self);
     guint width, height;

@@ -122,15 +122,11 @@ static void ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[])
 }
 
 #ifdef HAVE_OCLFFT
-static void ufo_filter_fft_process_gpu(UfoFilter *filter, UfoBuffer *params[])
+static void ufo_filter_fft_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[])
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
-
-    UfoBuffer *fft_buffer = ufo_channel_get_output_buffer(output_channel);
-
-    cl_mem fft_buffer_mem = (cl_mem) ufo_buffer_get_device_array(fft_buffer, command_queue);
+    cl_mem fft_buffer_mem = (cl_mem) ufo_buffer_get_device_array(results[0], command_queue);
     cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_device_array(params[0], command_queue);
     cl_event event, wait_on_event;
 
@@ -159,24 +155,21 @@ static void ufo_filter_fft_process_gpu(UfoFilter *filter, UfoBuffer *params[])
     /* XXX: FFT execution does _not_ return event */
     /*ufo_filter_account_gpu_time(filter, (void **) &event);*/
     CHECK_OPENCL_ERROR(clFinish(command_queue));
-    ufo_channel_finalize_output_buffer(output_channel, fft_buffer);
 }
 #endif
 
 #ifdef HAVE_FFTW3
-static void ufo_filter_fft_process_cpu(UfoFilter *filter, UfoBuffer *params[])
+static void ufo_filter_fft_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[])
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    UfoBuffer *fft_buffer = ufo_channel_get_output_buffer(output_channel);
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
     gint idist = (gint) priv->width;
     gint odist = (gint) pow2round(priv->width);
     gfloat *in = ufo_buffer_get_host_array(params[0], command_queue);
-    gfloat *out = ufo_buffer_get_host_array(fft_buffer, command_queue);
+    gfloat *out = ufo_buffer_get_host_array(results[0], command_queue);
 
-    fftwf_plan plan = fftwf_plan_many_dft_r2c(1, (gint *) &priv->width, priv->height,
+    fftwf_plan plan = fftwf_plan_many_dft_r2c(1, (gint *) &priv->width, (gint) priv->height,
             in, NULL, 1, idist,
             out, NULL, 1, odist,
             0);
@@ -184,8 +177,6 @@ static void ufo_filter_fft_process_cpu(UfoFilter *filter, UfoBuffer *params[])
     fftwf_destroy_plan(plan);
 
     memcpy(out, out + odist * sizeof(gfloat), odist * sizeof(gfloat));
-
-    ufo_channel_finalize_output_buffer(output_channel, fft_buffer);
 }
 #endif
 
