@@ -62,6 +62,7 @@ find_package(OCLFFT)
 find_program(RE2C re2c)
 pkg_check_modules(UCA uca>=0.6)
 pkg_check_modules(OPENCV opencv)
+pkg_check_modules(FFTW3 fftw3f)
 
 if (UCA_INCLUDE_DIRS AND UCA_LIBRARIES)
     set(ufofilter_SRCS ${ufofilter_SRCS} ufo-filter-cam-access.c)
@@ -77,10 +78,20 @@ if (TIFF_FOUND)
 endif ()
 
 if (OCLFFT_FOUND)
-    set(ufofilter_SRCS ${ufofilter_SRCS} ufo-filter-fft.c)
-    set(ufofilter_SRCS ${ufofilter_SRCS} ufo-filter-ifft.c)
+    set(HAVE_OCLFFT "1")
     set(ufofilter_LIBS ${ufofilter_LIBS} ${OCLFFT_LIBRARIES})
     include_directories(${OCLFFT_INCLUDE_DIRS})
+endif ()
+
+if (FFTW3_FOUND)
+    set(HAVE_FFTW3 "1")
+    set(ufofilter_LIBS ${ufofilter_LIBS} ${FFTW3_LIBRARIES})
+    include_directories(${FFTW3_INCLUDE_DIRS})
+endif ()
+
+if (OCLFFT_FOUND OR FFTW3_FOUND)
+    set(ufofilter_SRCS ${ufofilter_SRCS} ufo-filter-fft.c)
+    set(ufofilter_SRCS ${ufofilter_SRCS} ufo-filter-ifft.c)
 endif ()
 
 if (OPENCV_FOUND)
@@ -116,6 +127,8 @@ set(LIB_INSTALL_DIR "lib${LIB_SUFFIX}/ufo")
 set(shared_objects "")
 set(documented_types "")
 set(all_targets)
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
 foreach(_src ${ufofilter_SRCS})
     # find plugin suffix

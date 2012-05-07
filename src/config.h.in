@@ -1,0 +1,2 @@
+#cmakedefine HAVE_OCLFFT
+#cmakedefine HAVE_FFTW3
