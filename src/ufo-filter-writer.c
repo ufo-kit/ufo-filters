@@ -68,14 +68,14 @@ static gboolean filter_write_tiff(float *buffer, const gchar *name,
     return success;
 }
 
-static void ufo_filter_writer_process_cpu(UfoFilter *self, UfoBuffer *params[], UfoBuffer *results[])
+static void ufo_filter_writer_process_cpu(UfoFilter *self, 
+        UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterWriterPrivate *priv = UFO_FILTER_WRITER_GET_PRIVATE(self);
     guint width, height;
     ufo_buffer_get_2d_dimensions(params[0], &width, &height);
 
-    cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(self);
-    float *data = ufo_buffer_get_host_array(params[0], command_queue);
+    float *data = ufo_buffer_get_host_array(params[0], (cl_command_queue) cmd_queue);
     gchar *filename = g_strdup_printf("%s/%s%05i.tif", priv->path, priv->prefix, priv->counter++);
 
     if (!filter_write_tiff(data, filename, width, height))
