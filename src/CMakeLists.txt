@@ -14,7 +14,6 @@ set(ufofilter_SRCS
     ufo-filter-demux.c
     ufo-filter-filter.c
     ufo-filter-histogram-threshold.c
-    ufo-filter-expr.c
     ufo-filter-gaussian-blur.c
     ufo-filter-interpolator.c
     ufo-filter-meta-balls.c
@@ -100,13 +99,6 @@ if (OPENCV_FOUND)
     include_directories(${OPENCV_INCLUDE_DIRS})
 endif ()
 
-
-# --- Add sources that belong to other libraries ------------------------------
-set(optical_flow_lucas_kanade_misc_SRCS
-    oflk_cl_buffer.c
-    oflk_cl_image.c
-    oflk_pyramid.c)
-
 if (RE2C)
     add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/expr-scanner.c
         COMMAND ${RE2C} 
@@ -114,10 +106,18 @@ if (RE2C)
                 ${CMAKE_CURRENT_SOURCE_DIR}/expr-scanner.c.in
                 DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/expr-scanner.c.in)
 
+    set(ufofilter_SRCS ${ufofilter_SRCS} ufo-filter-expr.c)
     set(expr_misc_SRCS
         expr-parser.c
         ${CMAKE_CURRENT_BINARY_DIR}/expr-scanner.c)
 endif ()
+
+
+# --- Add sources that belong to other libraries ------------------------------
+set(optical_flow_lucas_kanade_misc_SRCS
+    oflk_cl_buffer.c
+    oflk_cl_image.c
+    oflk_pyramid.c)
 
 
 # --- Target ------------------------------------------------------------------
