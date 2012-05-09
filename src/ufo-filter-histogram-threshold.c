@@ -184,6 +184,7 @@ static void ufo_filter_histogram_threshold_finalize(GObject *object)
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(object);
     clReleaseMemObject(priv->histogram_mem);
     g_free(priv->histogram);
+    G_OBJECT_CLASS(ufo_filter_histogram_threshold_parent_class)->finalize(object);
 }
 
 static void ufo_filter_histogram_threshold_class_init(UfoFilterHistogramThresholdClass *klass)
