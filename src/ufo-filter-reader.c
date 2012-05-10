@@ -29,9 +29,15 @@
 struct _UfoFilterReaderPrivate {
     gchar *path;
     gint count;
+    gint current_count;
     gint nth;
     gboolean blocking;
     gboolean normalize;
+    gboolean more_pages;
+    GSList *filenames;
+    GSList *current_filename;
+    TIFF *current_tiff;
+    gpointer frame_buffer;
 
     gboolean roi;
     guint roi_x;
@@ -81,11 +87,11 @@ static gboolean filter_decode_tiff(TIFF *tif, void *buffer)
 }
 
 /**
- * filter_read_tiff:
+ * read_tiff:
  *
  * Returns: TRUE if more frames can be read from @tif
  */
-static gboolean filter_read_tiff(TIFF *tif,
+static gboolean read_tiff(TIFF *tif,
     gpointer *buffer,
     guint16 *bytes_per_sample,
     guint16 *samples_per_pixel,
@@ -119,11 +125,9 @@ error_close:
     return FALSE;
 }
 
-static void *filter_read_edf(const gchar *filename, 
-    guint16 *bytes_per_sample,
-    guint16 *samples_per_pixel,
-    guint32 *width, 
-    guint32 *height)
+static void *load_edf(const gchar *filename, 
+    guint16 *bytes_per_sample, guint16 *samples_per_pixel,
+    guint32 *width, guint32 *height)
 {
     FILE *fp = fopen(filename, "rb");  
     gchar *header = g_malloc(1024);
@@ -195,15 +199,7 @@ static void *filter_read_edf(const gchar *filename,
     return image_buffer;
 }
 
-static void filter_dispose_filenames(GSList *filenames)
-{
-    if (filenames != NULL) {
-        g_slist_foreach(filenames, (GFunc) g_free, NULL);
-        filenames = NULL;
-    }
-}
-
-static GSList *filter_read_filenames(UfoFilterReaderPrivate *priv)
+static GSList *read_filenames(UfoFilterReaderPrivate *priv)
 {
     GSList *result = NULL;
     glob_t glob_vector;
@@ -217,15 +213,10 @@ static GSList *filter_read_filenames(UfoFilterReaderPrivate *priv)
     return result;
 }
 
-static void filter_push_data(UfoFilter *reader, UfoChannel *output_channel, void *buffer, 
-        guint src_width, guint src_height, guint bytes_per_sample)
+static void push_data(UfoFilterReaderPrivate *priv, UfoBuffer *output, guint src_width, guint src_height, guint bytes_per_sample)
 {
-    UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(reader);
-    UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
-    cl_command_queue cmd_queue = ufo_filter_get_command_queue(reader);
-
     if (!priv->roi) {
-        ufo_buffer_set_host_array(output, buffer, bytes_per_sample * src_width * src_height, NULL);
+        ufo_buffer_set_host_array(output, priv->frame_buffer, bytes_per_sample * src_width * src_height, NULL);
 
         if (bytes_per_sample < 4)
             ufo_buffer_reinterpret(output, bytes_per_sample << 3, src_width * src_height, priv->normalize);
@@ -239,8 +230,8 @@ static void filter_push_data(UfoFilter *reader, UfoChannel *output_channel, void
 
             guint rd_width = x2 > src_width ? src_width - x1 : priv->roi_width;
             guint rd_height = y2 > src_height ? src_height - y1 : priv->roi_height;
-            gfloat *in_data = (gfloat *) buffer;
-            gfloat *out_data = ufo_buffer_get_host_array(output, cmd_queue);
+            gfloat *in_data = (gfloat *) priv->frame_buffer;
+            gfloat *out_data = ufo_buffer_get_host_array(output, NULL);
 
             if (rd_width == src_width) {
                 g_memmove(out_data, in_data + y1*src_width, 
@@ -257,12 +248,11 @@ static void filter_push_data(UfoFilter *reader, UfoChannel *output_channel, void
                 g_warning("Region of interest with non-float data is not yet supported!");
         }
     }
-
-    ufo_channel_finalize_output_buffer(output_channel, output);
 }
 
-static void filter_initialize_buffers(UfoFilterReaderPrivate *priv, UfoChannel *output_channel, guint src_width, guint src_height)
+static void initialize_buffers(UfoFilter *filter, guint src_width, guint src_height)
 {
+    UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(filter);
     guint dimensions[2];
 
     if (!priv->roi || (priv->roi_width == 0) || (priv->roi_height == 0)) {
@@ -274,72 +264,95 @@ static void filter_initialize_buffers(UfoFilterReaderPrivate *priv, UfoChannel *
         dimensions[1] = priv->roi_height;
     }
 
+    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
 }
 
-static GError *ufo_filter_reader_process(UfoFilter *self)
+static gpointer load_tiff(UfoFilterReaderPrivate *priv, guint16 *bytes_per_sample, 
+        guint16 *samples_per_pixel, guint *src_width, guint *src_height)
 {
-    UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(self);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(self);
-    
-    GSList *filenames = filter_read_filenames(priv);
-    GSList *filename = filenames;
-    guint count = priv->count == -1 ? G_MAXUINT : (guint) priv->count;
-    guint current_frame = 0;
-    guint src_width, src_height;
-    guint16 bytes_per_sample, samples_per_pixel;
-    gboolean buffers_initialized = FALSE;
     gpointer frame_buffer = NULL;
+    priv->current_tiff = TIFFOpen((char *) priv->current_filename->data, "r");
 
-    while ((filename != NULL) && (current_frame < count)) {
-        gchar *name = (gchar *) filename->data;
+    if (priv->current_tiff == NULL)
+        return NULL;
+
+    priv->more_pages = read_tiff(priv->current_tiff, &frame_buffer,
+            bytes_per_sample, samples_per_pixel, src_width, src_height);
+
+    return frame_buffer;
+}
+
+static GError *ufo_filter_reader_initialize(UfoFilter *filter, UfoBuffer *params[])
+{
+    UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(filter);
+    priv->filenames = read_filenames(priv);
+    priv->current_filename = priv->filenames;
+    priv->current_count = 0;
+    priv->count = priv->count == -1 ? G_MAXINT : priv->count;
+
+    if (priv->filenames != NULL) {
+        const gchar *name = (gchar *) priv->current_filename->data;
+        guint width, height;
+        guint16 bytes_per_sample, samples_per_pixel;
 
         if (g_str_has_suffix(name, "tif")) {
-            gboolean more_pages = TRUE;
             TIFF *tif = TIFFOpen(name, "r");
-
-            if (tif == NULL)
-                break;
-
-            while ((current_frame < count) && more_pages) {
-                more_pages = filter_read_tiff(tif, &frame_buffer,
-                    &bytes_per_sample, &samples_per_pixel, &src_width, &src_height);
-
-                if (frame_buffer == NULL)
-                    break;
-
-                if (!buffers_initialized) {
-                    filter_initialize_buffers(priv, output_channel, src_width, src_height);
-                    buffers_initialized = TRUE;
-                }
-
-                filter_push_data(self, output_channel, frame_buffer, src_width, src_height, bytes_per_sample);
-                current_frame++;
-            }
+            read_tiff(tif, &priv->frame_buffer, &bytes_per_sample, &samples_per_pixel, &width, &height);
+            TIFFClose(tif);
         }
-        else {
-            frame_buffer = filter_read_edf((char *) name,
-                    &bytes_per_sample, &samples_per_pixel,
-                    &src_width, &src_height);
+        else
+            priv->frame_buffer = load_edf(name, &bytes_per_sample, &samples_per_pixel, &width, &height);
 
-            if (frame_buffer == NULL)
-                break;
-
-            if (!buffers_initialized) {
-                filter_initialize_buffers(priv, output_channel, src_width, src_height);
-                buffers_initialized = TRUE;
-            }
-
-            filter_push_data(self, output_channel, frame_buffer, src_width, src_height, bytes_per_sample);
-            current_frame++;
-        }
-
-        filename = g_slist_next(filename);
+        initialize_buffers(filter, width, height);
     }
+    else {
+        g_warning("Path does not match any files"); 
+    }
+    return NULL;
+}
 
-    ufo_channel_finish(output_channel);
-    filter_dispose_filenames(filenames);
-    g_free(frame_buffer);
+static GError *ufo_filter_reader_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+{
+    UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(filter);
+    guint src_width, src_height;
+    guint16 bytes_per_sample, samples_per_pixel;
+
+    if ((priv->current_count < priv->count) && (priv->current_filename != NULL)) {
+        /* Do we have more images to read from the last open multi TIFF? */
+        if (priv->more_pages) {
+            priv->more_pages = read_tiff(priv->current_tiff, &priv->frame_buffer, 
+                    &bytes_per_sample, &samples_per_pixel, &src_width, &src_height);
+        } 
+        else {
+            const gchar *name = (gchar *) priv->current_filename->data;
+
+            if (g_str_has_suffix(name, "tif")) {
+                if (priv->current_tiff != NULL)
+                    TIFFClose(priv->current_tiff);
+
+                priv->frame_buffer = load_tiff(priv, &bytes_per_sample, &samples_per_pixel, &src_width, &src_height);
+            }
+            else
+                priv->frame_buffer = load_edf(name, &bytes_per_sample, &samples_per_pixel, &src_width, &src_height);
+        }
+
+        if (priv->frame_buffer == NULL) {
+            /* TODO: maybe return error if file could not be load */
+            ufo_filter_done(filter); 
+            return NULL;
+        }
+
+        push_data(priv, results[0], src_width, src_height, bytes_per_sample);
+
+        if (!priv->more_pages)
+            priv->current_filename = g_slist_next(priv->current_filename);
+
+        priv->current_count++;
+    }
+    else
+        ufo_filter_done(filter);
+
     return NULL;
 }
 
@@ -442,6 +455,14 @@ static void ufo_filter_reader_finalize(GObject *object)
     if (image_buffer != NULL)
         g_free(image_buffer);
 
+    if (priv->frame_buffer)
+        g_free(priv->frame_buffer);
+
+    if (priv->filenames != NULL) {
+        g_slist_foreach(priv->filenames, (GFunc) g_free, NULL);
+        g_slist_free(priv->filenames);
+    }
+
     G_OBJECT_CLASS(ufo_filter_reader_parent_class)->finalize(object);
 }
 
@@ -453,7 +474,8 @@ static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
     gobject_class->set_property = ufo_filter_reader_set_property;
     gobject_class->get_property = ufo_filter_reader_get_property;
     gobject_class->finalize = ufo_filter_reader_finalize;
-    filter_class->process = ufo_filter_reader_process;
+    filter_class->initialize = ufo_filter_reader_initialize;
+    filter_class->process_cpu = ufo_filter_reader_process_cpu;
 
     reader_properties[PROP_PATH] = 
         g_param_spec_string("path",
@@ -547,8 +569,11 @@ static void ufo_filter_reader_init(UfoFilterReader *self)
     priv->nth = -1;
     priv->blocking = FALSE;
     priv->normalize = FALSE;
+    priv->more_pages = FALSE;
     priv->roi = FALSE;
     priv->roi_x = priv->roi_y = priv->roi_width = priv->roi_height = 0;
+    priv->frame_buffer = NULL;
+    priv->current_tiff = NULL;
 
     ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
 }
