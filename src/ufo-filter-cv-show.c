@@ -38,13 +38,12 @@ enum {
 
 static GParamSpec *cv_show_properties[N_PROPERTIES] = { NULL, };
 
-static void ufo_filter_cv_show_initialize(UfoFilter *filter)
+static void ufo_filter_cv_show_initialize(UfoFilter *filter, UfoBuffer *params)
 {
 }
 
-static void ufo_filter_cv_show_process(UfoFilter *filter)
+static GError *ufo_filter_cv_show_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
 
@@ -73,9 +72,11 @@ static void ufo_filter_cv_show_process(UfoFilter *filter)
         ufo_channel_finalize_input_buffer(input_channel, input);
         input = ufo_channel_get_input_buffer(input_channel);
     }
+
     cvWaitKey(10000);
     cvDestroyWindow(window_name);
     g_free(window_name);
+    return NULL;
 }
 
 static void ufo_filter_cv_show_set_property(GObject *object,

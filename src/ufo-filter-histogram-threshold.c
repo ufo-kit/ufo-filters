@@ -46,7 +46,7 @@ enum {
 static GParamSpec *histogram_threshold_properties[N_PROPERTIES] = { NULL, };
 
 
-static void ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
@@ -56,10 +56,8 @@ static void ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoBuff
     priv->hist_kernel = ufo_resource_manager_get_kernel(manager, "histthreshold.cl", "histogram", &error);
     priv->thresh_kernel = ufo_resource_manager_get_kernel(manager, "histthreshold.cl", "threshold", &error);
 
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    if (error != NULL)
+        return error;
 
     ufo_buffer_get_2d_dimensions(params[0], &priv->width, &priv->height);
 
@@ -72,12 +70,12 @@ static void ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoBuff
     ufo_channel_allocate_output_buffers_like(output_channel, params[0]);
 
     priv->histogram = g_malloc0(priv->num_bins * sizeof(gfloat));
+    return NULL;
 }
 
-static void ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, 
+static GError *ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, 
         UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
 
     const guint input_size = priv->width * priv->height;
@@ -104,9 +102,10 @@ static void ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter,
     CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->thresh_kernel,
                 2, NULL, thresh_work_size, NULL,
                 1, &event, NULL));
+    return NULL;
 }
 
-static void ufo_filter_histogram_threshold_process_cpu(UfoFilter *filter, 
+static GError *ufo_filter_histogram_threshold_process_cpu(UfoFilter *filter, 
         UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
@@ -137,6 +136,8 @@ static void ufo_filter_histogram_threshold_process_cpu(UfoFilter *filter,
         else
             out[i] = 0.0f;
     }
+
+    return NULL;
 }
 
 static void ufo_filter_histogram_threshold_set_property(GObject *object,

@@ -40,13 +40,13 @@ enum {
 static GParamSpec *pipe_output_properties[N_PROPERTIES] = { NULL, };
 
 
-static void ufo_filter_pipe_output_process(UfoFilter *filter)
+static GError *ufo_filter_pipe_output_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterPipeOutputPrivate *priv = UFO_FILTER_PIPE_OUTPUT_GET_PRIVATE(filter);
 
     if (priv->pipe_name == NULL)
-        return;
+        /* TODO: output error */
+        return NULL;
 
     int fd = open(priv->pipe_name, O_WRONLY);
 
@@ -68,9 +68,10 @@ static void ufo_filter_pipe_output_process(UfoFilter *filter)
             gssize result = (gssize) write(fd, data + written, (gsize) (size - written));
 
             if (result < 0) {
+                /* TODO: create proper error */
                 g_error("Error writing to pipe %s\n", priv->pipe_name);
                 ufo_channel_finalize_input_buffer(input_channel, input);
-                return;
+                return NULL;
             }
 
             written += result;
@@ -81,6 +82,7 @@ static void ufo_filter_pipe_output_process(UfoFilter *filter)
     }
 
     close(fd);
+    return NULL;
 }
 
 static void ufo_filter_pipe_output_set_property(GObject *object,

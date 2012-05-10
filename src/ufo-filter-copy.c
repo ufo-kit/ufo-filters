@@ -35,15 +35,14 @@ enum {
 
 static GParamSpec *copy_properties[N_PROPERTIES] = { NULL, };
 
-static void ufo_filter_copy_process(UfoFilter *filter)
+static GError *ufo_filter_copy_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterCopyPrivate *priv = UFO_FILTER_COPY_GET_PRIVATE(filter);
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
     if (input == NULL)
-        return;
+        return NULL;
 
     UfoChannel **output_channels = g_malloc0(priv->num_outputs * sizeof(UfoChannel *));
     char channel_name[256];
@@ -70,6 +69,7 @@ static void ufo_filter_copy_process(UfoFilter *filter)
         ufo_channel_finish(output_channels[i]);
 
     g_free(output_channels);
+    return NULL;
 }
 
 static void ufo_filter_copy_set_property(GObject *object,

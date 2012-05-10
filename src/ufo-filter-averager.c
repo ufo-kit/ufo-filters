@@ -29,9 +29,8 @@ enum {
     N_PROPERTIES
 };
 
-static void ufo_filter_averager_process(UfoFilter *filter)
+static GError *ufo_filter_averager_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
@@ -63,6 +62,7 @@ static void ufo_filter_averager_process(UfoFilter *filter)
 
     ufo_channel_finalize_output_buffer(output_channel, output);
     ufo_channel_finish(output_channel);
+    return NULL;
 }
 
 static void ufo_filter_averager_set_property(GObject *object,

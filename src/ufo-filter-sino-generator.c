@@ -39,9 +39,8 @@ enum {
 
 static GParamSpec *sino_generator_properties[N_PROPERTIES] = { NULL, };
 
-static void ufo_filter_sino_generator_process(UfoFilter *filter)
+static GError *ufo_filter_sino_generator_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterSinoGeneratorPrivate *priv = UFO_FILTER_SINO_GENERATOR_GET_PRIVATE(filter);
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
@@ -51,7 +50,7 @@ static void ufo_filter_sino_generator_process(UfoFilter *filter)
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
     
     if (input == NULL)
-        return;
+        return NULL;
 
     guint num_dims = 0;
     guint *dimensions = NULL;
@@ -101,6 +100,8 @@ static void ufo_filter_sino_generator_process(UfoFilter *filter)
     ufo_channel_finish(output_channel);
     g_free(sinograms);
     g_free(dimensions);
+
+    return NULL;
 }
 
 static void ufo_filter_sino_generator_set_property(GObject *object,

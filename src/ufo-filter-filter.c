@@ -97,17 +97,15 @@ static float *setup_butterworth(UfoFilterFilterPrivate *priv, guint width)
     return filter;
 }
 
-static void ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterFilterPrivate *priv = UFO_FILTER_FILTER_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
     priv->kernel = ufo_resource_manager_get_kernel(manager, "filter.cl", "filter", &error);
 
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    if (error != NULL)
+        return error;
 
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     guint width, height;
@@ -125,9 +123,10 @@ static void ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params[])
             width * sizeof(float), coefficients, &err);
     CHECK_OPENCL_ERROR(err);
     g_free(coefficients);
+    return NULL;
 }
 
-static void ufo_filter_filter_process_gpu(UfoFilter *filter, 
+static GError *ufo_filter_filter_process_gpu(UfoFilter *filter, 
         UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterFilterPrivate *priv = UFO_FILTER_FILTER_GET_PRIVATE(filter);
@@ -142,6 +141,7 @@ static void ufo_filter_filter_process_gpu(UfoFilter *filter,
                 priv->kernel, 
                 2, NULL, priv->global_work_size, NULL, 
                 0, NULL, NULL));
+    return NULL;
 }
 
 static void ufo_filter_filter_finalize(GObject *object)

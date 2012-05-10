@@ -47,21 +47,19 @@ enum {
 
 static GParamSpec *complex_properties[N_PROPERTIES] = { NULL, };
 
-static void ufo_filter_complex_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_complex_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterComplex *self = UFO_FILTER_COMPLEX(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
 
+    /* TODO: handle each error independently, maybe write a macro that returns
+     * or use g_return_val_if_fail() */
     self->priv->kernels[OP_ADD] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_add", &error);
     self->priv->kernels[OP_MUL] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_mul", &error);
     self->priv->kernels[OP_DIV] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_div", &error);
     self->priv->kernels[OP_CONJ] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_conj", &error);
-
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    return error;
 }
 
 static void ufo_filter_complex_binary(UfoFilter *filter, cl_kernel kernel)
@@ -162,7 +160,7 @@ static void ufo_filter_complex_unary(UfoFilter* filter, cl_kernel kernel)
     ufo_channel_finish(output_channel);
 }
 
-static void ufo_filter_complex_process(UfoFilter *filter)
+static GError *ufo_filter_complex_process(UfoFilter *filter)
 {
     UfoFilterComplexPrivate *priv = UFO_FILTER_COMPLEX_GET_PRIVATE(filter);
     cl_kernel kernel = priv->kernels[priv->operation];
@@ -171,6 +169,8 @@ static void ufo_filter_complex_process(UfoFilter *filter)
         ufo_filter_complex_unary(filter, kernel); 
     else
         ufo_filter_complex_binary(filter, kernel);
+
+    return NULL;
 }
 
 static void ufo_filter_complex_set_property(GObject *object,

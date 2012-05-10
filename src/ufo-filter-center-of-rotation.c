@@ -170,10 +170,8 @@ static void center_of_rotation_projections(UfoFilter *filter)
     g_free(scores);
 }
 
-static void ufo_filter_center_of_rotation_process(UfoFilter *filter)
+static GError *ufo_filter_center_of_rotation_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
-
     /* Calculate the principial horizontal displacement according to "Image
      * processing pipeline for synchrotron-radiation-based tomographic
      * microscopy" by C. Hintermüller et al. (2010, International Union of
@@ -188,6 +186,8 @@ static void ufo_filter_center_of_rotation_process(UfoFilter *filter)
         center_of_rotation_sinograms(filter);
     else
         center_of_rotation_projections(filter);
+
+    return NULL;
 }
 
 static void ufo_filter_center_of_rotation_set_property(GObject *object,

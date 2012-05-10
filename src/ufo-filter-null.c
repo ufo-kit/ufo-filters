@@ -23,16 +23,9 @@ G_DEFINE_TYPE(UfoFilterNull, ufo_filter_null, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_NULL_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_NULL, UfoFilterNullPrivate))
 
-static void ufo_filter_null_process(UfoFilter *filter)
+static GError *ufo_filter_null_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
-    UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-
-    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    while (input != NULL) {
-        ufo_channel_finalize_input_buffer(input_channel, input);
-        input = ufo_channel_get_input_buffer(input_channel);
-    }
+    return NULL;
 }
 
 static void ufo_filter_null_set_property(GObject *object,
@@ -40,7 +33,6 @@ static void ufo_filter_null_set_property(GObject *object,
     const GValue    *value,
     GParamSpec      *pspec)
 {
-    /* Handle all properties accordingly */
     switch (property_id) {
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -53,7 +45,6 @@ static void ufo_filter_null_get_property(GObject *object,
     GValue      *value,
     GParamSpec  *pspec)
 {
-    /* Handle all properties accordingly */
     switch (property_id) {
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -68,7 +59,7 @@ static void ufo_filter_null_class_init(UfoFilterNullClass *klass)
 
     gobject_class->set_property = ufo_filter_null_set_property;
     gobject_class->get_property = ufo_filter_null_get_property;
-    filter_class->process = ufo_filter_null_process;
+    filter_class->process_cpu = ufo_filter_null_process_cpu;
 }
 
 static void ufo_filter_null_init(UfoFilterNull *self)

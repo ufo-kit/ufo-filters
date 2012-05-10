@@ -335,7 +335,7 @@ static cl_int oflk_flow_calc_flow(oflk_cl_buffer flow_levels[LEVELS],
     return err_num;
 }
 
-static void ufo_filter_optical_flow_lucas_kanade_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_optical_flow_lucas_kanade_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     /* Here you can code, that is called for each newly instantiated filter */
 	UfoFilterOpticalFlowLucasKanade *self = UFO_FILTER_OPTICAL_FLOW_LUCAS_KANADE(filter);
@@ -352,40 +352,26 @@ static void ufo_filter_optical_flow_lucas_kanade_initialize(UfoFilter *filter, U
     ufo_resource_manager_add_paths(manager, "/home/farago/workspace/C++/filtertest/Debug"); // a must since ufo-core revision 323
 
     self->priv->downfilter_x_kernel = ufo_resource_manager_get_kernel(manager, "filters.cl", "downfilter_x_g", &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    if (error != NULL) 
+        return error;
     self->priv->downfilter_y_kernel = ufo_resource_manager_get_kernel(manager, "filters.cl", "downfilter_y_g", &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    if (error != NULL) 
+        return error;
     self->priv->filter_3x1_kernel = ufo_resource_manager_get_kernel(manager, "filters.cl", "filter_3x1_g", &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    if (error != NULL) 
+        return error;
     self->priv->filter_1x3_kernel = ufo_resource_manager_get_kernel(manager, "filters.cl", "filter_1x3_g", &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    if (error != NULL) 
+        return error;
     self->priv->filter_g_kernel = ufo_resource_manager_get_kernel(manager, "filters.cl", "filter_G", &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    if (error != NULL) 
+        return error;
     self->priv->lkflow_kernel = ufo_resource_manager_get_kernel(manager, "lkflow.cl", "lkflow", &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    if (error != NULL) 
+        return error;
     self->priv->update_motion_kernel = ufo_resource_manager_get_kernel(manager, "motion.cl", "motion", &error);
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    if (error != NULL) 
+        return error;
 
     self->priv->dx_Wx.s[0] = -1;
     self->priv->dx_Wx.s[1] = 0;
@@ -406,22 +392,23 @@ static void ufo_filter_optical_flow_lucas_kanade_initialize(UfoFilter *filter, U
     self->priv->dy_Wy.s[1] = 0;
     self->priv->dy_Wy.s[2] = 1;
     self->priv->dy_Wy.s[3] = 0;
+
+    return NULL;
 }
 
 /*
  * This is the main method in which the filter processes one buffer after
  * another.
  */
-static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
+static GError *ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterOpticalFlowLucasKanade *self = UFO_FILTER_OPTICAL_FLOW_LUCAS_KANADE(filter);
 	UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
 	UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
 	UfoBuffer *image_buffer = ufo_channel_get_input_buffer(input_channel);
 
     if (image_buffer == NULL)
-        return;
+        return NULL;
 
 	UfoBuffer *motion_vectors_buffer = NULL;
 	UfoResourceManager *manager = ufo_resource_manager();
@@ -580,6 +567,7 @@ static void ufo_filter_optical_flow_lucas_kanade_process(UfoFilter *filter)
 	ufo_channel_finish(output_channel);
 	printf(">>>>> Output channel released <<<<<\n");
     g_free(dimensions);
+    return NULL;
 }
 
 static void ufo_filter_optical_flow_lucas_kanade_set_property(GObject *object,

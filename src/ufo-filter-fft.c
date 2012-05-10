@@ -72,7 +72,7 @@ static guint32 pow2round(guint32 x)
     return x+1;
 }
 
-static void ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
@@ -83,10 +83,8 @@ static void ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[])
     GError *error = NULL;
     priv->kernel = ufo_resource_manager_get_kernel(manager, "fft.cl", "fft_spread", &error);
 
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    if (error != NULL)
+        return error;
 
     ufo_buffer_get_2d_dimensions(params[0], &priv->width, &priv->height);
     priv->fft_size.x = pow2round(priv->width);
@@ -119,10 +117,11 @@ static void ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[])
 #endif
 
     ufo_channel_allocate_output_buffers(output_channel, 2, dims);
+    return NULL;
 }
 
 #ifdef HAVE_OCLFFT
-static void ufo_filter_fft_process_gpu(UfoFilter *filter, 
+static GError *ufo_filter_fft_process_gpu(UfoFilter *filter, 
         UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
@@ -153,13 +152,13 @@ static void ufo_filter_fft_process_gpu(UfoFilter *filter,
                 1, &wait_on_event, &event);
 
     /* XXX: FFT execution does _not_ return event */
-    /*ufo_filter_account_gpu_time(filter, (void **) &event);*/
     CHECK_OPENCL_ERROR(clFinish((cl_command_queue) cmd_queue));
+    return NULL;
 }
 #endif
 
 #ifdef HAVE_FFTW3
-static void ufo_filter_fft_process_cpu(UfoFilter *filter, 
+static GError *ufo_filter_fft_process_cpu(UfoFilter *filter, 
         UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
@@ -177,6 +176,7 @@ static void ufo_filter_fft_process_cpu(UfoFilter *filter,
     fftwf_destroy_plan(plan);
 
     memcpy(out, out + ((glong) odist) * sizeof(gfloat), ((glong) odist) * sizeof(gfloat));
+    return NULL;
 }
 #endif
 

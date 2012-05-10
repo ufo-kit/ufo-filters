@@ -43,9 +43,8 @@ enum {
 static GParamSpec *region_of_interest_properties[N_PROPERTIES] = { NULL, };
 
 
-static void ufo_filter_region_of_interest_process(UfoFilter *filter)
+static GError *ufo_filter_region_of_interest_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterRegionOfInterestPrivate *priv = UFO_FILTER_REGION_OF_INTEREST_GET_PRIVATE(filter);
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
@@ -97,6 +96,7 @@ static void ufo_filter_region_of_interest_process(UfoFilter *filter)
     }
 
     ufo_channel_finish(output_channel);
+    return NULL;
 }
 
 static void ufo_filter_region_of_interest_set_property(GObject *object,

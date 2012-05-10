@@ -48,27 +48,22 @@ enum {
 static GParamSpec *ifft_properties[N_PROPERTIES] = { NULL, };
 
 
-static void ufo_filter_ifft_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_ifft_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterIFFT *self = UFO_FILTER_IFFT(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
     self->priv->pack_kernel = ufo_resource_manager_get_kernel(manager, "fft.cl", "fft_pack", &error);
     self->priv->normalize_kernel = ufo_resource_manager_get_kernel(manager, "fft.cl","fft_normalize", &error);
-
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    return error;
 }
 
 /*
  * This is the main method in which the filter processes one buffer after
  * another.
  */
-static void ufo_filter_ifft_process(UfoFilter *filter)
+static GError *ufo_filter_ifft_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterIFFTPrivate *priv = UFO_FILTER_IFFT_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
@@ -169,9 +164,11 @@ static void ufo_filter_ifft_process(UfoFilter *filter)
         ufo_channel_finalize_output_buffer(output_channel, result);
         input = ufo_channel_get_input_buffer(input_channel);
     }
+
     ufo_channel_finish(output_channel);
     clFFT_DestroyPlan(ifft_plan);
     g_free(dim_size);
+    return NULL;
 }
 
 static void ufo_filter_ifft_set_property(GObject *object,

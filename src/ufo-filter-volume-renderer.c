@@ -40,22 +40,17 @@ enum {
 static GParamSpec *volume_renderer_properties[N_PROPERTIES] = { NULL, };
 
 
-static void ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterVolumeRenderer *self = UFO_FILTER_VOLUME_RENDERER(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
     self->priv->kernel = ufo_resource_manager_get_kernel(manager, "volume.cl", "rayCastVolume", &error);
-
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    return error;
 }
 
-static void ufo_filter_volume_renderer_process(UfoFilter *filter)
+static GError *ufo_filter_volume_renderer_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterVolumeRendererPrivate *priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     UfoBuffer *output = NULL;
@@ -155,6 +150,7 @@ static void ufo_filter_volume_renderer_process(UfoFilter *filter)
     CHECK_OPENCL_ERROR(clReleaseMemObject(view_mem));
     ufo_channel_finish(output_channel);
     g_free(input);
+    return NULL;
 }
 
 static void ufo_filter_volume_renderer_set_property(GObject *object,

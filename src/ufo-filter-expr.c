@@ -36,9 +36,8 @@ enum {
 
 static GParamSpec *expr_properties[N_PROPERTIES] = { NULL, };
 
-static void ufo_filter_expr_process(UfoFilter *filter)
+static GError *ufo_filter_expr_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterExprPrivate *priv = UFO_FILTER_EXPR_GET_PRIVATE(filter);
     UfoChannel *input_channel_x = ufo_filter_get_input_channel_by_name(filter, "input0");
     UfoChannel *input_channel_y = ufo_filter_get_input_channel_by_name(filter, "input1");
@@ -46,9 +45,10 @@ static void ufo_filter_expr_process(UfoFilter *filter)
     UfoBuffer *input_x = ufo_channel_get_input_buffer(input_channel_x);
     UfoBuffer *input_y = ufo_channel_get_input_buffer(input_channel_y);
     UfoBuffer *output = NULL;
+    GError *error = NULL;
 
     if ((input_x == NULL) || (input_y == NULL))
-        goto done;
+        goto cleanup;
 
     guint width_x, height_x, width_y, height_y;
     ufo_buffer_get_2d_dimensions(input_x, &width_x, &height_x);
@@ -56,21 +56,17 @@ static void ufo_filter_expr_process(UfoFilter *filter)
 
     if ((width_x != width_y) || (height_x != height_y)) {
         g_warning("Size of both input images must match");
-        goto done;
+        goto cleanup;
     }
 
-    GError *error = NULL;
     gchar *ocl_kernel_source = parse_expression(priv->expr);
     g_print("%s\n", ocl_kernel_source);
     priv->kernel = ufo_resource_manager_get_kernel_from_source(ufo_resource_manager(),
             ocl_kernel_source, "binary_foo_kernel_2b03c582", &error);
     g_free(ocl_kernel_source);
 
-    if (error != NULL) {
-        g_warning("Could not create kernel: %s", error->message);
-        g_error_free(error);
-        goto done;
-    }
+    if (error != NULL)
+        goto cleanup;
 
     ufo_channel_allocate_output_buffers_like(output_channel, input_x);
     cl_command_queue command_queue = ufo_filter_get_command_queue(filter);
@@ -98,8 +94,9 @@ static void ufo_filter_expr_process(UfoFilter *filter)
         input_y = ufo_channel_get_input_buffer(input_channel_y);
     }
 
-done:
+cleanup:
     ufo_channel_finish(output_channel);
+    return error;
 }
 
 static void ufo_filter_expr_set_property(GObject *object,

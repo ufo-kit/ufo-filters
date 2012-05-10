@@ -132,10 +132,10 @@ static void filter_demux_process_copy_delayed(UfoFilterDemux *self)
     ufo_channel_finish(output_channels[1]);
 }
 
-static void ufo_filter_demux_process(UfoFilter *filter)
+static GError *ufo_filter_demux_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterDemux *self = UFO_FILTER_DEMUX(filter);
+
     switch (self->priv->mode) {
         case COPY_NA: 
             filter_demux_process_simple(self);
@@ -147,8 +147,11 @@ static void ufo_filter_demux_process(UfoFilter *filter)
             filter_demux_process_copy_delayed(self);
             break;
         default:
+            /* TODO: create error */
             g_warning("Copy mode unknown");
     }
+
+    return NULL;
 }
 
 static void ufo_filter_demux_set_property(GObject *object,

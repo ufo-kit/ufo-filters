@@ -38,26 +38,17 @@ enum {
 
 static GParamSpec *interpolator_properties[N_PROPERTIES] = { NULL, };
 
-static void ufo_filter_interpolator_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_interpolator_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterInterpolatorPrivate *priv = UFO_FILTER_INTERPOLATOR_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
     priv->kernel = ufo_resource_manager_get_kernel(manager, "interpolator.cl", "interpolate", &error);
-
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    return error;
 }
 
-/*
- * This is the main method in which the filter processes one buffer after
- * another.
- */
-static void ufo_filter_interpolator_process(UfoFilter *filter)
+static GError *ufo_filter_interpolator_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterInterpolatorPrivate *priv = UFO_FILTER_INTERPOLATOR_GET_PRIVATE(filter);
 
     UfoChannel *input_a = ufo_filter_get_input_channel_by_name(filter, "input0");
@@ -97,8 +88,10 @@ static void ufo_filter_interpolator_process(UfoFilter *filter)
         ufo_buffer_attach_event(result, event);
         ufo_channel_finalize_output_buffer(output_channel, result);
     }
+
     ufo_channel_finish(output_channel);
     g_free(dim_size);
+    return NULL;
 }
 
 static void ufo_filter_interpolator_set_property(GObject *object,

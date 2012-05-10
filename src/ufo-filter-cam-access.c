@@ -130,18 +130,18 @@ static UcaCamera *find_camera(UfoFilterCamAccessPrivate *priv)
     return camera;
 }
 
-static void ufo_filter_cam_access_process(UfoFilter *self)
+static GError *ufo_filter_cam_access_process(UfoFilter *self)
 {
-    g_return_if_fail(UFO_IS_FILTER(self));
     UfoFilterCamAccessPrivate *priv = UFO_FILTER_CAM_ACCESS_GET_PRIVATE(self);
     UfoChannel *output_channel = ufo_filter_get_output_channel(self);
+    GTimer *timer = g_timer_new();
     GError *error = NULL;
 
     priv->camera = find_camera(priv);
 
     if (priv->camera == NULL) {
-        ufo_channel_finish(output_channel);
-        return;
+        /* TODO: create a new error */
+        goto cleanup;
     }
 
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(self);
@@ -156,38 +156,28 @@ static void ufo_filter_cam_access_process(UfoFilter *self)
     ufo_channel_allocate_output_buffers(output_channel, 2, dim_size);
     uca_camera_start_recording(priv->camera, &error);
 
-    if (error != NULL) {
-        g_warning("Start error: %s\n", error->message); 
-        g_error_free(error);
-        ufo_channel_finish(output_channel);
-        return;
-    }
-
-    GTimer *timer = g_timer_new();
+    if (error != NULL)
+        goto cleanup;
 
     for (guint i = 0; i < priv->count || g_timer_elapsed(timer, NULL) < priv->time; i++) {
         UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
         float *host_buffer = ufo_buffer_get_host_array(output, command_queue);
         uca_camera_grab(priv->camera, (gpointer) &host_buffer, &error);
 
-        if (error != NULL) {
-            g_warning("Grab error: %s\n", error->message);
-            g_clear_error(&error);
-        }
+        if (error != NULL)
+            goto cleanup;
         else
             ufo_buffer_reinterpret(output, bits, width * height, TRUE);
 
         ufo_channel_finalize_output_buffer(output_channel, output);
     }
 
+cleanup:
     g_timer_destroy(timer);
     ufo_channel_finish(output_channel);
     uca_camera_stop_recording(priv->camera, &error);
 
-    if (error != NULL) {
-        g_warning("Stop error: %s\n", error->message);
-        g_error_free(error); 
-    }
+    return error;
 }
 
 static void ufo_filter_cam_access_class_init(UfoFilterCamAccessClass *klass)

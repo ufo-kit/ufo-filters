@@ -40,27 +40,18 @@ enum {
 static GParamSpec *gaussian_blur_properties[N_PROPERTIES] = { NULL, };
 
 
-static void ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterGaussianBlur *self = UFO_FILTER_GAUSSIAN_BLUR(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
     self->priv->h_kernel = ufo_resource_manager_get_kernel(manager, "gaussian.cl", "h_gaussian", &error);
     self->priv->v_kernel = ufo_resource_manager_get_kernel(manager, "gaussian.cl", "v_gaussian", &error);
-
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    return error;
 }
 
-/*
- * This is the main method in which the filter processes one buffer after
- * another.
- */
-static void ufo_filter_gaussian_blur_process(UfoFilter *filter)
+static GError *ufo_filter_gaussian_blur_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(filter);
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
@@ -73,7 +64,7 @@ static void ufo_filter_gaussian_blur_process(UfoFilter *filter)
 
     if (input == NULL) {
         ufo_channel_finish(output_channel);
-        return;
+        return NULL;
     }
 
     guint width, height;
@@ -143,6 +134,7 @@ static void ufo_filter_gaussian_blur_process(UfoFilter *filter)
     CHECK_OPENCL_ERROR(clReleaseMemObject(intermediate_mem)); 
     g_free(weights);
     ufo_channel_finish(output_channel);
+    return NULL;
 }
 
 static void ufo_filter_gaussian_blur_set_property(GObject *object,

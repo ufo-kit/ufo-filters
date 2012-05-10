@@ -35,10 +35,8 @@ enum {
 static GParamSpec *buffer_input_properties[N_PROPERTIES] = { NULL, };
 
 
-static void ufo_filter_buffer_input_process(UfoFilter *filter)
+static GError *ufo_filter_buffer_input_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
-
     UfoFilterBufferInputPrivate *priv = UFO_FILTER_BUFFER_INPUT_GET_PRIVATE(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     UfoBuffer *output = NULL;
@@ -54,6 +52,7 @@ static void ufo_filter_buffer_input_process(UfoFilter *filter)
     }
 
     ufo_channel_finish(output_channel);
+    return NULL;
 }
 
 static void ufo_filter_buffer_input_set_property(GObject *object,

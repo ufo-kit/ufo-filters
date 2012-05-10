@@ -39,23 +39,18 @@ enum {
 
 static GParamSpec *forward_project_properties[N_PROPERTIES] = { NULL, };
 
-static void ufo_filter_forward_project_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_forward_project_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterForwardProject *self = UFO_FILTER_FORWARD_PROJECT(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
     self->priv->kernel = ufo_resource_manager_get_kernel(manager, "forwardproject.cl","forwardproject", NULL);
-
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    return error;
 }
 
 
-static void ufo_filter_forward_project_process(UfoFilter *filter)
+static GError *ufo_filter_forward_project_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
 
@@ -111,6 +106,7 @@ static void ufo_filter_forward_project_process(UfoFilter *filter)
     ufo_channel_finish(output_channel);
     clReleaseMemObject(slice);
     g_free(dim_size);
+    return NULL;
 }
 
 static void ufo_filter_forward_project_set_property(GObject *object,

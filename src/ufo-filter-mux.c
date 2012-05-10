@@ -26,9 +26,8 @@ enum {
     N_PROPERTIES
 };
 
-static void ufo_filter_mux_process(UfoFilter *filter)
+static GError *ufo_filter_mux_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoChannel *input_channels[2] = { NULL, NULL };
     input_channels[0] = ufo_filter_get_input_channel_by_name(filter, "input0");
     input_channels[1] = ufo_filter_get_input_channel_by_name(filter, "input1");
@@ -66,6 +65,7 @@ static void ufo_filter_mux_process(UfoFilter *filter)
     }
     
     ufo_channel_finish(output_channel);
+    return NULL;
 }
 
 static void ufo_filter_mux_set_property(GObject *object,

@@ -27,9 +27,8 @@ enum {
     N_PROPERTIES
 };
 
-static void ufo_filter_arg_max_process(UfoFilter *filter)
+static GError *ufo_filter_arg_max_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
     UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
@@ -38,6 +37,8 @@ static void ufo_filter_arg_max_process(UfoFilter *filter)
         ufo_channel_finalize_input_buffer(input_channel, input);
         input = ufo_channel_get_input_buffer(input_channel);
     }
+
+    return NULL;
 }
 
 static void ufo_filter_arg_max_set_property(GObject *object,

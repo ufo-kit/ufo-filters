@@ -63,7 +63,7 @@ static gboolean axis_is_positive(GValue *value, gpointer user_data)
     return g_value_get_double(value) > 0.0;
 }
 
-static void ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[])
 {
     UfoFilterBackprojectPrivate *priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
@@ -76,10 +76,8 @@ static void ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *para
     else
         priv->kernel = ufo_resource_manager_get_kernel(manager, "backproject.cl", "backproject", &error);
 
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
+    if (error != NULL) 
+        return error;
 
     cl_int errcode = CL_SUCCESS;
     ufo_buffer_get_2d_dimensions(params[0], &priv->width, &priv->height);
@@ -130,12 +128,14 @@ static void ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *para
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 4, sizeof(cl_mem), (void *) &priv->cos_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 5, sizeof(cl_mem), (void *) &priv->sin_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 6, sizeof(cl_mem), (void *) &priv->axes_mem));
+
+    return NULL;
 }
 
 #define BLOCK_SIZE_X 16
 #define BLOCK_SIZE_Y 16
 
-static void ufo_filter_backproject_process_gpu(UfoFilter *filter, 
+static GError *ufo_filter_backproject_process_gpu(UfoFilter *filter, 
         UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterBackprojectPrivate *priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(filter);
@@ -159,6 +159,8 @@ static void ufo_filter_backproject_process_gpu(UfoFilter *filter,
     CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->kernel,
             2, NULL, priv->global_work_size, NULL,
             0, NULL, NULL));
+
+    return NULL;
 }
 
 static void ufo_filter_backproject_finalize(GObject *object)

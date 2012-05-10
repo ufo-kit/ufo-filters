@@ -154,38 +154,27 @@ static void process_combine(UfoFilter *self,
  * This is the main method in which the filter processes one buffer after
  * another.
  */
-static void ufo_filter_cl_process(UfoFilter *filter)
+static GError *ufo_filter_cl_process(UfoFilter *filter)
 {
-    g_return_if_fail(UFO_IS_FILTER(filter));
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
     UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
 
     UfoResourceManager *manager = ufo_resource_manager();
     cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
     GError *error = NULL;
-
-    if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-        return;
-    }
-
     cl_kernel kernel = ufo_resource_manager_get_kernel(manager, priv->file_name, priv->kernel_name, &error);
 
     if (error != NULL) {
-        g_warning("%s", error->message);
-        g_error_free(error);
-    }
-    
-    if (!kernel) {
         ufo_channel_finish(output_channel);
-        return;
+        return error;
     }
 
     if (priv->combine)
         process_combine(filter, priv, command_queue, kernel);
     else
         process_regular(filter, priv, command_queue, kernel);
+
+    return NULL;
 }
 
 static void ufo_filter_cl_set_property(GObject *object,

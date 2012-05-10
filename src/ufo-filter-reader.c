@@ -277,10 +277,8 @@ static void filter_initialize_buffers(UfoFilterReaderPrivate *priv, UfoChannel *
     ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
 }
 
-static void ufo_filter_reader_process(UfoFilter *self)
+static GError *ufo_filter_reader_process(UfoFilter *self)
 {
-    g_return_if_fail(UFO_IS_FILTER(self));
-
     UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(self);
     UfoChannel *output_channel = ufo_filter_get_output_channel(self);
     
@@ -342,6 +340,7 @@ static void ufo_filter_reader_process(UfoFilter *self)
     ufo_channel_finish(output_channel);
     filter_dispose_filenames(filenames);
     g_free(frame_buffer);
+    return NULL;
 }
 
 static void ufo_filter_reader_set_property(GObject *object,

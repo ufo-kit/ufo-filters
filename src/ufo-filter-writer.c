@@ -68,7 +68,7 @@ static gboolean filter_write_tiff(float *buffer, const gchar *name,
     return success;
 }
 
-static void ufo_filter_writer_process_cpu(UfoFilter *self, 
+static GError *ufo_filter_writer_process_cpu(UfoFilter *self, 
         UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterWriterPrivate *priv = UFO_FILTER_WRITER_GET_PRIVATE(self);
@@ -79,9 +79,11 @@ static void ufo_filter_writer_process_cpu(UfoFilter *self,
     gchar *filename = g_strdup_printf("%s/%s%05i.tif", priv->path, priv->prefix, priv->counter++);
 
     if (!filter_write_tiff(data, filename, width, height))
+        /* TODO: create proper error */
         g_message("something went wrong");
 
     g_free(filename);
+    return NULL;
 }
 
 static void ufo_filter_writer_set_property(GObject *object,
