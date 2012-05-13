@@ -291,6 +291,7 @@ static void ufo_filter_meta_balls_init(UfoFilterMetaBalls *self)
     UfoFilterMetaBallsPrivate *priv = self->priv = UFO_FILTER_META_BALLS_GET_PRIVATE(self);
     priv->width = 512;
     priv->height = 512;
+    priv->num_balls = 1;
     priv->num_iterations = 1;
     priv->run_infinitely = FALSE;
     priv->frames_per_second = 0;
