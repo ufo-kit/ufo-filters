@@ -250,24 +250,6 @@ static void push_data(UfoFilterReaderPrivate *priv, UfoBuffer *output, guint src
     }
 }
 
-static void initialize_buffers(UfoFilter *filter, guint src_width, guint src_height)
-{
-    UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(filter);
-    guint dimensions[2];
-
-    if (!priv->roi || (priv->roi_width == 0) || (priv->roi_height == 0)) {
-        dimensions[0] = src_width;
-        dimensions[1] = src_height;
-    }
-    else {
-        dimensions[0] = priv->roi_width;
-        dimensions[1] = priv->roi_height;
-    }
-
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
-}
-
 static gpointer load_tiff(UfoFilterReaderPrivate *priv, guint16 *bytes_per_sample, 
         guint16 *samples_per_pixel, guint *src_width, guint *src_height)
 {
@@ -283,9 +265,11 @@ static gpointer load_tiff(UfoFilterReaderPrivate *priv, guint16 *bytes_per_sampl
     return frame_buffer;
 }
 
-static GError *ufo_filter_reader_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_reader_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
     UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(filter);
+    GError *error = NULL;
+
     priv->filenames = read_filenames(priv);
     priv->current_filename = priv->filenames;
     priv->current_count = 0;
@@ -304,12 +288,21 @@ static GError *ufo_filter_reader_initialize(UfoFilter *filter, UfoBuffer *params
         else
             priv->frame_buffer = load_edf(name, &bytes_per_sample, &samples_per_pixel, &width, &height);
 
-        initialize_buffers(filter, width, height);
+        if (!priv->roi || (priv->roi_width == 0) || (priv->roi_height == 0)) {
+            dims[0][0] = width;
+            dims[0][1] = height;
+        }
+        else {
+            dims[0][0] = priv->roi_width;
+            dims[0][1] = priv->roi_height;
+        }
     }
     else {
-        g_warning("Path does not match any files"); 
+        g_set_error(&error, UFO_FILTER_ERROR, UFO_FILTER_ERROR_INITIALIZATION, 
+                "Path does not match any files");
     }
-    return NULL;
+
+    return error;
 }
 
 static GError *ufo_filter_reader_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
