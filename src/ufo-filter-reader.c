@@ -568,7 +568,7 @@ static void ufo_filter_reader_init(UfoFilterReader *self)
     priv->frame_buffer = NULL;
     priv->current_tiff = NULL;
 
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

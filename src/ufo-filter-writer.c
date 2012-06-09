@@ -170,7 +170,7 @@ static void ufo_filter_writer_init(UfoFilterWriter *self)
     self->priv->prefix = NULL;
     self->priv->counter = 0;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
+    ufo_filter_register_inputs (UFO_FILTER (self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
