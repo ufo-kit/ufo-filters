@@ -20,10 +20,13 @@
  */
 
 struct _UfoFilterGaussianBlurPrivate {
-    guint size;
-    gfloat sigma;
-    cl_kernel h_kernel;
-    cl_kernel v_kernel;
+    guint       size;
+    gfloat      sigma;
+    cl_kernel   h_kernel;
+    cl_kernel   v_kernel;
+    cl_mem      weights_mem;
+    cl_mem      intermediate_mem;
+    size_t      global_work_size[2];
 };
 
 G_DEFINE_TYPE(UfoFilterGaussianBlur, ufo_filter_gaussian_blur, UFO_TYPE_FILTER)
@@ -40,36 +43,17 @@ enum {
 static GParamSpec *gaussian_blur_properties[N_PROPERTIES] = { NULL, };
 
 
-static GError *ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer *params[])
-{
-    UfoFilterGaussianBlur *self = UFO_FILTER_GAUSSIAN_BLUR(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
-    GError *error = NULL;
-    self->priv->h_kernel = ufo_resource_manager_get_kernel(manager, "gaussian.cl", "h_gaussian", &error);
-    self->priv->v_kernel = ufo_resource_manager_get_kernel(manager, "gaussian.cl", "v_gaussian", &error);
-    return error;
-}
-
-static GError *ufo_filter_gaussian_blur_process(UfoFilter *filter)
+static GError *ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
     UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(filter);
-    UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    UfoBuffer *output = NULL;
     UfoResourceManager *manager = ufo_resource_manager();
+    GError *error = NULL;
     cl_context context = (cl_context) ufo_resource_manager_get_context(manager);
-    cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
-    cl_int error = CL_SUCCESS;
+    cl_int cl_error = CL_SUCCESS;
+    priv->h_kernel = ufo_resource_manager_get_kernel(manager, "gaussian.cl", "h_gaussian", &error);
+    priv->v_kernel = ufo_resource_manager_get_kernel(manager, "gaussian.cl", "v_gaussian", &error);
 
-    if (input == NULL) {
-        ufo_channel_finish(output_channel);
-        return NULL;
-    }
-
-    guint width, height;
-    ufo_buffer_get_2d_dimensions(input, &width, &height);
-    ufo_channel_allocate_output_buffers_like(output_channel, input);
+    ufo_buffer_get_2d_dimensions(params[0], &dims[0][0], &dims[0][1]);
 
     const guint kernel_size = priv->size;
     const guint half_kernel_size = kernel_size / 2;
@@ -88,52 +72,52 @@ static GError *ufo_filter_gaussian_blur_process(UfoFilter *filter)
     for (guint i = 0; i < kernel_size; i++)
         weights[i] /= weight_sum;
 
-    cl_mem weights_mem = clCreateBuffer(context,
+    priv->weights_mem = clCreateBuffer(context,
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 
-            5 * sizeof(float), weights, &error);
+            5 * sizeof(float), weights, &cl_error);
 
-    CHECK_OPENCL_ERROR(error);
+    CHECK_OPENCL_ERROR(cl_error);
 
-    cl_mem intermediate_mem = clCreateBuffer(context,
-            CL_MEM_READ_WRITE, width * height * sizeof(float), NULL, &error);
+    priv->intermediate_mem = clCreateBuffer(context,
+            CL_MEM_READ_WRITE, dims[0][0] * dims[0][1] * sizeof(float), NULL, &cl_error);
 
-    CHECK_OPENCL_ERROR(error);
+    CHECK_OPENCL_ERROR(cl_error);
 
-    CHECK_OPENCL_ERROR(clSetKernelArg(priv->h_kernel, 2, sizeof(cl_mem), &weights_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->h_kernel, 2, sizeof(cl_mem), &priv->weights_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->h_kernel, 3, sizeof(int), &half_kernel_size));
-    CHECK_OPENCL_ERROR(clSetKernelArg(priv->v_kernel, 2, sizeof(cl_mem), &weights_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->v_kernel, 2, sizeof(cl_mem), &priv->weights_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->v_kernel, 3, sizeof(int), &half_kernel_size));
 
-    const size_t global_work_size[] = { width, height };
+    priv->global_work_size[0] = dims[0][0];
+    priv->global_work_size[1] = dims[0][1];
 
-    while (input != NULL) {
-        output = ufo_channel_get_output_buffer(output_channel);
-        cl_mem input_mem = ufo_buffer_get_device_array(input, command_queue);
-        cl_mem output_mem = ufo_buffer_get_device_array(output, command_queue);
-
-        CHECK_OPENCL_ERROR(clSetKernelArg(priv->h_kernel, 0, sizeof(cl_mem), &input_mem));
-        CHECK_OPENCL_ERROR(clSetKernelArg(priv->h_kernel, 1, sizeof(cl_mem), &intermediate_mem));
-
-        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue, priv->h_kernel,
-                    2, NULL, global_work_size, NULL,
-                    0, NULL, NULL));
-
-        CHECK_OPENCL_ERROR(clSetKernelArg(priv->v_kernel, 0, sizeof(cl_mem), &intermediate_mem));
-        CHECK_OPENCL_ERROR(clSetKernelArg(priv->v_kernel, 1, sizeof(cl_mem), &output_mem));
-
-        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue, priv->v_kernel,
-                    2, NULL, global_work_size, NULL,
-                    0, NULL, NULL));
-
-        ufo_channel_finalize_input_buffer(input_channel, input);
-        ufo_channel_finalize_output_buffer(output_channel, output);
-        input = ufo_channel_get_input_buffer(input_channel);
-    }
-
-    CHECK_OPENCL_ERROR(clReleaseMemObject(weights_mem)); 
-    CHECK_OPENCL_ERROR(clReleaseMemObject(intermediate_mem)); 
     g_free(weights);
-    ufo_channel_finish(output_channel);
+
+    return error;
+}
+
+static GError *ufo_filter_gaussian_blur_process_gpu(UfoFilter *filter,
+        UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+{
+    UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(filter);
+
+    cl_mem input_mem = ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
+    cl_mem output_mem = ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
+
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->h_kernel, 0, sizeof(cl_mem), &input_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->h_kernel, 1, sizeof(cl_mem), &priv->intermediate_mem));
+
+    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->h_kernel,
+                2, NULL, priv->global_work_size, NULL,
+                0, NULL, NULL));
+
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->v_kernel, 0, sizeof(cl_mem), &priv->intermediate_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->v_kernel, 1, sizeof(cl_mem), &output_mem));
+
+    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->v_kernel,
+                2, NULL, priv->global_work_size, NULL,
+                0, NULL, NULL));
+
     return NULL;
 }
 
@@ -177,6 +161,20 @@ static void ufo_filter_gaussian_blur_get_property(GObject *object,
     }
 }
 
+static void ufo_filter_gaussian_blur_finalize (GObject *object)
+{
+    UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE (object);
+    CHECK_OPENCL_ERROR (clReleaseMemObject (priv->weights_mem)); 
+    CHECK_OPENCL_ERROR (clReleaseMemObject (priv->intermediate_mem)); 
+
+    G_OBJECT_CLASS (ufo_filter_gaussian_blur_parent_class)->finalize (object);
+}
+
+static void ufo_filter_gaussian_blur_dispose (GObject *object)
+{
+    G_OBJECT_CLASS (ufo_filter_gaussian_blur_parent_class)->dispose (object);
+}
+
 static void ufo_filter_gaussian_blur_class_init(UfoFilterGaussianBlurClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
@@ -184,8 +182,10 @@ static void ufo_filter_gaussian_blur_class_init(UfoFilterGaussianBlurClass *klas
 
     gobject_class->set_property = ufo_filter_gaussian_blur_set_property;
     gobject_class->get_property = ufo_filter_gaussian_blur_get_property;
-    filter_class->initialize = ufo_filter_gaussian_blur_initialize;
-    filter_class->process = ufo_filter_gaussian_blur_process;
+    gobject_class->finalize     = ufo_filter_gaussian_blur_finalize;
+    gobject_class->dispose      = ufo_filter_gaussian_blur_dispose;
+    filter_class->initialize    = ufo_filter_gaussian_blur_initialize;
+    filter_class->process_gpu   = ufo_filter_gaussian_blur_process_gpu;
 
     gaussian_blur_properties[PROP_SIZE] = 
         g_param_spec_uint("size",
@@ -213,8 +213,8 @@ static void ufo_filter_gaussian_blur_init(UfoFilterGaussianBlur *self)
 
     priv->size = 5;
     priv->sigma = 1.0f;
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_inputs (UFO_FILTER (self), 2, NULL);
+    ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
