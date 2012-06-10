@@ -22,8 +22,14 @@
 
 struct _UfoFilterVolumeRendererPrivate {
     cl_kernel kernel;
+    cl_mem volume_mem;
+    cl_mem view_mem;
     guint width;
     guint height;
+    gsize global_work_size[2];
+    guint8 *input_data;
+    gfloat angle;
+    gfloat *view_matrix;
 };
 
 G_DEFINE_TYPE(UfoFilterVolumeRenderer, ufo_filter_volume_renderer, UFO_TYPE_FILTER)
@@ -40,32 +46,25 @@ enum {
 static GParamSpec *volume_renderer_properties[N_PROPERTIES] = { NULL, };
 
 
-static GError *ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffer *params[])
-{
-    UfoFilterVolumeRenderer *self = UFO_FILTER_VOLUME_RENDERER(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
-    GError *error = NULL;
-    self->priv->kernel = ufo_resource_manager_get_kernel(manager, "volume.cl", "rayCastVolume", &error);
-    return error;
-}
-
-static GError *ufo_filter_volume_renderer_process(UfoFilter *filter)
+/* TODO: free all resources */
+static GError *ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
     UfoFilterVolumeRendererPrivate *priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    UfoBuffer *output = NULL;
-
     UfoResourceManager *manager = ufo_resource_manager();
+    GError *return_error = NULL;
+    cl_int error = CL_SUCCESS;
     cl_context context = (cl_context) ufo_resource_manager_get_context(manager);
-    cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
+    guint width, height, slices;
 
-    gsize width, height, slices;
     width = height = slices = 256;
-    guint8 *input = g_malloc0(width * height * slices);
+    priv->kernel = ufo_resource_manager_get_kernel(manager, "volume.cl", "rayCastVolume", &return_error);
+    priv->angle = 0.0f;
+    priv->input_data = g_malloc0(width * height * slices);
 
     FILE *fp = fopen("/home/matthias/data/amd-volume/aneurism.raw", "rb");
-    gsize read = fread(input, 1, width * height * slices, fp);
+    gsize read = fread(priv->input_data, 1, width * height * slices, fp);
     fclose(fp);
+    /* TODO: return proper error */
     g_assert(read == width * height * slices);
 
     cl_image_format volume_format = {
@@ -73,27 +72,30 @@ static GError *ufo_filter_volume_renderer_process(UfoFilter *filter)
         .image_channel_data_type = CL_UNORM_INT8
     };
 
-    gfloat view_matrix[4][4] = { 
-        { 1.0, 0.0, 0.0, 0.0 },
-        { 0.0, 1.0, 0.0, 0.0 },
-        { 0.0, 0.0, 1.0, 0.0 },
-        { 0.5, 0.0, 0.5, 1.0 }
-    };
+    priv->view_matrix = g_malloc0(4 * 4 * sizeof(gfloat));
+    priv->view_matrix[0] = 1.0f;
+    priv->view_matrix[5] = 1.0f;
+    priv->view_matrix[10] = 1.0f;
+    priv->view_matrix[12] = 0.5f;
+    priv->view_matrix[14] = 0.5f;
+    priv->view_matrix[15] = 1.0f;
 
-    cl_int error = CL_SUCCESS;
-    cl_mem volume_mem = clCreateImage3D(context,
+    priv->volume_mem = clCreateImage3D(context,
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
             &volume_format,
             width, height, slices,
-            0, 0, input, &error); 
+            0, 0, priv->input_data, &error); 
     CHECK_OPENCL_ERROR(error);
 
-    cl_mem view_mem = clCreateBuffer(context,
+    priv->view_mem = clCreateBuffer(context,
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 
-            4 * 4 * sizeof(float), view_matrix, &error);
+            4 * 4 * sizeof(gfloat), priv->view_matrix, &error);
     CHECK_OPENCL_ERROR(error);
 
-    cl_kernel kernel = priv->kernel;
+    priv->global_work_size[0] = dims[0][0] = width;
+    priv->global_work_size[1] = dims[0][1] = height;
+
+    /* TODO: do these need to be available at all times? */
     gfloat step_size = 0.003f;
     gfloat displacement = -0.3f;
     gfloat linear_ramp_slope = 0.1f;
@@ -101,55 +103,52 @@ static GError *ufo_filter_volume_renderer_process(UfoFilter *filter)
     gfloat threshold = 0.083f;
     cl_uint steps = (cl_uint) ((1.414f + fabs(displacement)) / step_size);
 
-    error |= clSetKernelArg(kernel, 0, sizeof(cl_mem), &volume_mem);
-    error |= clSetKernelArg(kernel, 2, sizeof(cl_mem), &view_mem);
-    error |= clSetKernelArg(kernel, 3, sizeof(cl_uint), &steps);
-    error |= clSetKernelArg(kernel, 4, sizeof(gfloat), &step_size);
-    error |= clSetKernelArg(kernel, 5, sizeof(gfloat), &displacement);
-    error |= clSetKernelArg(kernel, 6, sizeof(gfloat), &linear_ramp_slope);
-    error |= clSetKernelArg(kernel, 7, sizeof(gfloat), &linear_ramp_constant);
-    error |= clSetKernelArg(kernel, 8, sizeof(gfloat), &threshold);
-    CHECK_OPENCL_ERROR(error);
+    error |= clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), &priv->volume_mem);
+    error |= clSetKernelArg(priv->kernel, 2, sizeof(cl_mem), &priv->view_mem);
+    error |= clSetKernelArg(priv->kernel, 3, sizeof(cl_uint), &steps);
+    error |= clSetKernelArg(priv->kernel, 4, sizeof(gfloat), &step_size);
+    error |= clSetKernelArg(priv->kernel, 5, sizeof(gfloat), &displacement);
+    error |= clSetKernelArg(priv->kernel, 6, sizeof(gfloat), &linear_ramp_slope);
+    error |= clSetKernelArg(priv->kernel, 7, sizeof(gfloat), &linear_ramp_constant);
+    error |= clSetKernelArg(priv->kernel, 8, sizeof(gfloat), &threshold);
 
-    const size_t global_work_size[] = { priv->width, priv->height };
-    const guint dimensions[2] = { priv->width, priv->height };
-    ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
-    gfloat angle = 0.0f;
+    return return_error;
+}
 
-    for (int i = 0; i < 256; i++) {
-        output = ufo_channel_get_output_buffer(output_channel);
-        cl_mem output_mem = ufo_buffer_get_device_array(output, command_queue);
+static GError *ufo_filter_volume_renderer_process_gpu(UfoFilter *filter,
+        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+{
+    UfoFilterVolumeRendererPrivate *priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(filter);
 
-        error = clSetKernelArg(kernel, 1, sizeof(cl_mem), &output_mem);
-        CHECK_OPENCL_ERROR(error);
-
-        /* TODO: manage copy event so that we don't have to block here */
-        CHECK_OPENCL_ERROR(clEnqueueWriteBuffer(command_queue,
-                    view_mem, CL_TRUE,
-                    0, 4 * 4 * sizeof(float), view_matrix,
-                    0, NULL, NULL));
-
-        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue, kernel,
-                    2, NULL, global_work_size, NULL,
-                    0, NULL, NULL));
-
-        ufo_channel_finalize_output_buffer(output_channel, output);
-
-        /* rotate around the x-axis for now */
-        const gfloat cos_angle = (gfloat) cos(angle);
-        const gfloat sin_angle = (gfloat) sin(angle);
-        view_matrix[0][0] = cos_angle;
-        view_matrix[0][2] = sin_angle;
-        view_matrix[2][0] = -sin_angle;
-        view_matrix[2][2] = cos_angle;
-
-        angle += 0.05f;
+    if (priv->angle >= G_PI) {
+        ufo_filter_done(filter);
+        return NULL;
     }
 
-    CHECK_OPENCL_ERROR(clReleaseMemObject(volume_mem)); 
-    CHECK_OPENCL_ERROR(clReleaseMemObject(view_mem));
-    ufo_channel_finish(output_channel);
-    g_free(input);
+    cl_int error = CL_SUCCESS;
+    cl_mem output_mem = ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
+    error = clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), &output_mem);
+    CHECK_OPENCL_ERROR(error);
+
+    /* TODO: manage copy event so that we don't have to block here */
+    CHECK_OPENCL_ERROR(clEnqueueWriteBuffer((cl_command_queue) cmd_queue,
+                priv->view_mem, CL_TRUE,
+                0, 4 * 4 * sizeof(float), priv->view_matrix,
+                0, NULL, NULL));
+
+    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->kernel,
+                2, NULL, priv->global_work_size, NULL,
+                0, NULL, NULL));
+
+    /* rotate around the x-axis for now */
+    const gfloat cos_angle = (gfloat) cos(priv->angle);
+    const gfloat sin_angle = (gfloat) sin(priv->angle);
+    priv->view_matrix[0] = cos_angle;
+    priv->view_matrix[2] = sin_angle;
+    priv->view_matrix[12] = -sin_angle;
+    priv->view_matrix[14] = cos_angle;
+    priv->angle += 0.05f;
+
     return NULL;
 }
 
@@ -201,7 +200,7 @@ static void ufo_filter_volume_renderer_class_init(UfoFilterVolumeRendererClass *
     gobject_class->set_property = ufo_filter_volume_renderer_set_property;
     gobject_class->get_property = ufo_filter_volume_renderer_get_property;
     filter_class->initialize = ufo_filter_volume_renderer_initialize;
-    filter_class->process = ufo_filter_volume_renderer_process;
+    filter_class->process_gpu = ufo_filter_volume_renderer_process_gpu;
 
     volume_renderer_properties[PROP_WIDTH] = 
         g_param_spec_uint("width",
@@ -229,7 +228,7 @@ static void ufo_filter_volume_renderer_init(UfoFilterVolumeRenderer *self)
     self->priv->width = 512;
     self->priv->height = 512;
 
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

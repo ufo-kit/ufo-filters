@@ -97,33 +97,30 @@ static float *setup_butterworth(UfoFilterFilterPrivate *priv, guint width)
     return filter;
 }
 
-static GError *ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
     UfoFilterFilterPrivate *priv = UFO_FILTER_FILTER_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
+    guint width, height;
     priv->kernel = ufo_resource_manager_get_kernel(manager, "filter.cl", "filter", &error);
 
     if (error != NULL)
         return error;
 
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    guint width, height;
-
     ufo_buffer_get_2d_dimensions(params[0], &width, &height);
-    ufo_channel_allocate_output_buffers_like(output_channel, params[0]);
-    priv->global_work_size[0] = width;
-    priv->global_work_size[1] = height;
+    priv->global_work_size[0] = dims[0][0] = width;
+    priv->global_work_size[1] = dims[0][1] = height;
 
     cl_context context = (cl_context) ufo_resource_manager_get_context(manager);
     cl_int err = CL_SUCCESS;
-    float *coefficients = priv->filter_setup(priv, width);
+    float *coefficients = priv->filter_setup(priv, priv->global_work_size[0]);
     priv->filter_mem = clCreateBuffer(context,
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 
-            width * sizeof(float), coefficients, &err);
+            priv->global_work_size[0] * sizeof(float), coefficients, &err);
     CHECK_OPENCL_ERROR(err);
     g_free(coefficients);
-    return NULL;
+    return error;
 }
 
 static GError *ufo_filter_filter_process_gpu(UfoFilter *filter, 
@@ -251,8 +248,8 @@ static void ufo_filter_filter_init(UfoFilterFilter *self)
     priv->bw_cutoff = 0.5f;
     priv->bw_order = 4.0f;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_inputs(UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

@@ -26,6 +26,7 @@ struct _UfoFilterClPrivate {
     gchar *kernel_name;
     gboolean combine;
     gint static_argument;
+    gsize global_work_size[2];
 };
 
 G_DEFINE_TYPE(UfoFilterCl, ufo_filter_cl, UFO_TYPE_FILTER)
@@ -43,138 +44,64 @@ enum {
 
 static GParamSpec *cl_properties[N_PROPERTIES] = { NULL, };
 
-static void process_regular(UfoFilter *self,
-        UfoFilterClPrivate *priv, 
-        cl_command_queue command_queue, 
-        cl_kernel kernel)
-{
-    UfoChannel *input_channel = ufo_filter_get_input_channel(self);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(self);
-    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
-    cl_event event;
-    guint num_dims = 0;
-    guint *dim_size = NULL;
-    ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
-    ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
-
-    /* We should reject anything that is not 2-dimensional */
-    size_t global_work_size[2] = { (size_t) dim_size[0], (size_t) dim_size[1] };
-
-    while (input != NULL) { 
-        UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
-        cl_mem frame_mem = (cl_mem) ufo_buffer_get_device_array(input, command_queue);
-        cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(output, command_queue);
-
-        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &frame_mem));
-        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &result_mem));
-        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 2, sizeof(float)*16*16, NULL));
-
-        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue,
-            kernel,
-            2, NULL, global_work_size, NULL,
-            0, NULL, &event));
-
-        ufo_buffer_attach_event(output, event);
-        ufo_channel_finalize_input_buffer(input_channel, input);
-        ufo_channel_finalize_output_buffer(output_channel, output);
-        input = ufo_channel_get_input_buffer(input_channel);
-    }
-
-    ufo_channel_finish(output_channel);
-    g_free(dim_size);
-}
-
-static void process_combine(UfoFilter *self,
-        UfoFilterClPrivate *priv, 
-        cl_command_queue command_queue, 
-        cl_kernel kernel)
-{
-    UfoChannel *output_channel = ufo_filter_get_output_channel(self);
-    
-    UfoChannel *input_a = ufo_filter_get_input_channel_by_name(self, "input0");
-    UfoChannel *input_b = ufo_filter_get_input_channel_by_name(self, "input1");
-
-    size_t local_work_size[2] = { 16, 16 };
-    guint num_dims;
-    guint *dim_size = NULL;
-
-    UfoBuffer *a = ufo_channel_get_input_buffer(input_a);
-    UfoBuffer *b = ufo_channel_get_input_buffer(input_b);
-    ufo_buffer_get_dimensions(a, &num_dims, &dim_size);
-    ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
-
-    size_t global_work_size[2];
-    global_work_size[0] = (size_t) dim_size[0];
-    global_work_size[1] = (size_t) dim_size[1];
-    cl_event event;
-
-    while ((a != NULL) && (b != NULL)) {
-        UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
-        cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(a, command_queue);
-        cl_mem b_mem = (cl_mem) ufo_buffer_get_device_array(b, command_queue);
-        cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(output, command_queue);
-
-        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &a_mem));
-        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &b_mem));
-        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &result_mem));
-        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 3, sizeof(float)*local_work_size[0]*local_work_size[1], NULL));
-
-        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue,
-            kernel,
-            2, NULL, global_work_size, NULL,
-            0, NULL, &event));
-
-        switch (priv->static_argument) {
-            case 0:
-                ufo_channel_finalize_input_buffer(input_a, a);
-                ufo_channel_finalize_input_buffer(input_b, b);
-                a = ufo_channel_get_input_buffer(input_a);
-                b = ufo_channel_get_input_buffer(input_b);
-                break;
-            case 1:
-                ufo_channel_finalize_input_buffer(input_b, b);
-                b = ufo_channel_get_input_buffer(input_b);
-                break;
-            case 2:
-                ufo_channel_finalize_input_buffer(input_a, a);
-                a = ufo_channel_get_input_buffer(input_a);
-                break;
-        }
-        
-        /* ufo_buffer_attach_event(output, event); */
-        ufo_channel_finalize_output_buffer(output_channel, output);
-    }
-
-    ufo_channel_finish(output_channel);
-    g_free(dim_size);
-}
-
-/*
- * This is the main method in which the filter processes one buffer after
- * another.
- */
-static GError *ufo_filter_cl_process(UfoFilter *filter)
+static GError *process_regular(UfoFilter *filter,
+        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
+    cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(inputs[0], (cl_command_queue) cmd_queue);
+    cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
 
-    UfoResourceManager *manager = ufo_resource_manager();
-    cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
-    GError *error = NULL;
-    cl_kernel kernel = ufo_resource_manager_get_kernel(manager, priv->file_name, priv->kernel_name, &error);
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &a_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &result_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 2, sizeof(float)*16*16, NULL));
 
-    if (error != NULL) {
-        ufo_channel_finish(output_channel);
-        return error;
-    }
-
-    if (priv->combine)
-        process_combine(filter, priv, command_queue, kernel);
-    else
-        process_regular(filter, priv, command_queue, kernel);
+    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue,
+                priv->kernel,
+                2, NULL, priv->global_work_size, NULL,
+                0, NULL, NULL));
 
     return NULL;
+}
+
+static GError *process_combine(UfoFilter *filter,
+        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+{
+    UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
+    cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(inputs[0], (cl_command_queue) cmd_queue);
+    cl_mem b_mem = (cl_mem) ufo_buffer_get_device_array(inputs[1], (cl_command_queue) cmd_queue);
+    cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
+
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &a_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &b_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 2, sizeof(cl_mem), (void *) &result_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 3, sizeof(float)*16*16, NULL));
+
+    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue,
+        priv->kernel,
+        2, NULL, priv->global_work_size, NULL,
+        0, NULL, NULL));
+
+    return NULL;
+}
+
+static GError *ufo_filter_cl_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
+{
+    UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
+    UfoFilterClass *filter_class = UFO_FILTER_GET_CLASS(filter);
+    UfoResourceManager *manager = ufo_resource_manager();
+    GError *error = NULL;
+    guint width, height;
+
+    ufo_buffer_get_2d_dimensions(inputs[0], &width, &height);
+    priv->global_work_size[0] = dims[0][0] = width;
+    priv->global_work_size[1] = dims[0][1] = height;
+    priv->kernel = ufo_resource_manager_get_kernel(manager, priv->file_name, priv->kernel_name, &error);
+
+    if (priv->combine)
+        filter_class->process_gpu = process_combine;
+
+    return error;
 }
 
 static void ufo_filter_cl_set_property(GObject *object,
@@ -184,7 +111,6 @@ static void ufo_filter_cl_set_property(GObject *object,
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(object);
 
-    /* Handle all properties accordingly */
     switch (property_id) {
         case PROP_FILE_NAME:
             g_free(priv->file_name);
@@ -239,7 +165,8 @@ static void ufo_filter_cl_class_init(UfoFilterClClass *klass)
 
     gobject_class->set_property = ufo_filter_cl_set_property;
     gobject_class->get_property = ufo_filter_cl_get_property;
-    filter_class->process = ufo_filter_cl_process;
+    filter_class->process_gpu = process_regular;
+    filter_class->initialize = ufo_filter_cl_initialize;
 
     cl_properties[PROP_FILE_NAME] = 
         g_param_spec_string("file",
@@ -285,9 +212,8 @@ static void ufo_filter_cl_init(UfoFilterCl *self)
     priv->kernel = NULL;
     priv->static_argument = 0;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
-    ufo_filter_register_input(UFO_FILTER(self), "input1", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_inputs(UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

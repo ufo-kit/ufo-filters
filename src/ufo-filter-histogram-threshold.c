@@ -46,10 +46,9 @@ enum {
 static GParamSpec *histogram_threshold_properties[N_PROPERTIES] = { NULL, };
 
 
-static GError *ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
 {
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     cl_int cl_error = CL_SUCCESS;
     GError *error = NULL;
@@ -59,7 +58,9 @@ static GError *ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoB
     if (error != NULL)
         return error;
 
-    ufo_buffer_get_2d_dimensions(params[0], &priv->width, &priv->height);
+    ufo_buffer_get_2d_dimensions(inputs[0], &priv->width, &priv->height);
+    dims[0][0] = priv->width;
+    dims[0][1] = priv->height;
 
     cl_context context = (cl_context) ufo_resource_manager_get_context(manager);
     priv->num_bins = 256;
@@ -67,21 +68,20 @@ static GError *ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoB
             CL_MEM_READ_WRITE,
             priv->num_bins * sizeof(float), NULL, &cl_error);
     CHECK_OPENCL_ERROR(cl_error);
-    ufo_channel_allocate_output_buffers_like(output_channel, params[0]);
 
     priv->histogram = g_malloc0(priv->num_bins * sizeof(gfloat));
     return NULL;
 }
 
 static GError *ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, 
-        UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
 {
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
 
     const guint input_size = priv->width * priv->height;
     size_t thresh_work_size[] = { priv->width, priv->height };
 
-    cl_mem input_mem = ufo_buffer_get_device_array(params[0], cmd_queue);
+    cl_mem input_mem = ufo_buffer_get_device_array(inputs[0], cmd_queue);
     cl_event event;
 
     /* Build relative histogram */
@@ -95,7 +95,7 @@ static GError *ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter,
                 0, NULL, &event));
 
     /* Threshold */
-    cl_mem output_mem = ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
+    cl_mem output_mem = ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->thresh_kernel, 0, sizeof(cl_mem), (void *) &input_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->thresh_kernel, 1, sizeof(cl_mem), (void *) &priv->histogram_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->thresh_kernel, 2, sizeof(cl_mem), (void *) &output_mem));
@@ -106,11 +106,11 @@ static GError *ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter,
 }
 
 static GError *ufo_filter_histogram_threshold_process_cpu(UfoFilter *filter, 
-        UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
 {
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
-    gfloat *in = ufo_buffer_get_host_array(params[0], (cl_command_queue) cmd_queue);
-    gfloat *out = ufo_buffer_get_host_array(results[0], (cl_command_queue) cmd_queue);
+    gfloat *in = ufo_buffer_get_host_array(inputs[0], (cl_command_queue) cmd_queue);
+    gfloat *out = ufo_buffer_get_host_array(outputs[0], (cl_command_queue) cmd_queue);
     gfloat bin_width = (priv->upper_limit - priv->lower_limit) / ((gfloat) priv->num_bins);
 
     /* Build normal histogram */
@@ -227,8 +227,8 @@ static void ufo_filter_histogram_threshold_init(UfoFilterHistogramThreshold *sel
     priv->lower_limit = 0.0f;
     priv->upper_limit = 1.0f;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_inputs(UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

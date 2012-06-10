@@ -25,6 +25,7 @@
 
 struct _UfoFilterPipeOutputPrivate {
     gchar *pipe_name;
+    int pipe_fd;
 };
 
 G_DEFINE_TYPE(UfoFilterPipeOutput, ufo_filter_pipe_output, UFO_TYPE_FILTER)
@@ -39,50 +40,48 @@ enum {
 
 static GParamSpec *pipe_output_properties[N_PROPERTIES] = { NULL, };
 
-
-static GError *ufo_filter_pipe_output_process(UfoFilter *filter)
+static GError *ufo_filter_pipe_output_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
 {
     UfoFilterPipeOutputPrivate *priv = UFO_FILTER_PIPE_OUTPUT_GET_PRIVATE(filter);
-
     if (priv->pipe_name == NULL)
         /* TODO: output error */
         return NULL;
 
-    int fd = open(priv->pipe_name, O_WRONLY);
+    priv->pipe_fd = open(priv->pipe_name, O_WRONLY);
+    return NULL;
+}
 
-    cl_command_queue command_queue = ufo_filter_get_command_queue(filter);
-
-    UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-
+static GError *ufo_filter_pipe_output_process_cpu(UfoFilter *filter,
+        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+{
+    UfoFilterPipeOutputPrivate *priv = UFO_FILTER_PIPE_OUTPUT_GET_PRIVATE(filter);
     guint *dim_size = NULL;
     guint num_dims = 0;
 
-    while (input != NULL) {
-        ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
-        const gssize size = (gssize) sizeof(float) * dim_size[0] * dim_size[1];
-        gchar *data = (gchar *) ufo_buffer_get_host_array(input, command_queue);
-        gssize written = 0;
+    ufo_buffer_get_dimensions(inputs[0], &num_dims, &dim_size);
+    const gssize size = (gssize) (sizeof(float) * dim_size[0] * dim_size[1]);
+    gchar *data = (gchar *) ufo_buffer_get_host_array(inputs[0], (cl_command_queue) cmd_queue);
+    gssize written = 0;
 
-        while (written < size) {
-            gssize result = (gssize) write(fd, data + written, (gsize) (size - written));
+    while (written < size) {
+        gssize result = (gssize) write(priv->pipe_fd, data + written, (gsize) (size - written));
 
-            if (result < 0) {
-                /* TODO: create proper error */
-                g_error("Error writing to pipe %s\n", priv->pipe_name);
-                ufo_channel_finalize_input_buffer(input_channel, input);
-                return NULL;
-            }
-
-            written += result;
+        if (result < 0) {
+            /* TODO: create proper error */
+            g_error("Error writing to pipe %s\n", priv->pipe_name);
+            return NULL;
         }
 
-        ufo_channel_finalize_input_buffer(input_channel, input);
-        input = ufo_channel_get_input_buffer(input_channel);
+        written += result;
     }
 
-    close(fd);
     return NULL;
+}
+
+static void ufo_filter_pipe_output_finalize(GObject *object)
+{
+    UfoFilterPipeOutputPrivate *priv = UFO_FILTER_PIPE_OUTPUT_GET_PRIVATE(object);
+    close(priv->pipe_fd);
 }
 
 static void ufo_filter_pipe_output_set_property(GObject *object,
@@ -127,7 +126,9 @@ static void ufo_filter_pipe_output_class_init(UfoFilterPipeOutputClass *klass)
 
     gobject_class->set_property = ufo_filter_pipe_output_set_property;
     gobject_class->get_property = ufo_filter_pipe_output_get_property;
-    filter_class->process = ufo_filter_pipe_output_process;
+    gobject_class->finalize = ufo_filter_pipe_output_finalize;
+    filter_class->initialize = ufo_filter_pipe_output_initialize;
+    filter_class->process_cpu = ufo_filter_pipe_output_process_cpu;
 
     pipe_output_properties[PROP_PIPE_NAME] = 
         g_param_spec_string("pipe-name",
@@ -146,8 +147,8 @@ static void ufo_filter_pipe_output_init(UfoFilterPipeOutput *self)
     UfoFilterPipeOutputPrivate *priv = self->priv = UFO_FILTER_PIPE_OUTPUT_GET_PRIVATE(self);
     priv->pipe_name = NULL;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_inputs(UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

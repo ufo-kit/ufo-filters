@@ -10,7 +10,6 @@ set(ufofilter_SRCS
     ufo-filter-center-of-rotation.c
     ufo-filter-cl.c
     ufo-filter-complex.c
-    ufo-filter-copy.c
     ufo-filter-demux.c
     ufo-filter-filter.c
     ufo-filter-histogram-threshold.c

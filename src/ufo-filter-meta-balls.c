@@ -21,12 +21,24 @@
 
 struct _UfoFilterMetaBallsPrivate {
     cl_kernel kernel;
+    cl_mem positions_mem;
+    cl_mem sizes_mem;
     guint width;
     guint height;
     guint num_balls;
     guint num_iterations;
+    guint current_iteration;
     gboolean run_infinitely;
     guint frames_per_second;
+    gsize num_position_bytes;
+    gsize global_work_size[2];
+
+    GTimer *timer;
+    gdouble seconds_per_frame;
+
+    gfloat *positions;
+    gfloat *velocities;
+    gfloat *sizes;
 };
 
 G_DEFINE_TYPE(UfoFilterMetaBalls, ufo_filter_meta_balls, UFO_TYPE_FILTER)
@@ -46,118 +58,116 @@ enum {
 
 static GParamSpec *meta_balls_properties[N_PROPERTIES] = { NULL, };
 
-static GError *ufo_filter_meta_balls_initialize(UfoFilter *filter, UfoBuffer *params[])
-{
-    UfoFilterMetaBalls *self = UFO_FILTER_META_BALLS(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
-    GError *error = NULL;
-    self->priv->kernel = ufo_resource_manager_get_kernel(manager, "metaballs.cl", "draw_metaballs", &error);
-    return error;
-}
-
-static GError *ufo_filter_meta_balls_process(UfoFilter *filter)
+static GError *ufo_filter_meta_balls_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
 {
     UfoFilterMetaBallsPrivate *priv = UFO_FILTER_META_BALLS_GET_PRIVATE(filter);
-
     UfoResourceManager *manager = ufo_resource_manager();
-    cl_context context = (cl_context) ufo_resource_manager_get_context(manager);
-    cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
-    cl_int error = CL_SUCCESS;
-    cl_kernel kernel = priv->kernel;
+    GError *error = NULL;
+    priv->kernel = ufo_resource_manager_get_kernel(manager, "metaballs.cl", "draw_metaballs", &error);
 
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    UfoBuffer *output = NULL;
+    if (error)
+        return error;
 
-    const guint dim_size[2] = { priv->width, priv->height };
-    const gsize global_work_size[2] = { priv->width, priv->height };
-    ufo_channel_allocate_output_buffers(output_channel, 2, dim_size);
-
-    const gsize num_position_bytes = 2 * priv->num_balls * sizeof(float);
-    float *positions = g_malloc0(num_position_bytes);
-    float *velocities = g_malloc0(num_position_bytes);
-
+    cl_context context = ufo_resource_manager_get_context(manager);
     const gsize num_sizes_bytes = priv->num_balls * sizeof(float);
-    float *sizes = g_malloc0(num_sizes_bytes);
+
+    priv->current_iteration = 0;
+    priv->seconds_per_frame = 1.0 / ((gdouble) priv->frames_per_second);
+    priv->num_position_bytes = 2 * priv->num_balls * sizeof(float);
+    priv->positions = g_malloc0(priv->num_position_bytes);
+    priv->velocities = g_malloc0(priv->num_position_bytes);
+    priv->sizes = g_malloc0(num_sizes_bytes);
+    priv->timer = g_timer_new();
+    priv->global_work_size[0] = priv->width;
+    priv->global_work_size[1] = priv->height;
+    dims[0][0] = priv->width;
+    dims[0][1] = priv->height;
 
     const gfloat f_width = (gfloat) priv->width;
     const gfloat f_height = (gfloat) priv->height;
 
     for (guint i = 0; i < priv->num_balls; i++) {
         const guint x = 2*i, y = 2*i + 1;
-        sizes[i] = (float) g_random_double_range(f_width / 50.0f, f_width / 10.0f);
-        positions[x] = (float) g_random_double_range(0.0, (double) f_width); 
-        positions[y] = (float) g_random_double_range(0.0, (double) f_height); 
-        velocities[x] = (float) g_random_double_range(-4.0, 4.0);
-        velocities[y] = (float) g_random_double_range(-4.0, 4.0);
+        priv->sizes[i] = (gfloat) g_random_double_range(f_width / 50.0f, f_width / 10.0f);
+        priv->positions[x] = (gfloat) g_random_double_range(0.0, (double) f_width); 
+        priv->positions[y] = (gfloat) g_random_double_range(0.0, (double) f_height); 
+        priv->velocities[x] = (gfloat) g_random_double_range(-4.0, 4.0);
+        priv->velocities[y] = (gfloat) g_random_double_range(-4.0, 4.0);
     };
 
-    cl_mem positions_mem = clCreateBuffer(context, 
+    cl_int err = CL_SUCCESS;
+    priv->positions_mem = clCreateBuffer(context, 
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 
-            num_position_bytes, positions, &error);
-    CHECK_OPENCL_ERROR(error);
+            priv->num_position_bytes, priv->positions, &err);
+    CHECK_OPENCL_ERROR(err);
 
-    cl_mem sizes_mem = clCreateBuffer(context,
+    priv->sizes_mem = clCreateBuffer(context,
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-            num_sizes_bytes, sizes, &error);
-    CHECK_OPENCL_ERROR(error);
+            num_sizes_bytes, priv->sizes, &err);
+    CHECK_OPENCL_ERROR(err);
 
-    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &positions_mem));
-    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &sizes_mem));
-    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 3, sizeof(cl_uint), &priv->num_balls));
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &priv->positions_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 2, sizeof(cl_mem), (void *) &priv->sizes_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 3, sizeof(cl_uint), &priv->num_balls));
 
-    GTimer *timer = g_timer_new();
-    const gdouble seconds_per_frame = 1.0 / ((gdouble) priv->frames_per_second);
-    guint i = 0;
+    return error;
+}
 
-    while (priv->run_infinitely || (i++ < priv->num_iterations)) {
-        g_timer_start(timer);
-        output = ufo_channel_get_output_buffer(output_channel);
-        cl_mem output_mem = (cl_mem) ufo_buffer_get_device_array(output, command_queue);
-        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &output_mem));
+static GError *ufo_filter_meta_balls_process_gpu(UfoFilter *filter, 
+        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+{
+    UfoFilterMetaBallsPrivate *priv = UFO_FILTER_META_BALLS_GET_PRIVATE(filter);
 
-        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue, kernel,
-                2, NULL, global_work_size, NULL,
+    if (priv->run_infinitely || (priv->current_iteration++) < priv->num_iterations) {
+        cl_mem output_mem = (cl_mem) ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
+        CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &output_mem));
+
+        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->kernel,
+                2, NULL, priv->global_work_size, NULL,
                 0, NULL, NULL));
-
-        ufo_channel_finalize_output_buffer(output_channel, output);
 
         /* Update positions and velocities */
         for (guint j = 0; j < priv->num_balls; j++) {
             const guint x = 2*j, y = 2*j + 1;
-            positions[x] += velocities[x]; 
-            positions[y] += velocities[y]; 
+            priv->positions[x] += priv->velocities[x]; 
+            priv->positions[y] += priv->velocities[y]; 
 
-            if (positions[x] < 0 || positions[x] > priv->width)
-                velocities[x] = -velocities[x];
+            if (priv->positions[x] < 0 || priv->positions[x] > priv->width)
+                priv->velocities[x] = -priv->velocities[x];
 
-            if (positions[y] < 0 || positions[y] > priv->height)
-                velocities[y] = -velocities[y];
+            if (priv->positions[y] < 0 || priv->positions[y] > priv->height)
+                priv->velocities[y] = -priv->velocities[y];
         }
 
-        CHECK_OPENCL_ERROR(clEnqueueWriteBuffer(command_queue,
-                positions_mem, CL_FALSE, 
-                0, num_position_bytes, positions, 
+        CHECK_OPENCL_ERROR(clEnqueueWriteBuffer((cl_command_queue) cmd_queue,
+                priv->positions_mem, CL_FALSE, 
+                0, priv->num_position_bytes, priv->positions, 
                 0, NULL, NULL));
 
-        g_timer_stop(timer);
+        g_timer_stop(priv->timer);
         if (priv->frames_per_second > 0) {
-            const gdouble elapsed = g_timer_elapsed(timer, NULL);
-            const gdouble delta = seconds_per_frame - elapsed;
+            const gdouble elapsed = g_timer_elapsed(priv->timer, NULL);
+            const gdouble delta = priv->seconds_per_frame - elapsed;
             if (delta > 0.0)
                 g_usleep(G_USEC_PER_SEC * ((gulong) delta)); 
         }
     }
-    
-    ufo_channel_finish(output_channel);
+    else
+        ufo_filter_done(filter); 
 
-    clReleaseMemObject(positions_mem);
-    clReleaseMemObject(sizes_mem);
-
-    g_free(sizes);
-    g_free(positions);
-    g_free(velocities);
-    g_timer_destroy(timer);
     return NULL;
+}
+
+static void ufo_filter_meta_balls_finalize(GObject *object)
+{
+    UfoFilterMetaBallsPrivate *priv = UFO_FILTER_META_BALLS_GET_PRIVATE(object);
+    clReleaseMemObject(priv->positions_mem);
+    clReleaseMemObject(priv->sizes_mem);
+    g_free(priv->sizes);
+    g_free(priv->positions);
+    g_free(priv->velocities);
+    g_timer_destroy(priv->timer);
+    G_OBJECT_CLASS(ufo_filter_meta_balls_parent_class)->finalize(object);
 }
 
 static void ufo_filter_meta_balls_set_property(GObject *object,
@@ -231,8 +241,9 @@ static void ufo_filter_meta_balls_class_init(UfoFilterMetaBallsClass *klass)
 
     gobject_class->set_property = ufo_filter_meta_balls_set_property;
     gobject_class->get_property = ufo_filter_meta_balls_get_property;
+    gobject_class->finalize = ufo_filter_meta_balls_finalize;
     filter_class->initialize = ufo_filter_meta_balls_initialize;
-    filter_class->process = ufo_filter_meta_balls_process;
+    filter_class->process_gpu = ufo_filter_meta_balls_process_gpu;
 
     meta_balls_properties[PROP_WIDTH] = 
         g_param_spec_uint("width",
@@ -296,7 +307,7 @@ static void ufo_filter_meta_balls_init(UfoFilterMetaBalls *self)
     priv->run_infinitely = FALSE;
     priv->frames_per_second = 0;
 
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

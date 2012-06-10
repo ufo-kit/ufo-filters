@@ -23,44 +23,32 @@ G_DEFINE_TYPE(UfoFilterNormalize, ufo_filter_normalize, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_NORMALIZE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_NORMALIZE, UfoFilterNormalizePrivate))
 
-
-static GError *ufo_filter_normalize_process(UfoFilter *filter)
+static GError *ufo_filter_normalize_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
 {
-    UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
+    ufo_buffer_get_2d_dimensions (inputs[0], &dims[0][0], &dims[0][1]);
+    return NULL;
+}
 
-    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    ufo_channel_allocate_output_buffers_like(output_channel, input);
-    const gsize num_elements = ufo_buffer_get_size(input) / sizeof(float);
+static GError *ufo_filter_normalize_process_cpu(UfoFilter *filter,
+        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+{
+    const gsize num_elements = ufo_buffer_get_size(inputs[0]) / sizeof(float);
+    float *in_data = ufo_buffer_get_host_array(inputs[0], (cl_command_queue) cmd_queue);
+    float min = 1.0, max = 0.0;
 
-    while (input != NULL) {
-        float *in_data = ufo_buffer_get_host_array(input, command_queue);
-
-        float min = 1.0, max = 0.0;
-        for (guint i = 0; i < num_elements; i++) {
-            if (in_data[i] < min)
-                min = in_data[i];
-            if (in_data[i] > max)
-                max = in_data[i];
-        }
-
-        UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
-
-        /* This avoids an unneccessary GPU-to-host transfer */
-        ufo_buffer_invalidate_gpu_data(output);
-        float scale = 1.0f / (max - min);
-        float *out_data = ufo_buffer_get_host_array(output, command_queue);
-
-        for (guint i = 0; i < num_elements; i++) 
-            out_data[i] = (in_data[i] - min) * scale;
-
-        ufo_channel_finalize_input_buffer(input_channel, input);
-        ufo_channel_finalize_output_buffer(output_channel, output);
-        input = ufo_channel_get_input_buffer(input_channel);
+    for (guint i = 0; i < num_elements; i++) {
+        if (in_data[i] < min)
+            min = in_data[i];
+        if (in_data[i] > max)
+            max = in_data[i];
     }
 
-    ufo_channel_finish(output_channel);
+    float scale = 1.0f / (max - min);
+    float *out_data = ufo_buffer_get_host_array(outputs[0], (cl_command_queue) cmd_queue);
+
+    for (guint i = 0; i < num_elements; i++) 
+        out_data[i] = (in_data[i] - min) * scale;
+
     return NULL;
 }
 
@@ -95,13 +83,14 @@ static void ufo_filter_normalize_class_init(UfoFilterNormalizeClass *klass)
 
     gobject_class->set_property = ufo_filter_normalize_set_property;
     gobject_class->get_property = ufo_filter_normalize_get_property;
-    filter_class->process = ufo_filter_normalize_process;
+    filter_class->initialize = ufo_filter_normalize_initialize;
+    filter_class->process_cpu = ufo_filter_normalize_process_cpu;
 }
 
 static void ufo_filter_normalize_init(UfoFilterNormalize *self)
 {
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_inputs(UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

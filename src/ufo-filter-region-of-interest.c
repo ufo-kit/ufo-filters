@@ -42,60 +42,50 @@ enum {
 
 static GParamSpec *region_of_interest_properties[N_PROPERTIES] = { NULL, };
 
-
-static GError *ufo_filter_region_of_interest_process(UfoFilter *filter)
+static GError *ufo_filter_region_of_interest_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
 {
     UfoFilterRegionOfInterestPrivate *priv = UFO_FILTER_REGION_OF_INTEREST_GET_PRIVATE(filter);
-    UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    UfoBuffer *output = NULL;
-    cl_command_queue cmd_queue = ufo_filter_get_command_queue(filter);
+    dims[0][0] = priv->width;
+    dims[0][1] = priv->height;
+    return NULL;
+}
 
-    guint dimensions[2] = { priv->width, priv->height };
-    ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
-
+static GError *ufo_filter_region_of_interest_process_cpu(UfoFilter *filter,
+        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+{
+    UfoFilterRegionOfInterestPrivate *priv = UFO_FILTER_REGION_OF_INTEREST_GET_PRIVATE(filter);
     guint x1 = priv->x, y1 = priv->y;
     guint x2 = x1 + priv->width, y2 = y1 + priv->height;
+    guint in_width, in_height;
 
-    while (input != NULL) {
-        guint in_width, in_height;
-        ufo_buffer_get_2d_dimensions(input, &in_width, &in_height);
-        output = ufo_channel_get_output_buffer(output_channel);
+    ufo_buffer_get_2d_dimensions(inputs[0], &in_width, &in_height);
 
-        /* Don't do anything if we are completely out of bounds */
-        if (x1 > in_width || y1 > in_height) {
-            ufo_channel_finalize_input_buffer(input_channel, input);
-            ufo_channel_finalize_output_buffer(output_channel, output);
-            continue;
-        }
-
-        guint rd_width = x2 > in_width ? in_width - x1 : priv->width;
-        guint rd_height = y2 > in_height ? in_height - y1 : priv->height;
-        gfloat *in_data = ufo_buffer_get_host_array(input, cmd_queue);
-        gfloat *out_data = ufo_buffer_get_host_array(output, cmd_queue);
-
-        /*
-         * Removing the for loop for "width aligned" regions gives a marginal
-         * speed-up of ~4 per cent.
-         */
-        if (rd_width == in_width) {
-            g_memmove(out_data, in_data + y1*in_width, 
-                    rd_width * rd_height * sizeof(gfloat));
-        }
-        else {
-            for (guint y = 0; y < rd_height; y++) {
-                g_memmove(out_data + y*priv->width, in_data + (y + y1)*in_width + x1, 
-                        rd_width * sizeof(gfloat));
-            }
-        }
-
-        ufo_channel_finalize_input_buffer(input_channel, input);
-        ufo_channel_finalize_output_buffer(output_channel, output);
-        input = ufo_channel_get_input_buffer(input_channel);
+    /* Don't do anything if we are completely out of bounds */
+    if (x1 > in_width || y1 > in_height) {
+        /* XXX: Maybe issue an error? */
+        return NULL;
     }
 
-    ufo_channel_finish(output_channel);
+    guint rd_width = x2 > in_width ? in_width - x1 : priv->width;
+    guint rd_height = y2 > in_height ? in_height - y1 : priv->height;
+    gfloat *in_data = ufo_buffer_get_host_array(inputs[0], (cl_command_queue) cmd_queue);
+    gfloat *out_data = ufo_buffer_get_host_array(outputs[0], (cl_command_queue) cmd_queue);
+
+    /*
+     * Removing the for loop for "width aligned" regions gives a marginal
+     * speed-up of ~4 per cent.
+     */
+    if (rd_width == in_width) {
+        g_memmove(out_data, in_data + y1*in_width, 
+                rd_width * rd_height * sizeof(gfloat));
+    }
+    else {
+        for (guint y = 0; y < rd_height; y++) {
+            g_memmove(out_data + y*priv->width, in_data + (y + y1)*in_width + x1, 
+                    rd_width * sizeof(gfloat));
+        }
+    }
+
     return NULL;
 }
 
@@ -158,7 +148,8 @@ static void ufo_filter_region_of_interest_class_init(UfoFilterRegionOfInterestCl
 
     gobject_class->set_property = ufo_filter_region_of_interest_set_property;
     gobject_class->get_property = ufo_filter_region_of_interest_get_property;
-    filter_class->process = ufo_filter_region_of_interest_process;
+    filter_class->initialize = ufo_filter_region_of_interest_initialize;
+    filter_class->process_cpu = ufo_filter_region_of_interest_process_cpu;
 
     region_of_interest_properties[PROP_X] = 
         g_param_spec_uint("x",
@@ -202,8 +193,8 @@ static void ufo_filter_region_of_interest_init(UfoFilterRegionOfInterest *self)
     priv->width = 256;
     priv->height = 256;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_inputs(UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
