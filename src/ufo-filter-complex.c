@@ -31,8 +31,9 @@ typedef enum {
 static const gchar *operation_map[] = { "add", "mul", "div", "conj" };
 
 struct _UfoFilterComplexPrivate {
-     cl_kernel kernels[OP_N];
-     ComplexOperation operation;
+     ComplexOperation   operation;
+     cl_kernel  kernels[OP_N];
+     size_t     global_work_size[2];
 };
 
 G_DEFINE_TYPE(UfoFilterComplex, ufo_filter_complex, UFO_TYPE_FILTER)
@@ -47,128 +48,76 @@ enum {
 
 static GParamSpec *complex_properties[N_PROPERTIES] = { NULL, };
 
-static GError *ufo_filter_complex_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *ufo_filter_complex_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
-    UfoFilterComplex *self = UFO_FILTER_COMPLEX(filter);
+    UfoFilterComplexPrivate *priv = UFO_FILTER_COMPLEX_GET_PRIVATE (filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
+    guint width, height;
 
     /* TODO: handle each error independently, maybe write a macro that returns
      * or use g_return_val_if_fail() */
-    self->priv->kernels[OP_ADD] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_add", &error);
-    self->priv->kernels[OP_MUL] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_mul", &error);
-    self->priv->kernels[OP_DIV] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_div", &error);
-    self->priv->kernels[OP_CONJ] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_conj", &error);
+    priv->kernels[OP_ADD] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_add", &error);
+    priv->kernels[OP_MUL] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_mul", &error);
+    priv->kernels[OP_DIV] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_div", &error);
+    priv->kernels[OP_CONJ] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_conj", &error);
+
+    /* TODO: Check that second buffer has the same size */
+    ufo_buffer_get_2d_dimensions (params[0], &width, &height);
+    priv->global_work_size[0] = width / 2;
+    priv->global_work_size[1] = height;
+    dims[0][0] = width;
+    dims[0][1] = height;
+
     return error;
 }
 
-static void ufo_filter_complex_binary(UfoFilter *filter, cl_kernel kernel)
+static void ufo_filter_complex_binary(UfoFilter *filter,
+        UfoBuffer *inputs[], UfoBuffer *outputs[], cl_command_queue cmd_queue)
 {
-    UfoChannel *input_channel_a = ufo_filter_get_input_channel_by_name(filter, "input0");
-    UfoChannel *input_channel_b = ufo_filter_get_input_channel_by_name(filter, "input1");
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    
-    UfoBuffer *a = ufo_channel_get_input_buffer(input_channel_a);
-    UfoBuffer *b = ufo_channel_get_input_buffer(input_channel_b);
-    guint num_dims_a = 0, num_dims_b = 0;
-    guint *dim_size_a = NULL;
-    guint *dim_size_b = NULL;
-
-    ufo_buffer_get_dimensions(a, &num_dims_a, &dim_size_a);
-    ufo_buffer_get_dimensions(b, &num_dims_b, &dim_size_b);
-    g_assert(num_dims_a == num_dims_b);
-
-    for (guint i = 0; i < num_dims_a; i++)
-        g_assert(dim_size_a[i] == dim_size_b[i]);
-
-    ufo_channel_allocate_output_buffers(output_channel, num_dims_a, dim_size_a);
-    
-    cl_command_queue cmd_queue = ufo_filter_get_command_queue(filter);
-    cl_mem mem_a, mem_b, mem_r;
-    cl_event wait_event;
-    
-    size_t global_work_size[2] = { 0, 0 };
-
-    while ((a != NULL) && (b != NULL)) {
-        UfoBuffer *r = ufo_channel_get_output_buffer(output_channel);
-        
-        mem_a = ufo_buffer_get_device_array(a, cmd_queue);
-        mem_b = ufo_buffer_get_device_array(b, cmd_queue);
-        mem_r = ufo_buffer_get_device_array(r, cmd_queue);
-        
-        /* Each thread processes the real and the imaginary part */
-        global_work_size[0] = dim_size_a[0] / 2;
-        global_work_size[1] = dim_size_a[1];
-        clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &mem_a);
-        clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &mem_b);
-        clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &mem_r);
-        clEnqueueNDRangeKernel(cmd_queue, kernel,
-                2, NULL, global_work_size, NULL,
-                0, NULL, &wait_event);
-
-        ufo_buffer_attach_event(r, wait_event);
-        /* ufo_filter_account_gpu_time(filter, (void **) &event); */
-
-        ufo_channel_finalize_output_buffer(output_channel, r);
-        ufo_channel_finalize_input_buffer(input_channel_a, a);
-        ufo_channel_finalize_input_buffer(input_channel_b, b);
-        a = ufo_channel_get_input_buffer(input_channel_a);
-        b = ufo_channel_get_input_buffer(input_channel_b);
-    }
-    ufo_channel_finish(output_channel);
-    g_free(dim_size_a);
-    g_free(dim_size_b);
-}
-
-static void ufo_filter_complex_unary(UfoFilter* filter, cl_kernel kernel)
-{
-    UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    
-    cl_command_queue cmd_queue = ufo_filter_get_command_queue(filter);
-    cl_event wait_event;
-    
-    size_t global_work_size[2] = { 0, 0 };
-    guint num_dims = 0;
-    guint *dim_size = NULL;
-    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
-    ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
-
-    while (input != NULL) {
-        UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
-        cl_mem input_mem = ufo_buffer_get_device_array(input, cmd_queue);
-        cl_mem output_mem = ufo_buffer_get_device_array(output, cmd_queue);
-        
-        /* Each thread processes the real and the imaginary part */
-        global_work_size[0] = dim_size[0] / 2;
-        global_work_size[1] = dim_size[1];
-        clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &input_mem);
-        clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &output_mem);
-        clEnqueueNDRangeKernel(cmd_queue, kernel,
-                2, NULL, global_work_size, NULL,
-                0, NULL, &wait_event);
-
-        ufo_buffer_attach_event(input, wait_event);
-        /* ufo_filter_account_gpu_time(filter, (void **) &event); */
-
-        ufo_channel_finalize_output_buffer(output_channel, output);
-        ufo_channel_finalize_input_buffer(input_channel, input);
-        input = ufo_channel_get_input_buffer(input_channel);
-    }
-    g_free(dim_size);
-    ufo_channel_finish(output_channel);
-}
-
-static GError *ufo_filter_complex_process(UfoFilter *filter)
-{
-    UfoFilterComplexPrivate *priv = UFO_FILTER_COMPLEX_GET_PRIVATE(filter);
+    UfoFilterComplexPrivate *priv = UFO_FILTER_COMPLEX_GET_PRIVATE (filter);
     cl_kernel kernel = priv->kernels[priv->operation];
     
+    cl_mem mem_a = ufo_buffer_get_device_array(inputs[0], cmd_queue);
+    cl_mem mem_b = ufo_buffer_get_device_array(inputs[1], cmd_queue);
+    cl_mem mem_r = ufo_buffer_get_device_array(outputs[0], cmd_queue);
+        
+        /* Each thread processes the real and the imaginary part */
+        /* global_work_size[0] = dim_size_a[0] / 2; */
+        /* global_work_size[1] = dim_size_a[1]; */
+    clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &mem_a);
+    clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &mem_b);
+    clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &mem_r);
+    clEnqueueNDRangeKernel(cmd_queue, kernel,
+            2, NULL, priv->global_work_size, NULL,
+            0, NULL, NULL);
+}
+
+static void ufo_filter_complex_unary(UfoFilter* filter, 
+        UfoBuffer *inputs[], UfoBuffer *outputs[], cl_command_queue cmd_queue)
+{
+    UfoFilterComplexPrivate *priv = UFO_FILTER_COMPLEX_GET_PRIVATE (filter);
+    cl_kernel kernel = priv->kernels[priv->operation];
+    cl_mem input_mem = ufo_buffer_get_device_array(inputs[0], cmd_queue);
+    cl_mem output_mem = ufo_buffer_get_device_array(outputs[0], cmd_queue);
+    
+    clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &input_mem);
+    clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &output_mem);
+    clEnqueueNDRangeKernel(cmd_queue, kernel,
+            2, NULL, priv->global_work_size, NULL,
+            0, NULL, NULL);
+}
+
+static GError *ufo_filter_complex_process_gpu(UfoFilter *filter,
+        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+{
+    UfoFilterComplexPrivate *priv = UFO_FILTER_COMPLEX_GET_PRIVATE (filter);
+    cl_command_queue queue = (cl_command_queue) cmd_queue;
+
     if (priv->operation == OP_CONJ) 
-        ufo_filter_complex_unary(filter, kernel); 
+        ufo_filter_complex_unary(filter, inputs, outputs, queue);
     else
-        ufo_filter_complex_binary(filter, kernel);
+        ufo_filter_complex_binary(filter, inputs, outputs, queue);
 
     return NULL;
 }
@@ -223,7 +172,7 @@ static void ufo_filter_complex_class_init(UfoFilterComplexClass *klass)
     gobject_class->set_property = ufo_filter_complex_set_property;
     gobject_class->get_property = ufo_filter_complex_get_property;
     filter_class->initialize = ufo_filter_complex_initialize;
-    filter_class->process = ufo_filter_complex_process;
+    filter_class->process_gpu = ufo_filter_complex_process_gpu;
 
     /* install properties */
     complex_properties[PROP_OP] = 
@@ -243,9 +192,8 @@ static void ufo_filter_complex_init(UfoFilterComplex *self)
     UfoFilterComplexPrivate *priv = self->priv = UFO_FILTER_COMPLEX_GET_PRIVATE(self);
     priv->operation = OP_ADD;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
-    ufo_filter_register_input(UFO_FILTER(self), "input1", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_inputs (UFO_FILTER (self), 2, 2, NULL);
+    ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

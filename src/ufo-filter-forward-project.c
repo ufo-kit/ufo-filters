@@ -21,9 +21,11 @@
  */
 
 struct _UfoFilterForwardProjectPrivate {
-    cl_kernel kernel;
-    gfloat angle_step;
-    guint num_projections;
+    cl_kernel   kernel;
+    cl_mem      slice_mem;
+    gfloat      angle_step;
+    guint       num_projections;
+    size_t      global_work_size[2];
 };
 
 G_DEFINE_TYPE(UfoFilterForwardProject, ufo_filter_forward_project, UFO_TYPE_FILTER)
@@ -39,73 +41,56 @@ enum {
 
 static GParamSpec *forward_project_properties[N_PROPERTIES] = { NULL, };
 
-static GError *ufo_filter_forward_project_initialize(UfoFilter *filter, UfoBuffer *params[])
-{
-    UfoFilterForwardProject *self = UFO_FILTER_FORWARD_PROJECT(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
-    GError *error = NULL;
-    self->priv->kernel = ufo_resource_manager_get_kernel(manager, "forwardproject.cl","forwardproject", NULL);
-    return error;
-}
-
-
-static GError *ufo_filter_forward_project_process(UfoFilter *filter)
+static GError *ufo_filter_forward_project_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
     UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
-
-    UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-
-    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    UfoBuffer *output = NULL;
-
-    guint num_dims = 0;
-    guint *dim_size = NULL;
-    ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
-
-    cl_int errcode = CL_SUCCESS;
-    cl_kernel kernel = priv->kernel;
+    GError *error = NULL;
+    guint width, height;
     cl_context context = (cl_context) ufo_resource_manager_get_context(manager);
-    cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
+    cl_int errcode;
+
+    ufo_buffer_get_2d_dimensions (params[0], &width, &height);
+
+    priv->kernel = ufo_resource_manager_get_kernel(manager, "forwardproject.cl","forwardproject", NULL);
+
     cl_image_format image_format = { .image_channel_order = CL_R, .image_channel_data_type = CL_FLOAT };
 
-    cl_mem slice = clCreateImage2D(context,
-                                   CL_MEM_READ_ONLY, &image_format, dim_size[0], dim_size[1],
-                                   0, NULL, &errcode);
+    priv->slice_mem = clCreateImage2D(context,
+            CL_MEM_READ_ONLY, &image_format, width, height,
+            0, NULL, &errcode);
 
-    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &slice));
-    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 2, sizeof(float), &priv->angle_step));
+    g_print ("angle_step=%f\n", priv->angle_step);
+
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &priv->slice_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 2, sizeof(float), &priv->angle_step));
+
+    priv->global_work_size[0] = dims[0][0] = width;
+    priv->global_work_size[1] = dims[0][1] = priv->num_projections;
+
+    return error;
+}
+
+static GError *ufo_filter_forward_project_process_gpu(UfoFilter *filter,
+        UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+{
+    UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(filter);
 
     const gsize src_origin[3] = { 0, 0, 0 };
-    const gsize region[3] = { dim_size[0], dim_size[1], 1 };
+    const gsize region[3] = { priv->global_work_size[0], priv->global_work_size[1], 1 };
 
-    dim_size[1] = priv->num_projections;
-    ufo_channel_allocate_output_buffers(output_channel, 2, dim_size);
-    const gsize global_work_size[] = { dim_size[0], dim_size[1] }; 
-
-    while (input != NULL) {
-        cl_mem input_mem = (cl_mem) ufo_buffer_get_device_array(input, command_queue);
-        CHECK_OPENCL_ERROR(clEnqueueCopyBufferToImage(command_queue,
-                                               input_mem, slice,
-                                               0, src_origin, region,
-                                               0, NULL, NULL));
-
-        output = ufo_channel_get_output_buffer(output_channel);
-        cl_mem output_mem = (cl_mem) ufo_buffer_get_device_array(output, command_queue);
-        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &output_mem));
-        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue, kernel,
-                                           2, NULL, global_work_size, NULL,
+    cl_mem input_mem = (cl_mem) ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
+    CHECK_OPENCL_ERROR(clEnqueueCopyBufferToImage((cl_command_queue) cmd_queue,
+                                           input_mem, priv->slice_mem,
+                                           0, src_origin, region,
                                            0, NULL, NULL));
 
-        ufo_channel_finalize_input_buffer(input_channel, input);
-        ufo_channel_finalize_output_buffer(output_channel, output);
-        input = ufo_channel_get_input_buffer(input_channel);
-    }
+    cl_mem output_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &output_mem));
+    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->kernel,
+                                       2, NULL, priv->global_work_size, NULL,
+                                       0, NULL, NULL));
 
-    ufo_channel_finish(output_channel);
-    clReleaseMemObject(slice);
-    g_free(dim_size);
     return NULL;
 }
 
@@ -156,7 +141,7 @@ static void ufo_filter_forward_project_class_init(UfoFilterForwardProjectClass *
     gobject_class->set_property = ufo_filter_forward_project_set_property;
     gobject_class->get_property = ufo_filter_forward_project_get_property;
     filter_class->initialize = ufo_filter_forward_project_initialize;
-    filter_class->process = ufo_filter_forward_project_process;
+    filter_class->process_gpu = ufo_filter_forward_project_process_gpu;
 
     forward_project_properties[PROP_ANGLE_STEP] =
         g_param_spec_float("angle-step",
@@ -182,9 +167,10 @@ static void ufo_filter_forward_project_class_init(UfoFilterForwardProjectClass *
 static void ufo_filter_forward_project_init(UfoFilterForwardProject *self)
 {
     self->priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(self);
+    self->priv->num_projections = 256;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_inputs (UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_outputs (UFO_FILTER(self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
