@@ -121,7 +121,7 @@ static GError *ufo_filter_volume_renderer_process_gpu(UfoFilter *filter,
     UfoFilterVolumeRendererPrivate *priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(filter);
 
     if (priv->angle >= G_PI) {
-        ufo_filter_done(filter);
+        ufo_filter_finish (filter);
         return NULL;
     }
 

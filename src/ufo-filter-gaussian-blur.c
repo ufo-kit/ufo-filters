@@ -164,6 +164,7 @@ static void ufo_filter_gaussian_blur_get_property(GObject *object,
 static void ufo_filter_gaussian_blur_finalize (GObject *object)
 {
     UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE (object);
+
     CHECK_OPENCL_ERROR (clReleaseMemObject (priv->weights_mem)); 
     CHECK_OPENCL_ERROR (clReleaseMemObject (priv->intermediate_mem)); 
 

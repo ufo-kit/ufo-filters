@@ -332,7 +332,7 @@ static GError *ufo_filter_reader_process_cpu(UfoFilter *filter, UfoBuffer *param
 
         if (priv->frame_buffer == NULL) {
             /* TODO: maybe return error if file could not be load */
-            ufo_filter_done(filter); 
+            ufo_filter_finish(filter); 
             return NULL;
         }
 
@@ -344,7 +344,7 @@ static GError *ufo_filter_reader_process_cpu(UfoFilter *filter, UfoBuffer *param
         priv->current_count++;
     }
     else
-        ufo_filter_done(filter);
+        ufo_filter_finish(filter);
 
     return NULL;
 }
@@ -573,5 +573,5 @@ static void ufo_filter_reader_init(UfoFilterReader *self)
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
 {
-    return g_object_new(UFO_TYPE_FILTER_READER, NULL);
+    return g_object_new (UFO_TYPE_FILTER_READER, NULL);
 }

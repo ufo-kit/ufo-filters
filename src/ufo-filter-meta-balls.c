@@ -118,42 +118,43 @@ static GError *ufo_filter_meta_balls_process_gpu(UfoFilter *filter,
 {
     UfoFilterMetaBallsPrivate *priv = UFO_FILTER_META_BALLS_GET_PRIVATE(filter);
 
-    if (priv->run_infinitely || (priv->current_iteration++) < priv->num_iterations) {
-        cl_mem output_mem = (cl_mem) ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
-        CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &output_mem));
-
-        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->kernel,
-                2, NULL, priv->global_work_size, NULL,
-                0, NULL, NULL));
-
-        /* Update positions and velocities */
-        for (guint j = 0; j < priv->num_balls; j++) {
-            const guint x = 2*j, y = 2*j + 1;
-            priv->positions[x] += priv->velocities[x]; 
-            priv->positions[y] += priv->velocities[y]; 
-
-            if (priv->positions[x] < 0 || priv->positions[x] > priv->width)
-                priv->velocities[x] = -priv->velocities[x];
-
-            if (priv->positions[y] < 0 || priv->positions[y] > priv->height)
-                priv->velocities[y] = -priv->velocities[y];
-        }
-
-        CHECK_OPENCL_ERROR(clEnqueueWriteBuffer((cl_command_queue) cmd_queue,
-                priv->positions_mem, CL_FALSE, 
-                0, priv->num_position_bytes, priv->positions, 
-                0, NULL, NULL));
-
-        g_timer_stop(priv->timer);
-        if (priv->frames_per_second > 0) {
-            const gdouble elapsed = g_timer_elapsed(priv->timer, NULL);
-            const gdouble delta = priv->seconds_per_frame - elapsed;
-            if (delta > 0.0)
-                g_usleep(G_USEC_PER_SEC * ((gulong) delta)); 
-        }
+    if (!priv->run_infinitely && (priv->current_iteration++) >= priv->num_iterations) {
+        ufo_filter_finish (filter);
+        return NULL;
     }
-    else
-        ufo_filter_done(filter); 
+
+    cl_mem output_mem = (cl_mem) ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
+    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &output_mem));
+
+    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->kernel,
+            2, NULL, priv->global_work_size, NULL,
+            0, NULL, NULL));
+
+    /* Update positions and velocities */
+    for (guint j = 0; j < priv->num_balls; j++) {
+        const guint x = 2*j, y = 2*j + 1;
+        priv->positions[x] += priv->velocities[x]; 
+        priv->positions[y] += priv->velocities[y]; 
+
+        if (priv->positions[x] < 0 || priv->positions[x] > priv->width)
+            priv->velocities[x] = -priv->velocities[x];
+
+        if (priv->positions[y] < 0 || priv->positions[y] > priv->height)
+            priv->velocities[y] = -priv->velocities[y];
+    }
+
+    CHECK_OPENCL_ERROR(clEnqueueWriteBuffer((cl_command_queue) cmd_queue,
+            priv->positions_mem, CL_FALSE, 
+            0, priv->num_position_bytes, priv->positions, 
+            0, NULL, NULL));
+
+    g_timer_stop(priv->timer);
+    if (priv->frames_per_second > 0) {
+        const gdouble elapsed = g_timer_elapsed(priv->timer, NULL);
+        const gdouble delta = priv->seconds_per_frame - elapsed;
+        if (delta > 0.0)
+            g_usleep(G_USEC_PER_SEC * ((gulong) delta)); 
+    }
 
     return NULL;
 }
