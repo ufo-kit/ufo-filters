@@ -23,15 +23,14 @@ G_DEFINE_TYPE(UfoFilterNull, ufo_filter_null, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_NULL_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_NULL, UfoFilterNullPrivate))
 
-static GError *ufo_filter_null_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static GError *
+ufo_filter_null_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     return NULL;
 }
 
-static void ufo_filter_null_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+static void 
+ufo_filter_null_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     switch (property_id) {
         default:
@@ -40,10 +39,8 @@ static void ufo_filter_null_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_null_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void 
+ufo_filter_null_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     switch (property_id) {
         default:
@@ -52,7 +49,8 @@ static void ufo_filter_null_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_null_class_init(UfoFilterNullClass *klass)
+static void 
+ufo_filter_null_class_init(UfoFilterNullClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
@@ -62,12 +60,15 @@ static void ufo_filter_null_class_init(UfoFilterNullClass *klass)
     filter_class->process_cpu = ufo_filter_null_process_cpu;
 }
 
-static void ufo_filter_null_init(UfoFilterNull *self)
+static void 
+ufo_filter_null_init(UfoFilterNull *self)
 {
     ufo_filter_register_inputs(UFO_FILTER(self), 2, NULL);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT UfoFilter *
+ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_NULL, NULL);
 }
+

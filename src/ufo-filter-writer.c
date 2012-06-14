@@ -42,8 +42,8 @@ enum {
 static GParamSpec *reader_properties[N_PROPERTIES] = { NULL, };
 
 
-static gboolean filter_write_tiff(float *buffer, const gchar *name, 
-    guint width, guint height)
+static gboolean 
+filter_write_tiff(float *buffer, const gchar *name, guint width, guint height)
 {
     gboolean success = TRUE;
     TIFF *tif = TIFFOpen(name, "w");
@@ -68,8 +68,8 @@ static gboolean filter_write_tiff(float *buffer, const gchar *name,
     return success;
 }
 
-static GError *ufo_filter_writer_process_cpu(UfoFilter *self, 
-        UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static GError *
+ufo_filter_writer_process_cpu(UfoFilter *self, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterWriterPrivate *priv = UFO_FILTER_WRITER_GET_PRIVATE(self);
     guint width, height;
@@ -86,10 +86,8 @@ static GError *ufo_filter_writer_process_cpu(UfoFilter *self,
     return NULL;
 }
 
-static void ufo_filter_writer_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+static void 
+ufo_filter_writer_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterWriter *filter = UFO_FILTER_WRITER(object);
 
@@ -108,10 +106,8 @@ static void ufo_filter_writer_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_writer_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void 
+ufo_filter_writer_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterWriter *filter = UFO_FILTER_WRITER(object);
 
@@ -127,7 +123,9 @@ static void ufo_filter_writer_get_property(GObject *object,
             break;
     }
 }
-static void ufo_filter_writer_class_init(UfoFilterWriterClass *klass)
+
+static void 
+ufo_filter_writer_class_init(UfoFilterWriterClass *klass)
 {
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
@@ -163,7 +161,8 @@ static void ufo_filter_writer_class_init(UfoFilterWriterClass *klass)
     g_type_class_add_private(gobject_class, sizeof(UfoFilterWriterPrivate));
 }
 
-static void ufo_filter_writer_init(UfoFilterWriter *self)
+static void 
+ufo_filter_writer_init(UfoFilterWriter *self)
 {
     self->priv = UFO_FILTER_WRITER_GET_PRIVATE(self);
     self->priv->path = g_strdup(".");
@@ -173,7 +172,8 @@ static void ufo_filter_writer_init(UfoFilterWriter *self)
     ufo_filter_register_inputs (UFO_FILTER (self), 2, NULL);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT UfoFilter *
+ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_WRITER, NULL);
 }

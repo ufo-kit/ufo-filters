@@ -20,9 +20,10 @@
  */
 
 struct _UfoFilterMetaBallsPrivate {
-    cl_kernel kernel;
-    cl_mem positions_mem;
-    cl_mem sizes_mem;
+    cl_kernel   kernel;
+    cl_mem      positions_mem;
+    cl_mem      sizes_mem;
+
     guint width;
     guint height;
     guint num_balls;
@@ -58,7 +59,8 @@ enum {
 
 static GParamSpec *meta_balls_properties[N_PROPERTIES] = { NULL, };
 
-static GError *ufo_filter_meta_balls_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
+static GError *
+ufo_filter_meta_balls_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
 {
     UfoFilterMetaBallsPrivate *priv = UFO_FILTER_META_BALLS_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
@@ -113,8 +115,8 @@ static GError *ufo_filter_meta_balls_initialize(UfoFilter *filter, UfoBuffer *in
     return error;
 }
 
-static GError *ufo_filter_meta_balls_process_gpu(UfoFilter *filter, 
-        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static GError *
+ufo_filter_meta_balls_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
 {
     UfoFilterMetaBallsPrivate *priv = UFO_FILTER_META_BALLS_GET_PRIVATE(filter);
 
@@ -159,22 +161,22 @@ static GError *ufo_filter_meta_balls_process_gpu(UfoFilter *filter,
     return NULL;
 }
 
-static void ufo_filter_meta_balls_finalize(GObject *object)
+static void 
+ufo_filter_meta_balls_finalize(GObject *object)
 {
     UfoFilterMetaBallsPrivate *priv = UFO_FILTER_META_BALLS_GET_PRIVATE(object);
-    clReleaseMemObject(priv->positions_mem);
-    clReleaseMemObject(priv->sizes_mem);
-    g_free(priv->sizes);
-    g_free(priv->positions);
-    g_free(priv->velocities);
-    g_timer_destroy(priv->timer);
-    G_OBJECT_CLASS(ufo_filter_meta_balls_parent_class)->finalize(object);
+
+    CHECK_OPENCL_ERROR (clReleaseMemObject(priv->positions_mem));
+    CHECK_OPENCL_ERROR (clReleaseMemObject(priv->sizes_mem));
+    g_free (priv->sizes);
+    g_free (priv->positions);
+    g_free (priv->velocities);
+    g_timer_destroy (priv->timer);
+    G_OBJECT_CLASS (ufo_filter_meta_balls_parent_class)->finalize (object);
 }
 
-static void ufo_filter_meta_balls_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+static void 
+ufo_filter_meta_balls_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterMetaBallsPrivate *priv = UFO_FILTER_META_BALLS_GET_PRIVATE(object);
 
@@ -203,10 +205,8 @@ static void ufo_filter_meta_balls_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_meta_balls_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void 
+ufo_filter_meta_balls_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterMetaBallsPrivate *priv = UFO_FILTER_META_BALLS_GET_PRIVATE(object);
 
@@ -235,7 +235,8 @@ static void ufo_filter_meta_balls_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_meta_balls_class_init(UfoFilterMetaBallsClass *klass)
+static void 
+ufo_filter_meta_balls_class_init(UfoFilterMetaBallsClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
@@ -298,7 +299,8 @@ static void ufo_filter_meta_balls_class_init(UfoFilterMetaBallsClass *klass)
     g_type_class_add_private(gobject_class, sizeof(UfoFilterMetaBallsPrivate));
 }
 
-static void ufo_filter_meta_balls_init(UfoFilterMetaBalls *self)
+static void 
+ufo_filter_meta_balls_init(UfoFilterMetaBalls *self)
 {
     UfoFilterMetaBallsPrivate *priv = self->priv = UFO_FILTER_META_BALLS_GET_PRIVATE(self);
     priv->width = 512;
@@ -311,7 +313,8 @@ static void ufo_filter_meta_balls_init(UfoFilterMetaBalls *self)
     ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT UfoFilter *
+ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_META_BALLS, NULL);
 }

@@ -42,7 +42,8 @@ enum {
 
 static GParamSpec *region_of_interest_properties[N_PROPERTIES] = { NULL, };
 
-static GError *ufo_filter_region_of_interest_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
+static GError *
+ufo_filter_region_of_interest_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
 {
     UfoFilterRegionOfInterestPrivate *priv = UFO_FILTER_REGION_OF_INTEREST_GET_PRIVATE(filter);
     dims[0][0] = priv->width;
@@ -50,8 +51,8 @@ static GError *ufo_filter_region_of_interest_initialize(UfoFilter *filter, UfoBu
     return NULL;
 }
 
-static GError *ufo_filter_region_of_interest_process_cpu(UfoFilter *filter,
-        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static GError *
+ufo_filter_region_of_interest_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
 {
     UfoFilterRegionOfInterestPrivate *priv = UFO_FILTER_REGION_OF_INTEREST_GET_PRIVATE(filter);
     guint x1 = priv->x, y1 = priv->y;
@@ -89,10 +90,8 @@ static GError *ufo_filter_region_of_interest_process_cpu(UfoFilter *filter,
     return NULL;
 }
 
-static void ufo_filter_region_of_interest_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+static void 
+ufo_filter_region_of_interest_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterRegionOfInterestPrivate *priv = UFO_FILTER_REGION_OF_INTEREST_GET_PRIVATE(object);
 
@@ -115,10 +114,8 @@ static void ufo_filter_region_of_interest_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_region_of_interest_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void 
+ufo_filter_region_of_interest_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterRegionOfInterestPrivate *priv = UFO_FILTER_REGION_OF_INTEREST_GET_PRIVATE(object);
 
@@ -141,7 +138,8 @@ static void ufo_filter_region_of_interest_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_region_of_interest_class_init(UfoFilterRegionOfInterestClass *klass)
+static void 
+ufo_filter_region_of_interest_class_init(UfoFilterRegionOfInterestClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
@@ -185,7 +183,8 @@ static void ufo_filter_region_of_interest_class_init(UfoFilterRegionOfInterestCl
     g_type_class_add_private(gobject_class, sizeof(UfoFilterRegionOfInterestPrivate));
 }
 
-static void ufo_filter_region_of_interest_init(UfoFilterRegionOfInterest *self)
+static void 
+ufo_filter_region_of_interest_init(UfoFilterRegionOfInterest *self)
 {
     UfoFilterRegionOfInterestPrivate *priv = self->priv = UFO_FILTER_REGION_OF_INTEREST_GET_PRIVATE(self);
     priv->x = 0;
@@ -197,7 +196,9 @@ static void ufo_filter_region_of_interest_init(UfoFilterRegionOfInterest *self)
     ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT UfoFilter *
+ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_REGION_OF_INTEREST, NULL);
 }
+

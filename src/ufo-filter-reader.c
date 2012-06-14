@@ -70,7 +70,8 @@ static GParamSpec *reader_properties[N_PROPERTIES] = { NULL, };
 static gpointer image_buffer = NULL;
 static gsize image_size = 0;
 
-static gboolean filter_decode_tiff(TIFF *tif, void *buffer)
+static gboolean 
+filter_decode_tiff(TIFF *tif, void *buffer)
 {
     const tsize_t strip_size = TIFFStripSize(tif);
     const guint n_strips = TIFFNumberOfStrips(tif);
@@ -91,12 +92,8 @@ static gboolean filter_decode_tiff(TIFF *tif, void *buffer)
  *
  * Returns: TRUE if more frames can be read from @tif
  */
-static gboolean read_tiff(TIFF *tif,
-    gpointer *buffer,
-    guint16 *bytes_per_sample,
-    guint16 *samples_per_pixel,
-    guint32 *width,
-    guint32 *height)
+static gboolean 
+read_tiff(TIFF *tif, gpointer *buffer, guint16 *bytes_per_sample, guint16 *samples_per_pixel, guint32 *width, guint32 *height)
 {
     guint16 bits_per_sample = 8;
     TIFFGetField(tif, TIFFTAG_BITSPERSAMPLE, &bits_per_sample);
@@ -125,9 +122,8 @@ error_close:
     return FALSE;
 }
 
-static void *load_edf(const gchar *filename, 
-    guint16 *bytes_per_sample, guint16 *samples_per_pixel,
-    guint32 *width, guint32 *height)
+static void *
+load_edf(const gchar *filename, guint16 *bytes_per_sample, guint16 *samples_per_pixel, guint32 *width, guint32 *height)
 {
     FILE *fp = fopen(filename, "rb");  
     gchar *header = g_malloc(1024);
@@ -199,7 +195,8 @@ static void *load_edf(const gchar *filename,
     return image_buffer;
 }
 
-static GSList *read_filenames(UfoFilterReaderPrivate *priv)
+static GSList *
+read_filenames(UfoFilterReaderPrivate *priv)
 {
     GSList *result = NULL;
     glob_t glob_vector;
@@ -213,7 +210,8 @@ static GSList *read_filenames(UfoFilterReaderPrivate *priv)
     return result;
 }
 
-static void push_data(UfoFilterReaderPrivate *priv, UfoBuffer *output, guint src_width, guint src_height, guint bytes_per_sample)
+static void 
+push_data(UfoFilterReaderPrivate *priv, UfoBuffer *output, guint src_width, guint src_height, guint bytes_per_sample)
 {
     if (!priv->roi) {
         ufo_buffer_set_host_array(output, priv->frame_buffer, bytes_per_sample * src_width * src_height, NULL);
@@ -250,8 +248,8 @@ static void push_data(UfoFilterReaderPrivate *priv, UfoBuffer *output, guint src
     }
 }
 
-static gpointer load_tiff(UfoFilterReaderPrivate *priv, guint16 *bytes_per_sample, 
-        guint16 *samples_per_pixel, guint *src_width, guint *src_height)
+static gpointer 
+load_tiff(UfoFilterReaderPrivate *priv, guint16 *bytes_per_sample, guint16 *samples_per_pixel, guint *src_width, guint *src_height)
 {
     gpointer frame_buffer = NULL;
     priv->current_tiff = TIFFOpen((char *) priv->current_filename->data, "r");
@@ -265,7 +263,8 @@ static gpointer load_tiff(UfoFilterReaderPrivate *priv, guint16 *bytes_per_sampl
     return frame_buffer;
 }
 
-static GError *ufo_filter_reader_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static GError *
+ufo_filter_reader_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
     UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(filter);
     GError *error = NULL;
@@ -305,7 +304,8 @@ static GError *ufo_filter_reader_initialize(UfoFilter *filter, UfoBuffer *params
     return error;
 }
 
-static GError *ufo_filter_reader_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static GError *
+ufo_filter_reader_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(filter);
     guint src_width, src_height;
@@ -349,10 +349,8 @@ static GError *ufo_filter_reader_process_cpu(UfoFilter *filter, UfoBuffer *param
     return NULL;
 }
 
-static void ufo_filter_reader_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+static void 
+ufo_filter_reader_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(object);
 
@@ -394,10 +392,8 @@ static void ufo_filter_reader_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_reader_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void 
+ufo_filter_reader_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(object);
 
@@ -438,7 +434,8 @@ static void ufo_filter_reader_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_reader_finalize(GObject *object)
+static void 
+ufo_filter_reader_finalize(GObject *object)
 {
     UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(object);
 
@@ -459,7 +456,8 @@ static void ufo_filter_reader_finalize(GObject *object)
     G_OBJECT_CLASS(ufo_filter_reader_parent_class)->finalize(object);
 }
 
-static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
+static void 
+ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
@@ -553,7 +551,8 @@ static void ufo_filter_reader_class_init(UfoFilterReaderClass *klass)
     g_type_class_add_private(gobject_class, sizeof(UfoFilterReaderPrivate));
 }
 
-static void ufo_filter_reader_init(UfoFilterReader *self)
+static void 
+ufo_filter_reader_init(UfoFilterReader *self)
 {
     UfoFilterReaderPrivate *priv = NULL;
     self->priv = priv = UFO_FILTER_READER_GET_PRIVATE(self);
@@ -571,7 +570,8 @@ static void ufo_filter_reader_init(UfoFilterReader *self)
     ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT UfoFilter *
+ufo_filter_plugin_new(void)
 {
     return g_object_new (UFO_TYPE_FILTER_READER, NULL);
 }

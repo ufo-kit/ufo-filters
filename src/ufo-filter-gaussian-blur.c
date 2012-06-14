@@ -43,7 +43,8 @@ enum {
 static GParamSpec *gaussian_blur_properties[N_PROPERTIES] = { NULL, };
 
 
-static GError *ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static GError *
+ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
     UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
@@ -96,8 +97,8 @@ static GError *ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer 
     return error;
 }
 
-static GError *ufo_filter_gaussian_blur_process_gpu(UfoFilter *filter,
-        UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static GError *
+ufo_filter_gaussian_blur_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(filter);
 
@@ -121,10 +122,8 @@ static GError *ufo_filter_gaussian_blur_process_gpu(UfoFilter *filter,
     return NULL;
 }
 
-static void ufo_filter_gaussian_blur_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+static void 
+ufo_filter_gaussian_blur_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(object);
 
@@ -141,10 +140,8 @@ static void ufo_filter_gaussian_blur_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_gaussian_blur_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void 
+ufo_filter_gaussian_blur_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(object);
 
@@ -161,7 +158,8 @@ static void ufo_filter_gaussian_blur_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_gaussian_blur_finalize (GObject *object)
+static void 
+ufo_filter_gaussian_blur_finalize (GObject *object)
 {
     UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE (object);
 
@@ -171,12 +169,14 @@ static void ufo_filter_gaussian_blur_finalize (GObject *object)
     G_OBJECT_CLASS (ufo_filter_gaussian_blur_parent_class)->finalize (object);
 }
 
-static void ufo_filter_gaussian_blur_dispose (GObject *object)
+static void 
+ufo_filter_gaussian_blur_dispose (GObject *object)
 {
     G_OBJECT_CLASS (ufo_filter_gaussian_blur_parent_class)->dispose (object);
 }
 
-static void ufo_filter_gaussian_blur_class_init(UfoFilterGaussianBlurClass *klass)
+static void 
+ufo_filter_gaussian_blur_class_init(UfoFilterGaussianBlurClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
@@ -208,7 +208,8 @@ static void ufo_filter_gaussian_blur_class_init(UfoFilterGaussianBlurClass *klas
     g_type_class_add_private(gobject_class, sizeof(UfoFilterGaussianBlurPrivate));
 }
 
-static void ufo_filter_gaussian_blur_init(UfoFilterGaussianBlur *self)
+static void 
+ufo_filter_gaussian_blur_init(UfoFilterGaussianBlur *self)
 {
     UfoFilterGaussianBlurPrivate *priv = self->priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(self);
 
@@ -218,7 +219,8 @@ static void ufo_filter_gaussian_blur_init(UfoFilterGaussianBlur *self)
     ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT UfoFilter *
+ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_GAUSSIAN_BLUR, NULL);
 }

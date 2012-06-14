@@ -21,15 +21,15 @@
  */
 
 struct _UfoFilterVolumeRendererPrivate {
-    cl_kernel kernel;
-    cl_mem volume_mem;
-    cl_mem view_mem;
-    guint width;
-    guint height;
-    gsize global_work_size[2];
-    guint8 *input_data;
-    gfloat angle;
-    gfloat *view_matrix;
+    cl_kernel   kernel;
+    cl_mem      volume_mem;
+    cl_mem      view_mem;
+    guint       width;
+    guint       height;
+    gsize       global_work_size[2];
+    guint8     *input_data;
+    gfloat      angle;
+    gfloat     *view_matrix;
 };
 
 G_DEFINE_TYPE(UfoFilterVolumeRenderer, ufo_filter_volume_renderer, UFO_TYPE_FILTER)
@@ -46,8 +46,8 @@ enum {
 static GParamSpec *volume_renderer_properties[N_PROPERTIES] = { NULL, };
 
 
-/* TODO: free all resources */
-static GError *ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static GError *
+ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
     UfoFilterVolumeRendererPrivate *priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
@@ -95,7 +95,6 @@ static GError *ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffe
     priv->global_work_size[0] = dims[0][0] = width;
     priv->global_work_size[1] = dims[0][1] = height;
 
-    /* TODO: do these need to be available at all times? */
     gfloat step_size = 0.003f;
     gfloat displacement = -0.3f;
     gfloat linear_ramp_slope = 0.1f;
@@ -115,7 +114,8 @@ static GError *ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffe
     return return_error;
 }
 
-static GError *ufo_filter_volume_renderer_process_gpu(UfoFilter *filter,
+static GError *
+ufo_filter_volume_renderer_process_gpu(UfoFilter *filter,
         UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
 {
     UfoFilterVolumeRendererPrivate *priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(filter);
@@ -152,7 +152,8 @@ static GError *ufo_filter_volume_renderer_process_gpu(UfoFilter *filter,
     return NULL;
 }
 
-static void ufo_filter_volume_renderer_set_property(GObject *object,
+static void 
+ufo_filter_volume_renderer_set_property(GObject *object,
     guint           property_id,
     const GValue    *value,
     GParamSpec      *pspec)
@@ -172,7 +173,8 @@ static void ufo_filter_volume_renderer_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_volume_renderer_get_property(GObject *object,
+static void
+ufo_filter_volume_renderer_get_property(GObject *object,
     guint       property_id,
     GValue      *value,
     GParamSpec  *pspec)
@@ -192,13 +194,28 @@ static void ufo_filter_volume_renderer_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_volume_renderer_class_init(UfoFilterVolumeRendererClass *klass)
+static void
+ufo_filter_volume_renderer_finalize(GObject *object)
+{
+    UfoFilterVolumeRendererPrivate *priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(object);
+
+    CHECK_OPENCL_ERROR (clReleaseMemObject(priv->volume_mem));
+    CHECK_OPENCL_ERROR (clReleaseMemObject(priv->view_mem));
+    g_free (priv->view_matrix);
+    g_free (priv->input_data);
+
+    G_OBJECT_CLASS (ufo_filter_volume_renderer_parent_class)->finalize (object);
+}
+
+static void
+ufo_filter_volume_renderer_class_init(UfoFilterVolumeRendererClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
 
     gobject_class->set_property = ufo_filter_volume_renderer_set_property;
     gobject_class->get_property = ufo_filter_volume_renderer_get_property;
+    gobject_class->finalize = ufo_filter_volume_renderer_finalize;
     filter_class->initialize = ufo_filter_volume_renderer_initialize;
     filter_class->process_gpu = ufo_filter_volume_renderer_process_gpu;
 
@@ -222,7 +239,8 @@ static void ufo_filter_volume_renderer_class_init(UfoFilterVolumeRendererClass *
     g_type_class_add_private(gobject_class, sizeof(UfoFilterVolumeRendererPrivate));
 }
 
-static void ufo_filter_volume_renderer_init(UfoFilterVolumeRenderer *self)
+static void
+ufo_filter_volume_renderer_init(UfoFilterVolumeRenderer *self)
 {
     self->priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(self);
     self->priv->width = 512;
@@ -231,7 +249,8 @@ static void ufo_filter_volume_renderer_init(UfoFilterVolumeRenderer *self)
     ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT UfoFilter *
+ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_VOLUME_RENDERER, NULL);
 }

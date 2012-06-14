@@ -41,7 +41,8 @@ enum {
 
 static GParamSpec *forward_project_properties[N_PROPERTIES] = { NULL, };
 
-static GError *ufo_filter_forward_project_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static GError *
+ufo_filter_forward_project_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
     UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
@@ -71,8 +72,8 @@ static GError *ufo_filter_forward_project_initialize(UfoFilter *filter, UfoBuffe
     return error;
 }
 
-static GError *ufo_filter_forward_project_process_gpu(UfoFilter *filter,
-        UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static GError *
+ufo_filter_forward_project_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(filter);
 
@@ -94,10 +95,8 @@ static GError *ufo_filter_forward_project_process_gpu(UfoFilter *filter,
     return NULL;
 }
 
-static void ufo_filter_forward_project_set_property(GObject *object,
-        guint           property_id,
-        const GValue    *value,
-        GParamSpec      *pspec)
+static void 
+ufo_filter_forward_project_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(object);
 
@@ -114,10 +113,8 @@ static void ufo_filter_forward_project_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_forward_project_get_property(GObject *object,
-        guint       property_id,
-        GValue      *value,
-        GParamSpec  *pspec)
+static void 
+ufo_filter_forward_project_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(object);
 
@@ -134,12 +131,24 @@ static void ufo_filter_forward_project_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_forward_project_class_init(UfoFilterForwardProjectClass *klass)
+static void
+ufo_filter_forward_project_finalize(GObject *object)
+{
+    UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(object);
+
+    CHECK_OPENCL_ERROR (clReleaseMemObject(priv->slice_mem));
+
+    G_OBJECT_CLASS (ufo_filter_forward_project_parent_class)->finalize (object);
+}
+
+static void
+ufo_filter_forward_project_class_init(UfoFilterForwardProjectClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
     gobject_class->set_property = ufo_filter_forward_project_set_property;
     gobject_class->get_property = ufo_filter_forward_project_get_property;
+    gobject_class->finalize = ufo_filter_forward_project_finalize;
     filter_class->initialize = ufo_filter_forward_project_initialize;
     filter_class->process_gpu = ufo_filter_forward_project_process_gpu;
 
@@ -164,7 +173,8 @@ static void ufo_filter_forward_project_class_init(UfoFilterForwardProjectClass *
     g_type_class_add_private(gobject_class, sizeof(UfoFilterForwardProjectPrivate));
 }
 
-static void ufo_filter_forward_project_init(UfoFilterForwardProject *self)
+static void 
+ufo_filter_forward_project_init(UfoFilterForwardProject *self)
 {
     self->priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(self);
     self->priv->num_projections = 256;
@@ -173,7 +183,8 @@ static void ufo_filter_forward_project_init(UfoFilterForwardProject *self)
     ufo_filter_register_outputs (UFO_FILTER(self), 2, NULL);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT UfoFilter *
+ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_FORWARD_PROJECT, NULL);
 }

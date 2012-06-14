@@ -21,12 +21,12 @@
 typedef float* (*filter_setup_func)(UfoFilterFilterPrivate *priv, guint width);
 
 struct _UfoFilterFilterPrivate {
-    cl_kernel kernel;
-    cl_mem filter_mem;
+    cl_kernel   kernel;
+    cl_mem      filter_mem;
+    gfloat      bw_cutoff;
+    gfloat      bw_order;
+    size_t      global_work_size[2];
     filter_setup_func filter_setup;
-    gfloat bw_cutoff;
-    gfloat bw_order;
-    size_t global_work_size[2];
 };
 
 G_DEFINE_TYPE(UfoFilterFilter, ufo_filter_filter, UFO_TYPE_FILTER)
@@ -43,7 +43,8 @@ enum {
 
 static GParamSpec *filter_properties[N_PROPERTIES] = { NULL, };
 
-static void mirror_coefficients(float *filter, guint width)
+static void 
+mirror_coefficients(float *filter, guint width)
 {
     for (guint k = width/2; k < width; k += 2) {
         filter[k] = filter[width - k];
@@ -51,24 +52,8 @@ static void mirror_coefficients(float *filter, guint width)
     }
 }
 
-/* static float *setup_pyhst_ramp(UfoFilterFilterPrivate *priv, guint width) */
-/* { */
-/*     gfloat *filter = g_malloc0(width * sizeof(float)); */
-/*     const gfloat f_width = (float) width; */
-/*     const gfloat scale = 2.0f / f_width / f_width; */
-/*     filter[0] = 0.0f; */
-/*     filter[1] = 1.0f / f_width; */
-
-/*     for (guint k = 1; k < width / 4; k++) { */
-/*         filter[2*k] = ((gfloat) k) * scale; */
-/*         filter[2*k + 1] = filter[2*k]; */
-/*     } */
-
-/*     mirror_coefficients(filter, width); */
-/*     return filter; */
-/* } */
-
-static float *setup_ramp(UfoFilterFilterPrivate *priv, guint width)
+static float *
+setup_ramp(UfoFilterFilterPrivate *priv, guint width)
 {
     gfloat *filter = g_malloc0(width * sizeof(float));
     gfloat scale = 0.5f / ((gfloat) width) / 2.0f;
@@ -82,7 +67,8 @@ static float *setup_ramp(UfoFilterFilterPrivate *priv, guint width)
     return filter;
 }
 
-static float *setup_butterworth(UfoFilterFilterPrivate *priv, guint width)
+static float *
+setup_butterworth(UfoFilterFilterPrivate *priv, guint width)
 {
     gfloat *filter = g_malloc0(width * sizeof(float));
     guint n_samples = width / 4; /* because width = n_samples * complex_parts * 2 */
@@ -97,7 +83,8 @@ static float *setup_butterworth(UfoFilterFilterPrivate *priv, guint width)
     return filter;
 }
 
-static GError *ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static GError *
+ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
     UfoFilterFilterPrivate *priv = UFO_FILTER_FILTER_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
@@ -114,7 +101,7 @@ static GError *ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params
 
     cl_context context = (cl_context) ufo_resource_manager_get_context(manager);
     cl_int err = CL_SUCCESS;
-    float *coefficients = priv->filter_setup(priv, priv->global_work_size[0]);
+    float *coefficients = priv->filter_setup(priv, (guint) priv->global_work_size[0]);
     priv->filter_mem = clCreateBuffer(context,
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 
             priv->global_work_size[0] * sizeof(float), coefficients, &err);
@@ -123,7 +110,8 @@ static GError *ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params
     return error;
 }
 
-static GError *ufo_filter_filter_process_gpu(UfoFilter *filter, 
+static GError *
+ufo_filter_filter_process_gpu(UfoFilter *filter, 
         UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterFilterPrivate *priv = UFO_FILTER_FILTER_GET_PRIVATE(filter);
@@ -141,17 +129,16 @@ static GError *ufo_filter_filter_process_gpu(UfoFilter *filter,
     return NULL;
 }
 
-static void ufo_filter_filter_finalize(GObject *object)
+static void 
+ufo_filter_filter_finalize(GObject *object)
 {
     UfoFilterFilterPrivate *priv = UFO_FILTER_FILTER_GET_PRIVATE(object);
     clReleaseMemObject(priv->filter_mem);
     G_OBJECT_CLASS(ufo_filter_filter_parent_class)->finalize(object);
 }
 
-static void ufo_filter_filter_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+static void 
+ufo_filter_filter_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterFilterPrivate *priv = UFO_FILTER_FILTER_GET_PRIVATE(object);
     switch (property_id) {
@@ -176,10 +163,8 @@ static void ufo_filter_filter_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_filter_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void 
+ufo_filter_filter_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterFilterPrivate *priv = UFO_FILTER_FILTER_GET_PRIVATE(object);
     switch (property_id) {
@@ -201,7 +186,8 @@ static void ufo_filter_filter_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_filter_class_init(UfoFilterFilterClass *klass)
+static void 
+ufo_filter_filter_class_init(UfoFilterFilterClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
@@ -240,7 +226,8 @@ static void ufo_filter_filter_class_init(UfoFilterFilterClass *klass)
     g_type_class_add_private(gobject_class, sizeof(UfoFilterFilterPrivate));
 }
 
-static void ufo_filter_filter_init(UfoFilterFilter *self)
+static void 
+ufo_filter_filter_init(UfoFilterFilter *self)
 {
     UfoFilterFilterPrivate *priv = self->priv = UFO_FILTER_FILTER_GET_PRIVATE(self);
     priv->kernel = NULL;

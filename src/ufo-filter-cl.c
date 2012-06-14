@@ -21,12 +21,12 @@
  */
 
 struct _UfoFilterClPrivate {
-    cl_kernel kernel;
-    gchar *file_name;
-    gchar *kernel_name;
-    gboolean combine;
-    gint static_argument;
-    gsize global_work_size[2];
+    cl_kernel   kernel;
+    gchar      *file_name;
+    gchar      *kernel_name;
+    gboolean    combine;
+    gint        static_argument;
+    gsize       global_work_size[2];
 };
 
 G_DEFINE_TYPE(UfoFilterCl, ufo_filter_cl, UFO_TYPE_FILTER)
@@ -45,8 +45,8 @@ enum {
 static GParamSpec *cl_properties[N_PROPERTIES] = { NULL, };
 
 
-static GError *process_regular(UfoFilter *filter,
-        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static GError *
+process_regular(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
     cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(inputs[0], (cl_command_queue) cmd_queue);
@@ -64,8 +64,8 @@ static GError *process_regular(UfoFilter *filter,
     return NULL;
 }
 
-static GError *process_combine(UfoFilter *filter,
-        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static GError *
+process_combine(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
     cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(inputs[0], (cl_command_queue) cmd_queue);
@@ -85,7 +85,8 @@ static GError *process_combine(UfoFilter *filter,
     return NULL;
 }
 
-static GError *ufo_filter_cl_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
+static GError *
+ufo_filter_cl_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
     UfoFilterClass *filter_class = UFO_FILTER_GET_CLASS(filter);
@@ -104,10 +105,8 @@ static GError *ufo_filter_cl_initialize(UfoFilter *filter, UfoBuffer *inputs[], 
     return error;
 }
 
-static void ufo_filter_cl_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+static void 
+ufo_filter_cl_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(object);
 
@@ -132,10 +131,8 @@ static void ufo_filter_cl_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_cl_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void 
+ufo_filter_cl_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(object);
 
@@ -158,7 +155,8 @@ static void ufo_filter_cl_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_cl_class_init(UfoFilterClClass *klass)
+static void 
+ufo_filter_cl_class_init(UfoFilterClClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
@@ -204,7 +202,8 @@ static void ufo_filter_cl_class_init(UfoFilterClClass *klass)
     g_type_class_add_private(gobject_class, sizeof(UfoFilterClPrivate));
 }
 
-static void ufo_filter_cl_init(UfoFilterCl *self)
+static void 
+ufo_filter_cl_init(UfoFilterCl *self)
 {
     UfoFilterClPrivate *priv = self->priv = UFO_FILTER_CL_GET_PRIVATE(self);
     priv->file_name = NULL;
@@ -216,7 +215,8 @@ static void ufo_filter_cl_init(UfoFilterCl *self)
     ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT UfoFilter *
+ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_CL, NULL);
 }
