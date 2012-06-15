@@ -89,7 +89,7 @@ ufo_filter_ifft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
             clFFT_InterleavedComplexFormat, &err);
 
     priv->global_work_size[0] = priv->ifft_size.x;
-    priv->global_work_size[1] = priv->height;
+    priv->global_work_size[1] = height;
     priv->width = priv->final_width == 0 ? priv->ifft_size.x : priv->final_width;
     priv->height = priv->final_height == 0 ? height : priv->final_height;
 

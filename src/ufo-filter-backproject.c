@@ -56,14 +56,17 @@ enum {
     N_PROPERTIES
 };
 
-static GParamSpec *backproject_properties[N_PROPERTIES] = { NULL, };
+static GParamSpec *
+backproject_properties[N_PROPERTIES] = { NULL, };
 
-static gboolean axis_is_positive(GValue *value, gpointer user_data)
+static gboolean 
+axis_is_positive(GValue *value, gpointer user_data)
 {
     return g_value_get_double(value) > 0.0;
 }
 
-static GError *ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *
+ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
     UfoFilterBackprojectPrivate *priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
@@ -84,9 +87,8 @@ static GError *ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *p
     priv->num_projections = priv->num_projections == 0 ? priv->height : MIN(priv->height, priv->num_projections);
     priv->global_work_size[0] = priv->width;
     priv->global_work_size[1] = priv->width;
-
-    guint slice_dimensions[2] = { priv->width, priv->width };
-    ufo_channel_allocate_output_buffers(ufo_filter_get_output_channel(filter), 2, slice_dimensions);
+    dims[0][0] = priv->width;
+    dims[0][1] = priv->width;
 
     float *cos_tmp = g_malloc0(sizeof(float) * priv->num_projections);
     float *sin_tmp = g_malloc0(sizeof(float) * priv->num_projections);
@@ -135,8 +137,8 @@ static GError *ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *p
 #define BLOCK_SIZE_X 16
 #define BLOCK_SIZE_Y 16
 
-static GError *ufo_filter_backproject_process_gpu(UfoFilter *filter, 
-        UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static GError *
+ufo_filter_backproject_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterBackprojectPrivate *priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(filter);
 
@@ -163,7 +165,8 @@ static GError *ufo_filter_backproject_process_gpu(UfoFilter *filter,
     return NULL;
 }
 
-static void ufo_filter_backproject_finalize(GObject *object)
+static void
+ufo_filter_backproject_finalize(GObject *object)
 {
     UfoFilterBackprojectPrivate *priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(object);
 
@@ -173,13 +176,12 @@ static void ufo_filter_backproject_finalize(GObject *object)
     CHECK_OPENCL_ERROR(clReleaseMemObject(priv->cos_mem));
     CHECK_OPENCL_ERROR(clReleaseMemObject(priv->sin_mem));
     CHECK_OPENCL_ERROR(clReleaseMemObject(priv->axes_mem));
+
     G_OBJECT_CLASS(ufo_filter_backproject_parent_class)->finalize(object);
 }
 
-static void ufo_filter_backproject_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+static void
+ufo_filter_backproject_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterBackproject *self = UFO_FILTER_BACKPROJECT(object);
     switch (property_id) {
@@ -201,10 +203,8 @@ static void ufo_filter_backproject_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_backproject_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void
+ufo_filter_backproject_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterBackproject *self = UFO_FILTER_BACKPROJECT(object);
     switch (property_id) {
@@ -229,7 +229,8 @@ static void ufo_filter_backproject_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_backproject_class_init(UfoFilterBackprojectClass *klass)
+static void
+ufo_filter_backproject_class_init(UfoFilterBackprojectClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
@@ -285,18 +286,20 @@ static void ufo_filter_backproject_class_init(UfoFilterBackprojectClass *klass)
     g_type_class_add_private(gobject_class, sizeof(UfoFilterBackprojectPrivate));
 }
 
-static void ufo_filter_backproject_init(UfoFilterBackproject *self)
+static void
+ufo_filter_backproject_init(UfoFilterBackproject *self)
 {
-    self->priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(self);
+    self->priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE (self);
     self->priv->num_projections = 0;
     self->priv->use_texture = TRUE;
     self->priv->axis_position = -1.0;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_inputs (UFO_FILTER (self), 2, NULL);
+    ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT UfoFilter *
+ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_BACKPROJECT, NULL);
 }

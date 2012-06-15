@@ -44,27 +44,28 @@ static GParamSpec *forward_project_properties[N_PROPERTIES] = { NULL, };
 static GError *
 ufo_filter_forward_project_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
-    UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
+    UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE (filter);
+    UfoResourceManager *manager = ufo_resource_manager ();
     GError *error = NULL;
     guint width, height;
-    cl_context context = (cl_context) ufo_resource_manager_get_context(manager);
+    cl_context context = (cl_context) ufo_resource_manager_get_context (manager);
     cl_int errcode;
+
+    cl_image_format image_format = {
+        .image_channel_order        = CL_R,
+        .image_channel_data_type    = CL_FLOAT
+    };
+
+    priv->kernel = ufo_resource_manager_get_kernel (manager, "forwardproject.cl","forwardproject", &error);
 
     ufo_buffer_get_2d_dimensions (params[0], &width, &height);
 
-    priv->kernel = ufo_resource_manager_get_kernel(manager, "forwardproject.cl","forwardproject", NULL);
-
-    cl_image_format image_format = { .image_channel_order = CL_R, .image_channel_data_type = CL_FLOAT };
-
-    priv->slice_mem = clCreateImage2D(context,
+    priv->slice_mem = clCreateImage2D (context,
             CL_MEM_READ_ONLY, &image_format, width, height,
             0, NULL, &errcode);
 
-    g_print ("angle_step=%f\n", priv->angle_step);
-
-    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &priv->slice_mem));
-    CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 2, sizeof(float), &priv->angle_step));
+    CHECK_OPENCL_ERROR (clSetKernelArg (priv->kernel, 0, sizeof(cl_mem), (void *) &priv->slice_mem));
+    CHECK_OPENCL_ERROR (clSetKernelArg (priv->kernel, 2, sizeof(float), &priv->angle_step));
 
     priv->global_work_size[0] = dims[0][0] = width;
     priv->global_work_size[1] = dims[0][1] = priv->num_projections;
@@ -95,7 +96,7 @@ ufo_filter_forward_project_process_gpu(UfoFilter *filter, UfoBuffer *params[], U
     return NULL;
 }
 
-static void 
+static void
 ufo_filter_forward_project_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(object);
@@ -113,7 +114,7 @@ ufo_filter_forward_project_set_property(GObject *object, guint property_id, cons
     }
 }
 
-static void 
+static void
 ufo_filter_forward_project_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(object);
@@ -156,8 +157,8 @@ ufo_filter_forward_project_class_init(UfoFilterForwardProjectClass *klass)
         g_param_spec_float("angle-step",
                            "Increment of angle in radians",
                            "Increment of angle in radians",
-                           -4.0f * ((gfloat) G_PI), 
-                           +4.0f * ((gfloat) G_PI), 
+                           -4.0f * ((gfloat) G_PI),
+                           +4.0f * ((gfloat) G_PI),
                            0.0f,
                            G_PARAM_READWRITE);
 
@@ -173,7 +174,7 @@ ufo_filter_forward_project_class_init(UfoFilterForwardProjectClass *klass)
     g_type_class_add_private(gobject_class, sizeof(UfoFilterForwardProjectPrivate));
 }
 
-static void 
+static void
 ufo_filter_forward_project_init(UfoFilterForwardProject *self)
 {
     self->priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(self);
