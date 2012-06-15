@@ -23,7 +23,10 @@
  */
 
 struct _UfoFilterCvShowPrivate {
-    gboolean show_histogram;
+    gboolean    show_histogram;
+    gchar      *window_name;
+    IplImage   *image;
+    IplImage   *blit;
 };
 
 G_DEFINE_TYPE(UfoFilterCvShow, ufo_filter_cv_show, UFO_TYPE_FILTER)
@@ -38,55 +41,44 @@ enum {
 
 static GParamSpec *cv_show_properties[N_PROPERTIES] = { NULL, };
 
-static void ufo_filter_cv_show_initialize(UfoFilter *filter, UfoBuffer *params)
+static GError * 
+ufo_filter_cv_show_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
-}
-
-static GError *ufo_filter_cv_show_process(UfoFilter *filter)
-{
-    UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-    cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
-
+    UfoFilterCvShowPrivate *priv = UFO_FILTER_CV_SHOW_GET_PRIVATE (filter);
     CvSize size;
-    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
 
-    if (input == NULL)
-        return;
+    priv->window_name = g_strdup_printf ("Foo-%p", (gpointer) filter);
+    cvNamedWindow (priv->window_name, CV_WINDOW_AUTOSIZE);
+    cvMoveWindow (priv->window_name, 100, 100);
 
-    ufo_buffer_get_2d_dimensions(input, (guint *) &size.width, (guint *) &size.height);
+    priv->image = cvCreateImageHeader (size, IPL_DEPTH_32F, 1);
+    priv->blit = cvCreateImage (size, IPL_DEPTH_8U, 1);
 
-    IplImage *image = cvCreateImageHeader(size, IPL_DEPTH_32F, 1);
-    IplImage *blit = cvCreateImage(size, IPL_DEPTH_8U, 1);
-
-    gchar *window_name = g_strdup_printf("Foo-%p", filter);
-    cvNamedWindow(window_name, CV_WINDOW_AUTOSIZE);
-    cvMoveWindow(window_name, 100, 100);
-
-    while (input != NULL) {
-        image->imageData = (char *) ufo_buffer_get_host_array(input, command_queue);
-
-        cvConvertImage(image, blit, 0);
-        cvShowImage(window_name, image);
-        cvWaitKey(30);
-        
-        ufo_channel_finalize_input_buffer(input_channel, input);
-        input = ufo_channel_get_input_buffer(input_channel);
-    }
-
-    cvWaitKey(10000);
-    cvDestroyWindow(window_name);
-    g_free(window_name);
     return NULL;
 }
 
-static void ufo_filter_cv_show_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+static GError *
+ufo_filter_cv_show_process_cpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+{
+    UfoFilterCvShowPrivate *priv = UFO_FILTER_CV_SHOW_GET_PRIVATE (filter);
+    CvSize size;
+
+    ufo_buffer_get_2d_dimensions (params[0], (guint *) &size.width, (guint *) &size.height);
+
+    priv->image->imageData = (char *) ufo_buffer_get_host_array (params[0], (cl_command_queue) cmd_queue);
+
+    cvConvertImage (priv->image, priv->blit, 0);
+    cvShowImage (priv->window_name, priv->image);
+    cvWaitKey (30);
+        
+    return NULL;
+}
+
+static void
+ufo_filter_cv_show_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterCvShow *self = UFO_FILTER_CV_SHOW(object);
 
-    /* Handle all properties accordingly */
     switch (property_id) {
         case PROP_SHOW_HISTOGRAM:
             self->priv->show_histogram = g_value_get_boolean(value);
@@ -97,14 +89,11 @@ static void ufo_filter_cv_show_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_cv_show_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void
+ufo_filter_cv_show_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterCvShow *self = UFO_FILTER_CV_SHOW(object);
 
-    /* Handle all properties accordingly */
     switch (property_id) {
         case PROP_SHOW_HISTOGRAM:
             g_value_set_boolean(value, self->priv->show_histogram);
@@ -115,17 +104,31 @@ static void ufo_filter_cv_show_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_cv_show_class_init(UfoFilterCvShowClass *klass)
+static void
+ufo_filter_cv_show_finalize (GObject *object)
 {
-    GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
-    UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
+    UfoFilterCvShowPrivate *priv = UFO_FILTER_CV_SHOW_GET_PRIVATE (object);
+
+    cvReleaseImage (&priv->image);
+    cvReleaseImage (&priv->blit);
+    cvDestroyWindow (priv->window_name);
+    g_free (priv->window_name);
+
+    G_OBJECT_CLASS(ufo_filter_cv_show_parent_class)->finalize(object);
+}
+
+static void 
+ufo_filter_cv_show_class_init (UfoFilterCvShowClass *klass)
+{
+    GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+    UfoFilterClass *filter_class = UFO_FILTER_CLASS (klass);
 
     gobject_class->set_property = ufo_filter_cv_show_set_property;
     gobject_class->get_property = ufo_filter_cv_show_get_property;
+    gobject_class->finalize = ufo_filter_cv_show_finalize;
     filter_class->initialize = ufo_filter_cv_show_initialize;
-    filter_class->process = ufo_filter_cv_show_process;
+    filter_class->process_cpu = ufo_filter_cv_show_process_cpu;
 
-    /* install properties */
     cv_show_properties[PROP_SHOW_HISTOGRAM] = 
         g_param_spec_boolean("show-histogram",
             "Show also the histogram of the buffer",
@@ -135,19 +138,20 @@ static void ufo_filter_cv_show_class_init(UfoFilterCvShowClass *klass)
 
     g_object_class_install_property(gobject_class, PROP_SHOW_HISTOGRAM, cv_show_properties[PROP_SHOW_HISTOGRAM]);
 
-    /* install private data */
     g_type_class_add_private(gobject_class, sizeof(UfoFilterCvShowPrivate));
 }
 
-static void ufo_filter_cv_show_init(UfoFilterCvShow *self)
+static void
+ufo_filter_cv_show_init(UfoFilterCvShow *self)
 {
     UfoFilterCvShowPrivate *priv = self->priv = UFO_FILTER_CV_SHOW_GET_PRIVATE(self);
     priv->show_histogram = FALSE;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
+    ufo_filter_register_inputs (UFO_FILTER(self), 2, NULL);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT UfoFilter *
+ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_CV_SHOW, NULL);
 }
