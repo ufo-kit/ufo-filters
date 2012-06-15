@@ -39,10 +39,10 @@ struct _UfoFilterFFTPrivate {
     } fft_dimensions;
 
 #ifdef HAVE_OCLFFT
-    gsize global_work_size[2];
-    cl_kernel kernel;
-    clFFT_Plan cl_fft_plan;
-    clFFT_Dim3 fft_size;
+    cl_kernel   kernel;
+    clFFT_Plan  cl_fft_plan;
+    clFFT_Dim3  fft_size;
+    gsize       global_work_size[2];
 #endif
 };
 
@@ -61,7 +61,8 @@ enum {
 
 static GParamSpec *fft_properties[N_PROPERTIES] = { NULL, };
 
-static guint32 pow2round(guint32 x)
+static guint32
+pow2round(guint32 x)
 {
     --x;
     x |= x >> 1;
@@ -72,11 +73,11 @@ static guint32 pow2round(guint32 x)
     return x+1;
 }
 
-static GError *ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *
+ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
 
 #ifdef HAVE_OCLFFT
     cl_int err = CL_SUCCESS;
@@ -89,7 +90,6 @@ static GError *ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[])
     ufo_buffer_get_2d_dimensions(params[0], &priv->width, &priv->height);
     priv->fft_size.x = pow2round(priv->width);
     clFFT_Dimension cl_fft_dimensions;
-    guint dims[2];
 
     switch (priv->fft_dimensions) {
         case FFT_1D:
@@ -109,20 +109,19 @@ static GError *ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[])
             priv->fft_size, cl_fft_dimensions,
             clFFT_InterleavedComplexFormat, &err);
 
-    dims[0] = 2 * priv->fft_size.x;
-    dims[1] = priv->fft_dimensions == FFT_1D ? priv->height : priv->fft_size.y;
+    dims[0][0] = 2 * priv->fft_size.x;
+    dims[0][1] = priv->fft_dimensions == FFT_1D ? priv->height : priv->fft_size.y;
 
     priv->global_work_size[0] = priv->fft_size.x;
-    priv->global_work_size[1] = dims[1];
+    priv->global_work_size[1] = dims[0][1];
 #endif
 
-    ufo_channel_allocate_output_buffers(output_channel, 2, dims);
     return NULL;
 }
 
 #ifdef HAVE_OCLFFT
-static GError *ufo_filter_fft_process_gpu(UfoFilter *filter, 
-        UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static GError *
+ufo_filter_fft_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
     cl_mem fft_buffer_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
@@ -158,39 +157,42 @@ static GError *ufo_filter_fft_process_gpu(UfoFilter *filter,
 #endif
 
 #ifdef HAVE_FFTW3
-static GError *ufo_filter_fft_process_cpu(UfoFilter *filter, 
-        UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static GError *
+ufo_filter_fft_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
 
-    gint idist = (gint) priv->width;
-    gint odist = (gint) pow2round(priv->width);
+    gulong idist = (gulong) priv->width;
+    gulong odist = (gulong) pow2round(priv->width);
     gfloat *in = ufo_buffer_get_host_array(params[0], (cl_command_queue) cmd_queue);
     gfloat *out = ufo_buffer_get_host_array(results[0], (cl_command_queue) cmd_queue);
 
     fftwf_plan plan = fftwf_plan_many_dft_r2c(1, (gint *) &priv->width, (gint) priv->height,
-            in, NULL, 1, idist,
-            out, NULL, 1, odist,
+            in, NULL, 1, (gint) idist,
+            out, NULL, 1, (gint) odist,
             0);
     fftwf_execute(plan);
     fftwf_destroy_plan(plan);
 
-    memcpy(out, out + ((glong) odist) * sizeof(gfloat), ((glong) odist) * sizeof(gfloat));
+    memcpy(out, out + odist * sizeof(gfloat), odist * sizeof(gfloat));
     return NULL;
 }
 #endif
 
-static void ufo_filter_fft_finalize(GObject *object)
+static void
+ufo_filter_fft_finalize(GObject *object)
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(object);
+
+#ifdef HAVE_OCLFFT
     clFFT_DestroyPlan(priv->cl_fft_plan);
+#endif
+
     G_OBJECT_CLASS(ufo_filter_fft_parent_class)->finalize(object);
 }
 
-static void ufo_filter_fft_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+static void
+ufo_filter_fft_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterFFT *self = UFO_FILTER_FFT(object);
 
@@ -213,10 +215,8 @@ static void ufo_filter_fft_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_fft_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void
+ufo_filter_fft_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterFFT *self = UFO_FILTER_FFT(object);
 
@@ -239,7 +239,8 @@ static void ufo_filter_fft_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_fft_class_init(UfoFilterFFTClass *klass)
+static void
+ufo_filter_fft_class_init(UfoFilterFFTClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
@@ -248,9 +249,11 @@ static void ufo_filter_fft_class_init(UfoFilterFFTClass *klass)
     gobject_class->get_property = ufo_filter_fft_get_property;
     gobject_class->finalize = ufo_filter_fft_finalize;
     filter_class->initialize = ufo_filter_fft_initialize;
+
 #ifdef HAVE_OCLFFT
     filter_class->process_gpu = ufo_filter_fft_process_gpu;
 #endif
+
 #ifdef HAVE_FFTW3
     filter_class->process_cpu = ufo_filter_fft_process_cpu;
 #endif
@@ -293,7 +296,8 @@ static void ufo_filter_fft_class_init(UfoFilterFFTClass *klass)
     g_type_class_add_private(gobject_class, sizeof(UfoFilterFFTPrivate));
 }
 
-static void ufo_filter_fft_init(UfoFilterFFT *self)
+static void
+ufo_filter_fft_init(UfoFilterFFT *self)
 {
     UfoFilterFFTPrivate *priv = self->priv = UFO_FILTER_FFT_GET_PRIVATE(self);
     priv->fft_dimensions = FFT_1D;
@@ -302,11 +306,13 @@ static void ufo_filter_fft_init(UfoFilterFFT *self)
     priv->fft_size.z = 1;
     priv->kernel = NULL;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_inputs (UFO_FILTER (self), 2, NULL);
+    ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT UfoFilter *
+ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_FFT, NULL);
 }
+

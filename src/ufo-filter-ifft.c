@@ -4,7 +4,12 @@
 #else
 #include <CL/cl.h>
 #endif
+
+#include "config.h"
+
+#ifdef HAVE_OCLFFT
 #include <clFFT.h>
+#endif
 
 #include <ufo/ufo-resource-manager.h>
 #include <ufo/ufo-filter.h>
@@ -22,12 +27,21 @@
  */
 
 struct _UfoFilterIFFTPrivate {
-    cl_kernel pack_kernel;
-    cl_kernel normalize_kernel;
+#ifdef HAVE_OCLFFT
+    cl_kernel       kernel;
+    clFFT_Dim3      fft_size;
+    gsize           global_work_size[2];
+    cl_kernel       pack_kernel;
+    cl_kernel       normalize_kernel;
+    clFFT_Plan      ifft_plan;
     clFFT_Dimension ifft_dimensions;
-    clFFT_Dim3 ifft_size;
-    guint final_width;
-    guint final_height;
+    clFFT_Dim3      ifft_size;
+#endif
+
+    guint           final_width;
+    guint           final_height;
+    guint           width;
+    guint           height;
 };
 
 G_DEFINE_TYPE(UfoFilterIFFT, ufo_filter_ifft, UFO_TYPE_FILTER)
@@ -47,151 +61,104 @@ enum {
 
 static GParamSpec *ifft_properties[N_PROPERTIES] = { NULL, };
 
-
-static GError *ufo_filter_ifft_initialize(UfoFilter *filter, UfoBuffer *params[])
+static GError *
+ufo_filter_ifft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
-    UfoFilterIFFT *self = UFO_FILTER_IFFT(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
+    UfoFilterIFFTPrivate *priv = UFO_FILTER_IFFT_GET_PRIVATE (filter);
+    UfoResourceManager *manager = ufo_resource_manager ();
     GError *error = NULL;
-    self->priv->pack_kernel = ufo_resource_manager_get_kernel(manager, "fft.cl", "fft_pack", &error);
-    self->priv->normalize_kernel = ufo_resource_manager_get_kernel(manager, "fft.cl","fft_normalize", &error);
-    return error;
-}
 
-/*
- * This is the main method in which the filter processes one buffer after
- * another.
- */
-static GError *ufo_filter_ifft_process(UfoFilter *filter)
-{
-    UfoFilterIFFTPrivate *priv = UFO_FILTER_IFFT_GET_PRIVATE(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
-    UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
+#ifdef HAVE_OCLFFT
+    guint width, height;
+    gint err = CL_SUCCESS;
 
-    int err = CL_SUCCESS;
-    clFFT_Plan ifft_plan = NULL;
-    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
+    priv->pack_kernel = ufo_resource_manager_get_kernel (manager, "fft.cl", "fft_pack", &error);
+    priv->normalize_kernel = ufo_resource_manager_get_kernel (manager, "fft.cl","fft_normalize", &error);
 
-    guint num_dims = 0;
-    guint *dim_size = NULL;
-    ufo_buffer_get_dimensions(input, &num_dims, &dim_size);
-    guint width = dim_size[0];
-    guint height = dim_size[1];
+    ufo_buffer_get_2d_dimensions (params[0], &width, &height);
 
     if (priv->ifft_size.x != width / 2) {
         priv->ifft_size.x = width / 2;
+
         if (priv->ifft_dimensions == clFFT_2D)
             priv->ifft_size.y = height;
-        clFFT_DestroyPlan(ifft_plan);
-        ifft_plan = NULL;
     }
 
-    if (ifft_plan == NULL) {
-        ifft_plan = clFFT_CreatePlan(
-            (cl_context) ufo_resource_manager_get_context(manager),
+    priv->ifft_plan = clFFT_CreatePlan((cl_context) ufo_resource_manager_get_context(manager),
             priv->ifft_size, priv->ifft_dimensions,
             clFFT_InterleavedComplexFormat, &err);
-    }
 
-    width = (priv->final_width == 0) ? priv->ifft_size.x : priv->final_width;
-    height = (priv->final_height == 0) ? height : priv->final_height;
-    dim_size[0] = width;
-    dim_size[1] = height;
-    ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
+    priv->global_work_size[0] = priv->ifft_size.x;
+    priv->global_work_size[1] = priv->height;
+    priv->width = priv->final_width == 0 ? priv->ifft_size.x : priv->final_width;
+    priv->height = priv->final_height == 0 ? height : priv->final_height;
 
-    const cl_int batch_size = priv->ifft_dimensions == clFFT_1D ? (cl_int) height : 1;
+    dims[0][0] = priv->width;
+    dims[0][1] = priv->height;
+#endif
 
-    cl_event *events = NULL;
-    cl_uint num_events = 0;
-    cl_event event;
-
-    while (input != NULL) {
-        cl_mem mem_fft = (cl_mem) ufo_buffer_get_device_array(input, command_queue);
-
-        /* 1. Inverse FFT */
-        /* XXX: clFFT_ExecuteInterleaved does not respect given events nor does
-         * it return an event object. Therefore, we:
-         *
-         *  1. wait explicitly on incoming events,
-         *  2. we force and wait for command queue termination after enqueuing
-         *  the kernel.
-         */
-        ufo_buffer_get_events(input, (gpointer **) &events, &num_events);
-        clWaitForEvents(num_events, events);
-        ufo_buffer_clear_events(input);
-
-        clFFT_ExecuteInterleaved(command_queue,
-                ifft_plan, batch_size, clFFT_Inverse, 
-                mem_fft, mem_fft,
-                0, NULL, NULL);
-        
-        clFinish(command_queue);
-
-        /*ufo_filter_account_gpu_time(filter, &wait_on_event);*/
-        /* 2. Pack interleaved complex numbers */
-        size_t global_work_size[2];
-
-        width = (priv->final_width == 0) ? priv->ifft_size.x : priv->final_width;
-        height = (priv->final_height == 0) ? height : priv->final_height;
-        dim_size[0] = width;
-        dim_size[1] = height;
-
-        UfoBuffer *result = ufo_channel_get_output_buffer(output_channel);        
-        global_work_size[0] = priv->ifft_size.x;
-        global_work_size[1] = height;
-
-        float scale = 1.0f / ((float) width);
-
-        if (priv->ifft_dimensions == clFFT_2D)
-            scale /= (float) width;
-
-        cl_mem mem_result = (cl_mem) ufo_buffer_get_device_array(result, command_queue);
-
-        clSetKernelArg(priv->pack_kernel, 0, sizeof(cl_mem), (void *) &mem_fft);
-        clSetKernelArg(priv->pack_kernel, 1, sizeof(cl_mem), (void *) &mem_result);
-        clSetKernelArg(priv->pack_kernel, 2, sizeof(int), &width);
-        clSetKernelArg(priv->pack_kernel, 3, sizeof(float), &scale);
-
-        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue,
-                priv->pack_kernel,
-                2, NULL, global_work_size, NULL,
-                0, NULL, &event));
-
-        ufo_buffer_transfer_id(input, result);
-        ufo_channel_finalize_input_buffer(input_channel, input);
-        ufo_channel_finalize_output_buffer(output_channel, result);
-        input = ufo_channel_get_input_buffer(input_channel);
-    }
-
-    ufo_channel_finish(output_channel);
-    clFFT_DestroyPlan(ifft_plan);
-    g_free(dim_size);
-    return NULL;
+    return error;
 }
 
-static void ufo_filter_ifft_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+#ifdef HAVE_OCLFFT
+static GError *
+ufo_filter_ifft_process_gpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+{
+    UfoFilterIFFTPrivate *priv = UFO_FILTER_IFFT_GET_PRIVATE (filter);
+    const cl_int batch_size = priv->ifft_dimensions == clFFT_1D ? (cl_int) priv->height : 1;
+    cl_mem mem_fft = (cl_mem) ufo_buffer_get_device_array (params[0], (cl_command_queue) cmd_queue);
+
+    /* 
+     * 1. Inverse FFT
+     *
+     * XXX: clFFT_ExecuteInterleaved does not respect given events nor does
+     * it return an event object. Therefore, we:
+     *
+     *  1. wait explicitly on incoming events,
+     *  2. we force and wait for command queue termination after enqueuing
+     *  the kernel.
+     */
+    clFFT_ExecuteInterleaved ((cl_command_queue) cmd_queue,
+            priv->ifft_plan, batch_size, clFFT_Inverse, 
+            mem_fft, mem_fft,
+            0, NULL, NULL);
+    
+    clFinish ((cl_command_queue) cmd_queue);
+
+    /* 
+     * 2. Pack interleaved complex numbers
+     */
+    /* TODO: put scale in initialize function */
+    float scale = 1.0f / ((float) priv->width);
+
+    if (priv->ifft_dimensions == clFFT_2D)
+        scale /= (float) priv->width;
+
+    cl_mem mem_result = (cl_mem) ufo_buffer_get_device_array (results[0], (cl_command_queue) cmd_queue);
+
+    clSetKernelArg (priv->pack_kernel, 0, sizeof(cl_mem), (void *) &mem_fft);
+    clSetKernelArg (priv->pack_kernel, 1, sizeof(cl_mem), (void *) &mem_result);
+    clSetKernelArg (priv->pack_kernel, 2, sizeof(int), &priv->width);
+    clSetKernelArg (priv->pack_kernel, 3, sizeof(float), &scale);
+
+    CHECK_OPENCL_ERROR (clEnqueueNDRangeKernel ((cl_command_queue) cmd_queue,
+            priv->pack_kernel,
+            2, NULL, priv->global_work_size, NULL,
+            0, NULL, NULL));
+
+    return NULL;
+}
+#endif
+
+static void
+ufo_filter_ifft_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterIFFT *self = UFO_FILTER_IFFT(object);
+    static clFFT_Dimension ifft_dimension_map[4] = { clFFT_1D, clFFT_1D, clFFT_2D, clFFT_3D };
 
-    /* Handle all properties accordingly */
     switch (property_id) {
         case PROP_DIMENSIONS:
-            switch(g_value_get_uint(value)) {
-                case 1:
-                    self->priv->ifft_dimensions = clFFT_1D;
-                    break;
-                case 2:
-                    self->priv->ifft_dimensions = clFFT_2D;
-                    break;
-                case 3:
-                    self->priv->ifft_dimensions = clFFT_3D;
-                    break;
-            }
+            self->priv->ifft_dimensions = ifft_dimension_map[g_value_get_uint (value)];
             break;
         case PROP_SIZE_X:
             self->priv->ifft_size.x = g_value_get_uint(value);
@@ -214,14 +181,11 @@ static void ufo_filter_ifft_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_ifft_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void
+ufo_filter_ifft_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterIFFT *self = UFO_FILTER_IFFT(object);
 
-    /* Handle all properties accordingly */
     switch (property_id) {
         case PROP_DIMENSIONS:
             switch (self->priv->ifft_dimensions) {
@@ -257,17 +221,29 @@ static void ufo_filter_ifft_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_ifft_class_init(UfoFilterIFFTClass *klass)
+static void
+ufo_filter_ifft_finalize(GObject *object)
+{
+#ifdef HAVE_OCLFFT
+    UfoFilterIFFTPrivate *priv = UFO_FILTER_IFFT_GET_PRIVATE (object);
+    clFFT_DestroyPlan(priv->ifft_plan);
+#endif
+
+    G_OBJECT_CLASS(ufo_filter_ifft_parent_class)->finalize(object);
+}
+
+static void
+ufo_filter_ifft_class_init(UfoFilterIFFTClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
 
     gobject_class->set_property = ufo_filter_ifft_set_property;
     gobject_class->get_property = ufo_filter_ifft_get_property;
+    gobject_class->finalize = ufo_filter_ifft_finalize;
     filter_class->initialize = ufo_filter_ifft_initialize;
-    filter_class->process = ufo_filter_ifft_process;
+    filter_class->process_gpu = ufo_filter_ifft_process_gpu;
 
-    /* install properties */
     ifft_properties[PROP_DIMENSIONS] = 
         g_param_spec_uint("dimensions",
             "Number of FFT dimensions from 1 to 3",
@@ -317,7 +293,6 @@ static void ufo_filter_ifft_class_init(UfoFilterIFFTClass *klass)
     g_object_class_install_property(gobject_class, PROP_FINAL_WIDTH, ifft_properties[PROP_FINAL_WIDTH]);
     g_object_class_install_property(gobject_class, PROP_FINAL_HEIGHT, ifft_properties[PROP_FINAL_HEIGHT]);
 
-    /* install private data */
     g_type_class_add_private(gobject_class, sizeof(UfoFilterIFFTPrivate));
 }
 
@@ -331,8 +306,8 @@ static void ufo_filter_ifft_init(UfoFilterIFFT *self)
     priv->final_width = 0;
     priv->final_height = 0;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_inputs (UFO_FILTER (self), 2, NULL);
+    ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
