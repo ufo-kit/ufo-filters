@@ -20,6 +20,7 @@
 
 struct _UfoFilterBufferInputPrivate {
     GValueArray *buffers;
+    guint        current_buffer;
 };
 
 G_DEFINE_TYPE(UfoFilterBufferInput, ufo_filter_buffer_input, UFO_TYPE_FILTER)
@@ -34,31 +35,39 @@ enum {
 
 static GParamSpec *buffer_input_properties[N_PROPERTIES] = { NULL, };
 
-
-static GError *ufo_filter_buffer_input_process(UfoFilter *filter)
+static GError *
+ufo_filter_buffer_input_initialize (UfoFilter *filter, UfoBuffer *params[], guint **dims)
 {
-    UfoFilterBufferInputPrivate *priv = UFO_FILTER_BUFFER_INPUT_GET_PRIVATE(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    UfoBuffer *output = NULL;
+    UfoFilterBufferInputPrivate *priv = UFO_FILTER_BUFFER_INPUT_GET_PRIVATE (filter);
+    UfoBuffer *input = g_value_get_object (g_value_array_get_nth (priv->buffers, 0));
+    guint width, height;
 
-    UfoBuffer *input = g_value_get_object(g_value_array_get_nth(priv->buffers, 0));
-    ufo_channel_allocate_output_buffers_like(output_channel, input);
+    ufo_buffer_get_2d_dimensions (input, &width, &height);
+    dims[0][0] = width;
+    dims[0][1] = height;
+    priv->current_buffer = 0;
 
-    for (guint i = 1; i < priv->buffers->n_values; i++) {
-        output = ufo_channel_get_output_buffer(output_channel);
-        ufo_buffer_swap_host_arrays(input, output);
-        ufo_channel_finalize_output_buffer(output_channel, output);
-        input = g_value_get_object(g_value_array_get_nth(priv->buffers, i));
-    }
-
-    ufo_channel_finish(output_channel);
     return NULL;
 }
 
-static void ufo_filter_buffer_input_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+static GError *
+ufo_filter_buffer_input_process_cpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+{
+    UfoFilterBufferInputPrivate *priv = UFO_FILTER_BUFFER_INPUT_GET_PRIVATE(filter);
+
+    if (priv->current_buffer == priv->buffers->n_values) {
+        ufo_filter_finish (filter);
+        return NULL;
+    }
+
+    UfoBuffer *input = g_value_get_object(g_value_array_get_nth(priv->buffers, priv->current_buffer++));
+    ufo_buffer_swap_host_arrays(input, results[0]);
+
+    return NULL;
+}
+
+static void
+ufo_filter_buffer_input_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterBufferInputPrivate *priv = UFO_FILTER_BUFFER_INPUT_GET_PRIVATE(object);
 
@@ -72,10 +81,8 @@ static void ufo_filter_buffer_input_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_buffer_input_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void
+ufo_filter_buffer_input_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     switch (property_id) {
         default:
@@ -84,15 +91,16 @@ static void ufo_filter_buffer_input_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_buffer_input_finalize(GObject *object)
+static void
+ufo_filter_buffer_input_finalize(GObject *object)
 {
     UfoFilterBufferInputPrivate *priv = UFO_FILTER_BUFFER_INPUT_GET_PRIVATE(object);
 
     g_value_array_free(priv->buffers);
 }
 
-
-static void ufo_filter_buffer_input_class_init(UfoFilterBufferInputClass *klass)
+static void
+ufo_filter_buffer_input_class_init(UfoFilterBufferInputClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
@@ -100,20 +108,21 @@ static void ufo_filter_buffer_input_class_init(UfoFilterBufferInputClass *klass)
     gobject_class->set_property = ufo_filter_buffer_input_set_property;
     gobject_class->get_property = ufo_filter_buffer_input_get_property;
     gobject_class->finalize = ufo_filter_buffer_input_finalize;
-    filter_class->process = ufo_filter_buffer_input_process;
+    filter_class->initialize = ufo_filter_buffer_input_initialize;
+    filter_class->process_cpu = ufo_filter_buffer_input_process_cpu;
 
     /**
      * UfoFilterBufferInput:buffers
      *
      * The buffers property takes a GValueArray of UfoBuffer objects and copies
      * its content. This is only useful for interfacing with the outside world,
-     * otherwise you would just connect sources with destinations. 
+     * otherwise you would just connect sources with destinations.
      *
      * However, if you want to use Numpy arrays, you can just pass a list of
      * Numpy arrays converted with ufonp.fromarray() to this filter which is
      * then passing the data further on.
      */
-    buffer_input_properties[PROP_BUFFERS] = 
+    buffer_input_properties[PROP_BUFFERS] =
         g_param_spec_value_array("buffers",
                 "Array of UfoBuffers",
                 "Array of UfoBuffers",
@@ -128,15 +137,17 @@ static void ufo_filter_buffer_input_class_init(UfoFilterBufferInputClass *klass)
     g_type_class_add_private(gobject_class, sizeof(UfoFilterBufferInputPrivate));
 }
 
-static void ufo_filter_buffer_input_init(UfoFilterBufferInput *self)
+static void
+ufo_filter_buffer_input_init(UfoFilterBufferInput *self)
 {
     UfoFilterBufferInputPrivate *priv = self->priv = UFO_FILTER_BUFFER_INPUT_GET_PRIVATE(self);
     priv->buffers = NULL;
 
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_outputs (UFO_FILTER(self), 2, NULL);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT UfoFilter *
+ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_BUFFER_INPUT, NULL);
 }
