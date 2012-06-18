@@ -37,7 +37,8 @@ enum {
 
 static GParamSpec *expr_properties[N_PROPERTIES] = { NULL, };
 
-static GError *ufo_filter_expr_initialize(UfoFilter *filter, UfoBuffer *inputs[])
+static GError *
+ufo_filter_expr_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
 {
     UfoFilterExprPrivate *priv = UFO_FILTER_EXPR_GET_PRIVATE(filter);
     GError *error = NULL;
@@ -53,6 +54,8 @@ static GError *ufo_filter_expr_initialize(UfoFilter *filter, UfoBuffer *inputs[]
 
     priv->global_work_size[0] = width_x;
     priv->global_work_size[1] = height_x;
+    dims[0][0] = width_x;
+    dims[0][1] = height_x;
 
     gchar *ocl_kernel_source = parse_expression(priv->expr);
     g_print("%s\n", ocl_kernel_source);
@@ -60,13 +63,11 @@ static GError *ufo_filter_expr_initialize(UfoFilter *filter, UfoBuffer *inputs[]
             ocl_kernel_source, "binary_foo_kernel_2b03c582", &error);
     g_free(ocl_kernel_source);
 
-    ufo_filter_register_output_sizes(filter, 0, priv->global_work_size);
-
     return error;
 }
 
-static GError *ufo_filter_expr_process_gpu(UfoFilter *filter,
-        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static GError *
+ufo_filter_expr_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
 {
     UfoFilterExprPrivate *priv = UFO_FILTER_EXPR_GET_PRIVATE(filter);
     cl_mem x_mem = ufo_buffer_get_device_array(inputs[0], (cl_command_queue) cmd_queue);
@@ -83,10 +84,8 @@ static GError *ufo_filter_expr_process_gpu(UfoFilter *filter,
     return NULL;
 }
 
-static void ufo_filter_expr_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+static void
+ufo_filter_expr_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterExprPrivate *priv = UFO_FILTER_EXPR_GET_PRIVATE(object);
 
@@ -101,10 +100,8 @@ static void ufo_filter_expr_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_expr_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void
+ufo_filter_expr_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterExprPrivate *priv = UFO_FILTER_EXPR_GET_PRIVATE(object);
 
@@ -118,13 +115,15 @@ static void ufo_filter_expr_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_expr_finalize(GObject *object)
+static void
+ufo_filter_expr_finalize(GObject *object)
 {
     UfoFilterExprPrivate *priv = UFO_FILTER_EXPR_GET_PRIVATE(object);
     g_free(priv->expr);
 }
 
-static void ufo_filter_expr_class_init(UfoFilterExprClass *klass)
+static void
+ufo_filter_expr_class_init(UfoFilterExprClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
@@ -148,17 +147,19 @@ static void ufo_filter_expr_class_init(UfoFilterExprClass *klass)
     g_type_class_add_private(gobject_class, sizeof(UfoFilterExprPrivate));
 }
 
-static void ufo_filter_expr_init(UfoFilterExpr *self)
+static void
+ufo_filter_expr_init(UfoFilterExpr *self)
 {
     UfoFilterExprPrivate *priv = self->priv = UFO_FILTER_EXPR_GET_PRIVATE(self);
     priv->expr = g_strdup("x+y");
     priv->kernel = NULL;
 
-    ufo_filter_register_inputs(UFO_FILTER(self), 2, 2, NULL);
-    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_inputs (UFO_FILTER(self), 2, 2, NULL);
+    ufo_filter_register_outputs (UFO_FILTER(self), 2, NULL);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT UfoFilter *
+ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_EXPR, NULL);
 }
