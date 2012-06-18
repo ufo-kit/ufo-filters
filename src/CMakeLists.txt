@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 2.6)
 
 # --- Set sources -------------------------------------------------------------
 set(ufofilter_SRCS 
-    ufo-filter-arg-max.c
     ufo-filter-averager.c
     ufo-filter-backproject.c
     ufo-filter-buffer-input.c
