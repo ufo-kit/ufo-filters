@@ -19,7 +19,7 @@
  *
  * Project all 1-dimensional projections from a sinogram back into space to
  * compute a slice. This is most likely only useful for filtered sinograms. In
- * case you have unfiltered projections you can filter them by chaining 
+ * case you have unfiltered projections you can filter them by chaining
  * #UfoFilterFFT, #UfoFilterFilter and #UfoFilterIFFT together.
  */
 
@@ -59,7 +59,7 @@ enum {
 static GParamSpec *
 backproject_properties[N_PROPERTIES] = { NULL, };
 
-static gboolean 
+static gboolean
 axis_is_positive(GValue *value, gpointer user_data)
 {
     return g_value_get_double(value) > 0.0;
@@ -71,7 +71,7 @@ ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[], guint 
     UfoFilterBackprojectPrivate *priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     GError *error = NULL;
-    
+
     ufo_filter_wait_until(filter, backproject_properties[PROP_AXIS_POSITION], &axis_is_positive, NULL);
 
     if (priv->use_texture)
@@ -79,7 +79,7 @@ ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[], guint 
     else
         priv->kernel = ufo_resource_manager_get_kernel(manager, "backproject.cl", "backproject", &error);
 
-    if (error != NULL) 
+    if (error != NULL)
         return error;
 
     cl_int errcode = CL_SUCCESS;
@@ -119,7 +119,7 @@ ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[], guint 
         image_format.image_channel_order = CL_R;
         image_format.image_channel_data_type = CL_FLOAT;
         priv->texture = clCreateImage2D(context, CL_MEM_READ_ONLY,
-                &image_format, priv->width, priv->num_projections, 
+                &image_format, priv->width, priv->num_projections,
                 0, NULL, &errcode);
     }
 
@@ -241,35 +241,35 @@ ufo_filter_backproject_class_init(UfoFilterBackprojectClass *klass)
     filter_class->initialize = ufo_filter_backproject_initialize;
     filter_class->process_gpu = ufo_filter_backproject_process_gpu;
 
-    backproject_properties[PROP_NUM_SINOGRAMS] = 
+    backproject_properties[PROP_NUM_SINOGRAMS] =
         g_param_spec_int("num-sinograms",
             "Number of sinograms",
             "Number of to process",
             -1, 8192, 1,
             G_PARAM_READWRITE);
 
-    backproject_properties[PROP_NUM_PROJECTIONS] = 
+    backproject_properties[PROP_NUM_PROJECTIONS] =
         g_param_spec_uint("num-projections",
             "Number of 1D projections to respect (0 to use all projections in a sinogram)",
             "Number of 1D projections to respect (0 to use all projections in a sinogram)",
             0, 8192, 1,
             G_PARAM_READWRITE);
 
-    backproject_properties[PROP_AXIS_POSITION] = 
+    backproject_properties[PROP_AXIS_POSITION] =
         g_param_spec_double("axis-pos",
             "Position of rotation axis",
             "Position of rotation axis",
             -1.0, +8192.0, 0.0,
             G_PARAM_READWRITE);
 
-    backproject_properties[PROP_ANGLE_STEP] = 
+    backproject_properties[PROP_ANGLE_STEP] =
         g_param_spec_double("angle-step",
             "Increment of angle in radians",
             "Increment of angle in radians",
             -4.0 * G_PI, +4.0 * G_PI, 0.0,
             G_PARAM_READWRITE);
 
-    backproject_properties[PROP_USE_TEXTURE] = 
+    backproject_properties[PROP_USE_TEXTURE] =
         g_param_spec_boolean("use-texture",
             "Use texture instead of array lookup",
             "Use texture instead of array lookup",
