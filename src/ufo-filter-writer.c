@@ -28,7 +28,7 @@ struct _UfoFilterWriterPrivate {
     guint counter;
 };
 
-G_DEFINE_TYPE(UfoFilterWriter, ufo_filter_writer, UFO_TYPE_FILTER)
+G_DEFINE_TYPE(UfoFilterWriter, ufo_filter_writer, UFO_TYPE_FILTER_SINK)
 
 #define UFO_FILTER_WRITER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_WRITER, UfoFilterWriterPrivate))
 
@@ -69,7 +69,7 @@ filter_write_tiff(float *buffer, const gchar *name, guint width, guint height)
 }
 
 static GError *
-ufo_filter_writer_process_cpu(UfoFilter *self, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+ufo_filter_writer_process_cpu (UfoFilterSink *self, UfoBuffer *params[], gpointer cmd_queue)
 {
     UfoFilterWriterPrivate *priv = UFO_FILTER_WRITER_GET_PRIVATE(self);
     guint width, height;
@@ -127,12 +127,12 @@ ufo_filter_writer_get_property(GObject *object, guint property_id, GValue *value
 static void 
 ufo_filter_writer_class_init(UfoFilterWriterClass *klass)
 {
-    UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
-    GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
+    UfoFilterSinkClass *filter_class = UFO_FILTER_SINK_CLASS (klass);
+    GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
     gobject_class->set_property = ufo_filter_writer_set_property;
     gobject_class->get_property = ufo_filter_writer_get_property;
-    filter_class->process_cpu = ufo_filter_writer_process_cpu;
+    filter_class->consume = ufo_filter_writer_process_cpu;
 
     /**
      * UfoFilterWriter:prefix:

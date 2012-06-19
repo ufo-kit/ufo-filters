@@ -4,6 +4,7 @@
 #include <glib.h>
 
 #include <ufo/ufo-filter.h>
+#include <ufo/ufo-filter-source.h>
 
 #define UFO_TYPE_FILTER_READER             (ufo_filter_reader_get_type())
 #define UFO_FILTER_READER(obj)             (G_TYPE_CHECK_INSTANCE_CAST((obj), UFO_TYPE_FILTER_READER, UfoFilterReader))
@@ -18,7 +19,7 @@ typedef struct _UfoFilterReaderPrivate    UfoFilterReaderPrivate;
 
 struct _UfoFilterReader {
     /*< private >*/
-    UfoFilter parent_instance;
+    UfoFilterSource parent_instance;
 
     UfoFilterReaderPrivate *priv;
 };
@@ -30,7 +31,7 @@ struct _UfoFilterReader {
  */
 struct _UfoFilterReaderClass {
     /*< private >*/
-    UfoFilterClass parent_class;
+    UfoFilterSourceClass parent_class;
 };
 
 GType ufo_filter_reader_get_type(void);

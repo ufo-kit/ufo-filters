@@ -4,6 +4,7 @@
 #include <glib.h>
 
 #include <ufo/ufo-filter.h>
+#include <ufo/ufo-filter-sink.h>
 
 #define UFO_TYPE_FILTER_WRITER             (ufo_filter_writer_get_type())
 #define UFO_FILTER_WRITER(obj)             (G_TYPE_CHECK_INSTANCE_CAST((obj), UFO_TYPE_FILTER_WRITER, UfoFilterWriter))
@@ -18,7 +19,7 @@ typedef struct _UfoFilterWriterPrivate    UfoFilterWriterPrivate;
 
 struct _UfoFilterWriter {
     /*< private >*/
-    UfoFilter parent_instance;
+    UfoFilterSink parent_instance;
 
     UfoFilterWriterPrivate *priv;
 };
@@ -30,7 +31,7 @@ struct _UfoFilterWriter {
  */
 struct _UfoFilterWriterClass {
     /*< private >*/
-    UfoFilterClass parent_class;
+    UfoFilterSinkClass parent_class;
 };
 
 GType ufo_filter_writer_get_type(void);
