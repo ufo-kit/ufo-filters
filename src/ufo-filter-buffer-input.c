@@ -23,7 +23,7 @@ struct _UfoFilterBufferInputPrivate {
     guint        current_buffer;
 };
 
-G_DEFINE_TYPE(UfoFilterBufferInput, ufo_filter_buffer_input, UFO_TYPE_FILTER)
+G_DEFINE_TYPE(UfoFilterBufferInput, ufo_filter_buffer_input, UFO_TYPE_FILTER_SOURCE)
 
 #define UFO_FILTER_BUFFER_INPUT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_BUFFER_INPUT, UfoFilterBufferInputPrivate))
 
@@ -36,7 +36,7 @@ enum {
 static GParamSpec *buffer_input_properties[N_PROPERTIES] = { NULL, };
 
 static GError *
-ufo_filter_buffer_input_initialize (UfoFilter *filter, UfoBuffer *params[], guint **dims)
+ufo_filter_buffer_input_initialize (UfoFilterSource *filter, guint **dims)
 {
     UfoFilterBufferInputPrivate *priv = UFO_FILTER_BUFFER_INPUT_GET_PRIVATE (filter);
     UfoBuffer *input = g_value_get_object (g_value_array_get_nth (priv->buffers, 0));
@@ -50,20 +50,18 @@ ufo_filter_buffer_input_initialize (UfoFilter *filter, UfoBuffer *params[], guin
     return NULL;
 }
 
-static GError *
-ufo_filter_buffer_input_process_cpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static gboolean
+ufo_filter_buffer_input_generate_cpu(UfoFilterSource *filter, UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterBufferInputPrivate *priv = UFO_FILTER_BUFFER_INPUT_GET_PRIVATE(filter);
 
-    if (priv->current_buffer == priv->buffers->n_values) {
-        ufo_filter_finish (filter);
-        return NULL;
+    if (priv->current_buffer < priv->buffers->n_values) {
+        UfoBuffer *input = g_value_get_object(g_value_array_get_nth(priv->buffers, priv->current_buffer++));
+        ufo_buffer_swap_host_arrays(input, results[0]);
+        return TRUE;
     }
 
-    UfoBuffer *input = g_value_get_object(g_value_array_get_nth(priv->buffers, priv->current_buffer++));
-    ufo_buffer_swap_host_arrays(input, results[0]);
-
-    return NULL;
+    return FALSE;
 }
 
 static void
@@ -103,13 +101,13 @@ static void
 ufo_filter_buffer_input_class_init(UfoFilterBufferInputClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
-    UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
+    UfoFilterSourceClass *filter_class = UFO_FILTER_SOURCE_CLASS(klass);
 
     gobject_class->set_property = ufo_filter_buffer_input_set_property;
     gobject_class->get_property = ufo_filter_buffer_input_get_property;
     gobject_class->finalize = ufo_filter_buffer_input_finalize;
-    filter_class->initialize = ufo_filter_buffer_input_initialize;
-    filter_class->process_cpu = ufo_filter_buffer_input_process_cpu;
+    filter_class->source_initialize = ufo_filter_buffer_input_initialize;
+    filter_class->generate = ufo_filter_buffer_input_generate_cpu;
 
     /**
      * UfoFilterBufferInput:buffers

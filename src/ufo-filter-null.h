@@ -2,8 +2,8 @@
 #define __UFO_FILTER_NULL_H
 
 #include <glib.h>
-
 #include <ufo/ufo-filter.h>
+#include <ufo/ufo-filter-sink.h>
 
 #define UFO_TYPE_FILTER_NULL             (ufo_filter_null_get_type())
 #define UFO_FILTER_NULL(obj)             (G_TYPE_CHECK_INSTANCE_CAST((obj), UFO_TYPE_FILTER_NULL, UfoFilterNull))
@@ -18,7 +18,7 @@ typedef struct _UfoFilterNullPrivate    UfoFilterNullPrivate;
 
 struct _UfoFilterNull {
     /*< private >*/
-    UfoFilter parent_instance;
+    UfoFilterSink parent_instance;
 
     UfoFilterNullPrivate *priv;
 };
@@ -30,7 +30,7 @@ struct _UfoFilterNull {
  */
 struct _UfoFilterNullClass {
     /*< private >*/
-    UfoFilterClass parent_class;
+    UfoFilterSinkClass parent_class;
 };
 
 GType ufo_filter_null_get_type(void);

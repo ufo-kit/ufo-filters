@@ -2,7 +2,6 @@
 #define __UFO_FILTER_READER_H
 
 #include <glib.h>
-
 #include <ufo/ufo-filter.h>
 #include <ufo/ufo-filter-source.h>
 

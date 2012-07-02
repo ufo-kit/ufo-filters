@@ -339,11 +339,10 @@ ufo_filter_reader_generate_cpu(UfoFilterSource *filter, UfoBuffer *results[], gp
             priv->current_filename = g_slist_next(priv->current_filename);
 
         priv->current_count++;
+        return TRUE;
     }
-    else
-        return FALSE;
 
-    return TRUE;
+    return FALSE;
 }
 
 static void 

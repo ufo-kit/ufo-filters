@@ -2,9 +2,8 @@
 #define __UFO_FILTER_BUFFER_INPUT_H
 
 #include <glib.h>
-#include <glib-object.h>
-
 #include <ufo/ufo-filter.h>
+#include <ufo/ufo-filter-source.h>
 
 #define UFO_TYPE_FILTER_BUFFER_INPUT             (ufo_filter_buffer_input_get_type())
 #define UFO_FILTER_BUFFER_INPUT(obj)             (G_TYPE_CHECK_INSTANCE_CAST((obj), UFO_TYPE_FILTER_BUFFER_INPUT, UfoFilterBufferInput))
@@ -19,7 +18,7 @@ typedef struct _UfoFilterBufferInputPrivate    UfoFilterBufferInputPrivate;
 
 struct _UfoFilterBufferInput {
     /*< private >*/
-    UfoFilter parent_instance;
+    UfoFilterSource parent_instance;
 
     UfoFilterBufferInputPrivate *priv;
 };
@@ -31,7 +30,7 @@ struct _UfoFilterBufferInput {
  */
 struct _UfoFilterBufferInputClass {
     /*< private >*/
-    UfoFilterClass parent_class;
+    UfoFilterSourceClass parent_class;
 };
 
 GType ufo_filter_buffer_input_get_type(void);
