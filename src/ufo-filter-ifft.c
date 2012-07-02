@@ -242,7 +242,9 @@ ufo_filter_ifft_class_init(UfoFilterIFFTClass *klass)
     gobject_class->get_property = ufo_filter_ifft_get_property;
     gobject_class->finalize = ufo_filter_ifft_finalize;
     filter_class->initialize = ufo_filter_ifft_initialize;
+#ifdef HAVE_OCLFFT
     filter_class->process_gpu = ufo_filter_ifft_process_gpu;
+#endif
 
     ifft_properties[PROP_DIMENSIONS] = 
         g_param_spec_uint("dimensions",
