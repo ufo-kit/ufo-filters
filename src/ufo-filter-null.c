@@ -23,10 +23,10 @@ G_DEFINE_TYPE (UfoFilterNull, ufo_filter_null, UFO_TYPE_FILTER_SINK)
 
 #define UFO_FILTER_NULL_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_NULL, UfoFilterNullPrivate))
 
-static GError *
-ufo_filter_null_consume(UfoFilterSink *filter, UfoBuffer *params[], gpointer cmd_queue)
+static void
+ufo_filter_null_consume(UfoFilterSink *filter, UfoBuffer *params[], gpointer cmd_queue, GError **error)
 {
-    return NULL;
+    /* We don't do anything here */
 }
 
 static void 

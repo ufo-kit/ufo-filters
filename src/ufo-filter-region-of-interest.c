@@ -42,17 +42,16 @@ enum {
 
 static GParamSpec *region_of_interest_properties[N_PROPERTIES] = { NULL, };
 
-static GError *
-ufo_filter_region_of_interest_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
+static void
+ufo_filter_region_of_interest_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims, GError **error)
 {
     UfoFilterRegionOfInterestPrivate *priv = UFO_FILTER_REGION_OF_INTEREST_GET_PRIVATE(filter);
     dims[0][0] = priv->width;
     dims[0][1] = priv->height;
-    return NULL;
 }
 
-static GError *
-ufo_filter_region_of_interest_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static void
+ufo_filter_region_of_interest_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
     UfoFilterRegionOfInterestPrivate *priv = UFO_FILTER_REGION_OF_INTEREST_GET_PRIVATE(filter);
     guint x1 = priv->x, y1 = priv->y;
@@ -63,8 +62,8 @@ ufo_filter_region_of_interest_process_cpu(UfoFilter *filter, UfoBuffer *inputs[]
 
     /* Don't do anything if we are completely out of bounds */
     if (x1 > in_width || y1 > in_height) {
-        /* XXX: Maybe issue an error? */
-        return NULL;
+        /* TODO: Issue an error */
+        return;
     }
 
     guint rd_width = x2 > in_width ? in_width - x1 : priv->width;
@@ -86,8 +85,6 @@ ufo_filter_region_of_interest_process_cpu(UfoFilter *filter, UfoBuffer *inputs[]
                     rd_width * sizeof(gfloat));
         }
     }
-
-    return NULL;
 }
 
 static void 

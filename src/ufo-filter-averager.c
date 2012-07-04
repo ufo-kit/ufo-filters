@@ -37,8 +37,8 @@ enum {
     N_PROPERTIES
 };
 
-static GError *
-ufo_filter_averager_initialize (UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static void
+ufo_filter_averager_initialize (UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterAveragerPrivate *priv = UFO_FILTER_AVERAGER_GET_PRIVATE (filter);
 
@@ -49,12 +49,10 @@ ufo_filter_averager_initialize (UfoFilter *filter, UfoBuffer *params[], guint **
 
     dims[0][0] = priv->width;
     dims[0][1] = priv->height;
-
-    return NULL;
 }
 
-static GError *
-ufo_filter_averager_process_cpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static void
+ufo_filter_averager_process_cpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterAveragerPrivate *priv = UFO_FILTER_AVERAGER_GET_PRIVATE (filter);
     gfloat *in = ufo_buffer_get_host_array (params[0], (cl_command_queue) cmd_queue);
@@ -64,12 +62,10 @@ ufo_filter_averager_process_cpu (UfoFilter *filter, UfoBuffer *params[], UfoBuff
         priv->data[i] += in[i];
 
     priv->num_input += 1.0f;
-
-    return NULL;
 }
 
-static GError *
-ufo_filter_averager_post_process_cpu (UfoFilter *filter, UfoBuffer *results[], gpointer cmd_queue)
+static void
+ufo_filter_averager_post_process_cpu (UfoFilter *filter, UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterAveragerPrivate *priv = UFO_FILTER_AVERAGER_GET_PRIVATE (filter);
 
@@ -78,8 +74,6 @@ ufo_filter_averager_post_process_cpu (UfoFilter *filter, UfoBuffer *results[], g
 
     gfloat *out = ufo_buffer_get_host_array (results[0], (cl_command_queue) cmd_queue);
     g_memmove (out, priv->data, priv->num_pixels * sizeof (gfloat));
-
-    return NULL;
 }
 
 static void

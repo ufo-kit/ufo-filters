@@ -68,8 +68,8 @@ filter_write_tiff(float *buffer, const gchar *name, guint width, guint height)
     return success;
 }
 
-static GError *
-ufo_filter_writer_process_cpu (UfoFilterSink *self, UfoBuffer *params[], gpointer cmd_queue)
+static void
+ufo_filter_writer_consume (UfoFilterSink *self, UfoBuffer *params[], gpointer cmd_queue, GError **error)
 {
     UfoFilterWriterPrivate *priv = UFO_FILTER_WRITER_GET_PRIVATE(self);
     guint width, height;
@@ -83,7 +83,6 @@ ufo_filter_writer_process_cpu (UfoFilterSink *self, UfoBuffer *params[], gpointe
         g_message("something went wrong");
 
     g_free(filename);
-    return NULL;
 }
 
 static void 
@@ -132,7 +131,7 @@ ufo_filter_writer_class_init(UfoFilterWriterClass *klass)
 
     gobject_class->set_property = ufo_filter_writer_set_property;
     gobject_class->get_property = ufo_filter_writer_get_property;
-    filter_class->consume = ufo_filter_writer_process_cpu;
+    filter_class->consume = ufo_filter_writer_consume;
 
     /**
      * UfoFilterWriter:prefix:

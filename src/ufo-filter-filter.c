@@ -83,17 +83,19 @@ setup_butterworth(UfoFilterFilterPrivate *priv, guint width)
     return filter;
 }
 
-static GError *
-ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static void
+ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterFilterPrivate *priv = UFO_FILTER_FILTER_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
-    GError *error = NULL;
+    GError *tmp_error = NULL;
     guint width, height;
-    priv->kernel = ufo_resource_manager_get_kernel(manager, "filter.cl", "filter", &error);
+    priv->kernel = ufo_resource_manager_get_kernel(manager, "filter.cl", "filter", &tmp_error);
 
-    if (error != NULL)
-        return error;
+    if (tmp_error != NULL) {
+        g_propagate_error (error, tmp_error);
+        return;
+    }
 
     ufo_buffer_get_2d_dimensions(params[0], &width, &height);
     priv->global_work_size[0] = dims[0][0] = width;
@@ -102,21 +104,23 @@ ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dim
     cl_context context = (cl_context) ufo_resource_manager_get_context(manager);
     cl_int err = CL_SUCCESS;
     float *coefficients = priv->filter_setup(priv, (guint) priv->global_work_size[0]);
+
     priv->filter_mem = clCreateBuffer(context,
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 
             priv->global_work_size[0] * sizeof(float), coefficients, &err);
+
     CHECK_OPENCL_ERROR(err);
     g_free(coefficients);
-    return error;
 }
 
-static GError *
-ufo_filter_filter_process_gpu(UfoFilter *filter, 
-        UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static GList *
+ufo_filter_filter_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterFilterPrivate *priv = UFO_FILTER_FILTER_GET_PRIVATE(filter);
     cl_mem freq_out_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
     cl_mem freq_in_mem = (cl_mem) ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
+    cl_event *event = g_new(cl_event, 1);
+    GList *events = g_list_append (NULL, (gpointer) event);
 
     clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &freq_in_mem);
     clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &freq_out_mem);
@@ -125,8 +129,9 @@ ufo_filter_filter_process_gpu(UfoFilter *filter,
     CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue,
                 priv->kernel, 
                 2, NULL, priv->global_work_size, NULL, 
-                0, NULL, NULL));
-    return NULL;
+                0, NULL, &event[0]));
+
+    return events;
 }
 
 static void 

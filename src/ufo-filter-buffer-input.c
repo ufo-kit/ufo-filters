@@ -35,8 +35,8 @@ enum {
 
 static GParamSpec *buffer_input_properties[N_PROPERTIES] = { NULL, };
 
-static GError *
-ufo_filter_buffer_input_initialize (UfoFilterSource *filter, guint **dims)
+static void
+ufo_filter_buffer_input_initialize (UfoFilterSource *filter, guint **dims, GError **error)
 {
     UfoFilterBufferInputPrivate *priv = UFO_FILTER_BUFFER_INPUT_GET_PRIVATE (filter);
     UfoBuffer *input = g_value_get_object (g_value_array_get_nth (priv->buffers, 0));
@@ -46,8 +46,6 @@ ufo_filter_buffer_input_initialize (UfoFilterSource *filter, guint **dims)
     dims[0][0] = width;
     dims[0][1] = height;
     priv->current_buffer = 0;
-
-    return NULL;
 }
 
 static gboolean
@@ -106,7 +104,7 @@ ufo_filter_buffer_input_class_init(UfoFilterBufferInputClass *klass)
     gobject_class->set_property = ufo_filter_buffer_input_set_property;
     gobject_class->get_property = ufo_filter_buffer_input_get_property;
     gobject_class->finalize = ufo_filter_buffer_input_finalize;
-    filter_class->source_initialize = ufo_filter_buffer_input_initialize;
+    filter_class->initialize = ufo_filter_buffer_input_initialize;
     filter_class->generate = ufo_filter_buffer_input_generate_cpu;
 
     /**

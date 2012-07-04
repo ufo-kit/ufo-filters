@@ -23,15 +23,14 @@ G_DEFINE_TYPE(UfoFilterNormalize, ufo_filter_normalize, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_NORMALIZE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_NORMALIZE, UfoFilterNormalizePrivate))
 
-static GError *
-ufo_filter_normalize_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
+static void
+ufo_filter_normalize_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims, GError **error)
 {
     ufo_buffer_get_2d_dimensions (inputs[0], &dims[0][0], &dims[0][1]);
-    return NULL;
 }
 
-static GError *
-ufo_filter_normalize_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static void
+ufo_filter_normalize_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
     const gsize num_elements = ufo_buffer_get_size(inputs[0]) / sizeof(float);
     float *in_data = ufo_buffer_get_host_array(inputs[0], (cl_command_queue) cmd_queue);
@@ -49,8 +48,6 @@ ufo_filter_normalize_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuff
 
     for (guint i = 0; i < num_elements; i++) 
         out_data[i] = (in_data[i] - min) * scale;
-
-    return NULL;
 }
 
 static void 

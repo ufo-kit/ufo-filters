@@ -65,22 +65,24 @@ axis_is_positive(GValue *value, gpointer user_data)
     return g_value_get_double(value) > 0.0;
 }
 
-static GError *
-ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static void
+ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterBackprojectPrivate *priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
-    GError *error = NULL;
+    GError *tmp_error = NULL;
 
     ufo_filter_wait_until(filter, backproject_properties[PROP_AXIS_POSITION], &axis_is_positive, NULL);
 
     if (priv->use_texture)
-        priv->kernel = ufo_resource_manager_get_kernel(manager, "backproject.cl", "backproject_tex", &error);
+        priv->kernel = ufo_resource_manager_get_kernel(manager, "backproject.cl", "backproject_tex", &tmp_error);
     else
-        priv->kernel = ufo_resource_manager_get_kernel(manager, "backproject.cl", "backproject", &error);
+        priv->kernel = ufo_resource_manager_get_kernel(manager, "backproject.cl", "backproject", &tmp_error);
 
-    if (error != NULL)
-        return error;
+    if (tmp_error != NULL) {
+        g_propagate_error (error, tmp_error);
+        return;
+    }
 
     cl_int errcode = CL_SUCCESS;
     ufo_buffer_get_2d_dimensions(params[0], &priv->width, &priv->height);
@@ -130,27 +132,38 @@ ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[], guint 
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 4, sizeof(cl_mem), (void *) &priv->cos_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 5, sizeof(cl_mem), (void *) &priv->sin_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 6, sizeof(cl_mem), (void *) &priv->axes_mem));
-
-    return NULL;
 }
 
 #define BLOCK_SIZE_X 16
 #define BLOCK_SIZE_Y 16
 
-static GError *
-ufo_filter_backproject_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static GList *
+ufo_create_list_from_array (gpointer *pointers, guint n_pointers)
+{
+    GList *list = NULL;
+
+    for (guint i = 0; i < n_pointers; i++)
+        list = g_list_append (list, pointers[i]);
+
+    return list;
+}
+
+static GList *
+ufo_filter_backproject_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterBackprojectPrivate *priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(filter);
 
     cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
     cl_mem slice_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
+    cl_event *events = g_new (cl_event, 2);
+    GList *event_list = ufo_create_list_from_array ((gpointer *) events, 2);
 
     if (priv->use_texture) {
         size_t dest_origin[3] = { 0, 0, 0 };
         size_t dest_region[3] = { priv->width, priv->num_projections, 1 };
         CHECK_OPENCL_ERROR(clEnqueueCopyBufferToImage((cl_command_queue) cmd_queue,
                 sinogram_mem, priv->texture, 0, dest_origin, dest_region,
-                0, NULL, NULL));
+                0, NULL, &events[0]));
         CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 7, sizeof(cl_mem), (void *) &priv->texture));
     }
     else
@@ -160,9 +173,9 @@ ufo_filter_backproject_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBu
 
     CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->kernel,
             2, NULL, priv->global_work_size, NULL,
-            0, NULL, NULL));
+            0, NULL, &events[2]));
 
-    return NULL;
+    return event_list;
 }
 
 static void

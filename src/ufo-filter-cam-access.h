@@ -3,7 +3,7 @@
 
 #include <glib.h>
 
-#include <ufo/ufo-filter.h>
+#include <ufo/ufo-filter-source.h>
 
 #define UFO_TYPE_FILTER_CAM_ACCESS             (ufo_filter_cam_access_get_type())
 #define UFO_FILTER_CAM_ACCESS(obj)             (G_TYPE_CHECK_INSTANCE_CAST((obj), UFO_TYPE_FILTER_CAM_ACCESS, UfoFilterCamAccess))
@@ -17,7 +17,7 @@ typedef struct _UfoFilterCamAccessClass      UfoFilterCamAccessClass;
 typedef struct _UfoFilterCamAccessPrivate    UfoFilterCamAccessPrivate;
 
 struct _UfoFilterCamAccess {
-    UfoFilter parent_instance;
+    UfoFilterSource parent_instance;
 
     /* public */
 
@@ -31,7 +31,7 @@ struct _UfoFilterCamAccess {
  * #UfoFilterCamAccess class
  */
 struct _UfoFilterCamAccessClass {
-    UfoFilterClass parent_class;
+    UfoFilterSourceClass parent_class;
 };
 
 

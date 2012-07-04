@@ -38,8 +38,8 @@ enum {
 
 static GParamSpec *center_of_rotation_properties[N_PROPERTIES] = { NULL, };
 
-static GError *
-ufo_filter_center_of_rotation_process_cpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static void
+ufo_filter_center_of_rotation_process_cpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     /* Calculate the principial horizontal displacement according to "Image
      * processing pipeline for synchrotron-radiation-based tomographic
@@ -95,8 +95,6 @@ ufo_filter_center_of_rotation_process_cpu (UfoFilter *filter, UfoBuffer *params[
     priv->center = (width + score_index - max_displacement + 1) / 2.0;
     g_object_notify (G_OBJECT (filter), "center");
     g_free (scores);
-
-    return NULL;
 }
 
 static void
