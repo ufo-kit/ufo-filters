@@ -28,7 +28,7 @@ struct _UfoFilterPipeOutputPrivate {
     int pipe_fd;
 };
 
-G_DEFINE_TYPE(UfoFilterPipeOutput, ufo_filter_pipe_output, UFO_TYPE_FILTER)
+G_DEFINE_TYPE(UfoFilterPipeOutput, ufo_filter_pipe_output, UFO_TYPE_FILTER_SINK)
 
 #define UFO_FILTER_PIPE_OUTPUT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_PIPE_OUTPUT, UfoFilterPipeOutputPrivate))
 
@@ -40,20 +40,19 @@ enum {
 
 static GParamSpec *pipe_output_properties[N_PROPERTIES] = { NULL, };
 
-static GError *
-ufo_filter_pipe_output_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
+static void
+ufo_filter_pipe_output_initialize(UfoFilterSink *filter, UfoBuffer *inputs[], GError **error)
 {
     UfoFilterPipeOutputPrivate *priv = UFO_FILTER_PIPE_OUTPUT_GET_PRIVATE(filter);
     if (priv->pipe_name == NULL)
         /* TODO: output error */
-        return NULL;
+        return;
 
     priv->pipe_fd = open(priv->pipe_name, O_WRONLY);
-    return NULL;
 }
 
-static GError *
-ufo_filter_pipe_output_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static void
+ufo_filter_pipe_output_consume(UfoFilterSink *filter, UfoBuffer *inputs[], gpointer cmd_queue, GError **error)
 {
     UfoFilterPipeOutputPrivate *priv = UFO_FILTER_PIPE_OUTPUT_GET_PRIVATE(filter);
     guint *dim_size = NULL;
@@ -70,13 +69,11 @@ ufo_filter_pipe_output_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBu
         if (result < 0) {
             /* TODO: create proper error */
             g_error("Error writing to pipe %s\n", priv->pipe_name);
-            return NULL;
+            return;
         }
 
         written += result;
     }
-
-    return NULL;
 }
 
 static void
@@ -124,13 +121,13 @@ static void
 ufo_filter_pipe_output_class_init(UfoFilterPipeOutputClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
-    UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
+    UfoFilterSinkClass *filter_class = UFO_FILTER_SINK_CLASS(klass);
 
     gobject_class->set_property = ufo_filter_pipe_output_set_property;
     gobject_class->get_property = ufo_filter_pipe_output_get_property;
     gobject_class->finalize = ufo_filter_pipe_output_finalize;
     filter_class->initialize = ufo_filter_pipe_output_initialize;
-    filter_class->process_cpu = ufo_filter_pipe_output_process_cpu;
+    filter_class->consume = ufo_filter_pipe_output_consume;
 
     pipe_output_properties[PROP_PIPE_NAME] = 
         g_param_spec_string("pipe-name",
@@ -151,7 +148,6 @@ ufo_filter_pipe_output_init(UfoFilterPipeOutput *self)
     priv->pipe_name = NULL;
 
     ufo_filter_register_inputs(UFO_FILTER(self), 2, NULL);
-    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *

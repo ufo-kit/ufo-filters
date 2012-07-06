@@ -2,8 +2,7 @@
 #define __UFO_FILTER_META_BALLS_H
 
 #include <glib.h>
-
-#include <ufo/ufo-filter.h>
+#include <ufo/ufo-filter-source.h>
 
 #define UFO_TYPE_FILTER_META_BALLS             (ufo_filter_meta_balls_get_type())
 #define UFO_FILTER_META_BALLS(obj)             (G_TYPE_CHECK_INSTANCE_CAST((obj), UFO_TYPE_FILTER_META_BALLS, UfoFilterMetaBalls))
@@ -18,7 +17,7 @@ typedef struct _UfoFilterMetaBallsPrivate    UfoFilterMetaBallsPrivate;
 
 struct _UfoFilterMetaBalls {
     /*< private >*/
-    UfoFilter parent_instance;
+    UfoFilterSource parent_instance;
 
     UfoFilterMetaBallsPrivate *priv;
 };
@@ -30,7 +29,7 @@ struct _UfoFilterMetaBalls {
  */
 struct _UfoFilterMetaBallsClass {
     /*< private >*/
-    UfoFilterClass parent_class;
+    UfoFilterSourceClass parent_class;
 };
 
 GType ufo_filter_meta_balls_get_type(void);

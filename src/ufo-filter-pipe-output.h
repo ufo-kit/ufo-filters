@@ -2,9 +2,7 @@
 #define __UFO_FILTER_PIPE_OUTPUT_H
 
 #include <glib.h>
-#include <glib-object.h>
-
-#include <ufo/ufo-filter.h>
+#include <ufo/ufo-filter-sink.h>
 
 #define UFO_TYPE_FILTER_PIPE_OUTPUT             (ufo_filter_pipe_output_get_type())
 #define UFO_FILTER_PIPE_OUTPUT(obj)             (G_TYPE_CHECK_INSTANCE_CAST((obj), UFO_TYPE_FILTER_PIPE_OUTPUT, UfoFilterPipeOutput))
@@ -19,7 +17,7 @@ typedef struct _UfoFilterPipeOutputPrivate    UfoFilterPipeOutputPrivate;
 
 struct _UfoFilterPipeOutput {
     /*< private >*/
-    UfoFilter parent_instance;
+    UfoFilterSink parent_instance;
 
     UfoFilterPipeOutputPrivate *priv;
 };
@@ -31,7 +29,7 @@ struct _UfoFilterPipeOutput {
  */
 struct _UfoFilterPipeOutputClass {
     /*< private >*/
-    UfoFilterClass parent_class;
+    UfoFilterSinkClass parent_class;
 };
 
 GType ufo_filter_pipe_output_get_type(void);
