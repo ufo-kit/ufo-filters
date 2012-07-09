@@ -73,19 +73,21 @@ pow2round(guint32 x)
     return x+1;
 }
 
-static GError *
-ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static void
+ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
 
 #ifdef HAVE_OCLFFT
     cl_int err = CL_SUCCESS;
-    GError *error = NULL;
-    priv->kernel = ufo_resource_manager_get_kernel(manager, "fft.cl", "fft_spread", &error);
+    GError *tmp_error = NULL;
+    priv->kernel = ufo_resource_manager_get_kernel(manager, "fft.cl", "fft_spread", &tmp_error);
 
-    if (error != NULL)
-        return error;
+    if (tmp_error != NULL) {
+        g_propagate_error (error, tmp_error);
+        return;
+    }
 
     ufo_buffer_get_2d_dimensions(params[0], &priv->width, &priv->height);
     priv->fft_size.x = pow2round(priv->width);
@@ -115,50 +117,51 @@ ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
     priv->global_work_size[0] = priv->fft_size.x;
     priv->global_work_size[1] = dims[0][1];
 #endif
-
-    return NULL;
 }
 
 #ifdef HAVE_OCLFFT
-static GError *
-ufo_filter_fft_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static UfoEventList *
+ufo_filter_fft_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
     cl_mem fft_buffer_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
     cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
-    cl_event event, wait_on_event;
+    UfoEventList *event_list = ufo_event_list_new (1);
+    cl_event *events = ufo_event_list_get_event_array (event_list);
 
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &fft_buffer_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &sinogram_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 2, sizeof(int), &priv->width));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 3, sizeof(int), &priv->height));
     CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue,
-                priv->kernel, 
-                2, NULL, priv->global_work_size, NULL, 
-                0, NULL, &event));
+                priv->kernel,
+                2, NULL, priv->global_work_size, NULL,
+                0, NULL, events));
 
     /* FIXME: we should wait for previous computations */
-    CHECK_OPENCL_ERROR(clWaitForEvents(1, &event));
+    CHECK_OPENCL_ERROR(clWaitForEvents(1, events));
+
     if (priv->fft_dimensions == FFT_1D)
         clFFT_ExecuteInterleaved((cl_command_queue) cmd_queue,
-                priv->cl_fft_plan, (cl_int) priv->height, clFFT_Forward, 
+                priv->cl_fft_plan, (cl_int) priv->height, clFFT_Forward,
                 fft_buffer_mem, fft_buffer_mem,
-                1, &wait_on_event, &event);
+                0, NULL, NULL);
     else
         clFFT_ExecuteInterleaved((cl_command_queue) cmd_queue,
-                priv->cl_fft_plan, 1, clFFT_Forward, 
+                priv->cl_fft_plan, 1, clFFT_Forward,
                 fft_buffer_mem, fft_buffer_mem,
-                1, &wait_on_event, &event);
+                0, NULL, NULL);
 
     /* XXX: FFT execution does _not_ return event */
     CHECK_OPENCL_ERROR(clFinish((cl_command_queue) cmd_queue));
-    return NULL;
+
+    return event_list;
 }
 #endif
 
 #ifdef HAVE_FFTW3
-static GError *
-ufo_filter_fft_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static void
+ufo_filter_fft_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
 
@@ -175,7 +178,6 @@ ufo_filter_fft_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *re
     fftwf_destroy_plan(plan);
 
     memcpy(out, out + odist * sizeof(gfloat), odist * sizeof(gfloat));
-    return NULL;
 }
 #endif
 
@@ -259,28 +261,28 @@ ufo_filter_fft_class_init(UfoFilterFFTClass *klass)
 #endif
 
     /* install properties */
-    fft_properties[PROP_DIMENSIONS] = 
+    fft_properties[PROP_DIMENSIONS] =
         g_param_spec_uint("dimensions",
             "Number of FFT dimensions from 1 to 3",
             "Number of FFT dimensions from 1 to 3",
             1, 3, 1,
             G_PARAM_READWRITE);
 
-    fft_properties[PROP_SIZE_X] = 
+    fft_properties[PROP_SIZE_X] =
         g_param_spec_uint("size-x",
             "Size of the FFT transform in x-direction",
             "Size of the FFT transform in x-direction",
             1, 8192, 1,
             G_PARAM_READWRITE);
 
-    fft_properties[PROP_SIZE_Y] = 
+    fft_properties[PROP_SIZE_Y] =
         g_param_spec_uint("size-y",
             "Size of the FFT transform in y-direction",
             "Size of the FFT transform in y-direction",
             1, 8192, 1,
             G_PARAM_READWRITE);
 
-    fft_properties[PROP_SIZE_Z] = 
+    fft_properties[PROP_SIZE_Z] =
         g_param_spec_uint("size-z",
             "Size of the FFT transform in z-direction",
             "Size of the FFT transform in z-direction",

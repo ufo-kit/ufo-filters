@@ -37,11 +37,10 @@ enum {
 
 static GParamSpec *expr_properties[N_PROPERTIES] = { NULL, };
 
-static GError *
-ufo_filter_expr_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
+static void
+ufo_filter_expr_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims, GError **error)
 {
     UfoFilterExprPrivate *priv = UFO_FILTER_EXPR_GET_PRIVATE(filter);
-    GError *error = NULL;
     guint width_x, height_x, width_y, height_y;
     ufo_buffer_get_2d_dimensions(inputs[0], &width_x, &height_x);
     ufo_buffer_get_2d_dimensions(inputs[1], &width_y, &height_y);
@@ -49,7 +48,6 @@ ufo_filter_expr_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
     if ((width_x != width_y) || (height_x != height_y)) {
         /* TODO: issue real error here */
         g_error("inputs must match");
-        return GINT_TO_POINTER(1);
     }
 
     priv->global_work_size[0] = width_x;
@@ -60,28 +58,28 @@ ufo_filter_expr_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
     gchar *ocl_kernel_source = parse_expression(priv->expr);
     g_print("%s\n", ocl_kernel_source);
     priv->kernel = ufo_resource_manager_get_kernel_from_source(ufo_resource_manager(),
-            ocl_kernel_source, "binary_foo_kernel_2b03c582", &error);
+            ocl_kernel_source, "binary_foo_kernel_2b03c582", error);
     g_free(ocl_kernel_source);
-
-    return error;
 }
 
-static GError *
-ufo_filter_expr_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static UfoEventList *
+ufo_filter_expr_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
     UfoFilterExprPrivate *priv = UFO_FILTER_EXPR_GET_PRIVATE(filter);
-    cl_mem x_mem = ufo_buffer_get_device_array(inputs[0], (cl_command_queue) cmd_queue);
-    cl_mem y_mem = ufo_buffer_get_device_array(inputs[1], (cl_command_queue) cmd_queue);
-    cl_mem output_mem = ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
+    UfoEventList *event_list = ufo_event_list_new (1);
+    cl_event *events = ufo_event_list_get_event_array (event_list);
+    cl_mem x_mem = ufo_buffer_get_device_array (inputs[0], (cl_command_queue) cmd_queue);
+    cl_mem y_mem = ufo_buffer_get_device_array (inputs[1], (cl_command_queue) cmd_queue);
+    cl_mem output_mem = ufo_buffer_get_device_array (outputs[0], (cl_command_queue) cmd_queue);
 
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), &x_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), &y_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 2, sizeof(cl_mem), &output_mem));
     CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->kernel,
                 2, NULL, priv->global_work_size, NULL,
-                0, NULL, NULL));
+                0, NULL, &events[0]));
 
-    return NULL;
+    return event_list;
 }
 
 static void

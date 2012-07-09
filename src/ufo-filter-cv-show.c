@@ -8,7 +8,6 @@
 #endif
 
 #include <ufo/ufo-resource-manager.h>
-#include <ufo/ufo-filter.h>
 #include <ufo/ufo-buffer.h>
 
 #include "ufo-filter-cv-show.h"
@@ -29,20 +28,20 @@ struct _UfoFilterCvShowPrivate {
     IplImage   *blit;
 };
 
-G_DEFINE_TYPE(UfoFilterCvShow, ufo_filter_cv_show, UFO_TYPE_FILTER)
+G_DEFINE_TYPE(UfoFilterCvShow, ufo_filter_cv_show, UFO_TYPE_FILTER_SINK)
 
 #define UFO_FILTER_CV_SHOW_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_CV_SHOW, UfoFilterCvShowPrivate))
 
 enum {
     PROP_0,
-    PROP_SHOW_HISTOGRAM, 
+    PROP_SHOW_HISTOGRAM,
     N_PROPERTIES
 };
 
 static GParamSpec *cv_show_properties[N_PROPERTIES] = { NULL, };
 
-static GError * 
-ufo_filter_cv_show_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static void
+ufo_filter_cv_show_initialize(UfoFilterSink *filter, UfoBuffer *params[], GError **error)
 {
     UfoFilterCvShowPrivate *priv = UFO_FILTER_CV_SHOW_GET_PRIVATE (filter);
     CvSize size;
@@ -53,12 +52,10 @@ ufo_filter_cv_show_initialize(UfoFilter *filter, UfoBuffer *params[], guint **di
 
     priv->image = cvCreateImageHeader (size, IPL_DEPTH_32F, 1);
     priv->blit = cvCreateImage (size, IPL_DEPTH_8U, 1);
-
-    return NULL;
 }
 
-static GError *
-ufo_filter_cv_show_process_cpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static void
+ufo_filter_cv_show_process_cpu (UfoFilterSink *filter, UfoBuffer *params[], gpointer cmd_queue, GError **error)
 {
     UfoFilterCvShowPrivate *priv = UFO_FILTER_CV_SHOW_GET_PRIVATE (filter);
     CvSize size;
@@ -70,8 +67,6 @@ ufo_filter_cv_show_process_cpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffe
     cvConvertImage (priv->image, priv->blit, 0);
     cvShowImage (priv->window_name, priv->image);
     cvWaitKey (30);
-        
-    return NULL;
 }
 
 static void
@@ -117,19 +112,19 @@ ufo_filter_cv_show_finalize (GObject *object)
     G_OBJECT_CLASS(ufo_filter_cv_show_parent_class)->finalize(object);
 }
 
-static void 
+static void
 ufo_filter_cv_show_class_init (UfoFilterCvShowClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-    UfoFilterClass *filter_class = UFO_FILTER_CLASS (klass);
+    UfoFilterSinkClass *filter_class = UFO_FILTER_SINK_CLASS (klass);
 
     gobject_class->set_property = ufo_filter_cv_show_set_property;
     gobject_class->get_property = ufo_filter_cv_show_get_property;
     gobject_class->finalize = ufo_filter_cv_show_finalize;
     filter_class->initialize = ufo_filter_cv_show_initialize;
-    filter_class->process_cpu = ufo_filter_cv_show_process_cpu;
+    filter_class->consume = ufo_filter_cv_show_process_cpu;
 
-    cv_show_properties[PROP_SHOW_HISTOGRAM] = 
+    cv_show_properties[PROP_SHOW_HISTOGRAM] =
         g_param_spec_boolean("show-histogram",
             "Show also the histogram of the buffer",
             "Show also the histogram of the buffer",

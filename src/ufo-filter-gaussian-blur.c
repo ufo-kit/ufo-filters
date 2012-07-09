@@ -43,16 +43,21 @@ enum {
 static GParamSpec *gaussian_blur_properties[N_PROPERTIES] = { NULL, };
 
 
-static GError *
-ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static void
+ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
-    GError *error = NULL;
+    GError *tmp_error = NULL;
     cl_context context = (cl_context) ufo_resource_manager_get_context(manager);
     cl_int cl_error = CL_SUCCESS;
-    priv->h_kernel = ufo_resource_manager_get_kernel(manager, "gaussian.cl", "h_gaussian", &error);
-    priv->v_kernel = ufo_resource_manager_get_kernel(manager, "gaussian.cl", "v_gaussian", &error);
+    priv->h_kernel = ufo_resource_manager_get_kernel(manager, "gaussian.cl", "h_gaussian", &tmp_error);
+    priv->v_kernel = ufo_resource_manager_get_kernel(manager, "gaussian.cl", "v_gaussian", &tmp_error);
+
+    if (tmp_error != NULL) {
+        g_propagate_error (error, tmp_error);
+        return;
+    }
 
     ufo_buffer_get_2d_dimensions(params[0], &dims[0][0], &dims[0][1]);
 
@@ -74,7 +79,7 @@ ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer *params[], guin
         weights[i] /= weight_sum;
 
     priv->weights_mem = clCreateBuffer(context,
-            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
             5 * sizeof(float), weights, &cl_error);
 
     CHECK_OPENCL_ERROR(cl_error);
@@ -93,15 +98,14 @@ ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer *params[], guin
     priv->global_work_size[1] = dims[0][1];
 
     g_free(weights);
-
-    return error;
 }
 
-static GError *
-ufo_filter_gaussian_blur_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static UfoEventList *
+ufo_filter_gaussian_blur_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(filter);
-
+    UfoEventList *event_list = ufo_event_list_new (2);
+    cl_event *events = ufo_event_list_get_event_array (event_list);
     cl_mem input_mem = ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
     cl_mem output_mem = ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
 
@@ -110,19 +114,19 @@ ufo_filter_gaussian_blur_process_gpu(UfoFilter *filter, UfoBuffer *params[], Ufo
 
     CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->h_kernel,
                 2, NULL, priv->global_work_size, NULL,
-                0, NULL, NULL));
+                0, NULL, &events[0]));
 
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->v_kernel, 0, sizeof(cl_mem), &priv->intermediate_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->v_kernel, 1, sizeof(cl_mem), &output_mem));
 
     CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->v_kernel,
                 2, NULL, priv->global_work_size, NULL,
-                0, NULL, NULL));
+                0, NULL, &events[1]));
 
-    return NULL;
+    return event_list;
 }
 
-static void 
+static void
 ufo_filter_gaussian_blur_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(object);
@@ -140,7 +144,7 @@ ufo_filter_gaussian_blur_set_property(GObject *object, guint property_id, const 
     }
 }
 
-static void 
+static void
 ufo_filter_gaussian_blur_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(object);
@@ -158,24 +162,24 @@ ufo_filter_gaussian_blur_get_property(GObject *object, guint property_id, GValue
     }
 }
 
-static void 
+static void
 ufo_filter_gaussian_blur_finalize (GObject *object)
 {
     UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE (object);
 
-    CHECK_OPENCL_ERROR (clReleaseMemObject (priv->weights_mem)); 
-    CHECK_OPENCL_ERROR (clReleaseMemObject (priv->intermediate_mem)); 
+    CHECK_OPENCL_ERROR (clReleaseMemObject (priv->weights_mem));
+    CHECK_OPENCL_ERROR (clReleaseMemObject (priv->intermediate_mem));
 
     G_OBJECT_CLASS (ufo_filter_gaussian_blur_parent_class)->finalize (object);
 }
 
-static void 
+static void
 ufo_filter_gaussian_blur_dispose (GObject *object)
 {
     G_OBJECT_CLASS (ufo_filter_gaussian_blur_parent_class)->dispose (object);
 }
 
-static void 
+static void
 ufo_filter_gaussian_blur_class_init(UfoFilterGaussianBlurClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
@@ -188,14 +192,14 @@ ufo_filter_gaussian_blur_class_init(UfoFilterGaussianBlurClass *klass)
     filter_class->initialize    = ufo_filter_gaussian_blur_initialize;
     filter_class->process_gpu   = ufo_filter_gaussian_blur_process_gpu;
 
-    gaussian_blur_properties[PROP_SIZE] = 
+    gaussian_blur_properties[PROP_SIZE] =
         g_param_spec_uint("size",
             "Size of the kernel",
             "Size of the kernel",
             3, 1000, 5,
             G_PARAM_READWRITE);
 
-    gaussian_blur_properties[PROP_SIGMA] = 
+    gaussian_blur_properties[PROP_SIGMA] =
         g_param_spec_float("sigma",
             "sigma",
             "sigma",
@@ -208,7 +212,7 @@ ufo_filter_gaussian_blur_class_init(UfoFilterGaussianBlurClass *klass)
     g_type_class_add_private(gobject_class, sizeof(UfoFilterGaussianBlurPrivate));
 }
 
-static void 
+static void
 ufo_filter_gaussian_blur_init(UfoFilterGaussianBlur *self)
 {
     UfoFilterGaussianBlurPrivate *priv = self->priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(self);

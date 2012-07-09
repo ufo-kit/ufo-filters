@@ -75,7 +75,7 @@ ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoBuffer *inputs[]
     priv->histogram = g_malloc0(priv->num_bins * sizeof(gfloat));
 }
 
-static GList *
+static UfoEventList *
 ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
@@ -84,11 +84,8 @@ ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, UfoBuffer *inputs[
     size_t thresh_work_size[] = { priv->width, priv->height };
 
     cl_mem input_mem = ufo_buffer_get_device_array(inputs[0], cmd_queue);
-    cl_event *events = g_new (cl_event, 2);;
-    GList *event_list = NULL;
-
-    event_list = g_list_append (event_list, events[0]);
-    event_list = g_list_append (event_list, events[1]);
+    UfoEventList *event_list = ufo_event_list_new (2);
+    cl_event *events = ufo_event_list_get_event_array (event_list);
 
     /* Build relative histogram */
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->hist_kernel, 0, sizeof(cl_mem), (void *) &input_mem));

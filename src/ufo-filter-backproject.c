@@ -6,6 +6,7 @@
 #include <CL/cl.h>
 #endif
 
+#include <ufo/ufo-aux.h>
 #include <ufo/ufo-filter.h>
 #include <ufo/ufo-buffer.h>
 #include <ufo/ufo-resource-manager.h>
@@ -137,26 +138,15 @@ ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[], guint 
 #define BLOCK_SIZE_X 16
 #define BLOCK_SIZE_Y 16
 
-static GList *
-ufo_create_list_from_array (gpointer *pointers, guint n_pointers)
-{
-    GList *list = NULL;
-
-    for (guint i = 0; i < n_pointers; i++)
-        list = g_list_append (list, pointers[i]);
-
-    return list;
-}
-
-static GList *
+static UfoEventList *
 ufo_filter_backproject_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterBackprojectPrivate *priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(filter);
 
     cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
     cl_mem slice_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
-    cl_event *events = g_new (cl_event, 2);
-    GList *event_list = ufo_create_list_from_array ((gpointer *) events, 2);
+    UfoEventList *event_list = ufo_event_list_new (2);
+    cl_event *events = ufo_event_list_get_event_array (event_list);
 
     if (priv->use_texture) {
         size_t dest_origin[3] = { 0, 0, 0 };
@@ -295,7 +285,6 @@ ufo_filter_backproject_class_init(UfoFilterBackprojectClass *klass)
     g_object_class_install_property(gobject_class, PROP_ANGLE_STEP, backproject_properties[PROP_ANGLE_STEP]);
     g_object_class_install_property(gobject_class, PROP_USE_TEXTURE, backproject_properties[PROP_USE_TEXTURE]);
 
-    /* install private data */
     g_type_class_add_private(gobject_class, sizeof(UfoFilterBackprojectPrivate));
 }
 

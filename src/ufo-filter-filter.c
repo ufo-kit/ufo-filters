@@ -113,14 +113,14 @@ ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dim
     g_free(coefficients);
 }
 
-static GList *
+static UfoEventList *
 ufo_filter_filter_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterFilterPrivate *priv = UFO_FILTER_FILTER_GET_PRIVATE(filter);
     cl_mem freq_out_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
     cl_mem freq_in_mem = (cl_mem) ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
-    cl_event *event = g_new(cl_event, 1);
-    GList *events = g_list_append (NULL, (gpointer) event);
+    UfoEventList *event_list = ufo_event_list_new (1);
+    cl_event *event = ufo_event_list_get_event_array (event_list);
 
     clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &freq_in_mem);
     clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &freq_out_mem);
@@ -131,7 +131,7 @@ ufo_filter_filter_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer 
                 2, NULL, priv->global_work_size, NULL, 
                 0, NULL, &event[0]));
 
-    return events;
+    return event_list;
 }
 
 static void 

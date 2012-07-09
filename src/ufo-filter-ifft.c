@@ -106,14 +106,14 @@ ufo_filter_ifft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims,
 }
 
 #ifdef HAVE_OCLFFT
-static GList *
+static UfoEventList *
 ufo_filter_ifft_process_gpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterIFFTPrivate *priv = UFO_FILTER_IFFT_GET_PRIVATE (filter);
     const cl_int batch_size = priv->ifft_dimensions == clFFT_1D ? (cl_int) priv->height : 1;
     cl_mem mem_fft = (cl_mem) ufo_buffer_get_device_array (params[0], (cl_command_queue) cmd_queue);
-    cl_event *events = g_new (cl_event, 1);
-    GList *event_list = g_list_append (NULL, events);
+    UfoEventList *event_list = ufo_event_list_new (1);
+    cl_event *events = ufo_event_list_get_event_array (event_list);
 
     /* 
      * 1. Inverse FFT

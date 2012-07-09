@@ -41,12 +41,12 @@ enum {
 
 static GParamSpec *forward_project_properties[N_PROPERTIES] = { NULL, };
 
-static GError *
-ufo_filter_forward_project_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static void
+ufo_filter_forward_project_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE (filter);
     UfoResourceManager *manager = ufo_resource_manager ();
-    GError *error = NULL;
+    GError *tmp_error = NULL;
     guint width, height;
     cl_context context = (cl_context) ufo_resource_manager_get_context (manager);
     cl_int errcode;
@@ -56,7 +56,12 @@ ufo_filter_forward_project_initialize(UfoFilter *filter, UfoBuffer *params[], gu
         .image_channel_data_type    = CL_FLOAT
     };
 
-    priv->kernel = ufo_resource_manager_get_kernel (manager, "forwardproject.cl","forwardproject", &error);
+    priv->kernel = ufo_resource_manager_get_kernel (manager, "forwardproject.cl","forwardproject", &tmp_error);
+
+    if (tmp_error != NULL) {
+        g_propagate_error (error, tmp_error);
+        return;
+    }
 
     ufo_buffer_get_2d_dimensions (params[0], &width, &height);
 
@@ -69,14 +74,14 @@ ufo_filter_forward_project_initialize(UfoFilter *filter, UfoBuffer *params[], gu
 
     priv->global_work_size[0] = dims[0][0] = width;
     priv->global_work_size[1] = dims[0][1] = priv->num_projections;
-
-    return error;
 }
 
-static GError *
-ufo_filter_forward_project_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static UfoEventList *
+ufo_filter_forward_project_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(filter);
+    UfoEventList *event_list = ufo_event_list_new (2);
+    cl_event *events = ufo_event_list_get_event_array (event_list);
 
     const gsize src_origin[3] = { 0, 0, 0 };
     const gsize region[3] = { priv->global_work_size[0], priv->global_work_size[1], 1 };
@@ -85,15 +90,15 @@ ufo_filter_forward_project_process_gpu(UfoFilter *filter, UfoBuffer *params[], U
     CHECK_OPENCL_ERROR(clEnqueueCopyBufferToImage((cl_command_queue) cmd_queue,
                                            input_mem, priv->slice_mem,
                                            0, src_origin, region,
-                                           0, NULL, NULL));
+                                           0, NULL, &events[0]));
 
     cl_mem output_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &output_mem));
     CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->kernel,
                                        2, NULL, priv->global_work_size, NULL,
-                                       0, NULL, NULL));
+                                       0, NULL, &events[1]));
 
-    return NULL;
+    return event_list;
 }
 
 static void

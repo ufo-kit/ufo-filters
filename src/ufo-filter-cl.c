@@ -45,10 +45,12 @@ enum {
 static GParamSpec *cl_properties[N_PROPERTIES] = { NULL, };
 
 
-static GError *
-process_regular(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static UfoEventList *
+process_regular(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
+    UfoEventList *event_list = ufo_event_list_new (1);
+    cl_event *events = ufo_event_list_get_event_array (event_list);
     cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(inputs[0], (cl_command_queue) cmd_queue);
     cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
 
@@ -59,15 +61,17 @@ process_regular(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gp
     CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue,
                 priv->kernel,
                 2, NULL, priv->global_work_size, NULL,
-                0, NULL, NULL));
+                0, NULL, &events[0]));
 
-    return NULL;
+    return event_list;
 }
 
-static GError *
-process_combine(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static UfoEventList *
+process_combine(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
+    UfoEventList *event_list = ufo_event_list_new (1);
+    cl_event *events = ufo_event_list_get_event_array (event_list);
     cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(inputs[0], (cl_command_queue) cmd_queue);
     cl_mem b_mem = (cl_mem) ufo_buffer_get_device_array(inputs[1], (cl_command_queue) cmd_queue);
     cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
@@ -80,32 +84,29 @@ process_combine(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gp
     CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue,
         priv->kernel,
         2, NULL, priv->global_work_size, NULL,
-        0, NULL, NULL));
+        0, NULL, &events[0]));
 
-    return NULL;
+    return event_list;
 }
 
-static GError *
-ufo_filter_cl_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
+static void
+ufo_filter_cl_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims, GError **error)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
     UfoFilterClass *filter_class = UFO_FILTER_GET_CLASS(filter);
     UfoResourceManager *manager = ufo_resource_manager();
-    GError *error = NULL;
     guint width, height;
 
     ufo_buffer_get_2d_dimensions(inputs[0], &width, &height);
     priv->global_work_size[0] = dims[0][0] = width;
     priv->global_work_size[1] = dims[0][1] = height;
-    priv->kernel = ufo_resource_manager_get_kernel(manager, priv->file_name, priv->kernel_name, &error);
+    priv->kernel = ufo_resource_manager_get_kernel(manager, priv->file_name, priv->kernel_name, error);
 
     if (priv->combine)
         filter_class->process_gpu = process_combine;
-
-    return error;
 }
 
-static void 
+static void
 ufo_filter_cl_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(object);
@@ -131,7 +132,7 @@ ufo_filter_cl_set_property(GObject *object, guint property_id, const GValue *val
     }
 }
 
-static void 
+static void
 ufo_filter_cl_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(object);
@@ -155,7 +156,7 @@ ufo_filter_cl_get_property(GObject *object, guint property_id, GValue *value, GP
     }
 }
 
-static void 
+static void
 ufo_filter_cl_class_init(UfoFilterClClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
@@ -166,28 +167,28 @@ ufo_filter_cl_class_init(UfoFilterClClass *klass)
     filter_class->process_gpu = process_regular;
     filter_class->initialize = ufo_filter_cl_initialize;
 
-    cl_properties[PROP_FILE_NAME] = 
+    cl_properties[PROP_FILE_NAME] =
         g_param_spec_string("file",
             "File in which the kernel resides",
             "File in which the kernel resides",
             "",
             G_PARAM_READWRITE);
 
-    cl_properties[PROP_KERNEL] = 
+    cl_properties[PROP_KERNEL] =
         g_param_spec_string("kernel",
             "Kernel name",
             "Kernel name",
             "",
             G_PARAM_READWRITE);
 
-    cl_properties[PROP_COMBINE] = 
+    cl_properties[PROP_COMBINE] =
         g_param_spec_boolean("combine",
             "Use two frames as an input for a function",
             "Use two frames as an input for a function",
             FALSE,
             G_PARAM_READWRITE);
 
-    cl_properties[PROP_STATIC_ARGUMENT] = 
+    cl_properties[PROP_STATIC_ARGUMENT] =
         g_param_spec_int("static-argument",
             "Input of channel k is used for each iteration",
             "Input of channel k is used for each iteration",
@@ -202,7 +203,7 @@ ufo_filter_cl_class_init(UfoFilterClClass *klass)
     g_type_class_add_private(gobject_class, sizeof(UfoFilterClPrivate));
 }
 
-static void 
+static void
 ufo_filter_cl_init(UfoFilterCl *self)
 {
     UfoFilterClPrivate *priv = self->priv = UFO_FILTER_CL_GET_PRIVATE(self);
