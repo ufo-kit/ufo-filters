@@ -13,20 +13,15 @@ def write_lena(path):
 
 class UfoTestCase(unittest.TestCase):
     def setUp(self):
-        def ignore_message(domain, level, message, user):
-            pass
-
-        GLib.log_set_handler("Ufo", GLib.LogLevelFlags.LEVEL_MASK,
-                ignore_message, None)
-
-        GLib.log_set_handler("GLib-GObject", GLib.LogLevelFlags.LEVEL_MASK,
-                ignore_message, None)
-
         fp = 'UFO_FILTER_PATH'
+
         if fp in os.environ:
-            self.g = Ufo.Graph(paths=os.environ[fp])
+            paths = os.environ[fp]
+            self.g = Ufo.Graph(paths=paths)
+            self.pm = Ufo.PluginManager(paths=paths)
         else:
             self.g = Ufo.Graph()
+            self.pm = Ufo.PluginManager()
 
     def assertEqualDelta(self, a, b, delta):
         assert(abs(a - b) < delta)

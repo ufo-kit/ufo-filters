@@ -12,19 +12,19 @@ class TestFFT(ufotest.UfoTestCase):
 
         ufotest.write_lena(src)
 
-        rd = self.g.get_filter('reader')
-        fft = self.g.get_filter('fft')
-        ifft = self.g.get_filter('ifft')
-        wr = self.g.get_filter('writer')
+        rd = self.pm.get_filter('reader')
+        fft = self.pm.get_filter('fft')
+        ifft = self.pm.get_filter('ifft')
+        wr = self.pm.get_filter('writer')
 
         rd.set_properties(path=src)
         wr.set_properties(path='.', prefix='foo-')
         fft.set_properties(dimensions=1)
         ifft.set_properties(dimensions=1)
 
-        rd.connect_to(fft)
-        fft.connect_to(ifft)
-        ifft.connect_to(wr)
+        self.g.connect_filters(rd, fft)
+        self.g.connect_filters(fft, ifft)
+        self.g.connect_filters(ifft, wr)
         self.g.run()
 
         original = TIFF.open(src, mode='r').read_image()
@@ -42,19 +42,19 @@ class TestFFT(ufotest.UfoTestCase):
 
         ufotest.write_lena(src)
 
-        rd = self.g.get_filter('reader')
-        fft = self.g.get_filter('fft')
-        ifft = self.g.get_filter('ifft')
-        wr = self.g.get_filter('writer')
+        rd = self.pm.get_filter('reader')
+        fft = self.pm.get_filter('fft')
+        ifft = self.pm.get_filter('ifft')
+        wr = self.pm.get_filter('writer')
 
         rd.set_properties(path=src)
         wr.set_properties(path='.', prefix='foo-')
         fft.set_properties(dimensions=2)
         ifft.set_properties(dimensions=2)
 
-        rd.connect_to(fft)
-        fft.connect_to(ifft)
-        ifft.connect_to(wr)
+        self.g.connect_filters(rd, fft)
+        self.g.connect_filters(fft, ifft)
+        self.g.connect_filters(ifft, wr)
         self.g.run()
 
         original = TIFF.open(src, mode='r').read_image()

@@ -12,12 +12,12 @@ class TestWriteEqual(ufotest.UfoTestCase):
 
         ufotest.write_lena(src)
 
-        rd = self.g.get_filter('reader')
-        wr = self.g.get_filter('writer')
+        rd = self.pm.get_filter('reader')
+        wr = self.pm.get_filter('writer')
         rd.set_properties(path=src)
         wr.set_properties(path='.', prefix='foo-')
 
-        rd.connect_to(wr)
+        self.g.connect_filters(rd, wr)
         self.g.run()
 
         original = TIFF.open(src, mode='r').read_image()
