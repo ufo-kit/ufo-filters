@@ -45,18 +45,21 @@ enum {
 
 static GParamSpec *histogram_threshold_properties[N_PROPERTIES] = { NULL, };
 
-static GError *
-ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims)
+static void
+ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims, GError **error)
 {
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
     cl_int cl_error = CL_SUCCESS;
-    GError *error = NULL;
-    priv->hist_kernel = ufo_resource_manager_get_kernel(manager, "histthreshold.cl", "histogram", &error);
-    priv->thresh_kernel = ufo_resource_manager_get_kernel(manager, "histthreshold.cl", "threshold", &error);
+    GError *tmp_error = NULL;
 
-    if (error != NULL)
-        return error;
+    priv->hist_kernel = ufo_resource_manager_get_kernel(manager, "histthreshold.cl", "histogram", &tmp_error);
+    priv->thresh_kernel = ufo_resource_manager_get_kernel(manager, "histthreshold.cl", "threshold", &tmp_error);
+
+    if (tmp_error != NULL) {
+        g_propagate_error (error, tmp_error);
+        return;
+    }
 
     ufo_buffer_get_2d_dimensions(inputs[0], &priv->width, &priv->height);
     dims[0][0] = priv->width;
@@ -70,11 +73,10 @@ ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoBuffer *inputs[]
     CHECK_OPENCL_ERROR(cl_error);
 
     priv->histogram = g_malloc0(priv->num_bins * sizeof(gfloat));
-    return NULL;
 }
 
-static GError *
-ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static GList *
+ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
 
@@ -82,7 +84,11 @@ ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, UfoBuffer *inputs[
     size_t thresh_work_size[] = { priv->width, priv->height };
 
     cl_mem input_mem = ufo_buffer_get_device_array(inputs[0], cmd_queue);
-    cl_event event;
+    cl_event *events = g_new (cl_event, 2);;
+    GList *event_list = NULL;
+
+    event_list = g_list_append (event_list, events[0]);
+    event_list = g_list_append (event_list, events[1]);
 
     /* Build relative histogram */
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->hist_kernel, 0, sizeof(cl_mem), (void *) &input_mem));
@@ -92,7 +98,7 @@ ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, UfoBuffer *inputs[
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->hist_kernel, 4, sizeof(gfloat), &priv->upper_limit));
     CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->hist_kernel,
                 1, NULL, &priv->num_bins, NULL,
-                0, NULL, &event));
+                0, NULL, &events[0]));
 
     /* Threshold */
     cl_mem output_mem = ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
@@ -101,12 +107,13 @@ ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, UfoBuffer *inputs[
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->thresh_kernel, 2, sizeof(cl_mem), (void *) &output_mem));
     CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->thresh_kernel,
                 2, NULL, thresh_work_size, NULL,
-                1, &event, NULL));
-    return NULL;
+                1, &events[0], &events[1]));
+
+    return event_list;
 }
 
-static GError *
-ufo_filter_histogram_threshold_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static void
+ufo_filter_histogram_threshold_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
     gfloat *in = ufo_buffer_get_host_array(inputs[0], (cl_command_queue) cmd_queue);
@@ -136,8 +143,6 @@ ufo_filter_histogram_threshold_process_cpu(UfoFilter *filter, UfoBuffer *inputs[
         else
             out[i] = 0.0f;
     }
-
-    return NULL;
 }
 
 static void 

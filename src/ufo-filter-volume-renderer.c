@@ -46,18 +46,24 @@ enum {
 static GParamSpec *volume_renderer_properties[N_PROPERTIES] = { NULL, };
 
 
-static GError *
-ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static void
+ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterVolumeRendererPrivate *priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
-    GError *return_error = NULL;
-    cl_int error = CL_SUCCESS;
+    GError *tmp_error = NULL;
+    cl_int clerror = CL_SUCCESS;
     cl_context context = (cl_context) ufo_resource_manager_get_context(manager);
     guint width, height, slices;
 
     width = height = slices = 256;
-    priv->kernel = ufo_resource_manager_get_kernel(manager, "volume.cl", "rayCastVolume", &return_error);
+    priv->kernel = ufo_resource_manager_get_kernel(manager, "volume.cl", "rayCastVolume", &tmp_error);
+
+    if (tmp_error != NULL) {
+        g_propagate_error (error, tmp_error);
+        return;
+    }
+
     priv->angle = 0.0f;
     priv->input_data = g_malloc0(width * height * slices);
 
@@ -84,13 +90,13 @@ ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffer *params[], gu
             CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
             &volume_format,
             width, height, slices,
-            0, 0, priv->input_data, &error); 
-    CHECK_OPENCL_ERROR(error);
+            0, 0, priv->input_data, &clerror);
+    CHECK_OPENCL_ERROR(clerror);
 
     priv->view_mem = clCreateBuffer(context,
-            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 
-            4 * 4 * sizeof(gfloat), priv->view_matrix, &error);
-    CHECK_OPENCL_ERROR(error);
+            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+            4 * 4 * sizeof(gfloat), priv->view_matrix, &clerror);
+    CHECK_OPENCL_ERROR(clerror);
 
     priv->global_work_size[0] = dims[0][0] = width;
     priv->global_work_size[1] = dims[0][1] = height;
@@ -102,43 +108,45 @@ ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffer *params[], gu
     gfloat threshold = 0.083f;
     cl_uint steps = (cl_uint) ((1.414f + fabs(displacement)) / step_size);
 
-    error |= clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), &priv->volume_mem);
-    error |= clSetKernelArg(priv->kernel, 2, sizeof(cl_mem), &priv->view_mem);
-    error |= clSetKernelArg(priv->kernel, 3, sizeof(cl_uint), &steps);
-    error |= clSetKernelArg(priv->kernel, 4, sizeof(gfloat), &step_size);
-    error |= clSetKernelArg(priv->kernel, 5, sizeof(gfloat), &displacement);
-    error |= clSetKernelArg(priv->kernel, 6, sizeof(gfloat), &linear_ramp_slope);
-    error |= clSetKernelArg(priv->kernel, 7, sizeof(gfloat), &linear_ramp_constant);
-    error |= clSetKernelArg(priv->kernel, 8, sizeof(gfloat), &threshold);
-
-    return return_error;
+    clerror |= clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), &priv->volume_mem);
+    clerror |= clSetKernelArg(priv->kernel, 2, sizeof(cl_mem), &priv->view_mem);
+    clerror |= clSetKernelArg(priv->kernel, 3, sizeof(cl_uint), &steps);
+    clerror |= clSetKernelArg(priv->kernel, 4, sizeof(gfloat), &step_size);
+    clerror |= clSetKernelArg(priv->kernel, 5, sizeof(gfloat), &displacement);
+    clerror |= clSetKernelArg(priv->kernel, 6, sizeof(gfloat), &linear_ramp_slope);
+    clerror |= clSetKernelArg(priv->kernel, 7, sizeof(gfloat), &linear_ramp_constant);
+    clerror |= clSetKernelArg(priv->kernel, 8, sizeof(gfloat), &threshold);
 }
 
-static GError *
-ufo_filter_volume_renderer_process_gpu(UfoFilter *filter,
-        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static GList *
+ufo_filter_volume_renderer_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
     UfoFilterVolumeRendererPrivate *priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(filter);
+    cl_event *events = g_new (cl_event, 2);
+    GList *event_list = NULL;
+
+    event_list = g_list_append (event_list, events[0]);
+    event_list = g_list_append (event_list, events[1]);
 
     if (priv->angle >= G_PI) {
         ufo_filter_finish (filter);
         return NULL;
     }
 
-    cl_int error = CL_SUCCESS;
+    cl_int clerror = CL_SUCCESS;
     cl_mem output_mem = ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
-    error = clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), &output_mem);
-    CHECK_OPENCL_ERROR(error);
+    clerror = clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), &output_mem);
+    CHECK_OPENCL_ERROR(clerror);
 
     /* TODO: manage copy event so that we don't have to block here */
     CHECK_OPENCL_ERROR(clEnqueueWriteBuffer((cl_command_queue) cmd_queue,
                 priv->view_mem, CL_TRUE,
                 0, 4 * 4 * sizeof(float), priv->view_matrix,
-                0, NULL, NULL));
+                0, NULL, &events[0]));
 
     CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->kernel,
                 2, NULL, priv->global_work_size, NULL,
-                0, NULL, NULL));
+                0, NULL, &events[1]));
 
     /* rotate around the x-axis for now */
     const gfloat cos_angle = (gfloat) cos(priv->angle);
@@ -149,10 +157,10 @@ ufo_filter_volume_renderer_process_gpu(UfoFilter *filter,
     priv->view_matrix[14] = cos_angle;
     priv->angle += 0.05f;
 
-    return NULL;
+    return event_list;
 }
 
-static void 
+static void
 ufo_filter_volume_renderer_set_property(GObject *object,
     guint           property_id,
     const GValue    *value,
@@ -219,14 +227,14 @@ ufo_filter_volume_renderer_class_init(UfoFilterVolumeRendererClass *klass)
     filter_class->initialize = ufo_filter_volume_renderer_initialize;
     filter_class->process_gpu = ufo_filter_volume_renderer_process_gpu;
 
-    volume_renderer_properties[PROP_WIDTH] = 
+    volume_renderer_properties[PROP_WIDTH] =
         g_param_spec_uint("width",
             "Width",
             "Width of the output image",
             1, 8192, 512,
             G_PARAM_READWRITE);
 
-    volume_renderer_properties[PROP_HEIGHT] = 
+    volume_renderer_properties[PROP_HEIGHT] =
         g_param_spec_uint("height",
             "Height",
             "Height of the output image",

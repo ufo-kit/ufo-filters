@@ -48,6 +48,11 @@ G_DEFINE_TYPE(UfoFilterIFFT, ufo_filter_ifft, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_IFFT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_IFFT, UfoFilterIFFTPrivate))
 
+#define G_PROPAGATE_AND_RETURN_ON_ERROR(error, tmp_error) \
+    if (tmp_error != NULL) { \
+        g_propagate_error(error, tmp_error); \
+        return; }
+
 enum {
     PROP_0,
     PROP_DIMENSIONS,
@@ -61,19 +66,21 @@ enum {
 
 static GParamSpec *ifft_properties[N_PROPERTIES] = { NULL, };
 
-static GError *
-ufo_filter_ifft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static void
+ufo_filter_ifft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterIFFTPrivate *priv = UFO_FILTER_IFFT_GET_PRIVATE (filter);
     UfoResourceManager *manager = ufo_resource_manager ();
-    GError *error = NULL;
 
 #ifdef HAVE_OCLFFT
+    GError *tmp_error = NULL;
     guint width, height;
     gint err = CL_SUCCESS;
 
-    priv->pack_kernel = ufo_resource_manager_get_kernel (manager, "fft.cl", "fft_pack", &error);
-    priv->normalize_kernel = ufo_resource_manager_get_kernel (manager, "fft.cl","fft_normalize", &error);
+    priv->pack_kernel = ufo_resource_manager_get_kernel (manager, "fft.cl", "fft_pack", &tmp_error);
+    G_PROPAGATE_AND_RETURN_ON_ERROR (error, tmp_error);
+    priv->normalize_kernel = ufo_resource_manager_get_kernel (manager, "fft.cl","fft_normalize", &tmp_error);
+    G_PROPAGATE_AND_RETURN_ON_ERROR (error, tmp_error);
 
     ufo_buffer_get_2d_dimensions (params[0], &width, &height);
 
@@ -96,17 +103,17 @@ ufo_filter_ifft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
     dims[0][0] = priv->width;
     dims[0][1] = priv->height;
 #endif
-
-    return error;
 }
 
 #ifdef HAVE_OCLFFT
-static GError *
-ufo_filter_ifft_process_gpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue)
+static GList *
+ufo_filter_ifft_process_gpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterIFFTPrivate *priv = UFO_FILTER_IFFT_GET_PRIVATE (filter);
     const cl_int batch_size = priv->ifft_dimensions == clFFT_1D ? (cl_int) priv->height : 1;
     cl_mem mem_fft = (cl_mem) ufo_buffer_get_device_array (params[0], (cl_command_queue) cmd_queue);
+    cl_event *events = g_new (cl_event, 1);
+    GList *event_list = g_list_append (NULL, events);
 
     /* 
      * 1. Inverse FFT
@@ -144,9 +151,9 @@ ufo_filter_ifft_process_gpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *
     CHECK_OPENCL_ERROR (clEnqueueNDRangeKernel ((cl_command_queue) cmd_queue,
             priv->pack_kernel,
             2, NULL, priv->global_work_size, NULL,
-            0, NULL, NULL));
+            0, NULL, &events[0]));
 
-    return NULL;
+    return event_list;
 }
 #endif
 
