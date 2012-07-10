@@ -2,8 +2,7 @@
 #define __UFO_FILTER_AVERAGER_H
 
 #include <glib.h>
-
-#include <ufo/ufo-filter.h>
+#include <ufo/ufo-filter-reduce.h>
 
 #define UFO_TYPE_FILTER_AVERAGER             (ufo_filter_averager_get_type())
 #define UFO_FILTER_AVERAGER(obj)             (G_TYPE_CHECK_INSTANCE_CAST((obj), UFO_TYPE_FILTER_AVERAGER, UfoFilterAverager))
@@ -18,7 +17,7 @@ typedef struct _UfoFilterAveragerPrivate    UfoFilterAveragerPrivate;
 
 struct _UfoFilterAverager {
     /*< private >*/
-    UfoFilter parent_instance;
+    UfoFilterReduce parent_instance;
 
     UfoFilterAveragerPrivate *priv;
 };
@@ -30,7 +29,7 @@ struct _UfoFilterAverager {
  */
 struct _UfoFilterAveragerClass {
     /*< private >*/
-    UfoFilterClass parent_class;
+    UfoFilterReduceClass parent_class;
 };
 
 /* virtual public methods */

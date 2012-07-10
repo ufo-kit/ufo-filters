@@ -7,7 +7,7 @@
 
 #include <string.h>
 #include <ufo/ufo-resource-manager.h>
-#include <ufo/ufo-filter.h>
+#include <ufo/ufo-filter-reduce.h>
 #include <ufo/ufo-buffer.h>
 #include "ufo-filter-averager.h"
 
@@ -20,7 +20,7 @@
  * average of all images.
  */
 
-G_DEFINE_TYPE(UfoFilterAverager, ufo_filter_averager, UFO_TYPE_FILTER)
+G_DEFINE_TYPE(UfoFilterAverager, ufo_filter_averager, UFO_TYPE_FILTER_REDUCE)
 
 #define UFO_FILTER_AVERAGER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_AVERAGER, UfoFilterAveragerPrivate))
 
@@ -38,11 +38,11 @@ enum {
 };
 
 static void
-ufo_filter_averager_initialize (UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
+ufo_filter_averager_initialize (UfoFilterReduce *filter, UfoBuffer *input[], guint **dims, GError **error)
 {
     UfoFilterAveragerPrivate *priv = UFO_FILTER_AVERAGER_GET_PRIVATE (filter);
 
-    ufo_buffer_get_2d_dimensions (params[0], &priv->width, &priv->height);
+    ufo_buffer_get_2d_dimensions (input[0], &priv->width, &priv->height);
     priv->num_input = 0.0f;
     priv->num_pixels = priv->width * priv->height;
     priv->data = g_malloc0 (priv->num_pixels * sizeof (gfloat));
@@ -52,10 +52,10 @@ ufo_filter_averager_initialize (UfoFilter *filter, UfoBuffer *params[], guint **
 }
 
 static void
-ufo_filter_averager_process_cpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
+ufo_filter_averager_collect (UfoFilterReduce *filter, UfoBuffer *input[], gpointer cmd_queue, GError **error)
 {
     UfoFilterAveragerPrivate *priv = UFO_FILTER_AVERAGER_GET_PRIVATE (filter);
-    gfloat *in = ufo_buffer_get_host_array (params[0], (cl_command_queue) cmd_queue);
+    gfloat *in = ufo_buffer_get_host_array (input[0], (cl_command_queue) cmd_queue);
 
     /* TODO: check that input dims match */
     for (gsize i = 0; i < priv->num_pixels; i++)
@@ -65,37 +65,16 @@ ufo_filter_averager_process_cpu (UfoFilter *filter, UfoBuffer *params[], UfoBuff
 }
 
 static void
-ufo_filter_averager_post_process_cpu (UfoFilter *filter, UfoBuffer *results[], gpointer cmd_queue, GError **error)
+ufo_filter_averager_reduce (UfoFilterReduce *filter, UfoBuffer *output[], gpointer cmd_queue, GError **error)
 {
     UfoFilterAveragerPrivate *priv = UFO_FILTER_AVERAGER_GET_PRIVATE (filter);
 
     for (gsize i = 0; i < priv->num_pixels; i++)
         priv->data[i] /= priv->num_input;
 
-    gfloat *out = ufo_buffer_get_host_array (results[0], (cl_command_queue) cmd_queue);
+    gfloat *out = ufo_buffer_get_host_array (output[0], (cl_command_queue) cmd_queue);
     g_memmove (out, priv->data, priv->num_pixels * sizeof (gfloat));
 }
-
-static void
-ufo_filter_averager_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
-{
-    switch (property_id) {
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-            break;
-    }
-}
-
-static void
-ufo_filter_averager_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
-{
-    switch (property_id) {
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
-            break;
-    }
-}
-
 
 static void
 ufo_filter_averager_finalize(GObject *object)
@@ -111,14 +90,12 @@ static void
 ufo_filter_averager_class_init(UfoFilterAveragerClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
-    UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
+    UfoFilterReduceClass *filter_class = UFO_FILTER_REDUCE_CLASS(klass);
 
-    gobject_class->set_property = ufo_filter_averager_set_property;
-    gobject_class->get_property = ufo_filter_averager_get_property;
     gobject_class->finalize = ufo_filter_averager_finalize;
     filter_class->initialize = ufo_filter_averager_initialize;
-    filter_class->process_cpu = ufo_filter_averager_process_cpu;
-    filter_class->post_process_cpu = ufo_filter_averager_post_process_cpu;
+    filter_class->collect = ufo_filter_averager_collect;
+    filter_class->reduce = ufo_filter_averager_reduce;
 
     g_type_class_add_private(gobject_class, sizeof(UfoFilterAveragerPrivate));
 }
@@ -129,8 +106,8 @@ ufo_filter_averager_init(UfoFilterAverager *self)
     self->priv = UFO_FILTER_AVERAGER_GET_PRIVATE (self);
     self->priv->data = NULL;
 
-    ufo_filter_register_inputs (UFO_FILTER(self), 2, NULL);
-    ufo_filter_register_outputs (UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_inputs (UFO_FILTER (self), 2, NULL);
+    ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
 }
 
 G_MODULE_EXPORT UfoFilter *
