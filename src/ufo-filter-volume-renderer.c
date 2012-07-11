@@ -245,11 +245,13 @@ ufo_filter_volume_renderer_class_init(UfoFilterVolumeRendererClass *klass)
 static void
 ufo_filter_volume_renderer_init(UfoFilterVolumeRenderer *self)
 {
+    UfoOutputParameter output_params[] = {{2}};
+
     self->priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(self);
     self->priv->width = 512;
     self->priv->height = 512;
 
-    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

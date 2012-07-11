@@ -104,11 +104,14 @@ ufo_filter_averager_class_init(UfoFilterAveragerClass *klass)
 static void
 ufo_filter_averager_init(UfoFilterAverager *self)
 {
+    UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};
+    UfoOutputParameter output_params[] = {{2}};
+
     self->priv = UFO_FILTER_AVERAGER_GET_PRIVATE (self);
     self->priv->data = NULL;
 
-    ufo_filter_register_inputs (UFO_FILTER (self), 2, NULL);
-    ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
+    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
+    ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

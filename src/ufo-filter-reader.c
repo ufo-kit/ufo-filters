@@ -548,6 +548,8 @@ static void
 ufo_filter_reader_init(UfoFilterReader *self)
 {
     UfoFilterReaderPrivate *priv = NULL;
+    UfoOutputParameter output_params[] = {{2}};
+
     self->priv = priv = UFO_FILTER_READER_GET_PRIVATE(self);
     priv->path = g_strdup("*.tif");
     priv->count = -1;
@@ -560,7 +562,7 @@ ufo_filter_reader_init(UfoFilterReader *self)
     priv->frame_buffer = NULL;
     priv->current_tiff = NULL;
 
-    ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
+    ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

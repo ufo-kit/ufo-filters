@@ -136,10 +136,12 @@ ufo_filter_buffer_input_class_init(UfoFilterBufferInputClass *klass)
 static void
 ufo_filter_buffer_input_init(UfoFilterBufferInput *self)
 {
+    UfoOutputParameter output_params[] = {{2}};
+
     UfoFilterBufferInputPrivate *priv = self->priv = UFO_FILTER_BUFFER_INPUT_GET_PRIVATE(self);
     priv->buffers = NULL;
 
-    ufo_filter_register_outputs (UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_outputs (UFO_FILTER(self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

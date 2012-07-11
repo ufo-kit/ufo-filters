@@ -216,11 +216,14 @@ static void
 ufo_filter_gaussian_blur_init(UfoFilterGaussianBlur *self)
 {
     UfoFilterGaussianBlurPrivate *priv = self->priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(self);
+    UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};
+    UfoOutputParameter output_params[] = {{2}};
 
     priv->size = 5;
     priv->sigma = 1.0f;
-    ufo_filter_register_inputs (UFO_FILTER (self), 2, NULL);
-    ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
+
+    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
+    ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

@@ -163,12 +163,13 @@ ufo_filter_writer_class_init(UfoFilterWriterClass *klass)
 static void 
 ufo_filter_writer_init(UfoFilterWriter *self)
 {
+    UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};
     self->priv = UFO_FILTER_WRITER_GET_PRIVATE(self);
     self->priv->path = g_strdup(".");
     self->priv->prefix = NULL;
     self->priv->counter = 0;
 
-    ufo_filter_register_inputs (UFO_FILTER (self), 2, NULL);
+    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

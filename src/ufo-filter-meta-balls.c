@@ -302,6 +302,8 @@ static void
 ufo_filter_meta_balls_init(UfoFilterMetaBalls *self)
 {
     UfoFilterMetaBallsPrivate *priv = self->priv = UFO_FILTER_META_BALLS_GET_PRIVATE(self);
+    UfoOutputParameter output_params[] = {{2}};
+
     priv->width = 512;
     priv->height = 512;
     priv->num_balls = 1;
@@ -309,7 +311,7 @@ ufo_filter_meta_balls_init(UfoFilterMetaBalls *self)
     priv->run_infinitely = FALSE;
     priv->frames_per_second = 0;
 
-    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

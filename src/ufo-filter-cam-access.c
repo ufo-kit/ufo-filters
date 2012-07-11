@@ -215,12 +215,14 @@ ufo_filter_cam_access_class_init(UfoFilterCamAccessClass *klass)
 static void
 ufo_filter_cam_access_init(UfoFilterCamAccess *self)
 {
+    UfoOutputParameter output_params[] = {{2}};
+
     self->priv = UFO_FILTER_CAM_ACCESS_GET_PRIVATE(self);
     self->priv->name = NULL;
     self->priv->camera = NULL;
     self->priv->count = 0;
 
-    ufo_filter_register_outputs (UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

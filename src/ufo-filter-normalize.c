@@ -85,8 +85,11 @@ ufo_filter_normalize_class_init(UfoFilterNormalizeClass *klass)
 static void 
 ufo_filter_normalize_init(UfoFilterNormalize *self)
 {
-    ufo_filter_register_inputs(UFO_FILTER(self), 2, NULL);
-    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
+    UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};
+    UfoOutputParameter output_params[] = {{2}};
+
+    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
+    ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

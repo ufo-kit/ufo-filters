@@ -226,12 +226,14 @@ static void
 ufo_filter_histogram_threshold_init(UfoFilterHistogramThreshold *self)
 {
     UfoFilterHistogramThresholdPrivate *priv = self->priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(self);
+    UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};
+    UfoOutputParameter output_params[] = {{2}};
 
     priv->lower_limit = 0.0f;
     priv->upper_limit = 1.0f;
 
-    ufo_filter_register_inputs(UFO_FILTER(self), 2, NULL);
-    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
+    ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

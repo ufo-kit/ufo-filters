@@ -145,9 +145,11 @@ static void
 ufo_filter_pipe_output_init(UfoFilterPipeOutput *self)
 {
     UfoFilterPipeOutputPrivate *priv = self->priv = UFO_FILTER_PIPE_OUTPUT_GET_PRIVATE(self);
+    UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};
+
     priv->pipe_name = NULL;
 
-    ufo_filter_register_inputs(UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

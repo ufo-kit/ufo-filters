@@ -140,9 +140,11 @@ static void
 ufo_filter_cv_show_init(UfoFilterCvShow *self)
 {
     UfoFilterCvShowPrivate *priv = self->priv = UFO_FILTER_CV_SHOW_GET_PRIVATE(self);
+    UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};
+
     priv->show_histogram = FALSE;
 
-    ufo_filter_register_inputs (UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

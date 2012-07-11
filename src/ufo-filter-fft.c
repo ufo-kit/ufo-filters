@@ -302,14 +302,17 @@ static void
 ufo_filter_fft_init(UfoFilterFFT *self)
 {
     UfoFilterFFTPrivate *priv = self->priv = UFO_FILTER_FFT_GET_PRIVATE(self);
+    UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};
+    UfoOutputParameter output_params[] = {{2}};
+
     priv->fft_dimensions = FFT_1D;
     priv->fft_size.x = 1;
     priv->fft_size.y = 1;
     priv->fft_size.z = 1;
     priv->kernel = NULL;
 
-    ufo_filter_register_inputs (UFO_FILTER (self), 2, NULL);
-    ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
+    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
+    ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

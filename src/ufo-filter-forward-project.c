@@ -182,11 +182,14 @@ ufo_filter_forward_project_class_init(UfoFilterForwardProjectClass *klass)
 static void
 ufo_filter_forward_project_init(UfoFilterForwardProject *self)
 {
+    UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};
+    UfoOutputParameter output_params[] = {{2}};
+
     self->priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(self);
     self->priv->num_projections = 256;
 
-    ufo_filter_register_inputs (UFO_FILTER(self), 2, NULL);
-    ufo_filter_register_outputs (UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
+    ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

@@ -207,13 +207,16 @@ static void
 ufo_filter_cl_init(UfoFilterCl *self)
 {
     UfoFilterClPrivate *priv = self->priv = UFO_FILTER_CL_GET_PRIVATE(self);
+    UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};
+    UfoOutputParameter output_params[] = {{2}};
+
     priv->file_name = NULL;
     priv->kernel_name = NULL;
     priv->kernel = NULL;
     priv->static_argument = 0;
 
-    ufo_filter_register_inputs(UFO_FILTER(self), 2, NULL);
-    ufo_filter_register_outputs(UFO_FILTER(self), 2, NULL);
+    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
+    ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

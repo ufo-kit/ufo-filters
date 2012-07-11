@@ -63,7 +63,9 @@ ufo_filter_null_class_init(UfoFilterNullClass *klass)
 static void 
 ufo_filter_null_init(UfoFilterNull *self)
 {
-    ufo_filter_register_inputs(UFO_FILTER(self), 2, NULL);
+    UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};
+
+    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
 }
 
 G_MODULE_EXPORT UfoFilter *

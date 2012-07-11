@@ -308,6 +308,9 @@ ufo_filter_ifft_class_init(UfoFilterIFFTClass *klass)
 static void ufo_filter_ifft_init(UfoFilterIFFT *self)
 {
     UfoFilterIFFTPrivate *priv = self->priv = UFO_FILTER_IFFT_GET_PRIVATE(self);
+    UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};
+    UfoOutputParameter output_params[] = {{2}};
+
     priv->ifft_dimensions = 1;
     priv->ifft_size.x = 1;
     priv->ifft_size.y = 1;
@@ -315,8 +318,8 @@ static void ufo_filter_ifft_init(UfoFilterIFFT *self)
     priv->final_width = 0;
     priv->final_height = 0;
 
-    ufo_filter_register_inputs (UFO_FILTER (self), 2, NULL);
-    ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
+    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
+    ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

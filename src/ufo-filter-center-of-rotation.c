@@ -164,9 +164,11 @@ static void
 ufo_filter_center_of_rotation_init(UfoFilterCenterOfRotation *self)
 {
     UfoFilterCenterOfRotationPrivate *priv = self->priv = UFO_FILTER_CENTER_OF_ROTATION_GET_PRIVATE (self);
+    UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};
+
     priv->angle_step = 1.0f;
 
-    ufo_filter_register_inputs (UFO_FILTER (self), 2, NULL);
+    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
 }
 
 G_MODULE_EXPORT UfoFilter *
