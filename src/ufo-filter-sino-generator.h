@@ -3,7 +3,7 @@
 
 #include <glib.h>
 
-#include <ufo/ufo-filter.h>
+#include <ufo/ufo-filter-reduce.h>
 
 #define UFO_TYPE_FILTER_SINO_GENERATOR             (ufo_filter_sino_generator_get_type())
 #define UFO_FILTER_SINO_GENERATOR(obj)             (G_TYPE_CHECK_INSTANCE_CAST((obj), UFO_TYPE_FILTER_SINO_GENERATOR, UfoFilterSinoGenerator))
@@ -18,7 +18,7 @@ typedef struct _UfoFilterSinoGeneratorPrivate    UfoFilterSinoGeneratorPrivate;
 
 struct _UfoFilterSinoGenerator {
     /*< private >*/
-    UfoFilter parent_instance;
+    UfoFilterReduce parent_instance;
 
     UfoFilterSinoGeneratorPrivate *priv;
 };
@@ -30,7 +30,7 @@ struct _UfoFilterSinoGenerator {
  */
 struct _UfoFilterSinoGeneratorClass {
     /*< private >*/
-    UfoFilterClass parent_class;
+    UfoFilterReduceClass parent_class;
 };
 
 GType ufo_filter_sino_generator_get_type(void);

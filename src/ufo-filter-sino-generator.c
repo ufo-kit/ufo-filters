@@ -8,7 +8,7 @@
 #endif
 
 #include <ufo/ufo-resource-manager.h>
-#include <ufo/ufo-filter.h>
+#include <ufo/ufo-filter-reduce.h>
 #include <ufo/ufo-buffer.h>
 
 #include "ufo-filter-sino-generator.h"
@@ -24,10 +24,14 @@
  */
 
 struct _UfoFilterSinoGeneratorPrivate {
-    guint num_projections;
+    guint   num_projections;
+    guint   num_sinos;
+    guint   sino_width;
+    gfloat *sinograms;
+    gsize   projection;
 };
 
-G_DEFINE_TYPE(UfoFilterSinoGenerator, ufo_filter_sino_generator, UFO_TYPE_FILTER)
+G_DEFINE_TYPE(UfoFilterSinoGenerator, ufo_filter_sino_generator, UFO_TYPE_FILTER_REDUCE)
 
 #define UFO_FILTER_SINO_GENERATOR_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_SINO_GENERATOR, UfoFilterSinoGeneratorPrivate))
 
@@ -39,69 +43,59 @@ enum {
 
 static GParamSpec *sino_generator_properties[N_PROPERTIES] = { NULL, };
 
-static GError *ufo_filter_sino_generator_process(UfoFilter *filter)
+static void
+ufo_filter_sino_generator_initialize (UfoFilterReduce *filter, UfoBuffer *input[], guint **output_dims, gfloat *default_value, GError **error)
 {
     UfoFilterSinoGeneratorPrivate *priv = UFO_FILTER_SINO_GENERATOR_GET_PRIVATE(filter);
-    UfoChannel *input_channel = ufo_filter_get_input_channel(filter);
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
+    guint width, height;
 
-    /* We pop the very first image, to determine the size w*h of a projection. */
-    UfoBuffer *input = ufo_channel_get_input_buffer(input_channel);
-    
-    if (input == NULL)
-        return NULL;
+    ufo_buffer_get_2d_dimensions(input[0], &width, &height);
 
-    guint num_dims = 0;
-    guint *dimensions = NULL;
-    ufo_buffer_get_dimensions(input, &num_dims, &dimensions);
+    priv->sino_width = width;
+    priv->num_sinos  = height;
+    priv->projection = 1;
+    priv->sinograms  = g_malloc0 (sizeof(float) * priv->num_sinos * priv->sino_width * priv->num_projections);
 
-    const guint num_sinos = dimensions[1]; /* == proj_height */
-    const guint sino_width = dimensions[0]; /* == proj_width */
-    const guint sino_height = priv->num_projections;
+    output_dims[0][0] = priv->sino_width;
+    output_dims[0][1] = priv->num_projections;
+}
 
-    dimensions[0] = sino_width;
-    dimensions[1] = sino_height;
-    ufo_channel_allocate_output_buffers(output_channel, 2, dimensions);
+static void
+ufo_filter_sino_generator_collect (UfoFilterReduce *filter, UfoBuffer *input[], UfoBuffer *output[], gpointer cmd_queue, GError **error)
+{
+    UfoFilterSinoGeneratorPrivate *priv = UFO_FILTER_SINO_GENERATOR_GET_PRIVATE(filter);
 
-    /* XXX: this is critical! */
-    float *sinograms = g_malloc0(sizeof(float) * num_sinos * sino_width * sino_height);
-    const gsize row_mem_offset = sino_width;
-    const gsize sino_mem_offset = row_mem_offset * sino_height;
-    gsize projection = 1;
+    const gsize row_mem_offset = priv->sino_width;
+    const gsize sino_mem_offset = row_mem_offset * priv->num_projections;
+    gsize proj_index = 0;
+    gsize sino_index = (priv->projection - 1) * row_mem_offset;
+    gfloat *src = ufo_buffer_get_host_array(input[0], (cl_command_queue) cmd_queue);
 
-    /* First step: collect all projections and build sinograms */
-    while ((projection < priv->num_projections) || (input != NULL)) {
-        float *src = ufo_buffer_get_host_array(input, command_queue);
-        gsize proj_index = 0;
-        gsize sino_index = (projection - 1) * row_mem_offset;
-
-        for (guint i = 0; i < num_sinos; i++) {
-            memcpy(sinograms + sino_index, src + proj_index, sizeof(float) * row_mem_offset);
-            proj_index += row_mem_offset;
-            sino_index += sino_mem_offset;
-        }
-
-        ufo_channel_finalize_input_buffer(input_channel, input);
-        input = ufo_channel_get_input_buffer(input_channel);
-        projection++;
-    }
-    
-    /* Second step: push them one by one */
-    gsize sino_index = 0;
-    for (guint i = 0; i < num_sinos; i++) {
-        UfoBuffer *output = ufo_channel_get_output_buffer(output_channel);
-        ufo_buffer_set_host_array(output, sinograms + sino_index, sizeof(float) * sino_mem_offset, NULL);
-        ufo_channel_finalize_output_buffer(output_channel, output);
+    for (guint i = 0; i < priv->num_sinos; i++) {
+        memcpy(priv->sinograms + sino_index, src + proj_index, sizeof(float) * row_mem_offset);
+        proj_index += row_mem_offset;
         sino_index += sino_mem_offset;
     }
 
-    /* Third step: complete */
-    ufo_channel_finish(output_channel);
-    g_free(sinograms);
-    g_free(dimensions);
+    priv->projection++;
+}
+    
+static void
+ufo_filter_sino_generator_reduce (UfoFilterReduce *filter, UfoBuffer *output[], gpointer cmd_queue, GError **error)
+{
+    UfoFilterSinoGeneratorPrivate *priv = UFO_FILTER_SINO_GENERATOR_GET_PRIVATE(filter);
+    /* Second step: push them one by one */
+    /* gsize sino_index = 0; */
 
-    return NULL;
+    /* for (guint i = 0; i < num_sinos; i++) { */
+    /*     UfoBuffer *output = ufo_channel_get_output_buffer(output_channel); */
+    /*     ufo_buffer_set_host_array(output, sinograms + sino_index, sizeof(float) * sino_mem_offset, NULL); */
+    /*     ufo_channel_finalize_output_buffer(output_channel, output); */
+    /*     sino_index += sino_mem_offset; */
+    /* } */
+
+    /* Third step: complete */
+    g_free(priv->sinograms);
 }
 
 static void ufo_filter_sino_generator_set_property(GObject *object,
@@ -143,11 +137,13 @@ static void ufo_filter_sino_generator_get_property(GObject *object,
 static void ufo_filter_sino_generator_class_init(UfoFilterSinoGeneratorClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
-    UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
+    UfoFilterReduceClass *filter_class = UFO_FILTER_REDUCE_CLASS(klass);
 
     gobject_class->set_property = ufo_filter_sino_generator_set_property;
     gobject_class->get_property = ufo_filter_sino_generator_get_property;
-    filter_class->process = ufo_filter_sino_generator_process;
+    filter_class->initialize = ufo_filter_sino_generator_initialize;
+    filter_class->collect = ufo_filter_sino_generator_collect;
+    filter_class->reduce = ufo_filter_sino_generator_reduce;
 
     sino_generator_properties[PROP_NUM_PROJECTIONS] = 
         g_param_spec_uint("num-projections",
@@ -163,11 +159,14 @@ static void ufo_filter_sino_generator_class_init(UfoFilterSinoGeneratorClass *kl
 
 static void ufo_filter_sino_generator_init(UfoFilterSinoGenerator *self)
 {
+    UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};
+    UfoOutputParameter output_params[] = {{2}};
+
     UfoFilterSinoGeneratorPrivate *priv = self->priv = UFO_FILTER_SINO_GENERATOR_GET_PRIVATE(self);
     priv->num_projections = 1;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
+    ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
