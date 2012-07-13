@@ -22,8 +22,10 @@
  */
 
 struct _UfoFilterInterpolatorPrivate {
-    cl_kernel kernel;
-    int num_steps;
+    cl_kernel   kernel;
+    guint       num_steps;
+    guint       current_step;
+    size_t      global_work_size[2];
 };
 
 G_DEFINE_TYPE(UfoFilterInterpolator, ufo_filter_interpolator, UFO_TYPE_FILTER)
@@ -38,59 +40,53 @@ enum {
 
 static GParamSpec *interpolator_properties[N_PROPERTIES] = { NULL, };
 
-static GError *ufo_filter_interpolator_initialize(UfoFilter *filter, UfoBuffer *params[])
+static void
+ufo_filter_interpolator_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterInterpolatorPrivate *priv = UFO_FILTER_INTERPOLATOR_GET_PRIVATE(filter);
     UfoResourceManager *manager = ufo_resource_manager();
-    GError *error = NULL;
-    priv->kernel = ufo_resource_manager_get_kernel(manager, "interpolator.cl", "interpolate", &error);
-    return error;
+    guint width_a, width_b;
+    guint height_a, height_b;
+    priv->kernel = ufo_resource_manager_get_kernel(manager, "interpolator.cl", "interpolate", error);
+
+    ufo_buffer_get_2d_dimensions(params[0], &width_a, &height_a);
+    ufo_buffer_get_2d_dimensions(params[1], &width_b, &height_b);
+
+    /* TODO: make proper error */
+    g_assert (width_a == width_b);
+    g_assert (height_a == height_b);
+
+    dims[0][0] = width_a;
+    dims[0][1] = height_a;
+
+    priv->global_work_size[0] = (size_t) width_a;
+    priv->global_work_size[1] = (size_t) height_a;
+    priv->current_step = 0;
 }
 
-static GError *ufo_filter_interpolator_process(UfoFilter *filter)
+static UfoEventList *
+ufo_filter_interpolator_process_gpu (UfoFilter *filter, UfoBuffer *input[], UfoBuffer *output[], gpointer cmd_queue, GError **error)
 {
     UfoFilterInterpolatorPrivate *priv = UFO_FILTER_INTERPOLATOR_GET_PRIVATE(filter);
 
-    UfoChannel *input_a = ufo_filter_get_input_channel_by_name(filter, "input0");
-    UfoChannel *input_b = ufo_filter_get_input_channel_by_name(filter, "input1");
-    UfoChannel *output_channel = ufo_filter_get_output_channel(filter);
-    cl_command_queue command_queue = (cl_command_queue) ufo_filter_get_command_queue(filter);
-
-    /* We only pop one from each input */
-    UfoBuffer *a = ufo_channel_get_input_buffer(input_a);
-    UfoBuffer *b = ufo_channel_get_input_buffer(input_b);
-    cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(a, command_queue);
-    cl_mem b_mem = (cl_mem) ufo_buffer_get_device_array(b, command_queue);
+    cl_command_queue command_queue = (cl_command_queue) cmd_queue;
+    cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(input[0], command_queue);
+    cl_mem b_mem = (cl_mem) ufo_buffer_get_device_array(input[1], command_queue);
+    cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(output[0], command_queue);
     cl_kernel kernel = priv->kernel;
-    cl_event event;
 
-    guint num_dims = 0;
-    guint *dim_size = NULL;
-    ufo_buffer_get_dimensions(a, &num_dims, &dim_size);
-    ufo_channel_allocate_output_buffers(output_channel, num_dims, dim_size);
-    size_t global_work_size[2] = { (size_t) dim_size[0], (size_t) dim_size[1] };
+    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &a_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &b_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &result_mem));
+    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 3, sizeof(cl_int), &priv->current_step));
+    CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 4, sizeof(cl_int), &priv->num_steps))
 
-    for (int i = 0; i < priv->num_steps; i++) {
-        UfoBuffer *result = ufo_channel_get_output_buffer(output_channel);
-        cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(result, command_queue);
+    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue,
+        priv->kernel,
+        2, NULL, priv->global_work_size, NULL,
+        0, NULL, NULL));
 
-        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &a_mem));
-        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &b_mem));
-        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &result_mem));
-        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 3, sizeof(cl_int), &i));
-        CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 4, sizeof(cl_int), &priv->num_steps))
-
-        CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue,
-            priv->kernel,
-            2, NULL, global_work_size, NULL,
-            0, NULL, &event));
-
-        ufo_buffer_attach_event(result, event);
-        ufo_channel_finalize_output_buffer(output_channel, result);
-    }
-
-    ufo_channel_finish(output_channel);
-    g_free(dim_size);
+    priv->current_step++;
     return NULL;
 }
 
@@ -103,7 +99,7 @@ static void ufo_filter_interpolator_set_property(GObject *object,
 
     switch (property_id) {
         case PROP_STEPS:
-            priv->num_steps = g_value_get_int(value);
+            priv->num_steps = g_value_get_uint(value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -120,7 +116,7 @@ static void ufo_filter_interpolator_get_property(GObject *object,
 
     switch (property_id) {
         case PROP_STEPS:
-            g_value_set_int(value, priv->num_steps);
+            g_value_set_uint(value, priv->num_steps);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -136,11 +132,11 @@ static void ufo_filter_interpolator_class_init(UfoFilterInterpolatorClass *klass
     gobject_class->set_property = ufo_filter_interpolator_set_property;
     gobject_class->get_property = ufo_filter_interpolator_get_property;
     filter_class->initialize = ufo_filter_interpolator_initialize;
-    filter_class->process = ufo_filter_interpolator_process;
+    filter_class->process_gpu = ufo_filter_interpolator_process_gpu;
 
     /* install properties */
-    interpolator_properties[PROP_STEPS] = 
-        g_param_spec_int("num-steps",
+    interpolator_properties[PROP_STEPS] =
+        g_param_spec_uint("num-steps",
             "Number of steps to interpolate between",
             "Number of steps to interpolate between",
             1, 8192, 2,
@@ -155,12 +151,16 @@ static void ufo_filter_interpolator_class_init(UfoFilterInterpolatorClass *klass
 static void ufo_filter_interpolator_init(UfoFilterInterpolator *self)
 {
     UfoFilterInterpolatorPrivate *priv = self->priv = UFO_FILTER_INTERPOLATOR_GET_PRIVATE(self);
+    UfoInputParameter input_params[] = {
+        {2, 1},
+        {2, 1}};
+    UfoOutputParameter output_params[] = {{2}};
+
     priv->kernel = NULL;
     priv->num_steps = 2;
 
-    ufo_filter_register_input(UFO_FILTER(self), "input0", 2);
-    ufo_filter_register_input(UFO_FILTER(self), "input1", 2);
-    ufo_filter_register_output(UFO_FILTER(self), "output0", 2);
+    ufo_filter_register_inputs (UFO_FILTER(self), 2, input_params);
+    ufo_filter_register_outputs (UFO_FILTER(self), 1, output_params);
 }
 
 G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)

@@ -48,32 +48,36 @@ enum {
 
 static GParamSpec *complex_properties[N_PROPERTIES] = { NULL, };
 
-static GError *ufo_filter_complex_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims)
+static void
+ufo_filter_complex_initialize(UfoFilter *filter, UfoBuffer *input[], guint **dims, GError **error)
 {
     UfoFilterComplexPrivate *priv = UFO_FILTER_COMPLEX_GET_PRIVATE (filter);
     UfoResourceManager *manager = ufo_resource_manager();
-    GError *error = NULL;
+    GError *tmp_error = NULL;
     guint width, height;
 
     /* TODO: handle each error independently, maybe write a macro that returns
      * or use g_return_val_if_fail() */
-    priv->kernels[OP_ADD] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_add", &error);
-    priv->kernels[OP_MUL] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_mul", &error);
-    priv->kernels[OP_DIV] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_div", &error);
-    priv->kernels[OP_CONJ] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_conj", &error);
+    priv->kernels[OP_ADD] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_add", &tmp_error);
+    priv->kernels[OP_MUL] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_mul", &tmp_error);
+    priv->kernels[OP_DIV] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_div", &tmp_error);
+    priv->kernels[OP_CONJ] = ufo_resource_manager_get_kernel(manager, "complex.cl", "c_conj", &tmp_error);
+
+    if (tmp_error != NULL) {
+        g_propagate_error (error, tmp_error);
+        return;
+    }
 
     /* TODO: Check that second buffer has the same size */
-    ufo_buffer_get_2d_dimensions (params[0], &width, &height);
+    ufo_buffer_get_2d_dimensions (input[0], &width, &height);
     priv->global_work_size[0] = width / 2;
     priv->global_work_size[1] = height;
     dims[0][0] = width;
     dims[0][1] = height;
-
-    return error;
 }
 
-static void ufo_filter_complex_binary(UfoFilter *filter,
-        UfoBuffer *inputs[], UfoBuffer *outputs[], cl_command_queue cmd_queue)
+static void
+ufo_filter_complex_binary(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], cl_command_queue cmd_queue)
 {
     UfoFilterComplexPrivate *priv = UFO_FILTER_COMPLEX_GET_PRIVATE (filter);
     cl_kernel kernel = priv->kernels[priv->operation];
@@ -93,8 +97,8 @@ static void ufo_filter_complex_binary(UfoFilter *filter,
             0, NULL, NULL);
 }
 
-static void ufo_filter_complex_unary(UfoFilter* filter, 
-        UfoBuffer *inputs[], UfoBuffer *outputs[], cl_command_queue cmd_queue)
+static void
+ufo_filter_complex_unary(UfoFilter* filter, UfoBuffer *inputs[], UfoBuffer *outputs[], cl_command_queue cmd_queue)
 {
     UfoFilterComplexPrivate *priv = UFO_FILTER_COMPLEX_GET_PRIVATE (filter);
     cl_kernel kernel = priv->kernels[priv->operation];
@@ -108,8 +112,8 @@ static void ufo_filter_complex_unary(UfoFilter* filter,
             0, NULL, NULL);
 }
 
-static GError *ufo_filter_complex_process_gpu(UfoFilter *filter,
-        UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue)
+static UfoEventList *
+ufo_filter_complex_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
     UfoFilterComplexPrivate *priv = UFO_FILTER_COMPLEX_GET_PRIVATE (filter);
     cl_command_queue queue = (cl_command_queue) cmd_queue;
@@ -122,10 +126,8 @@ static GError *ufo_filter_complex_process_gpu(UfoFilter *filter,
     return NULL;
 }
 
-static void ufo_filter_complex_set_property(GObject *object,
-    guint           property_id,
-    const GValue    *value,
-    GParamSpec      *pspec)
+static void
+ufo_filter_complex_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterComplex *self = UFO_FILTER_COMPLEX(object);
     gchar *op_string = NULL;
@@ -147,10 +149,8 @@ static void ufo_filter_complex_set_property(GObject *object,
     }
 }
 
-static void ufo_filter_complex_get_property(GObject *object,
-    guint       property_id,
-    GValue      *value,
-    GParamSpec  *pspec)
+static void
+ufo_filter_complex_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterComplex *self = UFO_FILTER_COMPLEX(object);
 
@@ -164,7 +164,8 @@ static void ufo_filter_complex_get_property(GObject *object,
     }
 }
 
-static void ufo_filter_complex_class_init(UfoFilterComplexClass *klass)
+static void
+ufo_filter_complex_class_init(UfoFilterComplexClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     UfoFilterClass *filter_class = UFO_FILTER_CLASS(klass);
@@ -187,16 +188,23 @@ static void ufo_filter_complex_class_init(UfoFilterComplexClass *klass)
     g_type_class_add_private(gobject_class, sizeof(UfoFilterComplexPrivate));
 }
 
-static void ufo_filter_complex_init(UfoFilterComplex *self)
+static void
+ufo_filter_complex_init(UfoFilterComplex *self)
 {
     UfoFilterComplexPrivate *priv = self->priv = UFO_FILTER_COMPLEX_GET_PRIVATE(self);
+    UfoInputParameter input_params[] = {
+        {2, UFO_FILTER_INFINITE_INPUT},
+        {2, UFO_FILTER_INFINITE_INPUT}};
+    UfoOutputParameter output_params[] = {{2}};
+
     priv->operation = OP_ADD;
 
-    ufo_filter_register_inputs (UFO_FILTER (self), 2, 2, NULL);
-    ufo_filter_register_outputs (UFO_FILTER (self), 2, NULL);
+    ufo_filter_register_inputs (UFO_FILTER (self), 2, input_params);
+    ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 
-G_MODULE_EXPORT UfoFilter *ufo_filter_plugin_new(void)
+G_MODULE_EXPORT
+UfoFilter *ufo_filter_plugin_new(void)
 {
     return g_object_new(UFO_TYPE_FILTER_COMPLEX, NULL);
 }

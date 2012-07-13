@@ -9,19 +9,18 @@ set(ufofilter_SRCS
     ufo-filter-center-of-rotation.c
     ufo-filter-cl.c
     ufo-filter-complex.c
-    ufo-filter-demux.c
     ufo-filter-filter.c
     ufo-filter-histogram-threshold.c
     ufo-filter-gaussian-blur.c
     ufo-filter-interpolator.c
     ufo-filter-meta-balls.c
-    ufo-filter-mux.c
     ufo-filter-normalize.c
     ufo-filter-null.c
     ufo-filter-pipe-output.c
     ufo-filter-region-of-interest.c
     ufo-filter-sino-generator.c
-    ufo-filter-optical-flow-lucas-kanade.c
+    # temporarily disabled optical flow
+    #    ufo-filter-optical-flow-lucas-kanade.c
     ufo-filter-volume-renderer.c
     )
 
