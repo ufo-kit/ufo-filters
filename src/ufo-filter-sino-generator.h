@@ -2,7 +2,6 @@
 #define __UFO_FILTER_SINO_GENERATOR_H
 
 #include <glib.h>
-
 #include <ufo/ufo-filter-reduce.h>
 
 #define UFO_TYPE_FILTER_SINO_GENERATOR             (ufo_filter_sino_generator_get_type())

@@ -67,7 +67,7 @@ ufo_filter_averager_collect (UfoFilterReduce *filter, UfoBuffer *input[], UfoBuf
     priv->num_input += 1.0f;
 }
 
-static void
+static gboolean
 ufo_filter_averager_reduce (UfoFilterReduce *filter, UfoBuffer *output[], gpointer cmd_queue, GError **error)
 {
     UfoFilterAveragerPrivate *priv = UFO_FILTER_AVERAGER_GET_PRIVATE (filter);
@@ -75,6 +75,8 @@ ufo_filter_averager_reduce (UfoFilterReduce *filter, UfoBuffer *output[], gpoint
 
     for (gsize i = 0; i < priv->num_pixels; i++)
         out[i] /= priv->num_input;
+
+    return FALSE;
 }
 
 static void
