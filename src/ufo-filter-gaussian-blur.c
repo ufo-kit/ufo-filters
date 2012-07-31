@@ -47,7 +47,7 @@ static void
 ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
+    UfoResourceManager *manager = ufo_filter_get_resource_manager(filter);
     GError *tmp_error = NULL;
     cl_context context = (cl_context) ufo_resource_manager_get_context(manager);
     cl_int cl_error = CL_SUCCESS;

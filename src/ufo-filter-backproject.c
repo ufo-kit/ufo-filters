@@ -70,7 +70,7 @@ static void
 ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterBackprojectPrivate *priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
+    UfoResourceManager *manager = ufo_filter_get_resource_manager(filter);
     GError *tmp_error = NULL;
 
     ufo_filter_wait_until(filter, backproject_properties[PROP_AXIS_POSITION], &axis_is_positive, NULL);

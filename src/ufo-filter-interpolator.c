@@ -44,7 +44,7 @@ static void
 ufo_filter_interpolator_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterInterpolatorPrivate *priv = UFO_FILTER_INTERPOLATOR_GET_PRIVATE(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
+    UfoResourceManager *manager = ufo_filter_get_resource_manager(filter);
     guint width_a, width_b;
     guint height_a, height_b;
     priv->kernel = ufo_resource_manager_get_kernel(manager, "interpolator.cl", "interpolate", error);

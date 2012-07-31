@@ -94,7 +94,7 @@ ufo_filter_cl_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims, G
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
     UfoFilterClass *filter_class = UFO_FILTER_GET_CLASS(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
+    UfoResourceManager *manager = ufo_filter_get_resource_manager(filter);
     guint width, height;
 
     ufo_buffer_get_2d_dimensions(inputs[0], &width, &height);

@@ -45,7 +45,7 @@ static void
 ufo_filter_forward_project_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE (filter);
-    UfoResourceManager *manager = ufo_resource_manager ();
+    UfoResourceManager *manager = ufo_filter_get_resource_manager (filter);
     GError *tmp_error = NULL;
     guint width, height;
     cl_context context = (cl_context) ufo_resource_manager_get_context (manager);

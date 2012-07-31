@@ -49,7 +49,7 @@ static void
 ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims, GError **error)
 {
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
+    UfoResourceManager *manager = ufo_filter_get_resource_manager(filter);
     cl_int cl_error = CL_SUCCESS;
     GError *tmp_error = NULL;
 

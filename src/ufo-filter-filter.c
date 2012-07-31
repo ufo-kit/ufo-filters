@@ -87,7 +87,7 @@ static void
 ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterFilterPrivate *priv = UFO_FILTER_FILTER_GET_PRIVATE(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
+    UfoResourceManager *manager = ufo_filter_get_resource_manager(filter);
     GError *tmp_error = NULL;
     guint width, height;
     priv->kernel = ufo_resource_manager_get_kernel(manager, "filter.cl", "filter", &tmp_error);

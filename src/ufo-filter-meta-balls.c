@@ -63,7 +63,7 @@ static void
 ufo_filter_meta_balls_initialize(UfoFilterSource *filter, guint **dims, GError **error)
 {
     UfoFilterMetaBallsPrivate *priv = UFO_FILTER_META_BALLS_GET_PRIVATE(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
+    UfoResourceManager *manager = ufo_filter_get_resource_manager (UFO_FILTER (filter));
     GError *tmp_error = NULL;
     priv->kernel = ufo_resource_manager_get_kernel(manager, "metaballs.cl", "draw_metaballs", &tmp_error);
 
@@ -116,7 +116,7 @@ ufo_filter_meta_balls_initialize(UfoFilterSource *filter, guint **dims, GError *
 }
 
 static gboolean
-ufo_filter_meta_balls_generate(UfoFilterSource *filter, UfoBuffer *results[], gpointer cmd_queue, GError **error)
+ufo_filter_meta_balls_generate (UfoFilterSource *filter, UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterMetaBallsPrivate *priv = UFO_FILTER_META_BALLS_GET_PRIVATE(filter);
 

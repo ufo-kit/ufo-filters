@@ -52,7 +52,7 @@ static void
 ufo_filter_complex_initialize(UfoFilter *filter, UfoBuffer *input[], guint **dims, GError **error)
 {
     UfoFilterComplexPrivate *priv = UFO_FILTER_COMPLEX_GET_PRIVATE (filter);
-    UfoResourceManager *manager = ufo_resource_manager();
+    UfoResourceManager *manager = ufo_filter_get_resource_manager(filter);
     GError *tmp_error = NULL;
     guint width, height;
 
