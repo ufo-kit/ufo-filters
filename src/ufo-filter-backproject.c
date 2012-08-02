@@ -97,7 +97,8 @@ ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[], guint 
     float *sin_tmp = g_malloc0(sizeof(float) * priv->num_projections);
     float *axes_tmp = g_malloc0(sizeof(float) * priv->num_projections);
 
-    float step = priv->angle_step;
+    float step = priv->angle_step < 0.0 ? : G_PI / priv->num_projections : priv->angle_step;
+
     for (guint i = 0; i < priv->num_projections; i++) {
         cos_tmp[i] = (gfloat) cos((gfloat) i*step);
         sin_tmp[i] = (gfloat) sin((gfloat) i*step);
@@ -298,6 +299,7 @@ ufo_filter_backproject_init(UfoFilterBackproject *self)
     self->priv->num_projections = 0;
     self->priv->use_texture = TRUE;
     self->priv->axis_position = -1.0;
+    self->priv->angle_step = -1.0;
 
     ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
     ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
