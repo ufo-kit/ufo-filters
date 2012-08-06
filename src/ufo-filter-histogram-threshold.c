@@ -13,7 +13,7 @@
 
 /**
  * SECTION:ufo-filter-histogram-threshold
- * @Short_description:
+ * @Short_description: Compute threshold image from histogram
  * @Title: histogramthreshold
  *
  * Detailed description.

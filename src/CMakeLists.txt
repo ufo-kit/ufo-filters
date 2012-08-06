@@ -210,6 +210,7 @@ if(GTK_DOC_FOUND)
 
         string(REPLACE ";" "\n" _xml_doc_input ${_xml_doc_input})
         configure_file("${CMAKE_CURRENT_SOURCE_DIR}/UfoFilters-docs.xml.in" "${doc_out}/UfoFilters-docs.xml")
+        configure_file("${CMAKE_CURRENT_SOURCE_DIR}/UfoFilters-sections.txt.in" "${doc_out}/UfoFilters-sections.txt")
         configure_file("${CMAKE_CURRENT_SOURCE_DIR}/scangobj.sh.in" "${doc_out}/scangobj.sh")
         configure_file("${CMAKE_CURRENT_SOURCE_DIR}/UfoFilters.types.in" "${doc_out}/UfoFilters.types")
 

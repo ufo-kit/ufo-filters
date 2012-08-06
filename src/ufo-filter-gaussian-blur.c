@@ -13,7 +13,7 @@
 
 /**
  * SECTION:ufo-filter-gaussian-blur
- * @Short_description:
+ * @Short_description: Blur image with a Gaussian filter
  * @Title: gaussianblur
  *
  * Detailed description.

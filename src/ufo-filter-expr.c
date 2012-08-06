@@ -13,7 +13,7 @@
 
 /**
  * SECTION:ufo-filter-expr
- * @Short_description:
+ * @Short_description: Generic mathematical expression filter
  * @Title: expr
  *
  * Detailed description.
