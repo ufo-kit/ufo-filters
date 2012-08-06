@@ -77,7 +77,7 @@ static void
 ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
+    UfoResourceManager *manager = ufo_filter_get_resource_manager(filter);
 
 #ifdef HAVE_OCLFFT
     cl_int err = CL_SUCCESS;
@@ -172,7 +172,7 @@ ufo_filter_fft_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *re
 
     fftwf_plan plan = fftwf_plan_many_dft_r2c(1, (gint *) &priv->width, (gint) priv->height,
             in, NULL, 1, (gint) idist,
-            out, NULL, 1, (gint) odist,
+            (gfloat (*)[2]) out, NULL, 1, (gint) odist,
             0);
     fftwf_execute(plan);
     fftwf_destroy_plan(plan);

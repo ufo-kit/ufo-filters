@@ -70,7 +70,7 @@ static void
 ufo_filter_ifft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterIFFTPrivate *priv = UFO_FILTER_IFFT_GET_PRIVATE (filter);
-    UfoResourceManager *manager = ufo_resource_manager ();
+    UfoResourceManager *manager = ufo_filter_get_resource_manager (filter);
 
 #ifdef HAVE_OCLFFT
     GError *tmp_error = NULL;

@@ -50,7 +50,7 @@ static void
 ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, GError **error)
 {
     UfoFilterVolumeRendererPrivate *priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(filter);
-    UfoResourceManager *manager = ufo_resource_manager();
+    UfoResourceManager *manager = ufo_filter_get_resource_manager(filter);
     GError *tmp_error = NULL;
     cl_int clerror = CL_SUCCESS;
     cl_context context = (cl_context) ufo_resource_manager_get_context(manager);

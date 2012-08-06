@@ -41,7 +41,9 @@ static void
 ufo_filter_expr_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims, GError **error)
 {
     UfoFilterExprPrivate *priv = UFO_FILTER_EXPR_GET_PRIVATE(filter);
+    UfoResourceManager *manager;
     guint width_x, height_x, width_y, height_y;
+
     ufo_buffer_get_2d_dimensions(inputs[0], &width_x, &height_x);
     ufo_buffer_get_2d_dimensions(inputs[1], &width_y, &height_y);
 
@@ -56,8 +58,8 @@ ufo_filter_expr_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims,
     dims[0][1] = height_x;
 
     gchar *ocl_kernel_source = parse_expression(priv->expr);
-    g_print("%s\n", ocl_kernel_source);
-    priv->kernel = ufo_resource_manager_get_kernel_from_source(ufo_resource_manager(),
+    manager = ufo_filter_get_resource_manager (filter);
+    priv->kernel = ufo_resource_manager_get_kernel_from_source(manager,
             ocl_kernel_source, "binary_foo_kernel_2b03c582", error);
     g_free(ocl_kernel_source);
 }
