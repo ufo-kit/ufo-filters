@@ -117,21 +117,19 @@ static UfoEventList *
 ufo_filter_filter_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterFilterPrivate *priv = UFO_FILTER_FILTER_GET_PRIVATE(filter);
+    UfoProfiler *profiler;
+
     cl_mem freq_out_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
     cl_mem freq_in_mem = (cl_mem) ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
-    UfoEventList *event_list = ufo_event_list_new (1);
-    cl_event *event = ufo_event_list_get_event_array (event_list);
 
     clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &freq_in_mem);
     clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &freq_out_mem);
     clSetKernelArg(priv->kernel, 2, sizeof(cl_mem), (void *) &priv->filter_mem);
 
-    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue,
-                priv->kernel, 
-                2, NULL, priv->global_work_size, NULL, 
-                0, NULL, &event[0]));
+    profiler = ufo_filter_get_profiler (filter);
+    ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, priv->global_work_size, NULL);
 
-    return event_list;
+    return NULL;
 }
 
 static void 

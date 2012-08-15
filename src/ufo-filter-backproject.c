@@ -143,6 +143,7 @@ static UfoEventList *
 ufo_filter_backproject_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterBackprojectPrivate *priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(filter);
+    UfoProfiler *profiler;
 
     cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
     cl_mem slice_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
@@ -162,11 +163,10 @@ ufo_filter_backproject_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBu
 
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 8, sizeof(cl_mem), (void *) &slice_mem));
 
-    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->kernel,
-            2, NULL, priv->global_work_size, NULL,
-            0, NULL, &events[2]));
+    profiler = ufo_filter_get_profiler (filter);
+    ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, priv->global_work_size, NULL);
 
-    return event_list;
+    return NULL;
 }
 
 static void
