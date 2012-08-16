@@ -64,7 +64,7 @@ ufo_filter_interpolator_initialize(UfoFilter *filter, UfoBuffer *params[], guint
     priv->current_step = 0;
 }
 
-static UfoEventList *
+static void
 ufo_filter_interpolator_process_gpu (UfoFilter *filter, UfoBuffer *input[], UfoBuffer *output[], gpointer cmd_queue, GError **error)
 {
     UfoFilterInterpolatorPrivate *priv = UFO_FILTER_INTERPOLATOR_GET_PRIVATE(filter);
@@ -81,13 +81,10 @@ ufo_filter_interpolator_process_gpu (UfoFilter *filter, UfoBuffer *input[], UfoB
     CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 3, sizeof(cl_int), &priv->current_step));
     CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 4, sizeof(cl_int), &priv->num_steps))
 
-    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel(command_queue,
-        priv->kernel,
-        2, NULL, priv->global_work_size, NULL,
-        0, NULL, NULL));
+    ufo_profiler_call (ufo_filter_get_profiler (filter),
+                       cmd_queue, priv->kernel,
+                       2, priv->global_work_size, NULL);
 
-    priv->current_step++;
-    return NULL;
 }
 
 static void ufo_filter_interpolator_set_property(GObject *object,

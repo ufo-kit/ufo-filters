@@ -118,30 +118,31 @@ ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffer *params[], gu
     clerror |= clSetKernelArg(priv->kernel, 8, sizeof(gfloat), &threshold);
 }
 
-static UfoEventList *
+static void
 ufo_filter_volume_renderer_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
-    UfoFilterVolumeRendererPrivate *priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(filter);
-    UfoEventList *event_list = ufo_event_list_new (2);
-    cl_event *events = ufo_event_list_get_event_array (event_list);
+    UfoFilterVolumeRendererPrivate *priv;
+    cl_mem output_mem;
+    cl_int clerror;
+
+    priv = UFO_FILTER_VOLUME_RENDERER_GET_PRIVATE(filter);
 
     if (priv->angle >= G_PI)
-        return event_list;
+        return;
 
-    cl_int clerror = CL_SUCCESS;
-    cl_mem output_mem = ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
+    output_mem = ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
     clerror = clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), &output_mem);
     CHECK_OPENCL_ERROR(clerror);
 
     /* TODO: manage copy event so that we don't have to block here */
     CHECK_OPENCL_ERROR(clEnqueueWriteBuffer((cl_command_queue) cmd_queue,
-                priv->view_mem, CL_TRUE,
-                0, 4 * 4 * sizeof(float), priv->view_matrix,
-                0, NULL, &events[0]));
+                       priv->view_mem, CL_TRUE,
+                       0, 4 * 4 * sizeof(float), priv->view_matrix,
+                       0, NULL, NULL));
 
-    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->kernel,
-                2, NULL, priv->global_work_size, NULL,
-                0, NULL, &events[1]));
+    ufo_profiler_call (ufo_filter_get_profiler (filter),
+                       cmd_queue, priv->kernel,
+                       2, priv->global_work_size, NULL);
 
     /* rotate around the x-axis for now */
     const gfloat cos_angle = (gfloat) cos(priv->angle);
@@ -151,8 +152,6 @@ ufo_filter_volume_renderer_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], U
     priv->view_matrix[12] = -sin_angle;
     priv->view_matrix[14] = cos_angle;
     priv->angle += 0.05f;
-
-    return event_list;
 }
 
 static void

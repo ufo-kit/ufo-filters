@@ -81,20 +81,18 @@ ufo_filter_complex_binary(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *out
 {
     UfoFilterComplexPrivate *priv = UFO_FILTER_COMPLEX_GET_PRIVATE (filter);
     cl_kernel kernel = priv->kernels[priv->operation];
-    
+
     cl_mem mem_a = ufo_buffer_get_device_array(inputs[0], cmd_queue);
     cl_mem mem_b = ufo_buffer_get_device_array(inputs[1], cmd_queue);
     cl_mem mem_r = ufo_buffer_get_device_array(outputs[0], cmd_queue);
-        
-        /* Each thread processes the real and the imaginary part */
-        /* global_work_size[0] = dim_size_a[0] / 2; */
-        /* global_work_size[1] = dim_size_a[1]; */
+
     clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &mem_a);
     clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &mem_b);
     clSetKernelArg(kernel, 2, sizeof(cl_mem), (void *) &mem_r);
-    clEnqueueNDRangeKernel(cmd_queue, kernel,
-            2, NULL, priv->global_work_size, NULL,
-            0, NULL, NULL);
+
+    ufo_profiler_call (ufo_filter_get_profiler (filter),
+                       cmd_queue, kernel,
+                       2, priv->global_work_size, NULL);
 }
 
 static void
@@ -104,26 +102,25 @@ ufo_filter_complex_unary(UfoFilter* filter, UfoBuffer *inputs[], UfoBuffer *outp
     cl_kernel kernel = priv->kernels[priv->operation];
     cl_mem input_mem = ufo_buffer_get_device_array(inputs[0], cmd_queue);
     cl_mem output_mem = ufo_buffer_get_device_array(outputs[0], cmd_queue);
-    
+
     clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &input_mem);
     clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &output_mem);
-    clEnqueueNDRangeKernel(cmd_queue, kernel,
-            2, NULL, priv->global_work_size, NULL,
-            0, NULL, NULL);
+
+    ufo_profiler_call (ufo_filter_get_profiler (filter),
+                       cmd_queue, kernel,
+                       2, priv->global_work_size, NULL);
 }
 
-static UfoEventList *
+static void
 ufo_filter_complex_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
     UfoFilterComplexPrivate *priv = UFO_FILTER_COMPLEX_GET_PRIVATE (filter);
     cl_command_queue queue = (cl_command_queue) cmd_queue;
 
-    if (priv->operation == OP_CONJ) 
+    if (priv->operation == OP_CONJ)
         ufo_filter_complex_unary(filter, inputs, outputs, queue);
     else
         ufo_filter_complex_binary(filter, inputs, outputs, queue);
-
-    return NULL;
 }
 
 static void
@@ -176,7 +173,7 @@ ufo_filter_complex_class_init(UfoFilterComplexClass *klass)
     filter_class->process_gpu = ufo_filter_complex_process_gpu;
 
     /* install properties */
-    complex_properties[PROP_OP] = 
+    complex_properties[PROP_OP] =
         g_param_spec_string("operation",
             "Complex operation from [\"add\", \"mul\", \"div\", \"conj\"]",
             "Complex operation from [\"add\", \"mul\", \"div\", \"conj\"]",

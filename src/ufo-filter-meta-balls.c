@@ -126,9 +126,9 @@ ufo_filter_meta_balls_generate (UfoFilterSource *filter, UfoBuffer *results[], g
     cl_mem output_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &output_mem));
 
-    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->kernel,
-            2, NULL, priv->global_work_size, NULL,
-            0, NULL, NULL));
+    ufo_profiler_call (ufo_filter_get_profiler (UFO_FILTER (filter)),
+                       cmd_queue, priv->kernel,
+                       2, priv->global_work_size, NULL);
 
     /* Update positions and velocities */
     for (guint j = 0; j < priv->num_balls; j++) {

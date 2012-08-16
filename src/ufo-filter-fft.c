@@ -120,26 +120,21 @@ ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, 
 }
 
 #ifdef HAVE_OCLFFT
-static UfoEventList *
+static void
 ufo_filter_fft_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
     cl_mem fft_buffer_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
     cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
-    UfoEventList *event_list = ufo_event_list_new (1);
-    cl_event *events = ufo_event_list_get_event_array (event_list);
 
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &fft_buffer_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &sinogram_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 2, sizeof(int), &priv->width));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 3, sizeof(int), &priv->height));
-    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue,
-                priv->kernel,
-                2, NULL, priv->global_work_size, NULL,
-                0, NULL, events));
 
-    /* FIXME: we should wait for previous computations */
-    CHECK_OPENCL_ERROR(clWaitForEvents(1, events));
+    ufo_profiler_call (ufo_filter_get_profiler (filter),
+                       cmd_queue, priv->kernel,
+                       2, priv->global_work_size, NULL);
 
     if (priv->fft_dimensions == FFT_1D)
         clFFT_ExecuteInterleaved((cl_command_queue) cmd_queue,
@@ -154,8 +149,6 @@ ufo_filter_fft_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *re
 
     /* XXX: FFT execution does _not_ return event */
     CHECK_OPENCL_ERROR(clFinish((cl_command_queue) cmd_queue));
-
-    return event_list;
 }
 #endif
 

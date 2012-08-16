@@ -45,12 +45,10 @@ enum {
 static GParamSpec *cl_properties[N_PROPERTIES] = { NULL, };
 
 
-static UfoEventList *
+static void
 process_regular(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
-    UfoEventList *event_list = ufo_event_list_new (1);
-    cl_event *events = ufo_event_list_get_event_array (event_list);
     cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(inputs[0], (cl_command_queue) cmd_queue);
     cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
 
@@ -58,20 +56,15 @@ process_regular(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gp
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &result_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 2, sizeof(float)*16*16, NULL));
 
-    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue,
-                priv->kernel,
-                2, NULL, priv->global_work_size, NULL,
-                0, NULL, &events[0]));
-
-    return event_list;
+    ufo_profiler_call (ufo_filter_get_profiler (filter),
+                       cmd_queue, priv->kernel,
+                       2, priv->global_work_size, NULL);
 }
 
-static UfoEventList *
+static void
 process_combine(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
-    UfoEventList *event_list = ufo_event_list_new (1);
-    cl_event *events = ufo_event_list_get_event_array (event_list);
     cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(inputs[0], (cl_command_queue) cmd_queue);
     cl_mem b_mem = (cl_mem) ufo_buffer_get_device_array(inputs[1], (cl_command_queue) cmd_queue);
     cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
@@ -81,12 +74,9 @@ process_combine(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gp
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 2, sizeof(cl_mem), (void *) &result_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 3, sizeof(float)*16*16, NULL));
 
-    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue,
-        priv->kernel,
-        2, NULL, priv->global_work_size, NULL,
-        0, NULL, &events[0]));
-
-    return event_list;
+    ufo_profiler_call (ufo_filter_get_profiler (filter),
+                       cmd_queue, priv->kernel,
+                       2, priv->global_work_size, NULL);
 }
 
 static void

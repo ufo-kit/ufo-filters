@@ -106,16 +106,20 @@ ufo_filter_ifft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims,
 }
 
 #ifdef HAVE_OCLFFT
-static UfoEventList *
+static void
 ufo_filter_ifft_process_gpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
-    UfoFilterIFFTPrivate *priv = UFO_FILTER_IFFT_GET_PRIVATE (filter);
-    const cl_int batch_size = priv->ifft_dimensions == clFFT_1D ? (cl_int) priv->height : 1;
-    cl_mem mem_fft = (cl_mem) ufo_buffer_get_device_array (params[0], (cl_command_queue) cmd_queue);
-    UfoEventList *event_list = ufo_event_list_new (1);
-    cl_event *events = ufo_event_list_get_event_array (event_list);
+    UfoFilterIFFTPrivate *priv;
+    cl_mem mem_fft;
+    cl_mem mem_result;
+    cl_int batch_size;
+    float scale;
 
-    /* 
+    priv = UFO_FILTER_IFFT_GET_PRIVATE (filter);
+    batch_size = priv->ifft_dimensions == clFFT_1D ? (cl_int) priv->height : 1;
+    mem_fft = (cl_mem) ufo_buffer_get_device_array (params[0], (cl_command_queue) cmd_queue);
+
+    /*
      * 1. Inverse FFT
      *
      * XXX: clFFT_ExecuteInterleaved does not respect given events nor does
@@ -126,34 +130,31 @@ ufo_filter_ifft_process_gpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *
      *  the kernel.
      */
     clFFT_ExecuteInterleaved ((cl_command_queue) cmd_queue,
-            priv->ifft_plan, batch_size, clFFT_Inverse, 
+            priv->ifft_plan, batch_size, clFFT_Inverse,
             mem_fft, mem_fft,
             0, NULL, NULL);
-    
+
     clFinish ((cl_command_queue) cmd_queue);
 
-    /* 
+    /*
      * 2. Pack interleaved complex numbers
      */
     /* TODO: put scale in initialize function */
-    float scale = 1.0f / ((float) priv->width);
+    scale = 1.0f / ((float) priv->width);
 
     if (priv->ifft_dimensions == clFFT_2D)
         scale /= (float) priv->width;
 
-    cl_mem mem_result = (cl_mem) ufo_buffer_get_device_array (results[0], (cl_command_queue) cmd_queue);
+    mem_result = (cl_mem) ufo_buffer_get_device_array (results[0], (cl_command_queue) cmd_queue);
 
     clSetKernelArg (priv->pack_kernel, 0, sizeof(cl_mem), (void *) &mem_fft);
     clSetKernelArg (priv->pack_kernel, 1, sizeof(cl_mem), (void *) &mem_result);
     clSetKernelArg (priv->pack_kernel, 2, sizeof(int), &priv->width);
     clSetKernelArg (priv->pack_kernel, 3, sizeof(float), &scale);
 
-    CHECK_OPENCL_ERROR (clEnqueueNDRangeKernel ((cl_command_queue) cmd_queue,
-            priv->pack_kernel,
-            2, NULL, priv->global_work_size, NULL,
-            0, NULL, &events[0]));
-
-    return event_list;
+    ufo_profiler_call (ufo_filter_get_profiler (filter),
+                       cmd_queue, priv->pack_kernel,
+                       2, priv->global_work_size, NULL);
 }
 #endif
 
@@ -253,42 +254,42 @@ ufo_filter_ifft_class_init(UfoFilterIFFTClass *klass)
     filter_class->process_gpu = ufo_filter_ifft_process_gpu;
 #endif
 
-    ifft_properties[PROP_DIMENSIONS] = 
+    ifft_properties[PROP_DIMENSIONS] =
         g_param_spec_uint("dimensions",
             "Number of FFT dimensions from 1 to 3",
             "Number of FFT dimensions from 1 to 3",
             1, 3, 1,
             G_PARAM_READWRITE);
 
-    ifft_properties[PROP_SIZE_X] = 
+    ifft_properties[PROP_SIZE_X] =
         g_param_spec_int("size-x",
             "Size of the FFT transform in x-direction",
             "Size of the FFT transform in x-direction",
             1, 8192, 1,
             G_PARAM_READWRITE);
 
-    ifft_properties[PROP_SIZE_Y] = 
+    ifft_properties[PROP_SIZE_Y] =
         g_param_spec_int("size-y",
             "Size of the FFT transform in y-direction",
             "Size of the FFT transform in y-direction",
             1, 8192, 1,
             G_PARAM_READWRITE);
 
-    ifft_properties[PROP_SIZE_Z] = 
+    ifft_properties[PROP_SIZE_Z] =
         g_param_spec_int("size-z",
             "Size of the FFT transform in z-direction",
             "Size of the FFT transform in z-direction",
             1, 8192, 1,
             G_PARAM_READWRITE);
 
-    ifft_properties[PROP_FINAL_WIDTH] = 
+    ifft_properties[PROP_FINAL_WIDTH] =
         g_param_spec_uint("final-width",
             "Specify if target width is smaller than FFT size",
             "Specify if target width is smaller than FFT size",
             0, 8192, 0,
             G_PARAM_READWRITE);
 
-    ifft_properties[PROP_FINAL_HEIGHT] = 
+    ifft_properties[PROP_FINAL_HEIGHT] =
         g_param_spec_uint("final-height",
             "Specify if target height is smaller than FFT size",
             "Specify if target height is smaller than FFT size",

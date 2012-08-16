@@ -75,38 +75,39 @@ ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoBuffer *inputs[]
     priv->histogram = g_malloc0(priv->num_bins * sizeof(gfloat));
 }
 
-static UfoEventList *
+static void
 ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
-    UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
+    UfoFilterHistogramThresholdPrivate *priv;
+    cl_mem input_mem;
+    cl_mem output_mem;
+    guint input_size;
 
-    const guint input_size = priv->width * priv->height;
+    priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
+    input_size = priv->width * priv->height;
     size_t thresh_work_size[] = { priv->width, priv->height };
 
-    cl_mem input_mem = ufo_buffer_get_device_array(inputs[0], cmd_queue);
-    UfoEventList *event_list = ufo_event_list_new (2);
-    cl_event *events = ufo_event_list_get_event_array (event_list);
-
     /* Build relative histogram */
+    input_mem = ufo_buffer_get_device_array(inputs[0], cmd_queue);
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->hist_kernel, 0, sizeof(cl_mem), (void *) &input_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->hist_kernel, 1, sizeof(cl_mem), (void *) &priv->histogram_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->hist_kernel, 2, sizeof(guint), &input_size));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->hist_kernel, 3, sizeof(gfloat), &priv->lower_limit));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->hist_kernel, 4, sizeof(gfloat), &priv->upper_limit));
-    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->hist_kernel,
-                1, NULL, &priv->num_bins, NULL,
-                0, NULL, &events[0]));
+
+    ufo_profiler_call (ufo_filter_get_profiler (filter),
+                       cmd_queue, priv->hist_kernel,
+                       1, &priv->num_bins, NULL);
 
     /* Threshold */
-    cl_mem output_mem = ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
+    output_mem = ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->thresh_kernel, 0, sizeof(cl_mem), (void *) &input_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->thresh_kernel, 1, sizeof(cl_mem), (void *) &priv->histogram_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->thresh_kernel, 2, sizeof(cl_mem), (void *) &output_mem));
-    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->thresh_kernel,
-                2, NULL, thresh_work_size, NULL,
-                1, &events[0], &events[1]));
 
-    return event_list;
+    ufo_profiler_call (ufo_filter_get_profiler (filter),
+                       cmd_queue, priv->thresh_kernel,
+                       2, thresh_work_size, NULL);
 }
 
 static void
@@ -142,7 +143,7 @@ ufo_filter_histogram_threshold_process_cpu(UfoFilter *filter, UfoBuffer *inputs[
     }
 }
 
-static void 
+static void
 ufo_filter_histogram_threshold_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(object);
@@ -160,7 +161,7 @@ ufo_filter_histogram_threshold_set_property(GObject *object, guint property_id, 
     }
 }
 
-static void 
+static void
 ufo_filter_histogram_threshold_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(object);
@@ -178,7 +179,7 @@ ufo_filter_histogram_threshold_get_property(GObject *object, guint property_id, 
     }
 }
 
-static void 
+static void
 ufo_filter_histogram_threshold_finalize(GObject *object)
 {
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(object);
@@ -189,7 +190,7 @@ ufo_filter_histogram_threshold_finalize(GObject *object)
     G_OBJECT_CLASS (ufo_filter_histogram_threshold_parent_class)->finalize (object);
 }
 
-static void 
+static void
 ufo_filter_histogram_threshold_class_init(UfoFilterHistogramThresholdClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
@@ -202,14 +203,14 @@ ufo_filter_histogram_threshold_class_init(UfoFilterHistogramThresholdClass *klas
     filter_class->process_gpu = ufo_filter_histogram_threshold_process_gpu;
     filter_class->process_cpu = ufo_filter_histogram_threshold_process_cpu;
 
-    histogram_threshold_properties[PROP_LOWER_LIMIT] = 
+    histogram_threshold_properties[PROP_LOWER_LIMIT] =
         g_param_spec_float("lower-limit",
             "Lower limit",
             "Lower limit",
             -G_MAXFLOAT, G_MAXFLOAT, 0.0,
             G_PARAM_READWRITE);
 
-    histogram_threshold_properties[PROP_UPPER_LIMIT] = 
+    histogram_threshold_properties[PROP_UPPER_LIMIT] =
         g_param_spec_float("upper-limit",
             "Upper limit",
             "Upper limit",
@@ -222,7 +223,7 @@ ufo_filter_histogram_threshold_class_init(UfoFilterHistogramThresholdClass *klas
     g_type_class_add_private(gobject_class, sizeof(UfoFilterHistogramThresholdPrivate));
 }
 
-static void 
+static void
 ufo_filter_histogram_threshold_init(UfoFilterHistogramThreshold *self)
 {
     UfoFilterHistogramThresholdPrivate *priv = self->priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(self);

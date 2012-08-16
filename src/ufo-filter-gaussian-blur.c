@@ -100,30 +100,29 @@ ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer *params[], guin
     g_free(weights);
 }
 
-static UfoEventList *
+static void
 ufo_filter_gaussian_blur_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
-    UfoFilterGaussianBlurPrivate *priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(filter);
-    UfoEventList *event_list = ufo_event_list_new (2);
-    cl_event *events = ufo_event_list_get_event_array (event_list);
-    cl_mem input_mem = ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
-    cl_mem output_mem = ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
+    UfoFilterGaussianBlurPrivate *priv;
+    cl_mem input_mem;
+    cl_mem output_mem;
 
+    priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(filter);
+    input_mem = ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->h_kernel, 0, sizeof(cl_mem), &input_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->h_kernel, 1, sizeof(cl_mem), &priv->intermediate_mem));
 
-    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->h_kernel,
-                2, NULL, priv->global_work_size, NULL,
-                0, NULL, &events[0]));
+    ufo_profiler_call (ufo_filter_get_profiler (filter),
+                       cmd_queue, priv->h_kernel,
+                       2, priv->global_work_size, NULL);
 
+    output_mem = ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->v_kernel, 0, sizeof(cl_mem), &priv->intermediate_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->v_kernel, 1, sizeof(cl_mem), &output_mem));
 
-    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->v_kernel,
-                2, NULL, priv->global_work_size, NULL,
-                0, NULL, &events[1]));
-
-    return event_list;
+    ufo_profiler_call (ufo_filter_get_profiler (filter),
+                       cmd_queue, priv->v_kernel,
+                       2, priv->global_work_size, NULL);
 }
 
 static void

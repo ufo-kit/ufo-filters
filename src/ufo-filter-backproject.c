@@ -97,7 +97,7 @@ ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[], guint 
     float *sin_tmp = g_malloc0(sizeof(float) * priv->num_projections);
     float *axes_tmp = g_malloc0(sizeof(float) * priv->num_projections);
 
-    float step = priv->angle_step < 0.0 ? G_PI / priv->num_projections : priv->angle_step;
+    float step = (float) (priv->angle_step < 0.0 ? G_PI / priv->num_projections : priv->angle_step);
 
     for (guint i = 0; i < priv->num_projections; i++) {
         cos_tmp[i] = (gfloat) cos((gfloat) i*step);
@@ -139,7 +139,7 @@ ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[], guint 
 #define BLOCK_SIZE_X 16
 #define BLOCK_SIZE_Y 16
 
-static UfoEventList *
+static void
 ufo_filter_backproject_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterBackprojectPrivate *priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(filter);
@@ -165,8 +165,6 @@ ufo_filter_backproject_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBu
 
     profiler = ufo_filter_get_profiler (filter);
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, priv->global_work_size, NULL);
-
-    return NULL;
 }
 
 static void

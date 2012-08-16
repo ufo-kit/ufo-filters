@@ -113,7 +113,7 @@ ufo_filter_filter_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dim
     g_free(coefficients);
 }
 
-static UfoEventList *
+static void
 ufo_filter_filter_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
 {
     UfoFilterFilterPrivate *priv = UFO_FILTER_FILTER_GET_PRIVATE(filter);
@@ -128,8 +128,6 @@ ufo_filter_filter_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer 
 
     profiler = ufo_filter_get_profiler (filter);
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, priv->global_work_size, NULL);
-
-    return NULL;
 }
 
 static void 

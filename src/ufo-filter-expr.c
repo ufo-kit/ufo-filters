@@ -64,12 +64,10 @@ ufo_filter_expr_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims,
     g_free(ocl_kernel_source);
 }
 
-static UfoEventList *
+static void
 ufo_filter_expr_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
 {
     UfoFilterExprPrivate *priv = UFO_FILTER_EXPR_GET_PRIVATE(filter);
-    UfoEventList *event_list = ufo_event_list_new (1);
-    cl_event *events = ufo_event_list_get_event_array (event_list);
     cl_mem x_mem = ufo_buffer_get_device_array (inputs[0], (cl_command_queue) cmd_queue);
     cl_mem y_mem = ufo_buffer_get_device_array (inputs[1], (cl_command_queue) cmd_queue);
     cl_mem output_mem = ufo_buffer_get_device_array (outputs[0], (cl_command_queue) cmd_queue);
@@ -77,11 +75,10 @@ ufo_filter_expr_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *o
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), &x_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), &y_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 2, sizeof(cl_mem), &output_mem));
-    CHECK_OPENCL_ERROR(clEnqueueNDRangeKernel((cl_command_queue) cmd_queue, priv->kernel,
-                2, NULL, priv->global_work_size, NULL,
-                0, NULL, &events[0]));
 
-    return event_list;
+    ufo_profiler_call (ufo_filter_get_profiler (filter),
+                       cmd_queue, priv->kernel,
+                       2, priv->global_work_size, NULL);
 }
 
 static void
