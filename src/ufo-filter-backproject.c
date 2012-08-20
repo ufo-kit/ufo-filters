@@ -147,15 +147,13 @@ ufo_filter_backproject_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBu
 
     cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
     cl_mem slice_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
-    UfoEventList *event_list = ufo_event_list_new (2);
-    cl_event *events = ufo_event_list_get_event_array (event_list);
 
     if (priv->use_texture) {
         size_t dest_origin[3] = { 0, 0, 0 };
         size_t dest_region[3] = { priv->width, priv->num_projections, 1 };
         CHECK_OPENCL_ERROR(clEnqueueCopyBufferToImage((cl_command_queue) cmd_queue,
                 sinogram_mem, priv->texture, 0, dest_origin, dest_region,
-                0, NULL, &events[0]));
+                0, NULL, NULL));
         CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 7, sizeof(cl_mem), (void *) &priv->texture));
     }
     else
