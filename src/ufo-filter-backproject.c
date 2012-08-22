@@ -6,7 +6,6 @@
 #include <CL/cl.h>
 #endif
 
-#include <ufo/ufo-aux.h>
 #include <ufo/ufo-filter.h>
 #include <ufo/ufo-buffer.h>
 #include <ufo/ufo-resource-manager.h>
