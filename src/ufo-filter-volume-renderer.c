@@ -119,9 +119,10 @@ ufo_filter_volume_renderer_initialize(UfoFilter *filter, UfoBuffer *params[], gu
 }
 
 static void
-ufo_filter_volume_renderer_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
+ufo_filter_volume_renderer_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], GError **error)
 {
     UfoFilterVolumeRendererPrivate *priv;
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (filter);
     cl_mem output_mem;
     cl_int clerror;
 
@@ -130,12 +131,12 @@ ufo_filter_volume_renderer_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], U
     if (priv->angle >= G_PI)
         return;
 
-    output_mem = ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
+    output_mem = ufo_buffer_get_device_array(outputs[0], cmd_queue);
     clerror = clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), &output_mem);
     CHECK_OPENCL_ERROR(clerror);
 
     /* TODO: manage copy event so that we don't have to block here */
-    CHECK_OPENCL_ERROR(clEnqueueWriteBuffer((cl_command_queue) cmd_queue,
+    CHECK_OPENCL_ERROR(clEnqueueWriteBuffer(cmd_queue,
                        priv->view_mem, CL_TRUE,
                        0, 4 * 4 * sizeof(float), priv->view_matrix,
                        0, NULL, NULL));

@@ -77,22 +77,25 @@ ufo_filter_forward_project_initialize(UfoFilter *filter, UfoBuffer *params[], gu
 }
 
 static void
-ufo_filter_forward_project_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
+ufo_filter_forward_project_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], GError **error)
 {
     UfoFilterForwardProjectPrivate *priv = UFO_FILTER_FORWARD_PROJECT_GET_PRIVATE(filter);
+    cl_command_queue cmd_queue;
     cl_mem input_mem;
     cl_mem output_mem;
 
     const gsize src_origin[3] = { 0, 0, 0 };
     const gsize region[3] = { priv->global_work_size[0], priv->global_work_size[1], 1 };
 
-    input_mem = (cl_mem) ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
-    CHECK_OPENCL_ERROR(clEnqueueCopyBufferToImage((cl_command_queue) cmd_queue,
+    cmd_queue = ufo_filter_get_command_queue (filter);
+
+    input_mem = (cl_mem) ufo_buffer_get_device_array(params[0], cmd_queue);
+    CHECK_OPENCL_ERROR(clEnqueueCopyBufferToImage(cmd_queue,
                                            input_mem, priv->slice_mem,
                                            0, src_origin, region,
                                            0, NULL, NULL));
 
-    output_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
+    output_mem = (cl_mem) ufo_buffer_get_device_array(results[0], cmd_queue);
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &output_mem));
 
     ufo_profiler_call (ufo_filter_get_profiler (filter),

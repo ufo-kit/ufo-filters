@@ -65,16 +65,17 @@ ufo_filter_sino_generator_initialize (UfoFilterReduce *filter, UfoBuffer *input[
 }
 
 static void
-ufo_filter_sino_generator_collect (UfoFilterReduce *filter, UfoBuffer *input[], UfoBuffer *output[], gpointer cmd_queue, GError **error)
+ufo_filter_sino_generator_collect (UfoFilterReduce *filter, UfoBuffer *input[], UfoBuffer *output[], GError **error)
 {
     UfoFilterSinoGeneratorPrivate *priv = UFO_FILTER_SINO_GENERATOR_GET_PRIVATE (filter);
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (UFO_FILTER (filter));
 
     const gsize row_mem_offset = priv->sino_width;
     const gsize sino_mem_offset = row_mem_offset * priv->num_projections;
 
     gsize proj_index = 0;
     gsize sino_index = (priv->projection - 1) * priv->sino_width;
-    gfloat *src = ufo_buffer_get_host_array (input[0], (cl_command_queue) cmd_queue);
+    gfloat *src = ufo_buffer_get_host_array (input[0], cmd_queue);
 
     for (guint i = 0; i < priv->num_sinos; i++) {
         memcpy (priv->sinograms + sino_index, src + proj_index, sizeof (float) * priv->sino_width);
@@ -86,7 +87,7 @@ ufo_filter_sino_generator_collect (UfoFilterReduce *filter, UfoBuffer *input[], 
 }
     
 static gboolean
-ufo_filter_sino_generator_reduce (UfoFilterReduce *filter, UfoBuffer *output[], gpointer cmd_queue, GError **error)
+ufo_filter_sino_generator_reduce (UfoFilterReduce *filter, UfoBuffer *output[], GError **error)
 {
     gsize sino_index;
     UfoFilterSinoGeneratorPrivate *priv = UFO_FILTER_SINO_GENERATOR_GET_PRIVATE (filter);

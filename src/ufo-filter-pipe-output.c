@@ -52,15 +52,16 @@ ufo_filter_pipe_output_initialize(UfoFilterSink *filter, UfoBuffer *inputs[], GE
 }
 
 static void
-ufo_filter_pipe_output_consume(UfoFilterSink *filter, UfoBuffer *inputs[], gpointer cmd_queue, GError **error)
+ufo_filter_pipe_output_consume(UfoFilterSink *filter, UfoBuffer *inputs[], GError **error)
 {
     UfoFilterPipeOutputPrivate *priv = UFO_FILTER_PIPE_OUTPUT_GET_PRIVATE(filter);
     guint *dim_size = NULL;
     guint num_dims = 0;
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (UFO_FILTER (filter));
 
     ufo_buffer_get_dimensions(inputs[0], &num_dims, &dim_size);
     const gssize size = (gssize) (sizeof(float) * dim_size[0] * dim_size[1]);
-    gchar *data = (gchar *) ufo_buffer_get_host_array(inputs[0], (cl_command_queue) cmd_queue);
+    gchar *data = (gchar *) ufo_buffer_get_host_array(inputs[0], cmd_queue);
     gssize written = 0;
 
     while (written < size) {

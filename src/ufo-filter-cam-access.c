@@ -87,13 +87,14 @@ ufo_filter_cam_access_initialize(UfoFilterSource *filter, guint **dims, GError *
 }
 
 static gboolean
-ufo_filter_cam_access_generate(UfoFilterSource *filter, UfoBuffer *results[], gpointer cmd_queue, GError **error)
+ufo_filter_cam_access_generate(UfoFilterSource *filter, UfoBuffer *results[], GError **error)
 {
     UfoFilterCamAccessPrivate *priv = UFO_FILTER_CAM_ACCESS_GET_PRIVATE(filter);
     GError *tmp_error = NULL;
 
     if (priv->current < priv->count && g_timer_elapsed (priv->timer, NULL) < priv->time) {
-        gfloat *host_buffer = ufo_buffer_get_host_array (results[0], (cl_command_queue) cmd_queue);
+        cl_command_queue cmd_queue = ufo_filter_get_command_queue (UFO_FILTER (filter));
+        gfloat *host_buffer = ufo_buffer_get_host_array (results[0], cmd_queue);
         uca_camera_grab (priv->camera, (gpointer) &host_buffer, &tmp_error);
 
         if (tmp_error != NULL)

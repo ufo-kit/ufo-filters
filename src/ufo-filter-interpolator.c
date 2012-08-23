@@ -65,11 +65,11 @@ ufo_filter_interpolator_initialize(UfoFilter *filter, UfoBuffer *params[], guint
 }
 
 static void
-ufo_filter_interpolator_process_gpu (UfoFilter *filter, UfoBuffer *input[], UfoBuffer *output[], gpointer cmd_queue, GError **error)
+ufo_filter_interpolator_process_gpu (UfoFilter *filter, UfoBuffer *input[], UfoBuffer *output[], GError **error)
 {
     UfoFilterInterpolatorPrivate *priv = UFO_FILTER_INTERPOLATOR_GET_PRIVATE(filter);
 
-    cl_command_queue command_queue = (cl_command_queue) cmd_queue;
+    cl_command_queue command_queue = ufo_filter_get_command_queue (filter);
     cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(input[0], command_queue);
     cl_mem b_mem = (cl_mem) ufo_buffer_get_device_array(input[1], command_queue);
     cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(output[0], command_queue);
@@ -82,7 +82,7 @@ ufo_filter_interpolator_process_gpu (UfoFilter *filter, UfoBuffer *input[], UfoB
     CHECK_OPENCL_ERROR(clSetKernelArg(kernel, 4, sizeof(cl_int), &priv->num_steps))
 
     ufo_profiler_call (ufo_filter_get_profiler (filter),
-                       cmd_queue, priv->kernel,
+                       command_queue, priv->kernel,
                        2, priv->global_work_size, NULL);
 
 }

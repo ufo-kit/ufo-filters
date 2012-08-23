@@ -54,11 +54,12 @@ ufo_filter_averager_initialize (UfoFilterReduce *filter, UfoBuffer *input[], gui
 }
 
 static void
-ufo_filter_averager_collect (UfoFilterReduce *filter, UfoBuffer *input[], UfoBuffer *output[], gpointer cmd_queue, GError **error)
+ufo_filter_averager_collect (UfoFilterReduce *filter, UfoBuffer *input[], UfoBuffer *output[], GError **error)
 {
     UfoFilterAveragerPrivate *priv = UFO_FILTER_AVERAGER_GET_PRIVATE (filter);
-    gfloat *in = ufo_buffer_get_host_array (input[0], (cl_command_queue) cmd_queue);
-    gfloat *out = ufo_buffer_get_host_array (output[0], (cl_command_queue) cmd_queue);
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (UFO_FILTER (filter));
+    gfloat *in = ufo_buffer_get_host_array (input[0], cmd_queue);
+    gfloat *out = ufo_buffer_get_host_array (output[0], cmd_queue);
 
     /* TODO: check that input dims match */
     for (gsize i = 0; i < priv->num_pixels; i++)
@@ -68,10 +69,11 @@ ufo_filter_averager_collect (UfoFilterReduce *filter, UfoBuffer *input[], UfoBuf
 }
 
 static gboolean
-ufo_filter_averager_reduce (UfoFilterReduce *filter, UfoBuffer *output[], gpointer cmd_queue, GError **error)
+ufo_filter_averager_reduce (UfoFilterReduce *filter, UfoBuffer *output[], GError **error)
 {
     UfoFilterAveragerPrivate *priv = UFO_FILTER_AVERAGER_GET_PRIVATE (filter);
-    gfloat *out = ufo_buffer_get_host_array (output[0], (cl_command_queue) cmd_queue);
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (UFO_FILTER (filter));
+    gfloat *out = ufo_buffer_get_host_array (output[0], cmd_queue);
 
     for (gsize i = 0; i < priv->num_pixels; i++)
         out[i] /= priv->num_input;

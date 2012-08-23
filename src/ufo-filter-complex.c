@@ -112,10 +112,10 @@ ufo_filter_complex_unary(UfoFilter* filter, UfoBuffer *inputs[], UfoBuffer *outp
 }
 
 static void
-ufo_filter_complex_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
+ufo_filter_complex_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], GError **error)
 {
     UfoFilterComplexPrivate *priv = UFO_FILTER_COMPLEX_GET_PRIVATE (filter);
-    cl_command_queue queue = (cl_command_queue) cmd_queue;
+    cl_command_queue queue = ufo_filter_get_command_queue (filter);
 
     if (priv->operation == OP_CONJ)
         ufo_filter_complex_unary(filter, inputs, outputs, queue);

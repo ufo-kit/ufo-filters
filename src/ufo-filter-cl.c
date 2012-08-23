@@ -46,11 +46,12 @@ static GParamSpec *cl_properties[N_PROPERTIES] = { NULL, };
 
 
 static void
-process_regular(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
+process_regular(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], GError **error)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
-    cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(inputs[0], (cl_command_queue) cmd_queue);
-    cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (filter);
+    cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(inputs[0], cmd_queue);
+    cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(outputs[0], cmd_queue);
 
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &a_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &result_mem));
@@ -62,12 +63,13 @@ process_regular(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gp
 }
 
 static void
-process_combine(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
+process_combine(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], GError **error)
 {
     UfoFilterClPrivate *priv = UFO_FILTER_CL_GET_PRIVATE(filter);
-    cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(inputs[0], (cl_command_queue) cmd_queue);
-    cl_mem b_mem = (cl_mem) ufo_buffer_get_device_array(inputs[1], (cl_command_queue) cmd_queue);
-    cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (filter);
+    cl_mem a_mem = (cl_mem) ufo_buffer_get_device_array(inputs[0], cmd_queue);
+    cl_mem b_mem = (cl_mem) ufo_buffer_get_device_array(inputs[1], cmd_queue);
+    cl_mem result_mem = (cl_mem) ufo_buffer_get_device_array(outputs[0], cmd_queue);
 
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &a_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &b_mem));

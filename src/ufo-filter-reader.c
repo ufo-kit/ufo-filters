@@ -302,7 +302,7 @@ ufo_filter_reader_initialize(UfoFilterSource *filter, guint **dims, GError **err
 }
 
 static gboolean
-ufo_filter_reader_generate_cpu(UfoFilterSource *filter, UfoBuffer *results[], gpointer cmd_queue, GError **error)
+ufo_filter_reader_generate_cpu(UfoFilterSource *filter, UfoBuffer *results[], GError **error)
 {
     UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(filter);
     guint src_width, src_height;

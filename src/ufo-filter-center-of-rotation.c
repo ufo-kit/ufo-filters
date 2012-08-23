@@ -39,7 +39,7 @@ enum {
 static GParamSpec *center_of_rotation_properties[N_PROPERTIES] = { NULL, };
 
 static void
-ufo_filter_center_of_rotation_process_cpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
+ufo_filter_center_of_rotation_process_cpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], GError **error)
 {
     /* Calculate the principial horizontal displacement according to "Image
      * processing pipeline for synchrotron-radiation-based tomographic
@@ -55,10 +55,11 @@ ufo_filter_center_of_rotation_process_cpu (UfoFilter *filter, UfoBuffer *params[
     guint width, height;
 
     UfoBuffer *sinogram = params[0];
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (filter);
 
     ufo_buffer_get_2d_dimensions (sinogram, &width, &height);
 
-    gfloat *proj_0 = ufo_buffer_get_host_array (sinogram, (cl_command_queue) cmd_queue);
+    gfloat *proj_0 = ufo_buffer_get_host_array (sinogram, cmd_queue);
     gfloat *proj_180 = proj_0 + (height-1) * width;
 
     const guint max_displacement = width / 2;

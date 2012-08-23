@@ -101,14 +101,16 @@ ufo_filter_gaussian_blur_initialize(UfoFilter *filter, UfoBuffer *params[], guin
 }
 
 static void
-ufo_filter_gaussian_blur_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
+ufo_filter_gaussian_blur_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], GError **error)
 {
     UfoFilterGaussianBlurPrivate *priv;
+    cl_command_queue cmd_queue;
     cl_mem input_mem;
     cl_mem output_mem;
 
     priv = UFO_FILTER_GAUSSIAN_BLUR_GET_PRIVATE(filter);
-    input_mem = ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
+    cmd_queue = ufo_filter_get_command_queue (filter);
+    input_mem = ufo_buffer_get_device_array(params[0], cmd_queue);
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->h_kernel, 0, sizeof(cl_mem), &input_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->h_kernel, 1, sizeof(cl_mem), &priv->intermediate_mem));
 
@@ -116,7 +118,7 @@ ufo_filter_gaussian_blur_process_gpu(UfoFilter *filter, UfoBuffer *params[], Ufo
                        cmd_queue, priv->h_kernel,
                        2, priv->global_work_size, NULL);
 
-    output_mem = ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
+    output_mem = ufo_buffer_get_device_array(results[0], cmd_queue);
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->v_kernel, 0, sizeof(cl_mem), &priv->intermediate_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->v_kernel, 1, sizeof(cl_mem), &output_mem));
 

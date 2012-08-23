@@ -55,14 +55,15 @@ ufo_filter_cv_show_initialize(UfoFilterSink *filter, UfoBuffer *params[], GError
 }
 
 static void
-ufo_filter_cv_show_process_cpu (UfoFilterSink *filter, UfoBuffer *params[], gpointer cmd_queue, GError **error)
+ufo_filter_cv_show_process_cpu (UfoFilterSink *filter, UfoBuffer *params[], GError **error)
 {
     UfoFilterCvShowPrivate *priv = UFO_FILTER_CV_SHOW_GET_PRIVATE (filter);
     CvSize size;
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (UFO_FILTER (filter));
 
     ufo_buffer_get_2d_dimensions (params[0], (guint *) &size.width, (guint *) &size.height);
 
-    priv->image->imageData = (char *) ufo_buffer_get_host_array (params[0], (cl_command_queue) cmd_queue);
+    priv->image->imageData = (char *) ufo_buffer_get_host_array (params[0], cmd_queue);
 
     cvConvertImage (priv->image, priv->blit, 0);
     cvShowImage (priv->window_name, priv->image);

@@ -65,12 +65,13 @@ ufo_filter_expr_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **dims,
 }
 
 static void
-ufo_filter_expr_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
+ufo_filter_expr_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], GError **error)
 {
     UfoFilterExprPrivate *priv = UFO_FILTER_EXPR_GET_PRIVATE(filter);
-    cl_mem x_mem = ufo_buffer_get_device_array (inputs[0], (cl_command_queue) cmd_queue);
-    cl_mem y_mem = ufo_buffer_get_device_array (inputs[1], (cl_command_queue) cmd_queue);
-    cl_mem output_mem = ufo_buffer_get_device_array (outputs[0], (cl_command_queue) cmd_queue);
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (filter);
+    cl_mem x_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
+    cl_mem y_mem = ufo_buffer_get_device_array (inputs[1], cmd_queue);
+    cl_mem output_mem = ufo_buffer_get_device_array (outputs[0], cmd_queue);
 
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), &x_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), &y_mem));

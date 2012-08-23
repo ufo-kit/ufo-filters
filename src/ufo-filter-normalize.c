@@ -30,10 +30,12 @@ ufo_filter_normalize_initialize(UfoFilter *filter, UfoBuffer *inputs[], guint **
 }
 
 static void
-ufo_filter_normalize_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
+ufo_filter_normalize_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], GError **error)
 {
     const gsize num_elements = ufo_buffer_get_size(inputs[0]) / sizeof(float);
-    float *in_data = ufo_buffer_get_host_array(inputs[0], (cl_command_queue) cmd_queue);
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (filter);
+
+    float *in_data = ufo_buffer_get_host_array(inputs[0], cmd_queue);
     float min = 1.0, max = 0.0;
 
     for (guint i = 0; i < num_elements; i++) {
@@ -44,7 +46,7 @@ ufo_filter_normalize_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuff
     }
 
     float scale = 1.0f / (max - min);
-    float *out_data = ufo_buffer_get_host_array(outputs[0], (cl_command_queue) cmd_queue);
+    float *out_data = ufo_buffer_get_host_array(outputs[0], cmd_queue);
 
     for (guint i = 0; i < num_elements; i++) 
         out_data[i] = (in_data[i] - min) * scale;

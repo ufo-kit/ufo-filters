@@ -116,13 +116,14 @@ ufo_filter_meta_balls_initialize(UfoFilterSource *filter, guint **dims, GError *
 }
 
 static gboolean
-ufo_filter_meta_balls_generate (UfoFilterSource *filter, UfoBuffer *results[], gpointer cmd_queue, GError **error)
+ufo_filter_meta_balls_generate (UfoFilterSource *filter, UfoBuffer *results[], GError **error)
 {
     UfoFilterMetaBallsPrivate *priv = UFO_FILTER_META_BALLS_GET_PRIVATE(filter);
 
     if (!priv->run_infinitely && (priv->current_iteration++) >= priv->num_iterations)
         return FALSE;
 
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (UFO_FILTER (filter));
     cl_mem output_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &output_mem));
 

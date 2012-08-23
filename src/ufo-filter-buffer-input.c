@@ -49,7 +49,7 @@ ufo_filter_buffer_input_initialize (UfoFilterSource *filter, guint **dims, GErro
 }
 
 static gboolean
-ufo_filter_buffer_input_generate_cpu(UfoFilterSource *filter, UfoBuffer *results[], gpointer cmd_queue, GError **error)
+ufo_filter_buffer_input_generate_cpu(UfoFilterSource *filter, UfoBuffer *results[], GError **error)
 {
     UfoFilterBufferInputPrivate *priv = UFO_FILTER_BUFFER_INPUT_GET_PRIVATE(filter);
 

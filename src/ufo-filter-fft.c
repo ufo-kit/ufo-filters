@@ -121,11 +121,12 @@ ufo_filter_fft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims, 
 
 #ifdef HAVE_OCLFFT
 static void
-ufo_filter_fft_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
+ufo_filter_fft_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], GError **error)
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
-    cl_mem fft_buffer_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
-    cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (filter);
+    cl_mem fft_buffer_mem = (cl_mem) ufo_buffer_get_device_array(results[0], cmd_queue);
+    cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_device_array(params[0], cmd_queue);
 
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 0, sizeof(cl_mem), (void *) &fft_buffer_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->kernel, 1, sizeof(cl_mem), (void *) &sinogram_mem));
@@ -154,14 +155,15 @@ ufo_filter_fft_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *re
 
 #ifdef HAVE_FFTW3
 static void
-ufo_filter_fft_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
+ufo_filter_fft_process_cpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], GError **error)
 {
     UfoFilterFFTPrivate *priv = UFO_FILTER_FFT_GET_PRIVATE(filter);
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (filter);
 
     gulong idist = (gulong) priv->width;
     gulong odist = (gulong) pow2round(priv->width);
-    gfloat *in = ufo_buffer_get_host_array(params[0], (cl_command_queue) cmd_queue);
-    gfloat *out = ufo_buffer_get_host_array(results[0], (cl_command_queue) cmd_queue);
+    gfloat *in = ufo_buffer_get_host_array(params[0], cmd_queue);
+    gfloat *out = ufo_buffer_get_host_array(results[0], cmd_queue);
 
     fftwf_plan plan = fftwf_plan_many_dft_r2c(1, (gint *) &priv->width, (gint) priv->height,
             in, NULL, 1, (gint) idist,

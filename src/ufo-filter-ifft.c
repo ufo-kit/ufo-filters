@@ -107,9 +107,10 @@ ufo_filter_ifft_initialize(UfoFilter *filter, UfoBuffer *params[], guint **dims,
 
 #ifdef HAVE_OCLFFT
 static void
-ufo_filter_ifft_process_gpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
+ufo_filter_ifft_process_gpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], GError **error)
 {
     UfoFilterIFFTPrivate *priv;
+    cl_command_queue cmd_queue;
     cl_mem mem_fft;
     cl_mem mem_result;
     cl_int batch_size;
@@ -117,7 +118,8 @@ ufo_filter_ifft_process_gpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *
 
     priv = UFO_FILTER_IFFT_GET_PRIVATE (filter);
     batch_size = priv->ifft_dimensions == clFFT_1D ? (cl_int) priv->height : 1;
-    mem_fft = (cl_mem) ufo_buffer_get_device_array (params[0], (cl_command_queue) cmd_queue);
+    cmd_queue = ufo_filter_get_command_queue (filter);
+    mem_fft = (cl_mem) ufo_buffer_get_device_array (params[0], cmd_queue);
 
     /*
      * 1. Inverse FFT
@@ -129,12 +131,12 @@ ufo_filter_ifft_process_gpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *
      *  2. we force and wait for command queue termination after enqueuing
      *  the kernel.
      */
-    clFFT_ExecuteInterleaved ((cl_command_queue) cmd_queue,
+    clFFT_ExecuteInterleaved (cmd_queue,
             priv->ifft_plan, batch_size, clFFT_Inverse,
             mem_fft, mem_fft,
             0, NULL, NULL);
 
-    clFinish ((cl_command_queue) cmd_queue);
+    clFinish (cmd_queue);
 
     /*
      * 2. Pack interleaved complex numbers
@@ -145,7 +147,7 @@ ufo_filter_ifft_process_gpu (UfoFilter *filter, UfoBuffer *params[], UfoBuffer *
     if (priv->ifft_dimensions == clFFT_2D)
         scale /= (float) priv->width;
 
-    mem_result = (cl_mem) ufo_buffer_get_device_array (results[0], (cl_command_queue) cmd_queue);
+    mem_result = (cl_mem) ufo_buffer_get_device_array (results[0], cmd_queue);
 
     clSetKernelArg (priv->pack_kernel, 0, sizeof(cl_mem), (void *) &mem_fft);
     clSetKernelArg (priv->pack_kernel, 1, sizeof(cl_mem), (void *) &mem_result);

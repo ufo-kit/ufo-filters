@@ -76,15 +76,17 @@ ufo_filter_histogram_threshold_initialize(UfoFilter *filter, UfoBuffer *inputs[]
 }
 
 static void
-ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
+ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], GError **error)
 {
     UfoFilterHistogramThresholdPrivate *priv;
+    cl_command_queue cmd_queue;
     cl_mem input_mem;
     cl_mem output_mem;
     guint input_size;
 
     priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
     input_size = priv->width * priv->height;
+    cmd_queue = ufo_filter_get_command_queue (filter);
     size_t thresh_work_size[] = { priv->width, priv->height };
 
     /* Build relative histogram */
@@ -100,7 +102,7 @@ ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, UfoBuffer *inputs[
                        1, &priv->num_bins, NULL);
 
     /* Threshold */
-    output_mem = ufo_buffer_get_device_array(outputs[0], (cl_command_queue) cmd_queue);
+    output_mem = ufo_buffer_get_device_array(outputs[0], cmd_queue);
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->thresh_kernel, 0, sizeof(cl_mem), (void *) &input_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->thresh_kernel, 1, sizeof(cl_mem), (void *) &priv->histogram_mem));
     CHECK_OPENCL_ERROR(clSetKernelArg(priv->thresh_kernel, 2, sizeof(cl_mem), (void *) &output_mem));
@@ -111,11 +113,12 @@ ufo_filter_histogram_threshold_process_gpu(UfoFilter *filter, UfoBuffer *inputs[
 }
 
 static void
-ufo_filter_histogram_threshold_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
+ufo_filter_histogram_threshold_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], GError **error)
 {
     UfoFilterHistogramThresholdPrivate *priv = UFO_FILTER_HISTOGRAM_THRESHOLD_GET_PRIVATE(filter);
-    gfloat *in = ufo_buffer_get_host_array(inputs[0], (cl_command_queue) cmd_queue);
-    gfloat *out = ufo_buffer_get_host_array(outputs[0], (cl_command_queue) cmd_queue);
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (filter);
+    gfloat *in = ufo_buffer_get_host_array(inputs[0], cmd_queue);
+    gfloat *out = ufo_buffer_get_host_array(outputs[0], cmd_queue);
     gfloat bin_width = (priv->upper_limit - priv->lower_limit) / ((gfloat) priv->num_bins);
 
     /* Build normal histogram */

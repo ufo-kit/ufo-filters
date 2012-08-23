@@ -51,9 +51,10 @@ ufo_filter_region_of_interest_initialize(UfoFilter *filter, UfoBuffer *inputs[],
 }
 
 static void
-ufo_filter_region_of_interest_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], gpointer cmd_queue, GError **error)
+ufo_filter_region_of_interest_process_cpu(UfoFilter *filter, UfoBuffer *inputs[], UfoBuffer *outputs[], GError **error)
 {
     UfoFilterRegionOfInterestPrivate *priv = UFO_FILTER_REGION_OF_INTEREST_GET_PRIVATE(filter);
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (filter);
     guint x1 = priv->x, y1 = priv->y;
     guint x2 = x1 + priv->width, y2 = y1 + priv->height;
     guint in_width, in_height;
@@ -68,8 +69,8 @@ ufo_filter_region_of_interest_process_cpu(UfoFilter *filter, UfoBuffer *inputs[]
 
     guint rd_width = x2 > in_width ? in_width - x1 : priv->width;
     guint rd_height = y2 > in_height ? in_height - y1 : priv->height;
-    gfloat *in_data = ufo_buffer_get_host_array(inputs[0], (cl_command_queue) cmd_queue);
-    gfloat *out_data = ufo_buffer_get_host_array(outputs[0], (cl_command_queue) cmd_queue);
+    gfloat *in_data = ufo_buffer_get_host_array(inputs[0], cmd_queue);
+    gfloat *out_data = ufo_buffer_get_host_array(outputs[0], cmd_queue);
 
     /*
      * Removing the for loop for "width aligned" regions gives a marginal

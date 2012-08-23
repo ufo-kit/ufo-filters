@@ -69,12 +69,13 @@ filter_write_tiff(float *buffer, const gchar *name, guint width, guint height)
 }
 
 static void
-ufo_filter_writer_consume (UfoFilterSink *self, UfoBuffer *params[], gpointer cmd_queue, GError **error)
+ufo_filter_writer_consume (UfoFilterSink *self, UfoBuffer *params[], GError **error)
 {
     UfoFilterWriterPrivate *priv = UFO_FILTER_WRITER_GET_PRIVATE(self);
     guint width, height;
     ufo_buffer_get_2d_dimensions(params[0], &width, &height);
 
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (UFO_FILTER (self));
     float *data = ufo_buffer_get_host_array(params[0], (cl_command_queue) cmd_queue);
     gchar *filename = g_strdup_printf("%s/%s%05i.tif", priv->path, priv->prefix, priv->counter++);
 

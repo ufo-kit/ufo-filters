@@ -139,13 +139,14 @@ ufo_filter_backproject_initialize(UfoFilter *filter, UfoBuffer *params[], guint 
 #define BLOCK_SIZE_Y 16
 
 static void
-ufo_filter_backproject_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], gpointer cmd_queue, GError **error)
+ufo_filter_backproject_process_gpu(UfoFilter *filter, UfoBuffer *params[], UfoBuffer *results[], GError **error)
 {
     UfoFilterBackprojectPrivate *priv = UFO_FILTER_BACKPROJECT_GET_PRIVATE(filter);
     UfoProfiler *profiler;
 
-    cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_device_array(params[0], (cl_command_queue) cmd_queue);
-    cl_mem slice_mem = (cl_mem) ufo_buffer_get_device_array(results[0], (cl_command_queue) cmd_queue);
+    cl_command_queue cmd_queue = ufo_filter_get_command_queue (filter);
+    cl_mem sinogram_mem = (cl_mem) ufo_buffer_get_device_array(params[0], cmd_queue);
+    cl_mem slice_mem = (cl_mem) ufo_buffer_get_device_array(results[0], cmd_queue);
 
     if (priv->use_texture) {
         size_t dest_origin[3] = { 0, 0, 0 };
