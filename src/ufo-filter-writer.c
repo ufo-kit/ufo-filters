@@ -42,7 +42,7 @@ enum {
 static GParamSpec *reader_properties[N_PROPERTIES] = { NULL, };
 
 
-static gboolean 
+static gboolean
 filter_write_tiff(float *buffer, const gchar *name, guint width, guint height)
 {
     gboolean success = TRUE;
@@ -71,22 +71,32 @@ filter_write_tiff(float *buffer, const gchar *name, guint width, guint height)
 static void
 ufo_filter_writer_consume (UfoFilterSink *self, UfoBuffer *params[], GError **error)
 {
-    UfoFilterWriterPrivate *priv = UFO_FILTER_WRITER_GET_PRIVATE(self);
+    UfoFilterWriterPrivate *priv;
+    UfoProfiler *profiler;
+    gfloat *data;
+    gchar *filename;
     guint width, height;
+
     ufo_buffer_get_2d_dimensions(params[0], &width, &height);
 
-    cl_command_queue cmd_queue = ufo_filter_get_command_queue (UFO_FILTER (self));
-    float *data = ufo_buffer_get_host_array(params[0], (cl_command_queue) cmd_queue);
-    gchar *filename = g_strdup_printf("%s/%s%05i.tif", priv->path, priv->prefix, priv->counter++);
+    priv = UFO_FILTER_WRITER_GET_PRIVATE(self);
+    data = ufo_buffer_get_host_array(params[0], ufo_filter_get_command_queue (UFO_FILTER (self)));
+    filename = g_strdup_printf("%s/%s%05i.tif", priv->path, priv->prefix, priv->counter++);
+    profiler = ufo_filter_get_profiler (UFO_FILTER (self));
 
-    if (!filter_write_tiff(data, filename, width, height))
-        /* TODO: create proper error */
-        g_message("something went wrong");
+    ufo_profiler_start (profiler, UFO_PROFILER_TIMER_IO);
+
+    if (!filter_write_tiff(data, filename, width, height)) {
+        g_set_error (error, UFO_FILTER_ERROR, UFO_FILTER_ERROR_NOSUCHINPUT,
+                     "Could not write %s", filename);
+    }
+
+    ufo_profiler_stop (profiler, UFO_PROFILER_TIMER_IO);
 
     g_free(filename);
 }
 
-static void 
+static void
 ufo_filter_writer_set_property(GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
 {
     UfoFilterWriter *filter = UFO_FILTER_WRITER(object);
@@ -106,7 +116,7 @@ ufo_filter_writer_set_property(GObject *object, guint property_id, const GValue 
     }
 }
 
-static void 
+static void
 ufo_filter_writer_get_property(GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
 {
     UfoFilterWriter *filter = UFO_FILTER_WRITER(object);
@@ -124,7 +134,7 @@ ufo_filter_writer_get_property(GObject *object, guint property_id, GValue *value
     }
 }
 
-static void 
+static void
 ufo_filter_writer_class_init(UfoFilterWriterClass *klass)
 {
     UfoFilterSinkClass *filter_class = UFO_FILTER_SINK_CLASS (klass);
@@ -141,14 +151,14 @@ ufo_filter_writer_class_init(UfoFilterWriterClass *klass)
      * the filename is made up according to the format string ("%s%05i.tif" %
      * (prefix, current image number)).
      */
-    reader_properties[PROP_PREFIX] = 
+    reader_properties[PROP_PREFIX] =
         g_param_spec_string("prefix",
             "Filename prefix",
             "Prefix of output filename.",
             "",
             G_PARAM_READWRITE);
 
-    reader_properties[PROP_PATH] = 
+    reader_properties[PROP_PATH] =
         g_param_spec_string("path",
             "File path",
             "Path where to store files.",
@@ -161,7 +171,7 @@ ufo_filter_writer_class_init(UfoFilterWriterClass *klass)
     g_type_class_add_private(gobject_class, sizeof(UfoFilterWriterPrivate));
 }
 
-static void 
+static void
 ufo_filter_writer_init(UfoFilterWriter *self)
 {
     UfoInputParameter input_params[] = {{2, UFO_FILTER_INFINITE_INPUT}};

@@ -305,10 +305,13 @@ static gboolean
 ufo_filter_reader_generate_cpu(UfoFilterSource *filter, UfoBuffer *results[], GError **error)
 {
     UfoFilterReaderPrivate *priv = UFO_FILTER_READER_GET_PRIVATE(filter);
+    UfoProfiler *profiler = ufo_filter_get_profiler (UFO_FILTER (filter));
     guint src_width, src_height;
     guint16 bytes_per_sample, samples_per_pixel;
 
     if ((priv->current_count < priv->count) && (priv->current_filename != NULL)) {
+        ufo_profiler_start (profiler, UFO_PROFILER_TIMER_IO);
+
         /* Do we have more images to read from the last open multi TIFF? */
         if (priv->more_pages) {
             priv->more_pages = read_tiff(priv->current_tiff, &priv->frame_buffer,
@@ -326,6 +329,8 @@ ufo_filter_reader_generate_cpu(UfoFilterSource *filter, UfoBuffer *results[], GE
             else
                 priv->frame_buffer = load_edf(name, &bytes_per_sample, &samples_per_pixel, &src_width, &src_height);
         }
+
+        ufo_profiler_stop (profiler, UFO_PROFILER_TIMER_IO);
 
         if (priv->frame_buffer == NULL)
             return FALSE;
