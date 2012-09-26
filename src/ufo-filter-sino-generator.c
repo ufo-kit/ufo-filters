@@ -73,6 +73,13 @@ ufo_filter_sino_generator_collect (UfoFilterReduce *filter, UfoBuffer *input[], 
     const gsize row_mem_offset = priv->sino_width;
     const gsize sino_mem_offset = row_mem_offset * priv->num_projections;
 
+    if (priv->projection > priv->num_projections) {
+        g_set_error (error, UFO_FILTER_ERROR, UFO_FILTER_ERROR_NOSUCHINPUT,
+                     "Received %i projections, but can only handle %i projections",
+                     (gint) priv->projection, priv->num_projections);
+        return;
+    }
+
     gsize proj_index = 0;
     gsize sino_index = (priv->projection - 1) * priv->sino_width;
     gfloat *src = ufo_buffer_get_host_array (input[0], cmd_queue);
