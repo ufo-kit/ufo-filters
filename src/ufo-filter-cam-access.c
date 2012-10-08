@@ -41,6 +41,7 @@ G_DEFINE_TYPE(UfoFilterCamAccess, ufo_filter_cam_access, UFO_TYPE_FILTER_SOURCE)
 
 enum {
     PROP_X,
+    PROP_CAMERA,
     PROP_CAMERA_NAME,
     PROP_COUNT,
     PROP_TIME,
@@ -49,13 +50,16 @@ enum {
 
 static GParamSpec *uca_properties[N_PROPERTIES] = { NULL, };
 
-
-static void
-ufo_filter_cam_access_initialize(UfoFilterSource *filter, guint **dims, GError **error)
+static GError *
+load_camera (UfoFilterCamAccessPrivate *priv)
 {
-    UfoFilterCamAccessPrivate *priv = UFO_FILTER_CAM_ACCESS_GET_PRIVATE (filter);
-    GError *tmp_error = NULL;
+    GError *error = NULL;
     gchar *name = NULL;
+
+    if (priv->camera != NULL)
+        return NULL;
+
+    priv->pm = uca_plugin_manager_new ();
 
     if (priv->name == NULL) {
         GList *cameras;
@@ -63,9 +67,9 @@ ufo_filter_cam_access_initialize(UfoFilterSource *filter, guint **dims, GError *
         cameras = uca_plugin_manager_get_available_cameras (priv->pm);
 
         if (g_list_length (cameras) == 0) {
-            g_set_error (error, UFO_FILTER_ERROR, UFO_FILTER_ERROR_INITIALIZATION,
+            g_set_error (&error, UFO_FILTER_ERROR, UFO_FILTER_ERROR_INITIALIZATION,
                          "No camera found");
-            return;
+            return error;
         }
 
         name = g_strdup (g_list_nth_data (cameras, 0));
@@ -76,10 +80,19 @@ ufo_filter_cam_access_initialize(UfoFilterSource *filter, guint **dims, GError *
         name = g_strdup (priv->name);
     }
 
-    priv->current = 0;
-    priv->timer = g_timer_new ();
-    priv->camera = uca_plugin_manager_new_camera (priv->pm, name, &tmp_error);
+    priv->camera = uca_plugin_manager_get_camera (priv->pm, name, &error);
     g_free (name);
+    return error;
+}
+
+static void
+ufo_filter_cam_access_initialize(UfoFilterSource *filter, guint **dims, GError **error)
+{
+    UfoFilterCamAccessPrivate *priv;
+    GError *tmp_error = NULL;
+
+    priv = UFO_FILTER_CAM_ACCESS_GET_PRIVATE (filter);
+    tmp_error = load_camera (priv);
 
     if (tmp_error != NULL) {
         g_propagate_error (error, tmp_error);
@@ -94,6 +107,8 @@ ufo_filter_cam_access_initialize(UfoFilterSource *filter, guint **dims, GError *
 
     dims[0][0] = priv->width;
     dims[0][1] = priv->height;
+    priv->current = 0;
+    priv->timer = g_timer_new ();
 
     uca_camera_start_recording (priv->camera, &tmp_error);
 
@@ -135,6 +150,9 @@ ufo_filter_cam_access_set_property (GObject *object, guint property_id, const GV
     UfoFilterCamAccessPrivate *priv = UFO_FILTER_CAM_ACCESS_GET_PRIVATE (object);
 
     switch (property_id) {
+        case PROP_CAMERA:
+            priv->camera = UCA_CAMERA (g_value_get_object (value));
+            break;
         case PROP_CAMERA_NAME:
             g_free(priv->name);
             priv->name = g_strdup (g_value_get_string (value));
@@ -157,6 +175,9 @@ ufo_filter_cam_access_get_property (GObject *object, guint property_id, GValue *
     UfoFilterCamAccessPrivate *priv = UFO_FILTER_CAM_ACCESS_GET_PRIVATE (object);
 
     switch (property_id) {
+        case PROP_CAMERA:
+            g_value_set_object (value, priv->camera);
+            break;
         case PROP_CAMERA_NAME:
             g_value_set_string (value, priv->name);
             break;
@@ -178,8 +199,12 @@ ufo_filter_cam_access_dispose (GObject *object)
     UfoFilterCamAccessPrivate *priv = UFO_FILTER_CAM_ACCESS_GET_PRIVATE(object);
 
     uca_camera_stop_recording (priv->camera, NULL);
-    g_object_unref (priv->camera);
-    g_object_unref (priv->pm);
+
+    if (priv->camera != NULL)
+        g_object_unref (priv->camera);
+
+    if (priv->pm != NULL)
+        g_object_unref (priv->pm);
 
     G_OBJECT_CLASS (ufo_filter_cam_access_parent_class)->dispose (object);
 }
@@ -208,6 +233,13 @@ ufo_filter_cam_access_class_init(UfoFilterCamAccessClass *klass)
     filter_class->initialize = ufo_filter_cam_access_initialize;
     filter_class->generate = ufo_filter_cam_access_generate;
 
+    uca_properties[PROP_CAMERA] =
+        g_param_spec_object ("camera",
+            "UcaCamera camera object or NULL",
+            "UcaCamera camera object or NULL. If NULL the camera will be load using the \"name\" property",
+            UCA_TYPE_CAMERA,
+            G_PARAM_READWRITE);
+
     uca_properties[PROP_CAMERA_NAME] =
         g_param_spec_string("name",
             "Name of the used camera",
@@ -229,6 +261,7 @@ ufo_filter_cam_access_class_init(UfoFilterCamAccessClass *klass)
              0.0, 3600.0, 5.0,
             G_PARAM_READWRITE);
 
+    g_object_class_install_property(gobject_class, PROP_CAMERA, uca_properties[PROP_CAMERA]);
     g_object_class_install_property(gobject_class, PROP_CAMERA_NAME, uca_properties[PROP_CAMERA_NAME]);
     g_object_class_install_property(gobject_class, PROP_COUNT, uca_properties[PROP_COUNT]);
     g_object_class_install_property(gobject_class, PROP_TIME, uca_properties[PROP_TIME]);
@@ -243,7 +276,7 @@ ufo_filter_cam_access_init(UfoFilterCamAccess *self)
     UfoOutputParameter output_params[] = {{2}};
 
     priv = self->priv = UFO_FILTER_CAM_ACCESS_GET_PRIVATE(self);
-    priv->pm = uca_plugin_manager_new ();
+    priv->pm = NULL;
     priv->name = NULL;
     priv->camera = NULL;
     priv->count = 0;
