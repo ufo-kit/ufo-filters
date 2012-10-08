@@ -50,6 +50,7 @@ ufo_filter_cv_show_initialize(UfoFilterSink *filter, UfoBuffer *params[], GError
     cvNamedWindow (priv->window_name, CV_WINDOW_AUTOSIZE);
     cvMoveWindow (priv->window_name, 100, 100);
 
+    ufo_buffer_get_2d_dimensions (params[0], &size.width, &size.height);
     priv->image = cvCreateImageHeader (size, IPL_DEPTH_32F, 1);
     priv->blit = cvCreateImage (size, IPL_DEPTH_8U, 1);
 }
