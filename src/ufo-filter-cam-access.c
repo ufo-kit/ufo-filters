@@ -33,6 +33,7 @@ struct _UfoFilterCamAccessPrivate {
     double      time;
     gchar      *name;
     GTimer     *timer;
+    gboolean    readout;
 };
 
 G_DEFINE_TYPE(UfoFilterCamAccess, ufo_filter_cam_access, UFO_TYPE_FILTER_SOURCE)
@@ -45,6 +46,7 @@ enum {
     PROP_CAMERA_NAME,
     PROP_COUNT,
     PROP_TIME,
+    PROP_READOUT,
     N_PROPERTIES
 };
 
@@ -86,7 +88,7 @@ load_camera (UfoFilterCamAccessPrivate *priv)
 }
 
 static void
-ufo_filter_cam_access_initialize(UfoFilterSource *filter, guint **dims, GError **error)
+ufo_filter_cam_access_initialize (UfoFilterSource *filter, guint **dims, GError **error)
 {
     UfoFilterCamAccessPrivate *priv;
     gboolean is_recording;
@@ -112,8 +114,19 @@ ufo_filter_cam_access_initialize(UfoFilterSource *filter, guint **dims, GError *
     priv->current = 0;
     priv->timer = g_timer_new ();
 
-    if (!is_recording)
+    if (!is_recording && !priv->readout)
         uca_camera_start_recording (priv->camera, &tmp_error);
+
+    if (priv->readout) {
+        guint n_frames;
+
+        if (is_recording)
+            uca_camera_stop_recording (priv->camera, &tmp_error);
+
+        g_object_get (priv->camera, "recorded-frames", &n_frames, NULL);
+        priv->count = n_frames < priv->count ? n_frames : priv->count;
+        uca_camera_start_readout (priv->camera, &tmp_error);
+    }
 
     if (tmp_error != NULL)
         g_propagate_error (error, tmp_error);
@@ -266,10 +279,17 @@ ufo_filter_cam_access_class_init(UfoFilterCamAccessClass *klass)
              0.0, 3600.0, 5.0,
             G_PARAM_READWRITE);
 
+    uca_properties[PROP_READOUT] =
+        g_param_spec_boolean("readout",
+            "Read-out pre-recorded frames instead of starting the acquisition",
+            "Read-out pre-recorded frames instead of starting the acquisition",
+            FALSE, G_PARAM_READWRITE);
+
     g_object_class_install_property(gobject_class, PROP_CAMERA, uca_properties[PROP_CAMERA]);
     g_object_class_install_property(gobject_class, PROP_CAMERA_NAME, uca_properties[PROP_CAMERA_NAME]);
     g_object_class_install_property(gobject_class, PROP_COUNT, uca_properties[PROP_COUNT]);
     g_object_class_install_property(gobject_class, PROP_TIME, uca_properties[PROP_TIME]);
+    g_object_class_install_property(gobject_class, PROP_READOUT, uca_properties[PROP_READOUT]);
 
     g_type_class_add_private(gobject_class, sizeof(UfoFilterCamAccessPrivate));
 }
@@ -285,6 +305,7 @@ ufo_filter_cam_access_init(UfoFilterCamAccess *self)
     priv->name = NULL;
     priv->camera = NULL;
     priv->count = 0;
+    priv->readout = FALSE;
 
     ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
