@@ -89,6 +89,7 @@ static void
 ufo_filter_cam_access_initialize(UfoFilterSource *filter, guint **dims, GError **error)
 {
     UfoFilterCamAccessPrivate *priv;
+    gboolean is_recording;
     GError *tmp_error = NULL;
 
     priv = UFO_FILTER_CAM_ACCESS_GET_PRIVATE (filter);
@@ -103,6 +104,7 @@ ufo_filter_cam_access_initialize(UfoFilterSource *filter, guint **dims, GError *
                   "roi-width", &priv->width,
                   "roi-height", &priv->height,
                   "sensor-bitdepth", &priv->n_bits,
+                  "is-recording", &is_recording,
                   NULL);
 
     dims[0][0] = priv->width;
@@ -110,7 +112,8 @@ ufo_filter_cam_access_initialize(UfoFilterSource *filter, guint **dims, GError *
     priv->current = 0;
     priv->timer = g_timer_new ();
 
-    uca_camera_start_recording (priv->camera, &tmp_error);
+    if (!is_recording)
+        uca_camera_start_recording (priv->camera, &tmp_error);
 
     if (tmp_error != NULL)
         g_propagate_error (error, tmp_error);
@@ -119,8 +122,10 @@ ufo_filter_cam_access_initialize(UfoFilterSource *filter, guint **dims, GError *
 static gboolean
 ufo_filter_cam_access_generate (UfoFilterSource *filter, UfoBuffer *results[], GError **error)
 {
-    UfoFilterCamAccessPrivate *priv = UFO_FILTER_CAM_ACCESS_GET_PRIVATE(filter);
+    UfoFilterCamAccessPrivate *priv;
     GError *tmp_error = NULL;
+
+    priv = UFO_FILTER_CAM_ACCESS_GET_PRIVATE(filter);
 
     if (priv->current < priv->count || g_timer_elapsed (priv->timer, NULL) < priv->time) {
         cl_command_queue cmd_queue;
