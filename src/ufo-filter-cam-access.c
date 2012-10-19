@@ -181,6 +181,9 @@ ufo_filter_cam_access_set_property (GObject *object, guint property_id, const GV
         case PROP_TIME:
             priv->time = g_value_get_double (value);
             break;
+        case PROP_READOUT:
+            priv->readout = g_value_get_boolean (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -204,6 +207,9 @@ ufo_filter_cam_access_get_property (GObject *object, guint property_id, GValue *
             break;
         case PROP_TIME:
             g_value_set_double (value, priv->time);
+            break;
+        case PROP_READOUT:
+            g_value_set_boolean (value, priv->readout);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
