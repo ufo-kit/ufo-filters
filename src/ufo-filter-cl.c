@@ -207,7 +207,7 @@ ufo_filter_cl_init(UfoFilterCl *self)
     priv->kernel = NULL;
     priv->static_argument = 0;
 
-    ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
+    ufo_filter_register_inputs (UFO_FILTER (self), 2, input_params);
     ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
 

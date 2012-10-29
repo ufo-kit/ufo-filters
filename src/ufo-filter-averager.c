@@ -30,6 +30,7 @@ struct _UfoFilterAveragerPrivate {
     gfloat  num_input;
     gfloat *data;
     guint   num_pixels;
+    gboolean done;
 };
 
 enum {
@@ -72,13 +73,18 @@ static gboolean
 ufo_filter_averager_reduce (UfoFilterReduce *filter, UfoBuffer *output[], GError **error)
 {
     UfoFilterAveragerPrivate *priv = UFO_FILTER_AVERAGER_GET_PRIVATE (filter);
+
+    if (priv->done)
+        return FALSE;
+
     cl_command_queue cmd_queue = ufo_filter_get_command_queue (UFO_FILTER (filter));
     gfloat *out = ufo_buffer_get_host_array (output[0], cmd_queue);
 
     for (gsize i = 0; i < priv->num_pixels; i++)
         out[i] /= priv->num_input;
 
-    return FALSE;
+    priv->done = TRUE;
+    return TRUE;
 }
 
 static void
@@ -113,6 +119,7 @@ ufo_filter_averager_init(UfoFilterAverager *self)
 
     self->priv = UFO_FILTER_AVERAGER_GET_PRIVATE (self);
     self->priv->data = NULL;
+    self->priv->done = FALSE;
 
     ufo_filter_register_inputs (UFO_FILTER (self), 1, input_params);
     ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
