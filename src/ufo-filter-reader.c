@@ -199,18 +199,28 @@ static GSList *
 read_filenames(UfoFilterReaderPrivate *priv)
 {
     GSList *result = NULL;
+    gchar *pattern;
     glob_t glob_vector;
     guint i = (priv->nth < 0) ? 0 : (guint) priv->nth;
-    glob(priv->path, GLOB_MARK | GLOB_TILDE, NULL, &glob_vector);
+
+    if (g_strrstr (priv->path, "*") == NULL)
+        pattern = g_build_filename (priv->path, "*", NULL);
+    else
+        pattern = g_strdup (priv->path);
+
+    glob (pattern, GLOB_MARK | GLOB_TILDE, NULL, &glob_vector);
 
     for (; i < glob_vector.gl_pathc; i++) {
         const gchar *filename = glob_vector.gl_pathv[i];
 
         if (g_str_has_suffix (filename, ".tiff") || g_str_has_suffix (filename, ".tif"))
             result = g_slist_append(result, g_strdup(filename));
+        else
+            g_warning ("Ignoring `%s'", filename);
     }
 
     globfree(&glob_vector);
+    g_free (pattern);
     return result;
 }
 
