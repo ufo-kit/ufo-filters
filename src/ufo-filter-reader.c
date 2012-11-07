@@ -342,7 +342,6 @@ ufo_filter_reader_generate_cpu(UfoFilterSource *filter, UfoBuffer *results[], GE
         }
         else {
             const gchar *name = (gchar *) priv->current_filename->data;
-            g_print ("reading %s\n", name);
 
             if (g_str_has_suffix(name, "tif")) {
                 if (priv->current_tiff != NULL)
