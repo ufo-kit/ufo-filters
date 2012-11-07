@@ -19,6 +19,7 @@ set(ufofilter_SRCS
     ufo-filter-pipe-output.c
     ufo-filter-region-of-interest.c
     ufo-filter-sino-generator.c
+    ufo-filter-subtract.c
     # temporarily disabled optical flow
     #    ufo-filter-optical-flow-lucas-kanade.c
     ufo-filter-volume-renderer.c
