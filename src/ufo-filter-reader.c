@@ -203,8 +203,12 @@ read_filenames(UfoFilterReaderPrivate *priv)
     guint i = (priv->nth < 0) ? 0 : (guint) priv->nth;
     glob(priv->path, GLOB_MARK | GLOB_TILDE, NULL, &glob_vector);
 
-    while (i < glob_vector.gl_pathc)
-        result = g_slist_append(result, g_strdup(glob_vector.gl_pathv[i++]));
+    for (; i < glob_vector.gl_pathc; i++) {
+        const gchar *filename = glob_vector.gl_pathv[i];
+
+        if (g_str_has_suffix (filename, ".tiff") || g_str_has_suffix (filename, ".tif"))
+            result = g_slist_append(result, g_strdup(filename));
+    }
 
     globfree(&glob_vector);
     return result;
