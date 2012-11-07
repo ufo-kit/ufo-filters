@@ -195,6 +195,14 @@ load_edf(const gchar *filename, guint16 *bytes_per_sample, guint16 *samples_per_
     return image_buffer;
 }
 
+static gboolean
+has_valid_extension (const gchar *filename)
+{
+    return g_str_has_suffix (filename, ".tiff") ||
+           g_str_has_suffix (filename, ".tif") ||
+           g_str_has_suffix (filename, ".edf");
+}
+
 static GSList *
 read_filenames(UfoFilterReaderPrivate *priv)
 {
@@ -203,7 +211,7 @@ read_filenames(UfoFilterReaderPrivate *priv)
     glob_t glob_vector;
     guint i = (priv->nth < 0) ? 0 : (guint) priv->nth;
 
-    if (g_strrstr (priv->path, "*") == NULL)
+    if (!has_valid_extension (priv->path) && (g_strrstr (priv->path, "*") == NULL))
         pattern = g_build_filename (priv->path, "*", NULL);
     else
         pattern = g_strdup (priv->path);
@@ -213,8 +221,9 @@ read_filenames(UfoFilterReaderPrivate *priv)
     for (; i < glob_vector.gl_pathc; i++) {
         const gchar *filename = glob_vector.gl_pathv[i];
 
-        if (g_str_has_suffix (filename, ".tiff") || g_str_has_suffix (filename, ".tif"))
+        if (has_valid_extension (filename)) {
             result = g_slist_append(result, g_strdup(filename));
+        }
         else
             g_warning ("Ignoring `%s'", filename);
     }
@@ -292,7 +301,7 @@ ufo_filter_reader_initialize(UfoFilterSource *filter, guint **dims, GError **err
         guint width, height;
         guint16 bytes_per_sample, samples_per_pixel;
 
-        if (g_str_has_suffix(name, "tif")) {
+        if (g_str_has_suffix (name, "tif") || g_str_has_suffix (name, "tiff")) {
             TIFF *tif = TIFFOpen(name, "r");
             read_tiff(tif, &priv->frame_buffer, &bytes_per_sample, &samples_per_pixel, &width, &height);
             TIFFClose(tif);
@@ -333,6 +342,7 @@ ufo_filter_reader_generate_cpu(UfoFilterSource *filter, UfoBuffer *results[], GE
         }
         else {
             const gchar *name = (gchar *) priv->current_filename->data;
+            g_print ("reading %s\n", name);
 
             if (g_str_has_suffix(name, "tif")) {
                 if (priv->current_tiff != NULL)
