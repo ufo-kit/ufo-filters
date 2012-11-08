@@ -5,6 +5,7 @@
 #include <CL/cl.h>
 #endif
 
+#include <math.h>
 #include <ufo/ufo-filter.h>
 #include <ufo/ufo-buffer.h>
 #include "ufo-filter-flat-field-correction.h"
@@ -17,18 +18,22 @@
  * Some in-depth information
  */
 
-struct _UfoFilterFlatFieldCorrectionPrivate {
-    guint n_pixels;
-};
-
 G_DEFINE_TYPE(UfoFilterFlatFieldCorrection, ufo_filter_flat_field_correction, UFO_TYPE_FILTER)
 
 #define UFO_FILTER_FLAT_FIELD_CORRECTION_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_FLAT_FIELD_CORRECTION, UfoFilterFlatFieldCorrectionPrivate))
 
+struct _UfoFilterFlatFieldCorrectionPrivate {
+    guint n_pixels;
+    gboolean absorption_correction;
+};
+
 enum {
     PROP_0,
+    PROP_ABSORPTION_CORRECTION,
     N_PROPERTIES
 };
+
+static GParamSpec *ffc_properties[N_PROPERTIES] = { NULL, };
 
 static void
 ufo_filter_flat_field_correction_initialize (UfoFilter *filter, UfoBuffer *input[], guint **dims, GError **error)
@@ -64,8 +69,48 @@ ufo_filter_flat_field_correction_process_cpu (UfoFilter *filter, UfoBuffer *inpu
     flat_data = ufo_buffer_get_host_array (input[2], cmd_queue);
     out_data = ufo_buffer_get_host_array (output[0], cmd_queue);
 
-    for (guint i = 0; i < priv->n_pixels; i++)
-        out_data[i] = (proj_data[i] - dark_data[i]) / (flat_data[i] - dark_data[i]);
+    if (priv->absorption_correction) {
+        for (guint i = 0; i < priv->n_pixels; i++)
+            out_data[i] = (gfloat) - log ((proj_data[i] - dark_data[i]) / (flat_data[i] - dark_data[i]));
+    }
+    else {
+        for (guint i = 0; i < priv->n_pixels; i++)
+            out_data[i] = (proj_data[i] - dark_data[i]) / (flat_data[i] - dark_data[i]);
+    }
+}
+
+static void
+ufo_filter_flat_field_correction_set_property (GObject *object, guint property_id, const GValue *value, GParamSpec *pspec)
+{
+    UfoFilterFlatFieldCorrectionPrivate *priv;
+
+    priv = UFO_FILTER_FLAT_FIELD_CORRECTION_GET_PRIVATE (object);
+
+    switch (property_id) {
+        case PROP_ABSORPTION_CORRECTION:
+            priv->absorption_correction = g_value_get_boolean (value);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+            break;
+    }
+}
+
+static void
+ufo_filter_flat_field_correction_get_property (GObject *object, guint property_id, GValue *value, GParamSpec *pspec)
+{
+    UfoFilterFlatFieldCorrectionPrivate *priv;
+
+    priv = UFO_FILTER_FLAT_FIELD_CORRECTION_GET_PRIVATE (object);
+
+    switch (property_id) {
+        case PROP_ABSORPTION_CORRECTION:
+            g_value_set_boolean (value, priv->absorption_correction);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+            break;
+    }
 }
 
 static void
@@ -76,6 +121,17 @@ ufo_filter_flat_field_correction_class_init (UfoFilterFlatFieldCorrectionClass *
 
     filter_class->initialize = ufo_filter_flat_field_correction_initialize;
     filter_class->process_cpu = ufo_filter_flat_field_correction_process_cpu;
+    gobject_class->set_property = ufo_filter_flat_field_correction_set_property;
+    gobject_class->get_property = ufo_filter_flat_field_correction_get_property;
+
+    ffc_properties[PROP_ABSORPTION_CORRECTION] =
+        g_param_spec_boolean("absorption-correction",
+                "Take the negative natural logarithm of the result",
+                "Take the negative natural logarithm of the result",
+                FALSE,
+                G_PARAM_READWRITE);
+
+    g_object_class_install_property(gobject_class, PROP_ABSORPTION_CORRECTION, ffc_properties[PROP_ABSORPTION_CORRECTION]);
 
     g_type_class_add_private (gobject_class, sizeof (UfoFilterFlatFieldCorrectionPrivate));
 }
@@ -92,6 +148,8 @@ ufo_filter_flat_field_correction_init (UfoFilterFlatFieldCorrection *self)
     UfoOutputParameter output_params[] = {{2}};
 
     self->priv = UFO_FILTER_FLAT_FIELD_CORRECTION_GET_PRIVATE (self);
+    self->priv->absorption_correction = FALSE;
+
     ufo_filter_register_inputs (UFO_FILTER (self), 3, input_params);
     ufo_filter_register_outputs (UFO_FILTER (self), 1, output_params);
 }
