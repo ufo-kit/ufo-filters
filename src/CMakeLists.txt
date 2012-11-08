@@ -10,6 +10,7 @@ set(ufofilter_SRCS
     ufo-filter-cl.c
     ufo-filter-complex.c
     ufo-filter-filter.c
+    ufo-filter-flat-field-correction.c
     ufo-filter-histogram-threshold.c
     ufo-filter-gaussian-blur.c
     ufo-filter-interpolator.c
