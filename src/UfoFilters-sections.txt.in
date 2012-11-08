@@ -335,6 +335,22 @@ UFO_FILTER_SINO_GENERATOR_GET_CLASS
 </SECTION>
 
 <SECTION>
+<FILE>ufo-filter-subtract</FILE>
+UfoFilterSubtract
+<SUBSECTION Standard>
+UFO_FILTER_SUBTRACT
+UFO_FILTER_SUBTRACT_CLASS
+UFO_FILTER_SUBTRACT_GET_CLASS
+UFO_IS_FILTER_SUBTRACT
+UFO_IS_FILTER_SUBTRACT_CLASS
+UFO_TYPE_FILTER_SUBTRACT
+UfoFilterSubtractClass
+UfoFilterSubtractPrivate
+ufo_filter_plugin_new
+ufo_filter_subtract_get_type
+</SECTION>
+
+<SECTION>
 <FILE>ufo-filter-cl</FILE>
 <TITLE>UfoFilterCl</TITLE>
 UfoFilterCl
