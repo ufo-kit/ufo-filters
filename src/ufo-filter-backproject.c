@@ -29,7 +29,6 @@ struct _UfoFilterBackprojectPrivate {
     cl_mem sin_mem;
     cl_mem axes_mem;
     cl_mem texture;
-    gint num_sinograms;
     guint num_projections;
     guint width;
     guint height;
@@ -50,7 +49,6 @@ enum {
     PROP_0 = 0,
     PROP_AXIS_POSITION,
     PROP_ANGLE_STEP,
-    PROP_NUM_SINOGRAMS,
     PROP_NUM_PROJECTIONS,
     PROP_USE_TEXTURE,
     N_PROPERTIES
@@ -211,9 +209,6 @@ ufo_filter_backproject_get_property(GObject *object, guint property_id, GValue *
         case PROP_NUM_PROJECTIONS:
             g_value_set_uint(value, self->priv->num_projections);
             break;
-        case PROP_NUM_SINOGRAMS:
-            g_value_set_int(value, self->priv->num_sinograms);
-            break;
         case PROP_AXIS_POSITION:
             g_value_set_double(value, (double) self->priv->axis_position);
             break;
@@ -240,13 +235,6 @@ ufo_filter_backproject_class_init(UfoFilterBackprojectClass *klass)
     gobject_class->finalize = ufo_filter_backproject_finalize;
     filter_class->initialize = ufo_filter_backproject_initialize;
     filter_class->process_gpu = ufo_filter_backproject_process_gpu;
-
-    backproject_properties[PROP_NUM_SINOGRAMS] =
-        g_param_spec_int("num-sinograms",
-            "Number of sinograms",
-            "Number of to process",
-            -1, 8192, 1,
-            G_PARAM_READWRITE);
 
     backproject_properties[PROP_NUM_PROJECTIONS] =
         g_param_spec_uint("num-projections",
@@ -277,7 +265,6 @@ ufo_filter_backproject_class_init(UfoFilterBackprojectClass *klass)
             G_PARAM_READWRITE);
 
     g_object_class_install_property(gobject_class, PROP_NUM_PROJECTIONS, backproject_properties[PROP_NUM_PROJECTIONS]);
-    g_object_class_install_property(gobject_class, PROP_NUM_SINOGRAMS, backproject_properties[PROP_NUM_SINOGRAMS]);
     g_object_class_install_property(gobject_class, PROP_AXIS_POSITION, backproject_properties[PROP_AXIS_POSITION]);
     g_object_class_install_property(gobject_class, PROP_ANGLE_STEP, backproject_properties[PROP_ANGLE_STEP]);
     g_object_class_install_property(gobject_class, PROP_USE_TEXTURE, backproject_properties[PROP_USE_TEXTURE]);
