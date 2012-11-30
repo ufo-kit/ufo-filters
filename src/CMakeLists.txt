@@ -21,8 +21,6 @@ set(ufofilter_SRCS
     ufo-filter-region-of-interest.c
     ufo-filter-sino-generator.c
     ufo-filter-subtract.c
-    # temporarily disabled optical flow
-    #    ufo-filter-optical-flow-lucas-kanade.c
     ufo-filter-volume-renderer.c
     )
 
@@ -36,7 +34,6 @@ set(ufofilter_KERNELS
     interpolator.cl
     complex.cl
     filters.cl
-    lkflow.cl
     metaballs.cl
     motion.cl
     nlm.cl
