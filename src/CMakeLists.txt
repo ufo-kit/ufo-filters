@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 
 # --- Set sources -------------------------------------------------------------
 set(ufofilter_SRCS 
+    ufo-averager-task.c
     ufo-opencl-task.c
     )
 
