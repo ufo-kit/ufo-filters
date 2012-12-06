@@ -24,7 +24,7 @@ float dist(__global float *input, int i, int j, int radius, int image_width)
     return dist / wsize;
 }
 
-__kernel void nlm(__global float *input, __global float *output, __local float *scratch)
+__kernel void nlm(__global float *input, __global float *output)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
