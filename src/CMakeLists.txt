@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 2.6)
 set(ufofilter_SRCS 
     ufo-averager-task.c
     ufo-opencl-task.c
+    ufo-sino-generator-task.c
     )
 
 set(ufofilter_KERNELS
