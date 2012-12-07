@@ -291,6 +291,13 @@ ufo_reader_task_process (UfoCpuTask *task,
         read_tiff_data (priv->tiff, data);
         TIFFClose (priv->tiff); 
 
+        if (priv->bps < 32) {
+            UfoBufferDepth depth;
+
+            depth = priv->bps <= 8 ? UFO_BUFFER_DEPTH_8U : UFO_BUFFER_DEPTH_16U;
+            ufo_buffer_convert (output, depth);
+        }
+
         priv->current_filename = g_slist_next(priv->current_filename);
         priv->current_count++;
         return TRUE;

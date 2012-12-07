@@ -64,12 +64,9 @@ ufo_opencl_task_process (UfoGpuTask *task,
     cl_mem in_mem;
     cl_mem out_mem;
     cl_event event;
-    gfloat *fp;
 
     priv = UFO_OPENCL_TASK (task)->priv;
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
-
-    fp = ufo_buffer_get_host_array (inputs[0], NULL);
 
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
@@ -84,8 +81,6 @@ ufo_opencl_task_process (UfoGpuTask *task,
 
     UFO_RESOURCES_CHECK_CLERR (clWaitForEvents (1, &event));
     UFO_RESOURCES_CHECK_CLERR (clReleaseEvent (event));
-
-    fp = ufo_buffer_get_host_array (output, cmd_queue);
 
     return TRUE;
 }
