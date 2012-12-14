@@ -111,6 +111,7 @@ ufo_fft_task_get_requisition (UfoTask *task,
 
     priv->fft_size.x = pow2round ((guint32) in_req.dims[0]);
 
+
     switch (priv->fft_dimensions) {
         case FFT_1D:
             dimension = clFFT_1D;
@@ -217,6 +218,11 @@ ufo_fft_task_process_gpu (UfoGpuTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
+    cl_event spread_event;
+    cl_event fft_event;
+    cl_int width;
+    cl_int height;
+    gsize global_work_size[2];
 
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
@@ -224,29 +230,38 @@ ufo_fft_task_process_gpu (UfoGpuTask *task,
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
 
     ufo_buffer_get_requisition (inputs[0], &in_req);
+    width = (cl_int) in_req.dims[0];
+    height = (cl_int) in_req.dims[1];
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), (gpointer) &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), (gpointer) &in_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (guint), &in_req.dims[0]));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (guint), &in_req.dims[1]));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_int), &width));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_int), &height));
+
+    global_work_size[0] = requisition->dims[0] >> 1;
+    global_work_size[1] = requisition->dims[1];
 
     UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
                                                        priv->kernel,
-                                                       2, NULL, (const size_t *) &in_req.dims, NULL,
-                                                       0, NULL, NULL));
+                                                       2, NULL, global_work_size, NULL,
+                                                       0, NULL, &spread_event));
 
     if (priv->fft_dimensions == FFT_1D) {
         clFFT_ExecuteInterleaved (cmd_queue, priv->fft_plan,
-                                  (cl_int) in_req.dims[0], clFFT_Forward,
+                                  (cl_int) in_req.dims[1], clFFT_Forward,
                                   out_mem, out_mem,
-                                  0, NULL, NULL);
+                                  1, &spread_event, &fft_event);
     }
     else {
         clFFT_ExecuteInterleaved (cmd_queue, priv->fft_plan,
                                   1, clFFT_Forward,
                                   out_mem, out_mem, 
-                                  0, NULL, NULL);
+                                  1, &spread_event, &fft_event);
     }
+
+    UFO_RESOURCES_CHECK_CLERR (clWaitForEvents (1, &fft_event));
+    UFO_RESOURCES_CHECK_CLERR (clReleaseEvent (spread_event));
+    UFO_RESOURCES_CHECK_CLERR (clReleaseEvent (fft_event));
 
     return TRUE;
 }

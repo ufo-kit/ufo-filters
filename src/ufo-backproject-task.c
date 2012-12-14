@@ -274,6 +274,7 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
 {
     GObjectClass *oclass;
     UfoNodeClass *node_class;
+    const gfloat limit = (gfloat) (4.0 * G_PI);
     
     oclass = G_OBJECT_CLASS (klass);
     node_class = UFO_NODE_CLASS (klass);
@@ -286,14 +287,14 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
         g_param_spec_float ("axis-pos",
                             "Position of rotation axis",
                             "Position of rotation axis",
-                            -1.0, +8192.0, 0.0,
+                            -1.0, +8192.0, 0.0f,
                             G_PARAM_READWRITE);
 
     properties[PROP_ANGLE_STEP] =
         g_param_spec_float ("angle-step",
                             "Increment of angle in radians",
                             "Increment of angle in radians",
-                            -4.0 * G_PI, +4.0 * G_PI, 0.0,
+                            -limit, +limit, 0.0f,
                             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)

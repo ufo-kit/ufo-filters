@@ -36,8 +36,7 @@ struct _UfoIfftTaskPrivate {
     clFFT_Plan  fft_plan;
 #endif
 
-    guint final_width;
-    guint final_height;
+    gint crop_width;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -54,6 +53,7 @@ G_DEFINE_TYPE_WITH_CODE (UfoIfftTask, ufo_ifft_task, UFO_TYPE_TASK_NODE,
 enum {
     PROP_0,
     PROP_DIMENSIONS,
+    PROP_CROP_WIDTH,
     N_PROPERTIES
 };
 
@@ -125,7 +125,7 @@ ufo_ifft_task_get_requisition (UfoTask *task,
     }
 
     requisition->n_dims = 2;
-    requisition->dims[0] = fft_size.x;
+    requisition->dims[0] = priv->crop_width > 0 ? (gsize) priv->crop_width : fft_size.x;
     requisition->dims[1] = in_req.dims[1];
 }
 
@@ -156,6 +156,7 @@ ufo_ifft_task_copy_real (UfoNode *node,
 
     g_object_set (G_OBJECT (copy),
                   "dimensions", orig->priv->fft_dimensions,
+                  "crop-width", orig->priv->crop_width,
                   NULL);
 
     return UFO_NODE (copy);
@@ -201,11 +202,15 @@ ufo_ifft_task_process_gpu (UfoGpuTask *task,
                           UfoGpuNode *node)
 {
     UfoIfftTaskPrivate *priv;
+    UfoRequisition in_req;
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
     cl_int batch_size;
+    cl_int width;
+    cl_event fft_event;
     gfloat scale;
+    gsize global_work_size[2];
 
     priv = UFO_IFFT_TASK_GET_PRIVATE (task);
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
@@ -216,7 +221,7 @@ ufo_ifft_task_process_gpu (UfoGpuTask *task,
     clFFT_ExecuteInterleaved (cmd_queue,
                               priv->fft_plan, batch_size, clFFT_Inverse,
                               in_mem, in_mem,
-                              0, NULL, NULL);
+                              0, NULL, &fft_event);
 
     clFinish (cmd_queue);
 
@@ -225,16 +230,22 @@ ufo_ifft_task_process_gpu (UfoGpuTask *task,
     if (priv->fft_dimensions == clFFT_2D)
         scale /= (gfloat) requisition->dims[0];
 
+    width = priv->crop_width > 0 ? priv->crop_width : (cl_int) requisition->dims[0];
+    ufo_buffer_get_requisition (inputs[0], &in_req);
+    global_work_size[0] = in_req.dims[0] >> 1;
+    global_work_size[1] = in_req.dims[1];
+
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), (gpointer) &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), (gpointer) &out_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (guint), &requisition->dims[0]));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_int), &width));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (gfloat), &scale));
 
     UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
                                                        priv->kernel,
-                                                       2, NULL, requisition->dims, NULL,
-                                                       0, NULL, NULL));
+                                                       2, NULL, global_work_size, NULL,
+                                                       1, &fft_event, NULL));
 
+    UFO_RESOURCES_CHECK_CLERR (clReleaseEvent (fft_event));
     return TRUE;
 }
 
@@ -257,6 +268,9 @@ ufo_ifft_task_set_property (GObject *object,
         case PROP_DIMENSIONS:
             priv->fft_dimensions = g_value_get_uint (value);
             break;
+        case PROP_CROP_WIDTH:
+            priv->crop_width = g_value_get_int (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -274,6 +288,9 @@ ufo_ifft_task_get_property (GObject *object,
     switch (property_id) {
         case PROP_DIMENSIONS:
             g_value_set_uint (value, priv->fft_dimensions);
+            break;
+        case PROP_CROP_WIDTH:
+            g_value_set_int (value, priv->crop_width);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -295,11 +312,18 @@ ufo_ifft_task_class_init (UfoIfftTaskClass *klass)
     oclass->get_property = ufo_ifft_task_get_property;
 
     properties[PROP_DIMENSIONS] =
-        g_param_spec_uint("dimensions",
-            "Number of IFFT dimensions from 1 to 3",
-            "Number of IFFT dimensions from 1 to 3",
-            1, 3, 1,
-            G_PARAM_READWRITE);
+        g_param_spec_uint ("dimensions",
+                           "Number of IFFT dimensions from 1 to 3",
+                           "Number of IFFT dimensions from 1 to 3",
+                           1, 3, 1,
+                           G_PARAM_READWRITE);
+
+    properties[PROP_CROP_WIDTH] =
+        g_param_spec_int ("crop-width",
+                          "Width of cropped output",
+                          "Width of cropped output",
+                          -1, G_MAXINT, -1,
+                          G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
@@ -315,6 +339,7 @@ ufo_ifft_task_init (UfoIfftTask *self)
 {
     UfoIfftTaskPrivate *priv;
     self->priv = priv = UFO_IFFT_TASK_GET_PRIVATE (self);
+    priv->crop_width = -1;
 #ifdef HAVE_OCLFFT
     priv->fft_dimensions = FFT_1D;
     priv->fft_plan = NULL;
