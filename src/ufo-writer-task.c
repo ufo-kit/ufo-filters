@@ -49,28 +49,54 @@ ufo_writer_task_new (void)
 }
 
 static gboolean
-write_tiff_data (gfloat *data, const gchar *name, gsize width, gsize height)
+write_tiff_data (UfoBuffer *buffer, const gchar *name)
 {
+    UfoRequisition requisition;
     guint32 rows_per_strip;
     gboolean success = TRUE;
+    gpointer data;
+    gsize size;
+    guint n_pages;
+    guint width, height;
 
-    TIFF *tif = TIFFOpen(name, "w");
+    TIFF *tif;
+
+    tif = TIFFOpen(name, "w");
 
     if (tif == NULL)
         return FALSE;
 
-    rows_per_strip = TIFFDefaultStripSize(tif, (guint32)-1);
+    ufo_buffer_get_requisition (buffer, &requisition);
+    n_pages = requisition.n_dims == 3 ? (guint) requisition.dims[2] : 1;
+    width = (guint) requisition.dims[0];
+    height = (guint) requisition.dims[1];
 
-    TIFFSetField (tif, TIFFTAG_IMAGEWIDTH, width);
-    TIFFSetField (tif, TIFFTAG_IMAGELENGTH, height);
-    TIFFSetField (tif, TIFFTAG_BITSPERSAMPLE, 32);
-    TIFFSetField (tif, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
-    TIFFSetField (tif, TIFFTAG_SAMPLESPERPIXEL, 1);
-    TIFFSetField (tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-    TIFFSetField (tif, TIFFTAG_ROWSPERSTRIP, rows_per_strip);
+    data = ufo_buffer_get_host_array (buffer, NULL);
+    size = ufo_buffer_get_size (buffer);
 
-    for (guint y = 0; y < height; y++, data += width)
-        TIFFWriteScanline(tif, data, y, 0);
+    rows_per_strip = TIFFDefaultStripSize(tif, (guint32) - 1);
+
+    if (n_pages > 1)
+        TIFFSetField (tif, TIFFTAG_SUBFILETYPE, FILETYPE_PAGE);
+
+    for (guint i = 0; i < n_pages; i++) {
+        gfloat *start;
+
+        TIFFSetField (tif, TIFFTAG_IMAGEWIDTH, width);
+        TIFFSetField (tif, TIFFTAG_IMAGELENGTH, height);
+        TIFFSetField (tif, TIFFTAG_BITSPERSAMPLE, 32);
+        TIFFSetField (tif, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
+        TIFFSetField (tif, TIFFTAG_SAMPLESPERPIXEL, 1);
+        TIFFSetField (tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+        TIFFSetField (tif, TIFFTAG_ROWSPERSTRIP, rows_per_strip);
+        TIFFSetField (tif, TIFFTAG_PAGENUMBER, i, n_pages);
+        start = ((gfloat *) data) + i * width * height;
+
+        for (guint y = 0; y < height; y++, start += width)
+            TIFFWriteScanline (tif, start, y, 0);
+
+        TIFFWriteDirectory (tif);
+    }
 
     TIFFClose(tif);
     return success;
@@ -88,13 +114,6 @@ ufo_writer_task_get_requisition (UfoTask *task,
                                  UfoBuffer **inputs,
                                  UfoRequisition *requisition)
 {
-    UfoWriterTaskPrivate *priv;
-    UfoRequisition buffer_req;
-    
-    priv = UFO_WRITER_TASK_GET_PRIVATE (UFO_WRITER_TASK (task));
-    ufo_buffer_get_requisition (inputs[0], &buffer_req);
-    priv->width = buffer_req.dims[0];
-    priv->height = buffer_req.dims[1];
     requisition->n_dims = 0;
 }
 
@@ -118,16 +137,14 @@ ufo_writer_task_process (UfoCpuTask *task,
 {
     UfoWriterTaskPrivate *priv;
     gchar *filename;
-    gpointer data;
-    
+
     priv = UFO_WRITER_TASK_GET_PRIVATE (UFO_WRITER_TASK (task));
     filename = g_strdup_printf("%s/%s%05i.tif",
                                priv->path,
                                priv->prefix,
                                priv->counter++);
 
-    data = ufo_buffer_get_host_array (inputs[0], NULL);
-    write_tiff_data (data, filename, priv->width, priv->height);
+    write_tiff_data (inputs[0], filename);
     g_free (filename);
 
     return TRUE;
