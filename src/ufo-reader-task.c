@@ -34,11 +34,14 @@ struct _UfoReaderTaskPrivate {
     GSList *filenames;
     GSList *current_filename;
 
+    FILE *edf;
     TIFF *tiff;
+    gboolean big_endian;
     guint32 width;
     guint32 height;
     guint16 bps;
     guint16 spp;
+    gsize size;
 
     gboolean roi;
     guint roi_x;
@@ -100,46 +103,23 @@ read_tiff_data (TIFF *tif, gpointer buffer)
     return TRUE;
 }
 
-/**
- * read_tiff:
- *
- * Returns: TRUE if more frames can be read from @tif
- */
-/* static gboolean */
-/* read_tiff (TIFF *tif, */
-/*            gpointer buffer) */
-/* { */
-/*     /1* guint16 bits_per_sample = 8; *1/ */
-/*     /1* TIFFGetField(tif, TIFFTAG_BITSPERSAMPLE, &bits_per_sample); *1/ */
-/*     /1* TIFFGetField(tif, TIFFTAG_SAMPLESPERPIXEL, samples_per_pixel); *1/ */
-/*     /1* TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, width); *1/ */
-/*     /1* TIFFGetField(tif, TIFFTAG_IMAGELENGTH, height); *1/ */
+static gboolean
+is_tiff_file (const gchar *filename)
+{
+    return g_str_has_suffix (filename, ".tiff") ||
+           g_str_has_suffix (filename, ".tif");
+}
 
-/*     /1* if (*samples_per_pixel > 1) *1/ */
-/*     /1*     g_warning("TIFF has %i samples per pixel", *samples_per_pixel); *1/ */
-
-/*     /1* *bytes_per_sample = bits_per_sample >> 3; *1/ */
-/*     /1* gsize size = *bytes_per_sample * (*width) * (*height); *1/ */
-
-/*     /1* if ((*buffer == NULL) || (image_size != size)) { *1/ */
-/*     /1*     *buffer = g_malloc0(size); *1/ */
-/*     /1*     image_size = size; *1/ */
-/*     /1* } *1/ */
-
-/*     if (!filter_decode_tiff(tif, *buffer)) */
-/*         goto error_close; */
-
-/*     return TIFFReadDirectory(tif) == 1; */
-
-/* error_close: */
-/*     *buffer = NULL; */
-/*     return FALSE; */
-/* } */
+static gboolean
+is_edf_file (const gchar *filename)
+{
+    return g_str_has_suffix (filename, ".edf");
+}
 
 static gboolean
 has_valid_extension (const gchar *filename)
 {
-    return g_str_has_suffix (filename, ".tiff") || g_str_has_suffix (filename, ".tif");
+    return is_tiff_file (filename) || is_edf_file (filename);
 }
 
 static GSList *
@@ -171,44 +151,6 @@ read_filenames(UfoReaderTaskPrivate *priv)
     return result;
 }
 
-/* static void */
-/* push_data(UfoReaderTaskPrivate *priv, gpointer, guint src_width, guint src_height, guint bytes_per_sample) */
-/* { */
-/*     if (!priv->roi) { */
-/*         ufo_buffer_set_host_array(output, priv->frame_buffer, bytes_per_sample * src_width * src_height, NULL); */
-
-/*         if (bytes_per_sample < 4) */
-/*             ufo_buffer_reinterpret(output, bytes_per_sample << 3, src_width * src_height, priv->normalize); */
-/*     } */
-/*     else { */
-/*         guint x1 = priv->roi_x, y1 = priv->roi_y; */
-/*         guint x2 = x1 + priv->roi_width, y2 = y1 + priv->roi_height; */
-
-/*         /1* Don't do anything if we are completely out of bounds *1/ */
-/*         if (x1 <= src_width && y1 <= src_height) { */
-
-/*             guint rd_width = x2 > src_width ? src_width - x1 : priv->roi_width; */
-/*             guint rd_height = y2 > src_height ? src_height - y1 : priv->roi_height; */
-/*             gfloat *in_data = (gfloat *) priv->frame_buffer; */
-/*             gfloat *out_data = ufo_buffer_get_host_array(output, NULL); */
-
-/*             if (rd_width == src_width) { */
-/*                 g_memmove(out_data, in_data + y1*src_width, */
-/*                         rd_width * rd_height * sizeof(gfloat)); */
-/*             } */
-/*             else { */
-/*                 for (guint y = 0; y < rd_height; y++) { */
-/*                     g_memmove(out_data + y*priv->roi_width, in_data + (y + y1)*src_width + x1, */
-/*                             rd_width * sizeof(gfloat)); */
-/*                 } */
-/*             } */
-
-/*             if (bytes_per_sample < 4) */
-/*                 g_warning("Region of interest with non-float data is not yet supported!"); */
-/*         } */
-/*     } */
-/* } */
-
 static void
 ufo_reader_task_setup (UfoTask *task,
                        UfoResources *resources,
@@ -216,7 +158,7 @@ ufo_reader_task_setup (UfoTask *task,
 {
     UfoReaderTask *node;
     UfoReaderTaskPrivate *priv;
-    
+
     node = UFO_READER_TASK (task);
     priv = node->priv;
 
@@ -233,23 +175,98 @@ ufo_reader_task_setup (UfoTask *task,
 }
 
 static void
+read_edf_metadata (UfoReaderTaskPrivate *priv)
+{
+    gchar *header = g_malloc (1024);
+    gchar **tokens;
+    size_t num_bytes;
+
+    num_bytes = fread (header, 1, 1024, priv->edf);
+
+    if (num_bytes != 1024) {
+        g_free (header);
+        fclose (priv->edf);
+        return;
+    }
+
+    tokens = g_strsplit(header, ";", 0);
+    priv->big_endian = FALSE;
+
+    for (guint i = 0; tokens[i] != NULL; i++) {
+        gchar **key_value = g_strsplit (tokens[i], "=", 0);
+
+        if (g_strcmp0 (g_strstrip (key_value[0]), "Dim_1") == 0)
+            priv->width = (guint) atoi (key_value[1]);
+        else if (g_strcmp0 (g_strstrip (key_value[0]), "Dim_2") == 0)
+            priv->height = (guint) atoi (key_value[1]);
+        else if (g_strcmp0 (g_strstrip (key_value[0]), "Size") == 0)
+            priv->size = (guint) atoi (key_value[1]);
+        else if ((g_strcmp0 (g_strstrip (key_value[0]), "ByteOrder") == 0) &&
+                 (g_strcmp0 (g_strstrip (key_value[1]), "HighByteFirst") == 0))
+            priv->big_endian = TRUE;
+
+        g_strfreev (key_value);
+    }
+
+    g_strfreev(tokens);
+    g_free(header);
+    priv->bps = 32;
+    priv->spp = 1;
+}
+
+static gboolean
+read_edf_data (UfoReaderTaskPrivate *priv,
+               gpointer buffer)
+{
+    gsize file_size;
+    gsize num_bytes;
+    gssize header_size;
+
+    fseek (priv->edf, 0L, SEEK_END);
+    file_size = (gsize) ftell (priv->edf);
+    header_size = (gssize) (file_size - priv->size);
+    fseek (priv->edf, header_size, SEEK_SET);
+
+    num_bytes = fread (buffer, 1, priv->size, priv->edf);
+
+    if (num_bytes != priv->size)
+        return FALSE;
+
+    if ((G_BYTE_ORDER == G_LITTLE_ENDIAN) && priv->big_endian) {
+        guint32 *data = (guint32 *) buffer;
+        guint n_pixels = priv->width * priv->height;
+
+        for (guint i = 0; i < n_pixels; i++)
+            data[i] = g_ntohl (data[i]);
+    }
+
+    return TRUE;
+}
+
+static void
 ufo_reader_task_get_requisition (UfoTask *task,
                                  UfoBuffer **inputs,
                                  UfoRequisition *requisition)
 {
     UfoReaderTaskPrivate *priv;
-        
+
     priv = UFO_READER_TASK_GET_PRIVATE (UFO_READER_TASK (task));
 
     if ((priv->current_count < priv->count) && (priv->current_filename != NULL)) {
         const gchar *name = (gchar *) priv->current_filename->data;
 
-        priv->tiff = TIFFOpen(name, "r");
+        if (is_tiff_file (name)) {
+            priv->tiff = TIFFOpen (name, "r");
 
-        TIFFGetField (priv->tiff, TIFFTAG_BITSPERSAMPLE, &priv->bps);
-        TIFFGetField (priv->tiff, TIFFTAG_SAMPLESPERPIXEL, &priv->spp);
-        TIFFGetField (priv->tiff, TIFFTAG_IMAGEWIDTH, &priv->width);
-        TIFFGetField (priv->tiff, TIFFTAG_IMAGELENGTH, &priv->height);
+            TIFFGetField (priv->tiff, TIFFTAG_BITSPERSAMPLE, &priv->bps);
+            TIFFGetField (priv->tiff, TIFFTAG_SAMPLESPERPIXEL, &priv->spp);
+            TIFFGetField (priv->tiff, TIFFTAG_IMAGEWIDTH, &priv->width);
+            TIFFGetField (priv->tiff, TIFFTAG_IMAGELENGTH, &priv->height);
+        }
+        else if (is_edf_file (name)) {
+            priv->edf = fopen (name, "rb");
+            read_edf_metadata (priv);
+        }
     }
 
     requisition->n_dims = 2;
@@ -281,15 +298,22 @@ ufo_reader_task_process (UfoCpuTask *task,
                          UfoRequisition *requisition)
 {
     UfoReaderTaskPrivate *priv;
-    
+
     priv = UFO_READER_TASK_GET_PRIVATE (UFO_READER_TASK (task));
 
     if ((priv->current_count < priv->count) && (priv->current_filename != NULL)) {
-        gpointer data;
+        gpointer data = ufo_buffer_get_host_array (output, NULL);
 
-        data = ufo_buffer_get_host_array (output, NULL);
-        read_tiff_data (priv->tiff, data);
-        TIFFClose (priv->tiff); 
+        if (priv->tiff != NULL) {
+            read_tiff_data (priv->tiff, data);
+            TIFFClose (priv->tiff);
+            priv->tiff = NULL;
+        }
+        else if (priv->edf != NULL) {
+            read_edf_data (priv, data);
+            fclose (priv->edf);
+            priv->edf = NULL;
+        }
 
         if (priv->bps < 32) {
             UfoBufferDepth depth;
@@ -533,4 +557,6 @@ ufo_reader_task_init(UfoReaderTask *self)
     priv->more_pages = FALSE;
     priv->roi = FALSE;
     priv->roi_x = priv->roi_y = priv->roi_width = priv->roi_height = 0;
+    priv->tiff = NULL;
+    priv->edf = NULL;
 }
