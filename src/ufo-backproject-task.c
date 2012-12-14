@@ -211,6 +211,8 @@ ufo_backproject_task_finalize (GObject *object)
         clReleaseMemObject (priv->texture);
         priv->texture = NULL;
     }
+
+    G_OBJECT_CLASS (ufo_backproject_task_parent_class)->finalize (object);
 }
 
 static void

@@ -39,13 +39,10 @@ G_DEFINE_TYPE_WITH_CODE (UfoFilterTask, ufo_filter_task, UFO_TYPE_TASK_NODE,
 
 enum {
     PROP_0,
-    PROP_FILENAME,
-    PROP_KERNEL,
-    PROP_NUM_DIMS,
     N_PROPERTIES
 };
 
-static GParamSpec *properties[N_PROPERTIES] = { NULL, };
+/* static GParamSpec *properties[N_PROPERTIES] = { NULL, }; */
 
 UfoNode *
 ufo_filter_task_new (void)
@@ -206,6 +203,8 @@ ufo_filter_task_finalize (GObject *object)
         clReleaseMemObject (priv->filter_mem);
         priv->filter_mem = NULL;
     }
+
+    G_OBJECT_CLASS (ufo_filter_task_parent_class)->finalize (object);
 }
 
 static void

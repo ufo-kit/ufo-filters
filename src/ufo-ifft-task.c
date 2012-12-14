@@ -183,6 +183,8 @@ ufo_ifft_task_finalize (GObject *object)
         priv->kernel = NULL;
     }
 #endif
+
+    G_OBJECT_CLASS (ufo_ifft_task_parent_class)->finalize (object);
 }
 
 static void
