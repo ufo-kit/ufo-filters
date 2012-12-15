@@ -118,7 +118,7 @@ ufo_ifft_task_get_requisition (UfoTask *task,
 
     if (priv->fft_plan == NULL) {
         priv->fft_plan = clFFT_CreatePlan (priv->context,
-                                           fft_size, clFFT_1D,
+                                           fft_size, dimension,
                                            clFFT_InterleavedComplexFormat,
                                            &cl_err);
         UFO_RESOURCES_CHECK_CLERR (cl_err);
@@ -229,7 +229,7 @@ ufo_ifft_task_process_gpu (UfoGpuTask *task,
 
     scale = 1.0f / ((gfloat) requisition->dims[0]);
 
-    if (priv->fft_dimensions == clFFT_2D)
+    if (priv->fft_dimensions == FFT_2D)
         scale /= (gfloat) requisition->dims[0];
 
     width = priv->crop_width > 0 ? priv->crop_width : (cl_int) requisition->dims[0];

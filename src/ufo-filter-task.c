@@ -154,9 +154,6 @@ ufo_filter_task_get_structure (UfoTask *task,
                                guint **n_dims,
                                UfoTaskMode *mode)
 {
-    UfoFilterTaskPrivate *priv;
-
-    priv = UFO_FILTER_TASK_GET_PRIVATE (task);
     *mode = UFO_TASK_MODE_SINGLE;
     *n_inputs = 1;
     *n_dims = g_new0 (guint, 1);
@@ -173,8 +170,8 @@ ufo_filter_task_copy_real (UfoNode *node,
     orig = UFO_FILTER_TASK (node);
     copy = UFO_FILTER_TASK (ufo_filter_task_new ());
 
-    /* g_object_set (G_OBJECT (copy), */
-    /*               NULL); */
+    copy->priv->bw_order = orig->priv->bw_order;
+    copy->priv->bw_cutoff = orig->priv->bw_cutoff;
 
     return UFO_NODE (copy);
 }

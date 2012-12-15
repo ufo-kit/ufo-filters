@@ -81,6 +81,7 @@ ufo_backproject_task_process (UfoGpuTask *task,
                                          0, dest_origin, dest_region,
                                          0, NULL, NULL);
 
+    UFO_RESOURCES_CHECK_CLERR (cl_err);
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &priv->texture));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (guint),  &priv->n_projections));
@@ -160,9 +161,6 @@ ufo_backproject_task_get_structure (UfoTask *task,
                                guint **n_dims,
                                UfoTaskMode *mode)
 {
-    UfoBackprojectTaskPrivate *priv;
-
-    priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (task);
     *mode = UFO_TASK_MODE_SINGLE;
     *n_inputs = 1;
     *n_dims = g_new0 (guint, 1);

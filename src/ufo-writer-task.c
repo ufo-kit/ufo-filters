@@ -55,7 +55,6 @@ write_tiff_data (UfoBuffer *buffer, const gchar *name)
     guint32 rows_per_strip;
     gboolean success = TRUE;
     gpointer data;
-    gsize size;
     guint n_pages;
     guint width, height;
 
@@ -67,12 +66,13 @@ write_tiff_data (UfoBuffer *buffer, const gchar *name)
         return FALSE;
 
     ufo_buffer_get_requisition (buffer, &requisition);
+
+    /* With a 3-dimensional input buffer, we create z-depth TIFF pages. */
     n_pages = requisition.n_dims == 3 ? (guint) requisition.dims[2] : 1;
+
     width = (guint) requisition.dims[0];
     height = (guint) requisition.dims[1];
-
     data = ufo_buffer_get_host_array (buffer, NULL);
-    size = ufo_buffer_get_size (buffer);
 
     rows_per_strip = TIFFDefaultStripSize(tif, (guint32) - 1);
 
