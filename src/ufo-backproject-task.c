@@ -65,6 +65,8 @@ ufo_backproject_task_process (UfoGpuTask *task,
     cl_mem in_mem;
     cl_mem out_mem;
     cl_int cl_err;
+    gfloat angle_step;
+    gfloat axis_pos;
     gsize dest_origin[3] = { 0, 0, 0 };
     gsize dest_region[3] = { 1, 1, 1 };
 
@@ -76,6 +78,17 @@ ufo_backproject_task_process (UfoGpuTask *task,
     dest_region[0] = requisition->dims[0];
     dest_region[1] = priv->n_projections;
 
+    /* Guess angle step and axis position if they are not provided by the user. */
+    if (priv->angle_step <= 0.0)
+        angle_step = (gfloat) (G_PI / ((gfloat) requisition->dims[1]));
+    else
+        angle_step = priv->angle_step;
+
+    if (priv->axis_pos <= 0.0)
+        axis_pos = (gfloat) ((gfloat) requisition->dims[0]) / 2.0f;
+    else
+        axis_pos = priv->axis_pos;
+
     cl_err = clEnqueueCopyBufferToImage (cmd_queue,
                                          in_mem, priv->texture,
                                          0, dest_origin, dest_region,
@@ -85,8 +98,8 @@ ufo_backproject_task_process (UfoGpuTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &priv->texture));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (guint),  &priv->n_projections));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (gfloat), &priv->axis_pos));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (gfloat), &priv->angle_step));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (gfloat), &axis_pos));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (gfloat), &angle_step));
 
     UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
                                                        priv->kernel,
@@ -104,12 +117,6 @@ ufo_backproject_task_setup (UfoTask *task,
     UfoBackprojectTaskPrivate *priv;
 
     priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (task);
-
-    if (priv->angle_step <= 0.0) {
-        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                     "Property ::angle_step not specified");
-        return;
-    }
 
     priv->context = ufo_resources_get_context (resources);
     priv->kernel = ufo_resources_get_kernel (resources,
