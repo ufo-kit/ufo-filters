@@ -126,7 +126,7 @@ ufo_opencl_task_get_requisition (UfoTask *task,
 static void
 ufo_opencl_task_get_structure (UfoTask *task,
                                guint *n_inputs,
-                               guint **n_dims,
+                               UfoInputParam **in_params,
                                UfoTaskMode *mode)
 {
     UfoOpenCLTaskPrivate *priv;
@@ -134,8 +134,8 @@ ufo_opencl_task_get_structure (UfoTask *task,
     priv = UFO_OPENCL_TASK_GET_PRIVATE (task);
     *mode = UFO_TASK_MODE_SINGLE;
     *n_inputs = 1;
-    *n_dims = g_new0 (guint, 1);
-    (*n_dims)[0] = priv->n_dims;
+    *in_params = g_new0 (UfoInputParam, 1);
+    (*in_params)[0].n_dims = priv->n_dims;
 }
 
 static UfoNode *

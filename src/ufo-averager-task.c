@@ -44,22 +44,23 @@ ufo_averager_task_setup (UfoTask *task,
 
 static void
 ufo_averager_task_get_requisition (UfoTask *task,
-                                 UfoBuffer **inputs,
-                                 UfoRequisition *requisition)
+                                   UfoBuffer **inputs,
+                                   UfoRequisition *requisition)
 {
     ufo_buffer_get_requisition (inputs[0], requisition);
 }
 
 static void
 ufo_averager_task_get_structure (UfoTask *task,
-                               guint *n_inputs,
-                               guint **n_dims,
-                               UfoTaskMode *mode)
+                                 guint *n_inputs,
+                                 UfoInputParam **in_params,
+                                 UfoTaskMode *mode)
 {
     *mode = UFO_TASK_MODE_REDUCE;
     *n_inputs = 1;
-    *n_dims = g_new0 (guint, 1);
-    (*n_dims)[0] = 2;
+    *in_params = g_new0 (UfoInputParam, 1);
+    (*in_params)[0].n_dims = 2;
+    (*in_params)[0].n_expected = -1;
 }
 
 static gboolean

@@ -131,17 +131,18 @@ ufo_ifft_task_get_requisition (UfoTask *task,
 
 static void
 ufo_ifft_task_get_structure (UfoTask *task,
-                            guint *n_inputs,
-                            guint **n_dims,
-                            UfoTaskMode *mode)
+                             guint *n_inputs,
+                             UfoInputParam **in_params,
+                             UfoTaskMode *mode)
 {
     UfoIfftTaskPrivate *priv;
 
     priv = UFO_IFFT_TASK_GET_PRIVATE (task);
     *mode = UFO_TASK_MODE_SINGLE;
     *n_inputs = 1;
-    *n_dims = g_new0 (guint, 1);
-    (*n_dims)[0] = priv->fft_dimensions;
+    *in_params = g_new0 (UfoInputParam, 1);
+    (*in_params)[0].n_dims = priv->fft_dimensions;
+    (*in_params)[0].n_expected = -1;
 }
 
 static UfoNode *

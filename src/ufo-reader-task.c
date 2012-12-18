@@ -284,7 +284,7 @@ ufo_reader_task_get_requisition (UfoTask *task,
 static void
 ufo_reader_task_get_structure (UfoTask *task,
                                guint *n_inputs,
-                               guint **n_dims,
+                               UfoInputParam **in_params,
                                UfoTaskMode *mode)
 {
     *n_inputs = 0;

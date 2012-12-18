@@ -151,13 +151,14 @@ ufo_filter_task_get_requisition (UfoTask *task,
 static void
 ufo_filter_task_get_structure (UfoTask *task,
                                guint *n_inputs,
-                               guint **n_dims,
+                               UfoInputParam **in_params,
                                UfoTaskMode *mode)
 {
     *mode = UFO_TASK_MODE_SINGLE;
     *n_inputs = 1;
-    *n_dims = g_new0 (guint, 1);
-    (*n_dims)[0] = 2;
+    *in_params = g_new0 (UfoInputParam, 1);
+    (*in_params)[0].n_dims = 2;
+    (*in_params)[0].n_expected = -1;
 }
 
 static UfoNode *
