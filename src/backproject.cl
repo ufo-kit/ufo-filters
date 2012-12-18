@@ -47,11 +47,11 @@ __kernel void backproject_tex (__read_only image2d_t sinogram,
 
 #pragma unroll 8
     for(int proj = 0; proj < n_projections; proj++) {
-        float p = -proj * angle_step;
+        float p = proj * angle_step;
         h = mad(by, sin(p), mad(bx, cos(p), axis_pos));
         sum += read_imagef(sinogram, volumeSampler, (float2)(h, proj)).x;
     }
     
-    slice[slice_index] = sum;
+    slice[slice_index] = sum * 4.0 * M_PI;
 }
 
