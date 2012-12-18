@@ -33,6 +33,8 @@ include_directories(
     ${UFO_INCLUDE_DIRS}
     )
 
+link_directories(${UFO_LIBRARY_DIRS})
+
 add_definitions("-std=c99 -pedantic -Wall -Wextra -fPIC")
 if (CMAKE_COMPILER_IS_GNUCC)
     add_definitions("-Wmissing-prototypes -Wmissing-declarations -Wshadow
