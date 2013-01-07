@@ -35,7 +35,6 @@ set(ufofilter_KERNELS
     complex.cl
     filters.cl
     metaballs.cl
-    motion.cl
     nlm.cl
     volume.cl
     stdp.cl
