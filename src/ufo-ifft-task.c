@@ -180,9 +180,11 @@ ufo_ifft_task_finalize (GObject *object)
 
 #ifdef HAVE_OCLFFT
     if (priv->kernel) {
-        clReleaseKernel (priv->kernel);
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
         priv->kernel = NULL;
     }
+
+    clFFT_DestroyPlan (priv->fft_plan);
 #endif
 
     G_OBJECT_CLASS (ufo_ifft_task_parent_class)->finalize (object);

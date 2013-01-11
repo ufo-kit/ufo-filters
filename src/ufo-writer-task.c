@@ -165,7 +165,7 @@ ufo_writer_task_set_property (GObject *object,
             priv->path = g_value_dup_string (value);
             break;
         case PROP_PREFIX:
-            g_free(priv->prefix);
+            g_free (priv->prefix);
             priv->prefix = g_value_dup_string (value);
             break;
         default:
@@ -184,15 +184,31 @@ ufo_writer_task_get_property (GObject *object,
 
     switch (property_id) {
         case PROP_PATH:
-            g_value_set_string(value, priv->path);
+            g_value_set_string (value, priv->path);
             break;
         case PROP_PREFIX:
-            g_value_set_string(value, priv->prefix);
+            g_value_set_string (value, priv->prefix);
             break;
         default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
     }
+}
+
+static void
+ufo_writer_task_finalize (GObject *object)
+{
+    UfoWriterTaskPrivate *priv;
+
+    priv = UFO_WRITER_TASK_GET_PRIVATE (object);
+
+    g_free (priv->path);
+    priv->path = NULL;
+
+    g_free (priv->prefix);
+    priv->prefix = NULL;
+
+    G_OBJECT_CLASS (ufo_writer_task_parent_class)->finalize (object);
 }
 
 static void
@@ -216,6 +232,7 @@ ufo_writer_task_class_init (UfoWriterTaskClass *klass)
 
     gobject_class->set_property = ufo_writer_task_set_property;
     gobject_class->get_property = ufo_writer_task_get_property;
+    gobject_class->finalize = ufo_writer_task_finalize;
 
     /**
      * UfoWriterTask:prefix:

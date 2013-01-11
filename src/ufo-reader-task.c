@@ -123,7 +123,7 @@ has_valid_extension (const gchar *filename)
 }
 
 static GSList *
-read_filenames(UfoReaderTaskPrivate *priv)
+read_filenames (UfoReaderTaskPrivate *priv)
 {
     GSList *result = NULL;
     gchar *pattern;
@@ -141,12 +141,12 @@ read_filenames(UfoReaderTaskPrivate *priv)
         const gchar *filename = glob_vector.gl_pathv[i];
 
         if (has_valid_extension (filename))
-            result = g_slist_append(result, g_strdup(filename));
+            result = g_slist_append (result, g_strdup (filename));
         else
             g_warning ("Ignoring `%s'", filename);
     }
 
-    globfree(&glob_vector);
+    globfree (&glob_vector);
     g_free (pattern);
     return result;
 }
@@ -426,12 +426,13 @@ ufo_reader_task_finalize (GObject *object)
 {
     UfoReaderTaskPrivate *priv = UFO_READER_TASK_GET_PRIVATE (object);
 
-    if (priv->path)
-        g_free (priv->path);
+    g_free (priv->path);
+    priv->path = NULL;
 
     if (priv->filenames != NULL) {
         g_slist_foreach (priv->filenames, (GFunc) g_free, NULL);
         g_slist_free (priv->filenames);
+        priv->filenames = NULL;
     }
 
     G_OBJECT_CLASS (ufo_reader_task_parent_class)->finalize (object);
