@@ -79,8 +79,11 @@ ufo_backproject_task_process (UfoGpuTask *task,
     dest_region[1] = priv->n_projections;
 
     /* Guess angle step and axis position if they are not provided by the user. */
-    if (priv->angle_step <= 0.0)
-        angle_step = (gfloat) (G_PI / ((gfloat) requisition->dims[1]));
+    if (priv->angle_step <= 0.0) {
+        UfoRequisition in_req;
+        ufo_buffer_get_requisition (inputs[0], &in_req);
+        angle_step = (gfloat) (G_PI / ((gfloat) in_req.dims[1]));
+    }
     else
         angle_step = priv->angle_step;
 
