@@ -75,13 +75,12 @@ ufo_ifft_task_setup (UfoTask *task,
 
     priv = UFO_IFFT_TASK_GET_PRIVATE (task);
     priv->kernel = ufo_resources_get_kernel (resources, "fft.cl", "fft_pack", error);
-
-    if (priv->kernel == NULL)
-        return;
-
-    clRetainKernel (priv->kernel);
-
     priv->context = ufo_resources_get_context (resources);
+
+    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+
+    if (priv->kernel != NULL)
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
 #endif
 }
 
@@ -184,6 +183,11 @@ ufo_ifft_task_finalize (GObject *object)
         priv->kernel = NULL;
     }
 
+    if (priv->context) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
+        priv->context = NULL;
+    }
+
     clFFT_DestroyPlan (priv->fft_plan);
 #endif
 
@@ -213,7 +217,6 @@ ufo_ifft_task_process_gpu (UfoGpuTask *task,
     cl_mem out_mem;
     cl_int batch_size;
     cl_int width;
-    cl_event fft_event;
     gfloat scale;
     gsize global_work_size[2];
 
@@ -226,7 +229,7 @@ ufo_ifft_task_process_gpu (UfoGpuTask *task,
     clFFT_ExecuteInterleaved (cmd_queue,
                               priv->fft_plan, batch_size, clFFT_Inverse,
                               in_mem, in_mem,
-                              0, NULL, &fft_event);
+                              0, NULL, NULL);
 
     clFinish (cmd_queue);
 
@@ -248,9 +251,7 @@ ufo_ifft_task_process_gpu (UfoGpuTask *task,
     UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
                                                        priv->kernel,
                                                        2, NULL, global_work_size, NULL,
-                                                       1, &fft_event, NULL));
-
-    UFO_RESOURCES_CHECK_CLERR (clReleaseEvent (fft_event));
+                                                       0, NULL, NULL));
     return TRUE;
 }
 

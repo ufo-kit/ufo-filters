@@ -91,8 +91,10 @@ ufo_fft_task_setup (UfoTask *task,
     priv->kernel = ufo_resources_get_kernel (resources, "fft.cl", "fft_spread", error);
     priv->context = ufo_resources_get_context (resources);
 
+    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+
     if (priv->kernel != NULL)
-        clRetainKernel (priv->kernel);
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
 #endif
 }
 
@@ -196,6 +198,11 @@ ufo_fft_task_finalize (GObject *object)
         priv->kernel = NULL;
     }
 
+    if (priv->context) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
+        priv->context = NULL;
+    }
+
     clFFT_DestroyPlan (priv->fft_plan);
 #endif
 
@@ -223,8 +230,7 @@ ufo_fft_task_process_gpu (UfoGpuTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
-    cl_event spread_event;
-    cl_event fft_event;
+    cl_event event;
     cl_int width;
     cl_int height;
     gsize global_work_size[2];
@@ -249,24 +255,22 @@ ufo_fft_task_process_gpu (UfoGpuTask *task,
     UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
                                                        priv->kernel,
                                                        2, NULL, global_work_size, NULL,
-                                                       0, NULL, &spread_event));
+                                                       0, NULL, &event));
 
     if (priv->fft_dimensions == FFT_1D) {
         clFFT_ExecuteInterleaved (cmd_queue, priv->fft_plan,
                                   (cl_int) in_req.dims[1], clFFT_Forward,
                                   out_mem, out_mem,
-                                  1, &spread_event, &fft_event);
+                                  1, &event, NULL);
     }
     else {
         clFFT_ExecuteInterleaved (cmd_queue, priv->fft_plan,
                                   1, clFFT_Forward,
                                   out_mem, out_mem, 
-                                  1, &spread_event, &fft_event);
+                                  1, &event, NULL);
     }
 
-    UFO_RESOURCES_CHECK_CLERR (clWaitForEvents (1, &fft_event));
-    UFO_RESOURCES_CHECK_CLERR (clReleaseEvent (spread_event));
-    UFO_RESOURCES_CHECK_CLERR (clReleaseEvent (fft_event));
+    UFO_RESOURCES_CHECK_CLERR (clReleaseEvent (event));
 
     return TRUE;
 }

@@ -127,6 +127,8 @@ ufo_backproject_task_setup (UfoTask *task,
                                              "backproject_tex",
                                              error);
 
+    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+
     if (priv->kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
 }
@@ -212,13 +214,18 @@ ufo_backproject_task_finalize (GObject *object)
     priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (object);
 
     if (priv->kernel) {
-        clReleaseKernel (priv->kernel);
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
         priv->kernel = NULL;
     }
 
     if (priv->texture) {
-        clReleaseMemObject (priv->texture);
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->texture));
         priv->texture = NULL;
+    }
+
+    if (priv->context) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
+        priv->context = NULL;
     }
 
     G_OBJECT_CLASS (ufo_backproject_task_parent_class)->finalize (object);
