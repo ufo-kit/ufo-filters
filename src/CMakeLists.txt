@@ -13,7 +13,6 @@ set(ufofilter_KERNELS
     backproject.cl
     forwardproject.cl
     fft.cl
-    filter.cl
     gaussian.cl
     histthreshold.cl
     interpolator.cl
@@ -22,7 +21,6 @@ set(ufofilter_KERNELS
     metaballs.cl
     nlm.cl
     volume.cl
-    stdp.cl
     )
 
 set(ufofilter_LIBS
