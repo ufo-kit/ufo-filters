@@ -11,13 +11,13 @@ set(ufofilter_SRCS
 
 set(ufofilter_KERNELS
     backproject.cl
-    forwardproject.cl
+    complex.cl
     fft.cl
+    filter.cl
+    forwardproject.cl
     gaussian.cl
     histthreshold.cl
     interpolator.cl
-    complex.cl
-    filters.cl
     metaballs.cl
     nlm.cl
     volume.cl
