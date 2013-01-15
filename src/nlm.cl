@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2011-2013 Karlsruhe Institute of Technology
+ *
+ * This file is part of Ufo.
+ *
+ * This library is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation, either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #define SEARCH_RADIUS   10
 #define NB_RADIUS       3
@@ -7,7 +25,12 @@
 
 /* Compute the distance of two neighbourhood vectors _starting_ from index i
    and j and edge length radius */
-float dist(__global float *input, int i, int j, int radius, int image_width)
+float
+dist (__global float *input,
+      int i,
+      int j,
+      int radius,
+      int image_width)
 {
     float dist = 0.0f, tmp;
     float wsize = (2.0f * radius + 1.0f);
@@ -24,7 +47,9 @@ float dist(__global float *input, int i, int j, int radius, int image_width)
     return dist / wsize;
 }
 
-__kernel void nlm(__global float *input, __global float *output)
+__kernel void
+nlm(__global float *input,
+    __global float *output)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);
@@ -33,7 +58,7 @@ __kernel void nlm(__global float *input, __global float *output)
 
     float total_weight = 0.0f;
     float pixel_value = 0.0f;
-    
+
     /* Compute the upper left (sx,sy) and lower right (tx, ty) corner points
        of our search window */
     int r = min(NB_RADIUS, min(width - 1 - x, min (height - 1 - y, min(x, y))));

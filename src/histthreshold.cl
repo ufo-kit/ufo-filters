@@ -1,6 +1,30 @@
+/*
+ * Copyright (C) 2011-2013 Karlsruhe Institute of Technology
+ *
+ * This file is part of Ufo.
+ *
+ * This library is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation, either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 
 /* Naive implementation */
-__kernel void histogram(__global float *input, __global float *output, unsigned int input_size, float min_range, float max_range)
+__kernel void
+histogram (__global float *input,
+           __global float *output,
+           unsigned int input_size,
+           float min_range,
+           float max_range)
 {
     const int num_bins = get_global_size(0);
     const int bin = get_global_id(0);
@@ -17,7 +41,10 @@ __kernel void histogram(__global float *input, __global float *output, unsigned 
     output[bin] = ((float) sum) / input_size;
 }
 
-__kernel void threshold(__global float *input, __global float *histogram, __global float *output)
+__kernel void
+threshold (__global float *input,
+           __global float *histogram,
+           __global float *output)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);

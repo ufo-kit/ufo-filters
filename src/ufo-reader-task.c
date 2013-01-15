@@ -1,12 +1,20 @@
-/**
- * SECTION:ufo-reader-task
- * @Short_description: Read TIFF and EDF files
- * @Title: reader
+/*
+ * Copyright (C) 2011-2013 Karlsruhe Institute of Technology
  *
- * The reader node loads single files from disk and provides them as a stream
- * The nominal resolution can be decreased by specifying the #UfoReaderTask:x
- * and #UfoReaderTask:y coordinates, and the #UfoReaderTask:width and
- * #UfoReaderTask:height of a region of interest.
+ * This file is part of Ufo.
+ *
+ * This library is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation, either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <gmodule.h>
@@ -22,6 +30,17 @@
 
 #include <ufo-cpu-task-iface.h>
 #include "ufo-reader-task.h"
+
+/**
+ * SECTION:ufo-reader-task
+ * @Short_description: Read TIFF and EDF files
+ * @Title: reader
+ *
+ * The reader node loads single files from disk and provides them as a stream
+ * The nominal resolution can be decreased by specifying the #UfoReaderTask:x
+ * and #UfoReaderTask:y coordinates, and the #UfoReaderTask:width and
+ * #UfoReaderTask:height of a region of interest.
+ */
 
 struct _UfoReaderTaskPrivate {
     gchar *path;
