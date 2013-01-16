@@ -167,17 +167,38 @@ ufo_backproject_task_get_requisition (UfoTask *task,
     priv->n_projections = (guint) in_req.dims[1];
 
     if (priv->texture == NULL) {
+#ifdef CL_VERSION_1_2
+        cl_image_desc image_desc;
+#endif
         cl_image_format format;
 
         format.image_channel_order = CL_R;
         format.image_channel_data_type = CL_FLOAT;
 
+#ifdef CL_VERSION_1_2
+        image_desc.image_type = CL_MEM_OBJECT_IMAGE2D;
+        image_desc.image_width = in_req.dims[0];
+        image_desc.image_height = in_req.dims[1];
+        image_desc.image_depth = 1;
+        image_desc.image_array_size = 0;
+        image_desc.image_row_pitch = 0;
+        image_desc.image_slice_pitch = 0;
+        image_desc.num_mip_levels = 0;
+        image_desc.num_samples = 0;
+        image_desc.buffer = NULL;
+
+        priv->texture = clCreateImage (priv->context,
+                                       CL_MEM_READ_ONLY,
+                                       &format, &image_desc,
+                                       NULL, &cl_err);
+#else
         priv->texture = clCreateImage2D (priv->context,
                                          CL_MEM_READ_ONLY,
                                          &format,
                                          in_req.dims[0],
                                          in_req.dims[1],
                                          0, NULL, &cl_err);
+#endif
         UFO_RESOURCES_CHECK_CLERR (cl_err);
     }
 
