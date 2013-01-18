@@ -48,13 +48,12 @@ if (TIFF_FOUND)
     include_directories(${TIFF_INCLUDE_DIRS})
 endif ()
 
-#if (UCA_INCLUDE_DIRS AND UCA_LIBRARIES)
-#    set(ufofilter_SRCS ${ufofilter_SRCS} ufo-filter-cam-access.c)
-#    set(ufofilter_LIBS ${ufofilter_LIBS} ${UCA_LIBRARIES})
-#    include_directories(${UCA_INCLUDE_DIRS})
-#endif ()
-#
-#
+if (UCA_INCLUDE_DIRS AND UCA_LIBRARIES)
+    list(APPEND ufofilter_SRCS ufo-camera-task.c)
+    list(APPEND ufofilter_LIBS ${UCA_LIBRARIES})
+    include_directories(${UCA_INCLUDE_DIRS})
+endif ()
+
 if (OCLFFT_FOUND)
     set(HAVE_OCLFFT "1")
     set(ufofilter_LIBS ${ufofilter_LIBS} ${OCLFFT_LIBRARIES})
