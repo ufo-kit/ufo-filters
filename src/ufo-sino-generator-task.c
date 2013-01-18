@@ -27,15 +27,13 @@
 #include "ufo-sino-generator-task.h"
 
 /**
- * SECTION:ufo-sino_generator-task
- * @Short_description: Process arbitrary SinoGenerator kernels
- * @Title: sino_generator
+ * SECTION:ufo-sino-generator-task
+ * @Short_description: Generate sinograms from a series of projections
+ * @Title: sino-generator
  *
- * This module is used to load an arbitrary #UfoSinoGeneratorTask:kernel from
- * #UfoSinoGeneratorTask:filename and execute it on each input. The kernel must have
- * only two global float array parameters, the first represents the input, the
- * second one the output. #UfoSinoGeneratorTask:num-dims must be changed, if the kernel
- * accesses either one or three dimensional index spaces.
+ * Read projections and transpose them in space to generate a series of
+ * sinograms. Note, that you have to set the
+ * #UfoSinoGeneratorTask:num-projections property.
  */
 
 struct _UfoSinoGeneratorTaskPrivate {

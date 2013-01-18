@@ -25,7 +25,7 @@
 
 /**
  * SECTION:ufo-camera-task
- * @Short_description: Read TIFF and EDF files
+ * @Short_description: Read frames from cameras
  * @Title: camera
  *
  * The camera node uses libuca to read frames from a connected camera and
