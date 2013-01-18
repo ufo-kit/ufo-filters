@@ -19,7 +19,6 @@
 
 #include <glib-object.h>
 #include <gmodule.h>
-#include <tiffio.h>
 #include <ufo-cpu-task-iface.h>
 #include "ufo-averager-task.h"
 
