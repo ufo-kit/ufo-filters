@@ -39,6 +39,7 @@
 
 struct _UfoOpenCLTaskPrivate {
     cl_kernel kernel;
+    cl_uint n_inputs;
     gchar *filename;
     gchar *funcname;
     guint n_dims;
@@ -80,18 +81,21 @@ ufo_opencl_task_process (UfoGpuTask *task,
 {
     UfoOpenCLTaskPrivate *priv;
     cl_command_queue cmd_queue;
-    cl_mem in_mem;
     cl_mem out_mem;
     cl_event event;
 
     priv = UFO_OPENCL_TASK (task)->priv;
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 
-    in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
-    out_mem = ufo_buffer_get_device_array (output, cmd_queue);
+    for (guint i = 0; i < priv->n_inputs; i++) {
+        cl_mem in_mem;
 
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
+        in_mem = ufo_buffer_get_device_array (inputs[i], cmd_queue);
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, i, sizeof (cl_mem), &in_mem));
+    }
+
+    out_mem = ufo_buffer_get_device_array (output, cmd_queue);
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, priv->n_inputs, sizeof (cl_mem), &out_mem));
 
     UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
                                                        priv->kernel,
@@ -130,8 +134,24 @@ ufo_opencl_task_setup (UfoTask *task,
                                              priv->funcname,
                                              error);
 
-    if (priv->kernel != NULL)
+    if (priv->kernel != NULL) {
+        cl_uint n_args;
+
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+        UFO_RESOURCES_CHECK_CLERR (clGetKernelInfo (priv->kernel,
+                                   CL_KERNEL_NUM_ARGS,
+                                   sizeof (cl_uint),
+                                   &n_args, NULL));
+
+        if (n_args < 2) {
+            g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                         "Kernel `%s' must accept at least two arguments",
+                         priv->funcname);
+            return;
+        }
+
+        priv->n_inputs = n_args - 1;
+    }
 }
 
 static void
@@ -152,10 +172,13 @@ ufo_opencl_task_get_structure (UfoTask *task,
 
     priv = UFO_OPENCL_TASK_GET_PRIVATE (task);
     *mode = UFO_TASK_MODE_SINGLE;
-    *n_inputs = 1;
-    *in_params = g_new0 (UfoInputParam, 1);
-    (*in_params)[0].n_dims = priv->n_dims;
-    (*in_params)[0].n_expected = -1;
+    *n_inputs = priv->n_inputs;
+    *in_params = g_new0 (UfoInputParam, priv->n_inputs);
+
+    for (guint i = 0; i < priv->n_inputs; i++) {
+        (*in_params)[i].n_dims = priv->n_dims;
+        (*in_params)[i].n_expected = -1;
+    }
 }
 
 static UfoNode *
@@ -167,6 +190,7 @@ ufo_opencl_task_copy_real (UfoNode *node,
 
     orig = UFO_OPENCL_TASK (node);
     copy = UFO_OPENCL_TASK (ufo_opencl_task_new ());
+    copy->priv->n_inputs = orig->priv->n_inputs;
 
     g_object_set (G_OBJECT (copy),
                   "filename", orig->priv->filename,
@@ -320,4 +344,5 @@ ufo_opencl_task_init (UfoOpenCLTask *self)
     priv->filename = NULL;
     priv->funcname = NULL;
     priv->n_dims = 2;
+    priv->n_inputs = 1;
 }
