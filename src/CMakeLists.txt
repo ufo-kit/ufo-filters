@@ -6,6 +6,7 @@ set(ufofilter_SRCS
     ufo-backproject-task.c
     ufo-filter-task.c
     ufo-opencl-task.c
+    ufo-null-task.c
     ufo-sino-generator-task.c
     )
 
