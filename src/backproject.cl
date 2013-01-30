@@ -47,6 +47,7 @@ backproject(const int num_proj,
         corr = axis_table[proj];
         sum += sinogram[(int)(proj*num_bins + corr + s.x - s.y)];
     }
+
     slice[idy*slice_width + idx] = sum;
 }
 
@@ -64,7 +65,7 @@ backproject_tex (__read_only image2d_t sinogram,
 
     float h;
     const float bx = idx - axis_pos;
-    const float by = axis_pos - idy;
+    const float by = idy - axis_pos;
     float sum = 0.0f;
 
 #pragma unroll 8
