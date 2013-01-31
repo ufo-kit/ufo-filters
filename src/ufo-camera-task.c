@@ -20,7 +20,7 @@
 #include <gmodule.h>
 #include <uca/uca-plugin-manager.h>
 #include <uca/uca-camera.h>
-#include <ufo-cpu-task-iface.h>
+
 #include "ufo-camera-task.h"
 
 /**

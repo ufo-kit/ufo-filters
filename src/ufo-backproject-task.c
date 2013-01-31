@@ -18,11 +18,11 @@
  */
 
 #ifdef __APPLE__
-#include <Backproject/cl.h>
+#include <OpenCL/cl.h>
 #else
 #include <CL/cl.h>
 #endif
-#include <ufo-gpu-task-iface.h>
+
 #include "ufo-backproject-task.h"
 
 /**

@@ -33,7 +33,6 @@
 #include <fftw3.h>
 #endif
 
-#include <ufo-gpu-task-iface.h>
 #include "ufo-ifft-task.h"
 
 /**

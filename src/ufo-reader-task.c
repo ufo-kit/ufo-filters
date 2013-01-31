@@ -28,7 +28,6 @@
 #include <CL/cl.h>
 #endif
 
-#include <ufo-cpu-task-iface.h>
 #include "ufo-reader-task.h"
 
 /**

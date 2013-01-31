@@ -20,7 +20,7 @@
 #ifndef __UFO_AVERAGER_TASK_H
 #define __UFO_AVERAGER_TASK_H
 
-#include <ufo-task-node.h>
+#include <ufo/ufo.h>
 
 G_BEGIN_DECLS
 

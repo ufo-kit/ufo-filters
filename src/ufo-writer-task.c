@@ -17,10 +17,9 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <glib-object.h>
 #include <gmodule.h>
 #include <tiffio.h>
-#include <ufo-cpu-task-iface.h>
+
 #include "ufo-writer-task.h"
 
 /**

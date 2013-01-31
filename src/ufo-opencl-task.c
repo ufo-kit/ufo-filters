@@ -22,7 +22,7 @@
 #else
 #include <CL/cl.h>
 #endif
-#include <ufo-gpu-task-iface.h>
+
 #include "ufo-opencl-task.h"
 
 /**

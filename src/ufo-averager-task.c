@@ -18,9 +18,8 @@
  */
 
 #include <string.h>
-#include <glib-object.h>
 #include <gmodule.h>
-#include <ufo-cpu-task-iface.h>
+
 #include "ufo-averager-task.h"
 
 /**
