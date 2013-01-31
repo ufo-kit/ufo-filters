@@ -172,9 +172,6 @@ ufo_sino_generator_task_get_structure (UfoTask *task,
                                        UfoInputParam **in_params,
                                        UfoTaskMode *mode)
 {
-    UfoSinoGeneratorTaskPrivate *priv;
-
-    priv = UFO_SINO_GENERATOR_TASK_GET_PRIVATE (task);
     *mode = UFO_TASK_MODE_GENERATE;
     *n_inputs = 1;
     *in_params = g_new0 (UfoInputParam, 1);
