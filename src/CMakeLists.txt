@@ -5,8 +5,9 @@ set(ufofilter_SRCS
     ufo-averager-task.c
     ufo-backproject-task.c
     ufo-filter-task.c
-    ufo-opencl-task.c
+    ufo-meta-balls-task.c
     ufo-null-task.c
+    ufo-opencl-task.c
     ufo-sino-generator-task.c
     )
 
