@@ -177,7 +177,6 @@ ufo_opencl_task_get_structure (UfoTask *task,
 
     for (guint i = 0; i < priv->n_inputs; i++) {
         (*in_params)[i].n_dims = priv->n_dims;
-        (*in_params)[i].n_expected = -1;
     }
 }
 

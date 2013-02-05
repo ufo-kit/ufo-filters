@@ -217,7 +217,6 @@ ufo_backproject_task_get_structure (UfoTask *task,
     *n_inputs = 1;
     *in_params = g_new0 (UfoInputParam, 1);
     (*in_params)[0].n_dims = 2;
-    (*in_params)[0].n_expected = -1;
 }
 
 static UfoNode *
