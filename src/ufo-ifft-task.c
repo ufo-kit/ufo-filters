@@ -36,9 +36,9 @@
 #include "ufo-ifft-task.h"
 
 /**
- * SECTION:ufo-fft-task
- * @Short_description: Compute fast discrete Fourier transform
- * @Title: fft
+ * SECTION:ufo-ifft-task
+ * @Short_description: Compute inverse Fast Fourier transform
+ * @Title: ifft
  */
 
 struct _UfoIfftTaskPrivate {

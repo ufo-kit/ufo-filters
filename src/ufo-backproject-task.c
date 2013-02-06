@@ -27,14 +27,14 @@
 
 /**
  * SECTION:ufo-backproject-task
- * @Short_description: Process arbitrary Backproject kernels
+ * @Short_description: Compute the backprojection on sinograms
  * @Title: backproject
  *
- * This module is used to load an arbitrary #UfoBackprojectTask:kernel from
- * #UfoBackprojectTask:filename and execute it on each input. The kernel must have
- * only two global float array parameters, the first represents the input, the
- * second one the output. #UfoBackprojectTask:num-dims must be changed, if the kernel
- * accesses either one or three dimensional index spaces.
+ * Computes the backprojection for a single sinogram. By default, the
+ * #UfoBackprojectTask:axis-pos is assumed to be half the width of the input
+ * sinogram and the #UfoBackprojectTask:angle-step to be height of the sinogram
+ * divided by 180 degrees.
+ *
  */
 
 struct _UfoBackprojectTaskPrivate {

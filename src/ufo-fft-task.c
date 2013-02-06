@@ -37,7 +37,7 @@
 
 /**
  * SECTION:ufo-fft-task
- * @Short_description: Compute fast discrete Fourier transform
+ * @Short_description: Compute Fast Fourier transform
  * @Title: fft
  */
 

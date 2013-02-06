@@ -22,9 +22,8 @@
 
 /**
  * SECTION:ufo-buffer-task
- * @Short_description: Write TIFF files
+ * @Short_description: Buffer input in-memory
  * @Title: buffer
- *
  */
 
 struct _UfoBufferTaskPrivate {

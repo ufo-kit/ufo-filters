@@ -27,14 +27,11 @@
 
 /**
  * SECTION:ufo-filter-task
- * @Short_description: Process arbitrary Filter kernels
+ * @Short_description: Apply one-dimensional ramp frequency filter
  * @Title: filter
  *
- * This module is used to load an arbitrary #UfoFilterTask:kernel from
- * #UfoFilterTask:filename and execute it on each input. The kernel must have
- * only two global float array parameters, the first represents the input, the
- * second one the output. #UfoFilterTask:num-dims must be changed, if the kernel
- * accesses either one or three dimensional index spaces.
+ * Applies the ramp filter for preparing a sinogram to be processed by the
+ * backprojection node.
  */
 
 struct _UfoFilterTaskPrivate {

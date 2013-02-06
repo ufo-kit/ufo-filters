@@ -25,6 +25,8 @@
  * SECTION:ufo-null-task
  * @Short_description: Eat input
  * @Title: null
+ *
+ * Receive data and discard it.
  */
 
 static void ufo_task_interface_init (UfoTaskIface *iface);

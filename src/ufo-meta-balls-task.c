@@ -27,9 +27,10 @@
 
 /**
  * SECTION:ufo-meta-balls-task
- * @Short_description: Write TIFF files
- * @Title: meta_balls
+ * @Short_description: Generate animated meta balls
+ * @Title: meta-balls
  *
+ * Generate a stream of meta balls on a two-dimensional grid.
  */
 
 struct _UfoMetaBallsTaskPrivate {
