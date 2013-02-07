@@ -22,6 +22,7 @@
 #else
 #include <CL/cl.h>
 #endif
+#include <math.h>
 
 #include "ufo-filter-task.h"
 
@@ -34,12 +35,15 @@
  * backprojection node.
  */
 
+typedef void (*SetupFunc)(UfoFilterTaskPrivate *priv, gfloat *coefficients, guint width);
+
 struct _UfoFilterTaskPrivate {
     cl_context context;
     cl_kernel kernel;
     cl_mem  filter_mem;
     gfloat  bw_cutoff;
     gfloat  bw_order;
+    SetupFunc setup;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -55,10 +59,13 @@ G_DEFINE_TYPE_WITH_CODE (UfoFilterTask, ufo_filter_task, UFO_TYPE_TASK_NODE,
 
 enum {
     PROP_0,
+    PROP_FILTER,
+    PROP_BW_CUTOFF,
+    PROP_BW_ORDER,
     N_PROPERTIES
 };
 
-/* static GParamSpec *properties[N_PROPERTIES] = { NULL, }; */
+static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
 ufo_filter_task_new (void)
@@ -115,7 +122,7 @@ ufo_filter_task_setup (UfoTask *task,
 
 }
 
-static void 
+static void
 mirror_coefficients (gfloat *filter, guint width)
 {
     for (guint k = width/2; k < width; k += 2) {
@@ -124,19 +131,33 @@ mirror_coefficients (gfloat *filter, guint width)
     }
 }
 
-static gfloat *
-compute_ramp_coefficients (guint width)
+static void
+compute_ramp_coefficients (UfoFilterTaskPrivate *priv,
+                           gfloat *filter,
+                           guint width)
 {
-    gfloat *filter = g_malloc0 (width * sizeof (gfloat));
-    gfloat scale = 0.5f / ((gfloat) width) / 2.0f;
+    const gfloat scale = 0.25f / ((gfloat) width);
 
     for (guint k = 1; k < width / 4; k++) {
         filter[2*k] = ((gfloat) k) * scale;
         filter[2*k + 1] = filter[2*k];
     }
+}
 
-    mirror_coefficients (filter, width);
-    return filter;
+static void
+compute_butterworth_coefficients (UfoFilterTaskPrivate *priv,
+                                  gfloat *filter,
+                                  guint width)
+{
+    const gfloat scale = 0.25f / ((gfloat) width);
+    const guint n_samples = width / 4;
+
+    for (guint i = 0; i < n_samples; i++) {
+        const gfloat u = ((gfloat) i) / ((gfloat) n_samples);
+        filter[2*i] = ((gfloat) i) * scale;
+        filter[2*i] /= (1.0f + (gfloat) pow (u / priv->bw_cutoff, 2.0f * priv->bw_order));
+        filter[2*i+1] = filter[2*i];
+    }
 }
 
 static void
@@ -151,11 +172,17 @@ ufo_filter_task_get_requisition (UfoTask *task,
 
     if (priv->filter_mem == NULL) {
         cl_int cl_err;
+        guint width;
         gfloat *coefficients;
 
-        coefficients = compute_ramp_coefficients ((guint) requisition->dims[0]);
+        width = (guint) requisition->dims[0];
+        coefficients = g_malloc0 (width * sizeof (gfloat));
+
+        priv->setup (priv, coefficients, width);
+        mirror_coefficients (coefficients, width);
+
         priv->filter_mem = clCreateBuffer (priv->context,
-                                           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, 
+                                           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                                            requisition->dims[0] * sizeof(float),
                                            coefficients,
                                            &cl_err);
@@ -240,9 +267,25 @@ ufo_filter_task_set_property (GObject *object,
                               const GValue *value,
                               GParamSpec *pspec)
 {
-    /* UfoFilterTaskPrivate *priv = UFO_FILTER_TASK_GET_PRIVATE (object); */
+    UfoFilterTaskPrivate *priv = UFO_FILTER_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
+        case PROP_FILTER:
+            {
+                const char *type = g_value_get_string (value);
+
+                if (!g_strcmp0 (type, "ramp"))
+                    priv->setup = &compute_ramp_coefficients;
+                else if (!g_strcmp0 (type, "butterworth"))
+                    priv->setup = &compute_butterworth_coefficients;
+            }
+            break;
+        case PROP_BW_CUTOFF:
+            priv->bw_cutoff = g_value_get_float (value);
+            break;
+        case PROP_BW_ORDER:
+            priv->bw_order = g_value_get_float (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -255,11 +298,23 @@ ufo_filter_task_get_property (GObject *object,
                               GValue *value,
                               GParamSpec *pspec)
 {
-    /* UfoFilterTaskPrivate *priv = UFO_FILTER_TASK_GET_PRIVATE (object); */
+    UfoFilterTaskPrivate *priv = UFO_FILTER_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
+        case PROP_FILTER:
+            if (priv->setup == &compute_ramp_coefficients)
+                g_value_set_string (value, "ramp");
+            else if (priv->setup == &compute_butterworth_coefficients)
+                g_value_set_string (value, "butterworth");
+            break;
+        case PROP_BW_CUTOFF:
+            g_value_set_float (value, priv->bw_cutoff);
+            break;
+        case PROP_BW_ORDER:
+            g_value_set_float (value, priv->bw_order);
+            break;
         default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
     }
 }
@@ -269,7 +324,7 @@ ufo_filter_task_class_init (UfoFilterTaskClass *klass)
 {
     GObjectClass *oclass;
     UfoNodeClass *node_class;
-    
+
     oclass = G_OBJECT_CLASS (klass);
     node_class = UFO_NODE_CLASS (klass);
 
@@ -277,8 +332,29 @@ ufo_filter_task_class_init (UfoFilterTaskClass *klass)
     oclass->set_property = ufo_filter_task_set_property;
     oclass->get_property = ufo_filter_task_get_property;
 
-    /* for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++) */
-    /*     g_object_class_install_property (oclass, i, properties[i]); */
+    properties[PROP_FILTER] =
+        g_param_spec_string ("filter",
+            "Type of filter (\"ramp\", \"butterworth\")",
+            "Type of filter (\"ramp\", \"butterworth\")",
+            "ramp",
+            G_PARAM_READWRITE);
+
+    properties[PROP_BW_CUTOFF] =
+        g_param_spec_float ("cutoff",
+            "Relative cutoff frequency",
+            "Relative cutoff frequency of the Butterworth filter",
+            0.0f, 1.0f, 0.5f,
+            G_PARAM_READWRITE);
+
+    properties[PROP_BW_ORDER] =
+        g_param_spec_float ("order",
+            "Order of the Butterworth filter",
+            "Order of the Butterworth filter",
+            2.0f, 32.0f, 4.0f,
+            G_PARAM_READWRITE);
+
+    for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
+        g_object_class_install_property (oclass, i, properties[i]);
 
     node_class->copy = ufo_filter_task_copy_real;
     node_class->equal = ufo_filter_task_equal_real;
@@ -293,4 +369,7 @@ ufo_filter_task_init (UfoFilterTask *self)
     self->priv = priv = UFO_FILTER_TASK_GET_PRIVATE (self);
     priv->kernel = NULL;
     priv->filter_mem = NULL;
+    priv->setup = compute_ramp_coefficients;
+    priv->bw_cutoff = 0.5f;
+    priv->bw_order = 4.0f;
 }
