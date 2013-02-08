@@ -178,23 +178,6 @@ ufo_sino_generator_task_get_structure (UfoTask *task,
     (*in_params)[0].n_dims = 2;
 }
 
-static UfoNode *
-ufo_sino_generator_task_copy_real (UfoNode *node,
-                                   GError **error)
-{
-    UfoSinoGeneratorTask *orig;
-    UfoSinoGeneratorTask *copy;
-
-    orig = UFO_SINO_GENERATOR_TASK (node);
-    copy = UFO_SINO_GENERATOR_TASK (ufo_sino_generator_task_new ());
-
-    g_object_set (G_OBJECT (copy),
-                  "num-projections", orig->priv->n_projections,
-                  NULL);
-
-    return UFO_NODE (copy);
-}
-
 static gboolean
 ufo_sino_generator_task_equal_real (UfoNode *n1,
                                     UfoNode *n2)
@@ -290,7 +273,6 @@ ufo_sino_generator_task_class_init (UfoSinoGeneratorTaskClass *klass)
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
-    node_class->copy = ufo_sino_generator_task_copy_real;
     node_class->equal = ufo_sino_generator_task_equal_real;
 
     g_type_class_add_private(klass, sizeof(UfoSinoGeneratorTaskPrivate));

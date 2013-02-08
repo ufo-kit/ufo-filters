@@ -203,22 +203,6 @@ ufo_filter_task_get_structure (UfoTask *task,
     (*in_params)[0].n_dims = 2;
 }
 
-static UfoNode *
-ufo_filter_task_copy_real (UfoNode *node,
-                           GError **error)
-{
-    UfoFilterTask *orig;
-    UfoFilterTask *copy;
-
-    orig = UFO_FILTER_TASK (node);
-    copy = UFO_FILTER_TASK (ufo_filter_task_new ());
-
-    copy->priv->bw_order = orig->priv->bw_order;
-    copy->priv->bw_cutoff = orig->priv->bw_cutoff;
-
-    return UFO_NODE (copy);
-}
-
 static gboolean
 ufo_filter_task_equal_real (UfoNode *n1,
                             UfoNode *n2)
@@ -356,7 +340,6 @@ ufo_filter_task_class_init (UfoFilterTaskClass *klass)
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
-    node_class->copy = ufo_filter_task_copy_real;
     node_class->equal = ufo_filter_task_equal_real;
 
     g_type_class_add_private(klass, sizeof(UfoFilterTaskPrivate));

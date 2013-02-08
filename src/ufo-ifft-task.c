@@ -161,24 +161,6 @@ ufo_ifft_task_get_structure (UfoTask *task,
     (*in_params)[0].n_dims = priv->fft_dimensions;
 }
 
-static UfoNode *
-ufo_ifft_task_copy_real (UfoNode *node,
-                        GError **error)
-{
-    UfoIfftTask *orig;
-    UfoIfftTask *copy;
-
-    orig = UFO_IFFT_TASK (node);
-    copy = UFO_IFFT_TASK (ufo_ifft_task_new ());
-
-    g_object_set (G_OBJECT (copy),
-                  "dimensions", orig->priv->fft_dimensions,
-                  "crop-width", orig->priv->crop_width,
-                  NULL);
-
-    return UFO_NODE (copy);
-}
-
 static gboolean
 ufo_ifft_task_equal_real (UfoNode *n1,
                           UfoNode *n2)
@@ -351,7 +333,6 @@ ufo_ifft_task_class_init (UfoIfftTaskClass *klass)
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
-    node_class->copy = ufo_ifft_task_copy_real;
     node_class->equal = ufo_ifft_task_equal_real;
 
     g_type_class_add_private(klass, sizeof(UfoIfftTaskPrivate));

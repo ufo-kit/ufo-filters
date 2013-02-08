@@ -219,24 +219,6 @@ ufo_backproject_task_get_structure (UfoTask *task,
     (*in_params)[0].n_dims = 2;
 }
 
-static UfoNode *
-ufo_backproject_task_copy_real (UfoNode *node,
-                           GError **error)
-{
-    UfoBackprojectTask *orig;
-    UfoBackprojectTask *copy;
-
-    orig = UFO_BACKPROJECT_TASK (node);
-    copy = UFO_BACKPROJECT_TASK (ufo_backproject_task_new ());
-
-    g_object_set (G_OBJECT (copy),
-                  "axis-pos", orig->priv->axis_pos,
-                  "angle-step", orig->priv->angle_step,
-                  NULL);
-
-    return UFO_NODE (copy);
-}
-
 static gboolean
 ufo_backproject_task_equal_real (UfoNode *n1,
                             UfoNode *n2)
@@ -357,7 +339,6 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
-    node_class->copy = ufo_backproject_task_copy_real;
     node_class->equal = ufo_backproject_task_equal_real;
 
     g_type_class_add_private(klass, sizeof(UfoBackprojectTaskPrivate));
