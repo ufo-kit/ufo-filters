@@ -28,13 +28,14 @@
  * @Title: writer
  *
  * The writer node writes each incoming image as a TIFF using libtiff to disk.
- * Each file is prefixed with #UfoWriterTask:prefix and written into
- * #UfoWriterTask:path.
+ * Each file is named after the #UfoWriterTask:format string. If
+ * #UfoWriterTask:single-file is %FALSE, the format string must contain a `%i'
+ * specifier that denotes the current image number.
  */
 
 struct _UfoWriterTaskPrivate {
-    gchar *path;
-    gchar *prefix;
+    gchar *format;
+    gchar *template;
     guint counter;
     gsize width;
     gsize height;
@@ -56,8 +57,7 @@ G_DEFINE_TYPE_WITH_CODE (UfoWriterTask, ufo_writer_task, UFO_TYPE_TASK_NODE,
 
 enum {
     PROP_0,
-    PROP_PATH,
-    PROP_PREFIX,
+    PROP_FORMAT,
     PROP_SINGLE_FILE,
     N_PROPERTIES
 };
@@ -120,16 +120,40 @@ static gchar *
 build_filename (UfoWriterTaskPrivate *priv)
 {
     gchar *filename;
-    gchar *element;
 
     if (priv->single)
-        element = g_strdup_printf ("%s.tif", priv->prefix);
+        filename = g_strdup (priv->format);
     else
-        element = g_strdup_printf ("%s%05i.tif", priv->prefix, priv->counter);
+        filename = g_strdup_printf (priv->template, priv->counter);
 
-    filename = g_build_filename (priv->path, element, NULL);
-    g_free (element);
     return filename;
+}
+
+static gchar *
+build_template (const gchar *format)
+{
+    gchar *template;
+    gchar *percent;
+
+    template = g_strdup (format);
+    percent = g_strstr_len (template, -1, "%");
+
+    if (percent != NULL) {
+        percent++;
+
+        while (*percent) {
+            if (*percent == '%')
+                *percent = '_';
+            percent++;
+        }
+    }
+    else {
+        g_warning ("Specifier %%i not found. Appending it.");
+        g_free (template);
+        template = g_strconcat (format, "%i", NULL);
+    }
+
+    return template;
 }
 
 static void
@@ -151,8 +175,12 @@ ufo_writer_task_setup (UfoTask *task,
 
     priv = UFO_WRITER_TASK_GET_PRIVATE (task);
 
-    if (priv->single)
+    if (priv->single) {
         open_tiff_file (priv);
+    }
+    else {
+        priv->template = build_template (priv->format);
+    }
 }
 
 static void
@@ -207,13 +235,9 @@ ufo_writer_task_set_property (GObject *object,
     UfoWriterTaskPrivate *priv = UFO_WRITER_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_PATH:
-            g_free (priv->path);
-            priv->path = g_value_dup_string (value);
-            break;
-        case PROP_PREFIX:
-            g_free (priv->prefix);
-            priv->prefix = g_value_dup_string (value);
+        case PROP_FORMAT:
+            g_free (priv->format);
+            priv->format = g_value_dup_string (value);
             break;
         case PROP_SINGLE_FILE:
             priv->single = g_value_get_boolean (value);
@@ -233,11 +257,8 @@ ufo_writer_task_get_property (GObject *object,
     UfoWriterTaskPrivate *priv = UFO_WRITER_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_PATH:
-            g_value_set_string (value, priv->path);
-            break;
-        case PROP_PREFIX:
-            g_value_set_string (value, priv->prefix);
+        case PROP_FORMAT:
+            g_value_set_string (value, priv->format);
             break;
         case PROP_SINGLE_FILE:
             g_value_set_boolean (value, priv->single);
@@ -258,11 +279,8 @@ ufo_writer_task_finalize (GObject *object)
     if (priv->single)
         TIFFClose (priv->tif);
 
-    g_free (priv->path);
-    priv->path = NULL;
-
-    g_free (priv->prefix);
-    priv->prefix = NULL;
+    g_free (priv->format);
+    priv->format= NULL;
 
     G_OBJECT_CLASS (ufo_writer_task_parent_class)->finalize (object);
 }
@@ -290,25 +308,11 @@ ufo_writer_task_class_init (UfoWriterTaskClass *klass)
     gobject_class->get_property = ufo_writer_task_get_property;
     gobject_class->finalize = ufo_writer_task_finalize;
 
-    /**
-     * UfoWriterTask:prefix:
-     *
-     * Specifies the prefix that is prepended to each written file. Currently,
-     * the filename is made up according to the format string ("%s%05i.tif" %
-     * (prefix, current image number)).
-     */
-    properties[PROP_PREFIX] =
-        g_param_spec_string ("prefix",
-            "Filename prefix",
-            "Prefix of output filename.",
-            "",
-            G_PARAM_READWRITE);
-
-    properties[PROP_PATH] =
-        g_param_spec_string ("path",
-            "File path",
-            "Path where to store files.",
-            ".",
+    properties[PROP_FORMAT] =
+        g_param_spec_string ("filename",
+            "Filename format string",
+            "Format string of the path and filename. If multiple files are written it must contain a '%i' specifier denoting the current count",
+            "./output-%05i.tif",
             G_PARAM_READWRITE);
 
     properties[PROP_SINGLE_FILE] =
@@ -328,8 +332,8 @@ static void
 ufo_writer_task_init(UfoWriterTask *self)
 {
     self->priv = UFO_WRITER_TASK_GET_PRIVATE(self);
-    self->priv->path = g_strdup (".");
-    self->priv->prefix = NULL;
+    self->priv->format = g_strdup ("./output-%05i.tif");
+    self->priv->template = NULL;
     self->priv->counter = 0;
     self->priv->single = FALSE;
 }
