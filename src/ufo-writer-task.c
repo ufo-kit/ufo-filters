@@ -38,6 +38,9 @@ struct _UfoWriterTaskPrivate {
     guint counter;
     gsize width;
     gsize height;
+
+    gboolean single;
+    TIFF *tif;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -55,6 +58,7 @@ enum {
     PROP_0,
     PROP_PATH,
     PROP_PREFIX,
+    PROP_SINGLE_FILE,
     N_PROPERTIES
 };
 
@@ -67,7 +71,7 @@ ufo_writer_task_new (void)
 }
 
 static gboolean
-write_tiff_data (UfoBuffer *buffer, const gchar *name)
+write_tiff_data (UfoWriterTaskPrivate *priv, UfoBuffer *buffer)
 {
     UfoRequisition requisition;
     guint32 rows_per_strip;
@@ -75,13 +79,6 @@ write_tiff_data (UfoBuffer *buffer, const gchar *name)
     gpointer data;
     guint n_pages;
     guint width, height;
-
-    TIFF *tif;
-
-    tif = TIFFOpen(name, "w");
-
-    if (tif == NULL)
-        return FALSE;
 
     ufo_buffer_get_requisition (buffer, &requisition);
 
@@ -92,32 +89,57 @@ write_tiff_data (UfoBuffer *buffer, const gchar *name)
     height = (guint) requisition.dims[1];
     data = ufo_buffer_get_host_array (buffer, NULL);
 
-    rows_per_strip = TIFFDefaultStripSize(tif, (guint32) - 1);
+    rows_per_strip = TIFFDefaultStripSize (priv->tif, (guint32) - 1);
 
     if (n_pages > 1)
-        TIFFSetField (tif, TIFFTAG_SUBFILETYPE, FILETYPE_PAGE);
+        TIFFSetField (priv->tif, TIFFTAG_SUBFILETYPE, FILETYPE_PAGE);
 
     for (guint i = 0; i < n_pages; i++) {
         gfloat *start;
 
-        TIFFSetField (tif, TIFFTAG_IMAGEWIDTH, width);
-        TIFFSetField (tif, TIFFTAG_IMAGELENGTH, height);
-        TIFFSetField (tif, TIFFTAG_BITSPERSAMPLE, 32);
-        TIFFSetField (tif, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
-        TIFFSetField (tif, TIFFTAG_SAMPLESPERPIXEL, 1);
-        TIFFSetField (tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-        TIFFSetField (tif, TIFFTAG_ROWSPERSTRIP, rows_per_strip);
-        TIFFSetField (tif, TIFFTAG_PAGENUMBER, i, n_pages);
+        TIFFSetField (priv->tif, TIFFTAG_IMAGEWIDTH, width);
+        TIFFSetField (priv->tif, TIFFTAG_IMAGELENGTH, height);
+        TIFFSetField (priv->tif, TIFFTAG_BITSPERSAMPLE, 32);
+        TIFFSetField (priv->tif, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
+        TIFFSetField (priv->tif, TIFFTAG_SAMPLESPERPIXEL, 1);
+        TIFFSetField (priv->tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+        TIFFSetField (priv->tif, TIFFTAG_ROWSPERSTRIP, rows_per_strip);
+        TIFFSetField (priv->tif, TIFFTAG_PAGENUMBER, i, n_pages);
         start = ((gfloat *) data) + i * width * height;
 
         for (guint y = 0; y < height; y++, start += width)
-            TIFFWriteScanline (tif, start, y, 0);
+            TIFFWriteScanline (priv->tif, start, y, 0);
 
-        TIFFWriteDirectory (tif);
+        TIFFWriteDirectory (priv->tif);
     }
 
-    TIFFClose(tif);
     return success;
+}
+
+static gchar *
+build_filename (UfoWriterTaskPrivate *priv)
+{
+    gchar *filename;
+    gchar *element;
+
+    if (priv->single)
+        element = g_strdup_printf ("%s.tif", priv->prefix);
+    else
+        element = g_strdup_printf ("%s%05i.tif", priv->prefix, priv->counter);
+
+    filename = g_build_filename (priv->path, element, NULL);
+    g_free (element);
+    return filename;
+}
+
+static void
+open_tiff_file (UfoWriterTaskPrivate *priv)
+{
+    gchar *filename;
+
+    filename = build_filename (priv);
+    priv->tif = TIFFOpen (filename, "w");
+    g_free (filename);
 }
 
 static void
@@ -125,6 +147,12 @@ ufo_writer_task_setup (UfoTask *task,
                        UfoResources *resources,
                        GError **error)
 {
+    UfoWriterTaskPrivate *priv;
+
+    priv = UFO_WRITER_TASK_GET_PRIVATE (task);
+
+    if (priv->single)
+        open_tiff_file (priv);
 }
 
 static void
@@ -154,17 +182,19 @@ ufo_writer_task_process (UfoCpuTask *task,
                          UfoRequisition *requisition)
 {
     UfoWriterTaskPrivate *priv;
-    gchar *filename;
 
     priv = UFO_WRITER_TASK_GET_PRIVATE (UFO_WRITER_TASK (task));
-    filename = g_strdup_printf("%s/%s%05i.tif",
-                               priv->path,
-                               priv->prefix,
-                               priv->counter++);
 
-    write_tiff_data (inputs[0], filename);
-    g_free (filename);
+    if (!priv->single)
+        open_tiff_file (priv);
 
+    if (!write_tiff_data (priv, inputs[0]))
+        return FALSE;
+
+    if (!priv->single)
+        TIFFClose (priv->tif);
+
+    priv->counter++;
     return TRUE;
 }
 
@@ -184,6 +214,9 @@ ufo_writer_task_set_property (GObject *object,
         case PROP_PREFIX:
             g_free (priv->prefix);
             priv->prefix = g_value_dup_string (value);
+            break;
+        case PROP_SINGLE_FILE:
+            priv->single = g_value_get_boolean (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -206,6 +239,9 @@ ufo_writer_task_get_property (GObject *object,
         case PROP_PREFIX:
             g_value_set_string (value, priv->prefix);
             break;
+        case PROP_SINGLE_FILE:
+            g_value_set_boolean (value, priv->single);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -218,6 +254,9 @@ ufo_writer_task_finalize (GObject *object)
     UfoWriterTaskPrivate *priv;
 
     priv = UFO_WRITER_TASK_GET_PRIVATE (object);
+
+    if (priv->single)
+        TIFFClose (priv->tif);
 
     g_free (priv->path);
     priv->path = NULL;
@@ -272,6 +311,13 @@ ufo_writer_task_class_init (UfoWriterTaskClass *klass)
             ".",
             G_PARAM_READWRITE);
 
+    properties[PROP_SINGLE_FILE] =
+        g_param_spec_boolean ("single-file",
+            "Whether to write a single file or a sequence of files",
+            "Whether to write a single file or a sequence of files",
+            FALSE,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -285,4 +331,5 @@ ufo_writer_task_init(UfoWriterTask *self)
     self->priv->path = g_strdup (".");
     self->priv->prefix = NULL;
     self->priv->counter = 0;
+    self->priv->single = FALSE;
 }
