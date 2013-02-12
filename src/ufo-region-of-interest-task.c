@@ -34,7 +34,6 @@ struct _UfoRegionOfInterestTaskPrivate {
     guint y;
     guint width;
     guint height;
-    gboolean foo;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
