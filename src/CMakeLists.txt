@@ -6,6 +6,7 @@ set(ufofilter_SRCS
     ufo-backproject-task.c
     ufo-buffer-task.c
     ufo-filter-task.c
+    ufo-sharpness-measure-task.c
     ufo-meta-balls-task.c
     ufo-null-task.c
     ufo-opencl-task.c
