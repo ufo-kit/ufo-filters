@@ -75,6 +75,36 @@ ufo_camera_task_new (void)
     return UFO_NODE (g_object_new (UFO_TYPE_CAMERA_TASK, NULL));
 }
 
+static UcaCamera *
+create_camera (UcaPluginManager *pm,
+               const gchar *name,
+               GError **error)
+{
+    UcaCamera *camera;
+
+    if (name == NULL) {
+        GList *cameras;
+
+        cameras = uca_plugin_manager_get_available_cameras (pm);
+
+        if (g_list_length (cameras) == 0) {
+            g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                         "No camera found");
+            return NULL;
+        }
+
+        camera = uca_plugin_manager_get_camera (pm, (gchar *) g_list_nth_data (cameras, 0), error);
+
+        g_list_foreach (cameras, (GFunc) g_free, NULL);
+        g_list_free (cameras);
+    }
+    else {
+        camera = uca_plugin_manager_get_camera (pm, name, error);
+    }
+
+    return camera;
+}
+
 static void
 ufo_camera_task_setup (UfoTask *task,
                        UfoResources *resources,
@@ -89,26 +119,14 @@ ufo_camera_task_setup (UfoTask *task,
 
     priv->pm = uca_plugin_manager_new ();
 
-    if (priv->name == NULL) {
-        GList *cameras;
+    if (priv->camera == NULL) {
+        GError *tmp_error = NULL;
+        priv->camera = create_camera (priv->pm, priv->name, &tmp_error);
 
-        cameras = uca_plugin_manager_get_available_cameras (priv->pm);
-
-        if (g_list_length (cameras) == 0) {
-            g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                         "No camera found");
+        if (tmp_error != NULL) {
+            g_propagate_error (error, tmp_error);
             return;
         }
-
-        priv->camera = uca_plugin_manager_get_camera (priv->pm, 
-                                                      (gchar *) g_list_nth_data (cameras, 0),
-                                                      error);
-
-        g_list_foreach (cameras, (GFunc) g_free, NULL);
-        g_list_free (cameras);
-    }
-    else {
-        priv->camera = uca_plugin_manager_get_camera (priv->pm, priv->name, error);
     }
 
     priv->current = 0;
