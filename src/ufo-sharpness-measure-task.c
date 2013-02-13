@@ -85,13 +85,13 @@ ufo_sharpness_measure_task_get_structure (UfoTask *task,
 
 static gdouble
 measure_sharpness (gfloat *data,
-                   guint x0, guint y0,
-                   guint width, guint height)
+                   guint width,
+                   guint height)
 {
     gdouble sum = 0.0;
 
-    for (guint y = y0 + 1; y < y0 + height; y++) {
-        for (guint x = x0 + 1; x < x0 + width; x++) {
+    for (guint y = 1; y < height; y++) {
+        for (guint x = 1; x < width; x++) {
             guint index;
             gdouble h_gradient, v_gradient;
             
@@ -119,7 +119,7 @@ ufo_sharpness_measure_task_process (UfoCpuTask *task,
     data = ufo_buffer_get_host_array (inputs[0], NULL);
     ufo_buffer_get_requisition (inputs[0], &req);
 
-    priv->sharpness = measure_sharpness (data, 0, 0, req.dims[0], req.dims[1]);
+    priv->sharpness = measure_sharpness (data, (guint) req.dims[0], (guint) req.dims[1]);
     g_object_notify (G_OBJECT (task), "sharpness");
 
     return TRUE;
@@ -131,8 +131,6 @@ ufo_sharpness_measure_task_set_property (GObject *object,
                                          const GValue *value,
                                          GParamSpec *pspec)
 {
-    UfoSharpnessMeasureTaskPrivate *priv = UFO_SHARPNESS_MEASURE_TASK_GET_PRIVATE (object);
-
     switch (property_id) {
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
