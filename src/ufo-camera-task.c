@@ -222,7 +222,11 @@ ufo_camera_task_set_property (GObject *object,
 
     switch (property_id) {
         case PROP_CAMERA:
+            if (priv->camera)
+                g_object_unref (priv->camera);
+
             priv->camera = UCA_CAMERA (g_value_get_object (value));
+            g_object_ref (priv->camera);
             break;
         case PROP_CAMERA_NAME:
             g_free(priv->name);
