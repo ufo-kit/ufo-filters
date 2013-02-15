@@ -40,7 +40,6 @@
 struct _UfoBackprojectTaskPrivate {
     cl_context context;
     cl_kernel kernel;
-    cl_mem texture;
     gfloat axis_pos;
     gfloat angle_step;
     guint n_projections;
@@ -83,19 +82,13 @@ ufo_backproject_task_process (UfoGpuTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
-    cl_int cl_err;
     gfloat angle_step;
     gfloat axis_pos;
-    gsize dest_origin[3] = { 0, 0, 0 };
-    gsize dest_region[3] = { 1, 1, 1 };
 
     priv = UFO_BACKPROJECT_TASK (task)->priv;
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
-    in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
+    in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
-
-    dest_region[0] = requisition->dims[0];
-    dest_region[1] = priv->n_projections;
 
     /* Guess angle step and axis position if they are not provided by the user. */
     if (priv->angle_step <= 0.0) {
@@ -111,13 +104,7 @@ ufo_backproject_task_process (UfoGpuTask *task,
     else
         axis_pos = priv->axis_pos;
 
-    cl_err = clEnqueueCopyBufferToImage (cmd_queue,
-                                         in_mem, priv->texture,
-                                         0, dest_origin, dest_region,
-                                         0, NULL, NULL);
-
-    UFO_RESOURCES_CHECK_CLERR (cl_err);
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &priv->texture));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (guint),  &priv->n_projections));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (gfloat), &axis_pos));
@@ -159,48 +146,11 @@ ufo_backproject_task_get_requisition (UfoTask *task,
 {
     UfoBackprojectTaskPrivate *priv;
     UfoRequisition in_req;
-    cl_int cl_err;
 
     priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
     priv->n_projections = (guint) in_req.dims[1];
-
-    if (priv->texture == NULL) {
-#ifdef CL_VERSION_1_2
-        cl_image_desc image_desc;
-#endif
-        cl_image_format format;
-
-        format.image_channel_order = CL_R;
-        format.image_channel_data_type = CL_FLOAT;
-
-#ifdef CL_VERSION_1_2
-        image_desc.image_type = CL_MEM_OBJECT_IMAGE2D;
-        image_desc.image_width = in_req.dims[0];
-        image_desc.image_height = in_req.dims[1];
-        image_desc.image_depth = 1;
-        image_desc.image_array_size = 0;
-        image_desc.image_row_pitch = 0;
-        image_desc.image_slice_pitch = 0;
-        image_desc.num_mip_levels = 0;
-        image_desc.num_samples = 0;
-        image_desc.buffer = NULL;
-
-        priv->texture = clCreateImage (priv->context,
-                                       CL_MEM_READ_ONLY,
-                                       &format, &image_desc,
-                                       NULL, &cl_err);
-#else
-        priv->texture = clCreateImage2D (priv->context,
-                                         CL_MEM_READ_ONLY,
-                                         &format,
-                                         in_req.dims[0],
-                                         in_req.dims[1],
-                                         0, NULL, &cl_err);
-#endif
-        UFO_RESOURCES_CHECK_CLERR (cl_err);
-    }
 
     requisition->n_dims = 2;
     requisition->dims[0] = in_req.dims[0];
@@ -237,11 +187,6 @@ ufo_backproject_task_finalize (GObject *object)
     if (priv->kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
         priv->kernel = NULL;
-    }
-
-    if (priv->texture) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->texture));
-        priv->texture = NULL;
     }
 
     if (priv->context) {
@@ -353,5 +298,4 @@ ufo_backproject_task_init (UfoBackprojectTask *self)
     priv->axis_pos = -1.0;
     priv->angle_step = -1.0;
     priv->kernel = NULL;
-    priv->texture = NULL;
 }
