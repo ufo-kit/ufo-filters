@@ -301,7 +301,11 @@ ufo_camera_task_finalize (GObject *object)
     UfoCameraTaskPrivate *priv = UFO_CAMERA_TASK_GET_PRIVATE (object);
 
     g_free (priv->name);
-    g_timer_destroy (priv->timer);
+
+    if (priv->timer) {
+        g_timer_destroy (priv->timer);
+        priv->timer = NULL;
+    }
 
     G_OBJECT_CLASS (ufo_camera_task_parent_class)->finalize (object);
 }
