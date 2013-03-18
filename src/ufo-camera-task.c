@@ -84,6 +84,7 @@ create_camera (UcaPluginManager *pm,
 
     if (name == NULL) {
         GList *cameras;
+        gchar *first_name;
 
         cameras = uca_plugin_manager_get_available_cameras (pm);
 
@@ -93,13 +94,14 @@ create_camera (UcaPluginManager *pm,
             return NULL;
         }
 
-        camera = uca_plugin_manager_get_camera (pm, (gchar *) g_list_nth_data (cameras, 0), error);
+        first_name = (gchar *) g_list_nth_data (cameras, 0);
+        camera = uca_plugin_manager_get_camera (pm, first_name, error, NULL);
 
         g_list_foreach (cameras, (GFunc) g_free, NULL);
         g_list_free (cameras);
     }
     else {
-        camera = uca_plugin_manager_get_camera (pm, name, error);
+        camera = uca_plugin_manager_get_camera (pm, name, error, NULL);
     }
 
     return camera;
