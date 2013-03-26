@@ -7,6 +7,7 @@ set(ufofilter_SRCS
     ufo-buffer-task.c
     ufo-center-of-rotation-task.c
     ufo-filter-task.c
+    ufo-flat-field-correction-task.c
     ufo-sharpness-measure-task.c
     ufo-meta-balls-task.c
     ufo-null-task.c
