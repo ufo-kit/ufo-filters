@@ -15,10 +15,12 @@ set(ufofilter_SRCS
     ufo-opencl-task.c
     ufo-region-of-interest-task.c
     ufo-sino-generator-task.c
+    ufo-subtract-task.c
     ufo-volume-render-task.c
     )
 
 set(ufofilter_KERNELS
+    arithmetics.cl
     backproject.cl
     complex.cl
     fft.cl
