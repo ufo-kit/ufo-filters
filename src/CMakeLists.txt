@@ -48,7 +48,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 find_package(TIFF)
 find_package(OCLFFT)
 find_program(RE2C re2c)
-pkg_check_modules(UCA uca>1.1)
+pkg_check_modules(UCA uca>=1.2)
 pkg_check_modules(OPENCV opencv)
 pkg_check_modules(FFTW3 fftw3f)
 

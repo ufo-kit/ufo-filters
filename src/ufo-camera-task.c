@@ -197,7 +197,7 @@ ufo_camera_task_process (UfoCpuTask *task,
         gfloat *host_array;
 
         host_array = ufo_buffer_get_host_array (output, NULL);
-        uca_camera_grab (priv->camera, (gpointer) &host_array, &tmp_error);
+        uca_camera_grab (priv->camera, (gpointer) host_array, &tmp_error);
 
         if (tmp_error != NULL) {
             g_warning ("Could not grab frame: %s", tmp_error->message);
