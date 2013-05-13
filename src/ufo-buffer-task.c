@@ -28,6 +28,7 @@
 
 struct _UfoBufferTaskPrivate {
     guchar *data;
+    guint n_prealloc;
     gsize n_elements;
     gsize current_element;
     gsize size;
@@ -47,10 +48,11 @@ G_DEFINE_TYPE_WITH_CODE (UfoBufferTask, ufo_buffer_task, UFO_TYPE_TASK_NODE,
 
 enum {
     PROP_0,
+    PROP_NUM_PREALLOC,
     N_PROPERTIES
 };
 
-/* static GParamSpec *properties[N_PROPERTIES] = { NULL, }; */
+static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
 ufo_buffer_task_new (void)
@@ -100,7 +102,7 @@ ufo_buffer_task_process (UfoCpuTask *task,
     priv = UFO_BUFFER_TASK_GET_PRIVATE (task);
 
     if (priv->data == NULL) {
-        priv->current_size = 4 * priv->size;
+        priv->current_size = priv->n_prealloc * priv->size;
         priv->data = g_malloc0 (priv->current_size);
     }
 
@@ -153,6 +155,46 @@ ufo_buffer_task_finalize (GObject *object)
 }
 
 static void
+ufo_buffer_task_set_property (GObject *object,
+                              guint property_id,
+                              const GValue *value,
+                              GParamSpec *pspec)
+{
+    UfoBufferTaskPrivate *priv;
+
+    priv = UFO_BUFFER_TASK_GET_PRIVATE (object);
+
+    switch (property_id) {
+        case PROP_NUM_PREALLOC:
+            priv->n_prealloc = (guint) g_value_get_uint (value);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+            break;
+    }
+}
+
+static void
+ufo_buffer_task_get_property (GObject *object,
+                              guint property_id,
+                              GValue *value,
+                              GParamSpec *pspec)
+{
+    UfoBufferTaskPrivate *priv;
+
+    priv = UFO_BUFFER_TASK_GET_PRIVATE (object);
+
+    switch (property_id) {
+        case PROP_NUM_PREALLOC:
+            g_value_set_uint (value, priv->n_prealloc);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+            break;
+    }
+}
+
+static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
     iface->setup = ufo_buffer_task_setup;
@@ -170,10 +212,23 @@ ufo_cpu_task_interface_init (UfoCpuTaskIface *iface)
 static void
 ufo_buffer_task_class_init (UfoBufferTaskClass *klass)
 {
-    GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+    GObjectClass *oclass = G_OBJECT_CLASS (klass);
 
-    gobject_class->finalize = ufo_buffer_task_finalize;
-    g_type_class_add_private (gobject_class, sizeof(UfoBufferTaskPrivate));
+    oclass->finalize = ufo_buffer_task_finalize;
+    oclass->set_property = ufo_buffer_task_set_property;
+    oclass->get_property = ufo_buffer_task_get_property;
+
+    properties[PROP_NUM_PREALLOC] =
+        g_param_spec_uint ("num-prealloc",
+                           "Number of pre-allocated \"pages\"",
+                           "Number of pre-allocated \"pages\"",
+                           1, 4096, 4,
+                           G_PARAM_READWRITE);
+
+    for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
+        g_object_class_install_property (oclass, i, properties[i]);
+
+    g_type_class_add_private (oclass, sizeof(UfoBufferTaskPrivate));
 }
 
 static void
@@ -181,6 +236,7 @@ ufo_buffer_task_init(UfoBufferTask *self)
 {
     self->priv = UFO_BUFFER_TASK_GET_PRIVATE(self);
     self->priv->data = NULL;
+    self->priv->n_prealloc = 4;
     self->priv->n_elements = 0;
     self->priv->current_element = 0;
 }
