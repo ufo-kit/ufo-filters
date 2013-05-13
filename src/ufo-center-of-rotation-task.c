@@ -154,7 +154,7 @@ ufo_center_of_rotation_task_process (UfoCpuTask *task,
 
     score_index = minimum_index (scores, N);
     priv->center = (width + score_index - max_displacement + 1) / 2.0;
-    g_object_notify (G_OBJECT (task), "center");
+    g_object_notify_by_pspec (G_OBJECT (task), properties[PROP_CENTER]);
     g_free (scores);
     return TRUE;
 }
