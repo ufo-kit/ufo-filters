@@ -179,14 +179,13 @@ ufo_camera_task_get_structure (UfoTask *task,
                                UfoTaskMode *mode)
 {
     *n_inputs = 0;
-    *mode = UFO_TASK_MODE_SINGLE;
+    *mode = UFO_TASK_MODE_GENERATOR;
 }
 
 static gboolean
-ufo_camera_task_process (UfoCpuTask *task,
-                         UfoBuffer **inputs,
-                         UfoBuffer *output,
-                         UfoRequisition *requisition)
+ufo_camera_task_generate (UfoCpuTask *task,
+                          UfoBuffer *output,
+                          UfoRequisition *requisition)
 {
     UfoCameraTaskPrivate *priv;
     GError *tmp_error = NULL;
@@ -323,7 +322,7 @@ ufo_task_interface_init (UfoTaskIface *iface)
 static void
 ufo_cpu_task_interface_init (UfoCpuTaskIface *iface)
 {
-    iface->process = ufo_camera_task_process;
+    iface->generate = ufo_camera_task_generate;
 }
 
 static void

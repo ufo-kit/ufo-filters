@@ -77,15 +77,16 @@ static gboolean
 ufo_filter_task_process (UfoGpuTask *task,
                          UfoBuffer **inputs,
                          UfoBuffer *output,
-                         UfoRequisition *requisition,
-                         UfoGpuNode *node)
+                         UfoRequisition *requisition)
 {
     UfoFilterTaskPrivate *priv;
+    UfoGpuNode *node;
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
 
     priv = UFO_FILTER_TASK (task)->priv;
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
@@ -197,7 +198,7 @@ ufo_filter_task_get_structure (UfoTask *task,
                                UfoInputParam **in_params,
                                UfoTaskMode *mode)
 {
-    *mode = UFO_TASK_MODE_SINGLE;
+    *mode = UFO_TASK_MODE_PROCESSOR;
     *n_inputs = 1;
     *in_params = g_new0 (UfoInputParam, 1);
     (*in_params)[0].n_dims = 2;

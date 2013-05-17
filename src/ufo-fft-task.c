@@ -168,7 +168,7 @@ ufo_fft_task_get_structure (UfoTask *task,
     UfoFftTaskPrivate *priv;
 
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
-    *mode = UFO_TASK_MODE_SINGLE;
+    *mode = UFO_TASK_MODE_PROCESSOR;
     *n_inputs = 1;
     *in_params = g_new0 (UfoInputParam, 1);
     (*in_params)[0].n_dims = priv->fft_dimensions;
@@ -219,10 +219,10 @@ static gboolean
 ufo_fft_task_process_gpu (UfoGpuTask *task,
                           UfoBuffer **inputs,
                           UfoBuffer *output,
-                          UfoRequisition *requisition,
-                          UfoGpuNode *node)
+                          UfoRequisition *requisition)
 {
     UfoFftTaskPrivate *priv;
+    UfoGpuNode *node;
     UfoRequisition in_req;
     cl_command_queue cmd_queue;
     cl_mem in_mem;
@@ -233,6 +233,7 @@ ufo_fft_task_process_gpu (UfoGpuTask *task,
     gsize global_work_size[2];
 
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);

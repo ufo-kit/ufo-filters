@@ -306,14 +306,13 @@ ufo_reader_task_get_structure (UfoTask *task,
                                UfoTaskMode *mode)
 {
     *n_inputs = 0;
-    *mode = UFO_TASK_MODE_SINGLE;
+    *mode = UFO_TASK_MODE_GENERATOR;
 }
 
 static gboolean
-ufo_reader_task_process (UfoCpuTask *task,
-                         UfoBuffer **inputs,
-                         UfoBuffer *output,
-                         UfoRequisition *requisition)
+ufo_reader_task_generate (UfoCpuTask *task,
+                          UfoBuffer *output,
+                          UfoRequisition *requisition)
 {
     UfoReaderTaskPrivate *priv;
 
@@ -467,7 +466,7 @@ ufo_task_interface_init (UfoTaskIface *iface)
 static void
 ufo_cpu_task_interface_init (UfoCpuTaskIface *iface)
 {
-    iface->process = ufo_reader_task_process;
+    iface->generate = ufo_reader_task_generate;
 }
 
 static void

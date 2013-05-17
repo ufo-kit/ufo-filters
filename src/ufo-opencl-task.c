@@ -76,15 +76,16 @@ static gboolean
 ufo_opencl_task_process (UfoGpuTask *task,
                          UfoBuffer **inputs,
                          UfoBuffer *output,
-                         UfoRequisition *requisition,
-                         UfoGpuNode *node)
+                         UfoRequisition *requisition)
 {
     UfoOpenCLTaskPrivate *priv;
+    UfoGpuNode *node;
     cl_command_queue cmd_queue;
     cl_mem out_mem;
     cl_event event;
 
     priv = UFO_OPENCL_TASK (task)->priv;
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 
     for (guint i = 0; i < priv->n_inputs; i++) {
@@ -171,7 +172,7 @@ ufo_opencl_task_get_structure (UfoTask *task,
     UfoOpenCLTaskPrivate *priv;
 
     priv = UFO_OPENCL_TASK_GET_PRIVATE (task);
-    *mode = UFO_TASK_MODE_SINGLE;
+    *mode = UFO_TASK_MODE_PROCESSOR;
     *n_inputs = priv->n_inputs;
     *in_params = g_new0 (UfoInputParam, priv->n_inputs);
 

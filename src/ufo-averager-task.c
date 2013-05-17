@@ -34,6 +34,7 @@
 
 struct _UfoAveragerTaskPrivate {
     gfloat *averaged;
+    gboolean is_data_averaged;
     guint counter;
     guint n_generate;
 };
@@ -76,7 +77,15 @@ ufo_averager_task_get_requisition (UfoTask *task,
                                    UfoBuffer **inputs,
                                    UfoRequisition *requisition)
 {
+    UfoAveragerTaskPrivate *priv;
+
+    priv = UFO_AVERAGER_TASK_GET_PRIVATE (UFO_AVERAGER_TASK (task));
     ufo_buffer_get_requisition (inputs[0], requisition);
+
+    if (priv->averaged == NULL) {
+        priv->averaged = g_malloc0 (requisition->dims[0] *
+                                    requisition->dims[1] * sizeof (gfloat));
+    }
 }
 
 static void
@@ -85,7 +94,7 @@ ufo_averager_task_get_structure (UfoTask *task,
                                  UfoInputParam **in_params,
                                  UfoTaskMode *mode)
 {
-    *mode = UFO_TASK_MODE_GENERATE;
+    *mode = UFO_TASK_MODE_REDUCTOR;
     *n_inputs = 1;
     *in_params = g_new0 (UfoInputParam, 1);
     (*in_params)[0].n_dims = 2;
@@ -131,11 +140,11 @@ ufo_averager_task_generate (UfoCpuTask *task,
     out_array = ufo_buffer_get_host_array (output, NULL);
     n_pixels = requisition->dims[0] * requisition->dims[1];
 
-    if (priv->averaged == NULL) {
-        priv->averaged = g_malloc0 (n_pixels * sizeof (gfloat));
-
+    if (!priv->is_data_averaged) {
         for (gsize i = 0; i < n_pixels; i++)
             priv->averaged[i] = out_array[i] / (gfloat) priv->counter;
+
+        priv->is_data_averaged = TRUE;
     }
 
     g_memmove (out_array, priv->averaged, n_pixels * sizeof (float));
@@ -239,4 +248,5 @@ ufo_averager_task_init(UfoAveragerTask *self)
     self->priv->counter = 0;
     self->priv->averaged = NULL;
     self->priv->n_generate = 1;
+    self->priv->is_data_averaged = FALSE;
 }

@@ -159,7 +159,7 @@ ufo_gaussian_blur_task_get_structure (UfoTask *task,
                                       UfoInputParam **in_params,
                                       UfoTaskMode *mode)
 {
-    *mode = UFO_TASK_MODE_SINGLE;
+    *mode = UFO_TASK_MODE_PROCESSOR;
     *n_inputs = 1;
     *in_params = g_new0 (UfoInputParam, 1);
     (*in_params)[0].n_dims = 2;
@@ -169,15 +169,16 @@ static gboolean
 ufo_gaussian_blur_task_process (UfoGpuTask *task,
                                 UfoBuffer **inputs,
                                 UfoBuffer *output,
-                                UfoRequisition *requisition,
-                                UfoGpuNode *node)
+                                UfoRequisition *requisition)
 {
     UfoGaussianBlurTaskPrivate *priv;
+    UfoGpuNode *node;
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
 
     priv = UFO_GAUSSIAN_BLUR_TASK_GET_PRIVATE (task);
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);

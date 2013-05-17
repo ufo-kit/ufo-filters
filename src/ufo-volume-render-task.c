@@ -158,7 +158,7 @@ ufo_volume_render_task_get_structure (UfoTask *task,
                                       UfoInputParam **in_params,
                                       UfoTaskMode *mode)
 {
-    *mode = UFO_TASK_MODE_GENERATE;
+    *mode = UFO_TASK_MODE_REDUCTOR;
     *n_inputs = 1;
     *in_params = g_new0 (UfoInputParam, 1);
     (*in_params)[0].n_dims = 3;
@@ -181,10 +181,10 @@ static gboolean
 ufo_volume_render_task_process (UfoGpuTask *task,
                                 UfoBuffer **inputs,
                                 UfoBuffer *output,
-                                UfoRequisition *requisition,
-                                UfoGpuNode *node)
+                                UfoRequisition *requisition)
 {
     UfoVolumeRenderTaskPrivate *priv;
+    UfoGpuNode *node;
     UfoRequisition req;
     cl_command_queue cmd_queue;
     cl_mem in_mem;
@@ -192,6 +192,7 @@ ufo_volume_render_task_process (UfoGpuTask *task,
 
     priv = UFO_VOLUME_RENDER_TASK_GET_PRIVATE (task);
 
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     ufo_buffer_get_requisition (inputs[0], &req);
@@ -207,10 +208,10 @@ ufo_volume_render_task_process (UfoGpuTask *task,
 static gboolean
 ufo_volume_render_task_generate (UfoGpuTask *task,
                                  UfoBuffer *output,
-                                 UfoRequisition *requisition,
-                                 UfoGpuNode *node)
+                                 UfoRequisition *requisition)
 {
     UfoVolumeRenderTaskPrivate *priv;
+    UfoGpuNode *node;
     cl_command_queue cmd_queue;
     cl_mem render_mem;
     cl_uint steps;
@@ -220,6 +221,7 @@ ufo_volume_render_task_generate (UfoGpuTask *task,
     if (priv->current == priv->n_generate)
         return FALSE;
 
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     render_mem = ufo_buffer_get_device_array (output, cmd_queue);
     steps = (cl_uint) ((1.414f + fabs (priv->displacement)) / priv->step);

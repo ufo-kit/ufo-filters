@@ -85,7 +85,7 @@ ufo_buffer_task_get_structure (UfoTask *task,
                                UfoInputParam **in_params,
                                UfoTaskMode *mode)
 {
-    *mode = UFO_TASK_MODE_GENERATE;
+    *mode = UFO_TASK_MODE_REDUCTOR;
     *n_inputs = 1;
     *in_params = g_new0 (UfoInputParam, 1);
     (*in_params)[0].n_dims = 2;

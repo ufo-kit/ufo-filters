@@ -77,7 +77,7 @@ ufo_flat_field_correction_task_get_structure (UfoTask *task,
                                               UfoInputParam **in_params,
                                               UfoTaskMode *mode)
 {
-    *mode = UFO_TASK_MODE_SINGLE;
+    *mode = UFO_TASK_MODE_PROCESSOR;
     *n_inputs = 3;
     *in_params = g_new0 (UfoInputParam, 3);
     (*in_params)[0].n_dims = 2;

@@ -166,18 +166,17 @@ ufo_meta_balls_task_get_structure (UfoTask *task,
                                    UfoInputParam **in_params,
                                    UfoTaskMode *mode)
 {
-    *mode = UFO_TASK_MODE_SINGLE;
+    *mode = UFO_TASK_MODE_GENERATOR;
     *n_inputs = 0;
 }
 
 static gboolean
-ufo_meta_balls_task_process (UfoGpuTask *task,
-                             UfoBuffer **inputs,
-                             UfoBuffer *output,
-                             UfoRequisition *requisition,
-                             UfoGpuNode *node)
+ufo_meta_balls_task_generate (UfoGpuTask *task,
+                              UfoBuffer *output,
+                              UfoRequisition *requisition)
 {
     UfoMetaBallsTaskPrivate *priv;
+    UfoGpuNode *node;
     cl_command_queue cmd_queue;
     cl_mem out_mem;
     
@@ -186,6 +185,7 @@ ufo_meta_balls_task_process (UfoGpuTask *task,
     if (!priv->run_infinitely && (priv->current_iteration++) >= priv->num_iterations)
         return FALSE;
 
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
 
@@ -340,7 +340,7 @@ ufo_task_interface_init (UfoTaskIface *iface)
 static void
 ufo_gpu_task_interface_init (UfoGpuTaskIface *iface)
 {
-    iface->process = ufo_meta_balls_task_process;
+    iface->generate = ufo_meta_balls_task_generate;
 }
 
 static void
