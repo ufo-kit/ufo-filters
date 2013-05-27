@@ -28,9 +28,8 @@
 
 /**
  * SECTION:ufo-volume-render-task
- * @Short_description: Write TIFF files
+ * @Short_description: Project volume data onto 2D plane
  * @Title: volume_render
- *
  */
 
 struct _UfoVolumeRenderTaskPrivate {

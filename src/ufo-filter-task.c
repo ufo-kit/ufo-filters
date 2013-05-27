@@ -32,7 +32,8 @@
  * @Title: filter
  *
  * Applies the ramp filter for preparing a sinogram to be processed by the
- * backprojection node.
+ * backprojection node. A particular filter can be choosen with the
+ * #UfoFilterTask:filter property.
  */
 
 typedef void (*SetupFunc)(UfoFilterTaskPrivate *priv, gfloat *coefficients, guint width);

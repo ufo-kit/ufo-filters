@@ -24,12 +24,12 @@
 
 /**
  * SECTION:ufo-averager-task
- * @Short_description: Write TIFF files
+ * @Short_description: Average incoming data stream
  * @Title: averager
  *
- * The averager node writes each incoming image as a TIFF using libtiff to disk.
- * Each file is prefixed with #UfoAveragerTask:prefix and written into
- * #UfoAveragerTask:path.
+ * The averager node reads input data until the stream ends and outputs one or
+ * several averaged images. #UfoAveragerTask:num-generate controls the number of
+ * images that are generated.
  */
 
 struct _UfoAveragerTaskPrivate {

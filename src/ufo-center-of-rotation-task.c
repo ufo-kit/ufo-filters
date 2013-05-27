@@ -21,7 +21,7 @@
 
 /**
  * SECTION:ufo-center-of-rotation-task
- * @Short_description: Write TIFF files
+ * @Short_description: Compute the center of rotation
  * @Title: center_of_rotation
  *
  */

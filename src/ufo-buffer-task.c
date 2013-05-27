@@ -22,8 +22,11 @@
 
 /**
  * SECTION:ufo-buffer-task
- * @Short_description: Buffer input in-memory
+ * @Short_description: Buffer input in memory
  * @Title: buffer
+ *
+ * Read input data until stream ends into a local memory buffer. After that
+ * output the stream again.
  */
 
 struct _UfoBufferTaskPrivate {

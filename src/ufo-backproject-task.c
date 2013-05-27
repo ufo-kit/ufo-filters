@@ -34,7 +34,6 @@
  * #UfoBackprojectTask:axis-pos is assumed to be half the width of the input
  * sinogram and the #UfoBackprojectTask:angle-step to be height of the sinogram
  * divided by 180 degrees.
- *
  */
 
 struct _UfoBackprojectTaskPrivate {

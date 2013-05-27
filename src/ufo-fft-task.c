@@ -39,6 +39,9 @@
  * SECTION:ufo-fft-task
  * @Short_description: Compute Fast Fourier transform
  * @Title: fft
+ *
+ * Compute the Fourier spectrum of input data. If #UfoFftTask:dimensions is one
+ * but the input data is 2-dimensional, the 1-D FFT is computed for each row.
  */
 
 struct _UfoFftTaskPrivate {

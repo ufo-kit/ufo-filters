@@ -27,9 +27,11 @@
 
 /**
  * SECTION:ufo-gaussian-blur-task
- * @Short_description: Write TIFF files
- * @Title: gaussian_blur
+ * @Short_description: Blur input data with gaussian kernel
+ * @Title: gaussian-blur
  *
+ * Blur input data according to #UfoGaussianBlurTask:size and
+ * #UfoGaussianBlurTask:sigma.
  */
 
 struct _UfoGaussianBlurTaskPrivate {

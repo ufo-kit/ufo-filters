@@ -39,6 +39,9 @@
  * SECTION:ufo-ifft-task
  * @Short_description: Compute inverse Fast Fourier transform
  * @Title: ifft
+ *
+ * Compute the inverse Fourier transform of the input. #UfoIfftTask:crop-width
+ * controls the horizontal output size.
  */
 
 struct _UfoIfftTaskPrivate {
