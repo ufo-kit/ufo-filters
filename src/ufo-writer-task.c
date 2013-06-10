@@ -172,8 +172,12 @@ ufo_writer_task_setup (UfoTask *task,
                        GError **error)
 {
     UfoWriterTaskPrivate *priv;
+    guint index;
+    guint total;
 
     priv = UFO_WRITER_TASK_GET_PRIVATE (task);
+    ufo_task_node_get_partition (UFO_TASK_NODE (task), &index, &total);
+    priv->counter = index * 1000;
 
     if (priv->single) {
         open_tiff_file (priv);

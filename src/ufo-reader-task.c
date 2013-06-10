@@ -176,6 +176,10 @@ ufo_reader_task_setup (UfoTask *task,
 {
     UfoReaderTask *node;
     UfoReaderTaskPrivate *priv;
+    gint n_files;
+    gint partition;
+    gint index;
+    gint total;
 
     node = UFO_READER_TASK (task);
     priv = node->priv;
@@ -187,9 +191,12 @@ ufo_reader_task_setup (UfoTask *task,
         return;
     }
 
-    priv->current_filename = priv->filenames;
-    priv->current_count = 0;
-    priv->count = priv->count == -1 ? G_MAXINT : priv->count;
+    ufo_task_node_get_partition (UFO_TASK_NODE (task), (guint*) &index, (guint*) &total);
+    n_files = priv->count == -1 ? G_MAXINT : priv->count;
+    partition = n_files / total;
+    priv->current_count = index * partition;
+    priv->count = (index + 1) * partition;
+    priv->current_filename = g_slist_nth (priv->filenames, (guint) priv->current_count);
 }
 
 static void
