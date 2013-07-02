@@ -1,0 +1,140 @@
+/*
+ * Copyright (C) 2011-2013 Karlsruhe Institute of Technology
+ *
+ * This file is part of Ufo.
+ *
+ * This library is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation, either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
+ 
+const sampler_t image_sampler_ktbl = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_LINEAR;
+
+typedef struct {
+        float real;
+        float imag;
+} clFFT_Complex;
+
+__kernel void clear_kernel(__global clFFT_Complex *output) {
+	int global_x_size = get_global_size(0);
+	int local_x_id = get_global_id(0);
+	int local_y_id = get_global_id(1);
+	
+	output[local_y_id * global_x_size + local_x_id].real = 0.0f;
+	output[local_y_id * global_x_size + local_x_id].imag = 0.0f;
+}
+
+__kernel void dfi_sinc_kernel(__global clFFT_Complex *input, 
+							  __read_only image2d_t ktbl,
+							  float L2, 
+							  int ktbl_len2, 
+							  int raster_size, 
+							  int raster_size2, 
+							  float table_spacing, 
+							  float angle_step_rad,
+							  float theta_max,
+							  float rho_max,
+							  float max_radius,
+							  int spectrum_offset,
+							  __global clFFT_Complex *output)
+{
+	const uint wg_x_size = get_local_size(0);
+	const uint wg_y_size = get_local_size(1);
+
+	const uint wg_x_number = get_num_groups(0);
+	const uint wg_y_number = get_num_groups(1);
+
+	uint wg_x_id = get_group_id(0);
+	uint wg_y_id = get_group_id(1);
+
+	uint local_x_id = get_local_id(0);
+	uint local_y_id = get_local_id(1);
+
+	//variables
+	float2 out_coord, norm_gl_coord, in_coord, ktbl_coord;
+	int iul, iuh, ivl, ivh, sign, i, j, k;
+	float res_real, res_imag, weight, kernel_x_val;
+	long in_idx, out_idx;
+
+	ktbl_coord.y = 0.5f;
+	sign = 1;
+	res_real = 0.0f, res_imag = 0.0f;
+	out_idx = 0;
+
+	while (wg_y_id < wg_y_number) {
+		while (wg_x_id < wg_x_number) {	
+			out_coord.x = (wg_x_id * wg_x_size + local_x_id) + spectrum_offset;
+			out_coord.y = (wg_y_id * wg_x_size + local_y_id) + spectrum_offset;
+
+			out_idx = out_coord.y * raster_size + out_coord.x;
+
+			norm_gl_coord.x = out_coord.x - raster_size2;
+			norm_gl_coord.y = out_coord.y - raster_size2;
+
+			//calculate coordinates
+			float radius = sqrt(norm_gl_coord.x * norm_gl_coord.x + norm_gl_coord.y * norm_gl_coord.y);
+			if (radius > max_radius) {
+				output[out_idx].real = 0.0f;
+				output[out_idx].imag = 0.0f;
+			}
+			else {
+				in_coord.y = atan2(norm_gl_coord.y,norm_gl_coord.x);
+				in_coord.y = -in_coord.y; // spike here! (mirroring along y-axis)
+
+				sign = (in_coord.y < 0.0) ? -1 : 1;
+
+				in_coord.y = (in_coord.y < 0.0f) ? in_coord.y+= M_PI : in_coord.y;
+				in_coord.y = (float) min(1.0f + in_coord.y/angle_step_rad, theta_max - 1);
+
+				in_coord.x = (float) min(radius, (float)raster_size2);
+				
+				//sinc interpoaltion
+				iul = (int)ceil(in_coord.x - L2);
+				iul = (iul < 0) ? 0 : iul;
+
+				iuh = (int)floor(in_coord.x + L2);
+				iuh = (iuh > rho_max - 1) ? iuh = rho_max - 1 : iuh;
+
+				ivl = (int)ceil(in_coord.y - L2);
+				ivl = (ivl < 0) ? 0 : ivl;
+
+				ivh = (int)floor(in_coord.y + L2);
+	 			ivh = (ivh > theta_max - 1) ? ivh = theta_max - 1 : ivh;
+	 			
+	 			float kernel_y[20];
+	 			for (i = ivl, j = 0; i <= ivh; ++i, ++j) {
+				    ktbl_coord.x = ktbl_len2 + (in_coord.y - (float)i) * table_spacing;
+				    kernel_y[j] = read_imagef(ktbl, image_sampler_ktbl, ktbl_coord).s0;
+				}
+
+				for (i = iul; i <= iuh; ++i) {
+				    ktbl_coord.x = ktbl_len2 + (in_coord.x - (float)i) * table_spacing;
+				    kernel_x_val = read_imagef(ktbl, image_sampler_ktbl, ktbl_coord).s0;
+				    
+				    for (k = ivl, j = 0; k <= ivh; ++k, ++j) {
+				        weight = kernel_y[j] * kernel_x_val;
+
+				        in_idx = k * rho_max + i;
+
+				        res_real += input[in_idx].real * weight;
+				        res_imag += input[in_idx].imag * weight;
+				    }
+				}
+				
+				output[out_idx].real = res_real;
+				output[out_idx].imag = sign * res_imag;
+			}
+			wg_x_id += wg_x_number;
+		}
+		wg_y_id += wg_y_number;
+	}
+}
