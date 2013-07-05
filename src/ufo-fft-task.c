@@ -140,8 +140,7 @@ ufo_fft_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
     priv->fft_size.x = (priv->auto_zeropadding) ? pow2round ((guint32) in_req.dims[0]) : 
-                                                  in_req.dims[0]/2;
-
+                                                  (guint) in_req.dims[0]/2;
 
     switch (priv->fft_dimensions) {
         case FFT_1D:
@@ -149,7 +148,7 @@ ufo_fft_task_get_requisition (UfoTask *task,
             break;
         case FFT_2D:
             priv->fft_size.y = (priv->auto_zeropadding) ? pow2round ((guint32) in_req.dims[1]) :
-                                                          in_req.dims[1];
+                                                          (guint) in_req.dims[1];
             dimension = clFFT_2D;
             break;
         case FFT_3D:
