@@ -5,7 +5,9 @@ set(ufofilter_SRCS
     ufo-averager-task.c
     ufo-backproject-task.c
     ufo-buffer-task.c
+    ufo-cut-sinogram-task.c
     ufo-center-of-rotation-task.c
+    ufo-dfi-sinc-task.c
     ufo-filter-task.c
     ufo-flat-field-correction-task.c
     ufo-gaussian-blur-task.c
@@ -15,14 +17,18 @@ set(ufofilter_SRCS
     ufo-opencl-task.c
     ufo-region-of-interest-task.c
     ufo-sino-generator-task.c
+    ufo-swap-quadrants-task.c
     ufo-subtract-task.c
     ufo-volume-render-task.c
+    ufo-zeropadding-task.c
     )
 
 set(ufofilter_KERNELS
     arithmetics.cl
     backproject.cl
     complex.cl
+    cut_sinogram_kernel.cl
+    dfi_sinc_kernel.cl
     fft.cl
     filter.cl
     forwardproject.cl
@@ -31,6 +37,7 @@ set(ufofilter_KERNELS
     interpolator.cl
     metaballs.cl
     nlm.cl
+    swap_quadrants_kernel.cl
     volume.cl
     )
 
