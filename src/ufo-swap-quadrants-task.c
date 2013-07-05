@@ -78,8 +78,8 @@ ufo_swap_quadrants_task_new (void)
 
 static void
 ufo_swap_quadrants_task_setup (UfoTask *task,
-                          UfoResources *resources,
-                          GError **error)
+                               UfoResources *resources,
+                               GError **error)
 {
     UfoSwapQuadrantsTaskPrivate *priv = UFO_SWAP_QUADRANTS_TASK_GET_PRIVATE (task);
     priv->resources = resources;
@@ -89,8 +89,8 @@ ufo_swap_quadrants_task_setup (UfoTask *task,
 
 static void
 ufo_swap_quadrants_task_get_requisition (UfoTask *task,
-                                    UfoBuffer **inputs,
-                                    UfoRequisition *requisition)
+                                         UfoBuffer **inputs,
+                                         UfoRequisition *requisition)
 {
     UfoRequisition input_requisition;
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
@@ -102,9 +102,9 @@ ufo_swap_quadrants_task_get_requisition (UfoTask *task,
 
 static void
 ufo_swap_quadrants_task_get_structure (UfoTask *task,
-                               guint *n_inputs,
-                               UfoInputParam **in_params,
-                               UfoTaskMode *mode)
+                                       guint *n_inputs,
+                                       UfoInputParam **in_params,
+                                       UfoTaskMode *mode)
 {
     *mode = UFO_TASK_MODE_PROCESSOR;
     *n_inputs = 1;
@@ -114,18 +114,19 @@ ufo_swap_quadrants_task_get_structure (UfoTask *task,
 
 static gboolean
 ufo_swap_quadrants_task_process (UfoGpuTask *task,
-                         UfoBuffer **inputs,
-                         UfoBuffer *output,
-                         UfoRequisition *requisition,
-                         UfoGpuNode *node)
+                                 UfoBuffer **inputs,
+                                 UfoBuffer *output,
+                                 UfoRequisition *requisition)
 {
     UfoSwapQuadrantsTaskPrivate *priv;
+    UfoGpuNode *node;
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
 
     priv = UFO_SWAP_QUADRANTS_TASK_GET_PRIVATE (task);
-    cmd_queue = g_list_nth_data(ufo_resources_get_cmd_queues(priv->resources), 0);
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+    cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 
     UfoRequisition input_requisition;
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
@@ -165,12 +166,10 @@ ufo_swap_quadrants_task_process (UfoGpuTask *task,
 
 static void
 ufo_swap_quadrants_task_set_property (GObject *object,
-                                   guint property_id,
-                                   const GValue *value,
-                                   GParamSpec *pspec)
+                                      guint property_id,
+                                      const GValue *value,
+                                      GParamSpec *pspec)
 {
-    UfoSwapQuadrantsTaskPrivate *priv = UFO_SWAP_QUADRANTS_TASK_GET_PRIVATE (object);
-
     switch (property_id) {
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -180,12 +179,10 @@ ufo_swap_quadrants_task_set_property (GObject *object,
 
 static void
 ufo_swap_quadrants_task_get_property (GObject *object,
-                              guint property_id,
-                              GValue *value,
-                              GParamSpec *pspec)
+                                      guint property_id,
+                                      GValue *value,
+                                      GParamSpec *pspec)
 {
-    UfoSwapQuadrantsTaskPrivate *priv = UFO_SWAP_QUADRANTS_TASK_GET_PRIVATE (object);
-
     switch (property_id) {
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
