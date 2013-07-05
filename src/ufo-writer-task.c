@@ -214,8 +214,12 @@ ufo_writer_task_process (UfoCpuTask *task,
                          UfoRequisition *requisition)
 {
     UfoWriterTaskPrivate *priv;
+    UfoProfiler *profiler;
 
     priv = UFO_WRITER_TASK_GET_PRIVATE (UFO_WRITER_TASK (task));
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+
+    ufo_profiler_start (profiler, UFO_PROFILER_TIMER_IO);
 
     if (!priv->single)
         open_tiff_file (priv);
@@ -225,6 +229,8 @@ ufo_writer_task_process (UfoCpuTask *task,
 
     if (!priv->single)
         TIFFClose (priv->tif);
+
+    ufo_profiler_stop (profiler, UFO_PROFILER_TIMER_IO);
 
     priv->counter++;
     return TRUE;

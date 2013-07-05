@@ -322,11 +322,15 @@ ufo_reader_task_generate (UfoCpuTask *task,
                           UfoRequisition *requisition)
 {
     UfoReaderTaskPrivate *priv;
+    UfoProfiler *profiler;
 
     priv = UFO_READER_TASK_GET_PRIVATE (UFO_READER_TASK (task));
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
 
     if ((priv->current_count < priv->count) && (priv->current_filename != NULL)) {
         gpointer data = ufo_buffer_get_host_array (output, NULL);
+
+        ufo_profiler_start (profiler, UFO_PROFILER_TIMER_IO);
 
         if (priv->tiff != NULL) {
             read_tiff_data (priv->tiff, data);
@@ -339,12 +343,17 @@ ufo_reader_task_generate (UfoCpuTask *task,
             priv->edf = NULL;
         }
 
+        ufo_profiler_stop (profiler, UFO_PROFILER_TIMER_IO);
+        ufo_profiler_start (profiler, UFO_PROFILER_TIMER_CPU);
+
         if (priv->bps < 32) {
             UfoBufferDepth depth;
 
             depth = priv->bps <= 8 ? UFO_BUFFER_DEPTH_8U : UFO_BUFFER_DEPTH_16U;
             ufo_buffer_convert (output, depth);
         }
+
+        ufo_profiler_stop (profiler, UFO_PROFILER_TIMER_CPU);
 
         priv->current_filename = g_slist_next(priv->current_filename);
         priv->current_count++;
