@@ -49,7 +49,7 @@ struct _UfoZeropaddingTaskPrivate {
     UfoResources *resources;
     cl_kernel zeropadding_kernel;
     guint oversampling;
-    gfloat center_rot;
+    gint center_rot;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -99,15 +99,15 @@ ufo_zeropadding_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
 
     requisition->n_dims = input_requisition.n_dims;
-    requisition->dims[0] = 2 * pow(2, ceil(log2f(input_requisition.dims[0]))) * priv->oversampling;
+    requisition->dims[0] = (gsize) (2 * pow(2, ceil(log2f((float) input_requisition.dims[0]))) * priv->oversampling);
     requisition->dims[1] = input_requisition.dims[1];
 }
 
 static void
 ufo_zeropadding_task_get_structure (UfoTask *task,
-                               guint *n_inputs,
-                               UfoInputParam **in_params,
-                               UfoTaskMode *mode)
+                                    guint *n_inputs,
+                                    UfoInputParam **in_params,
+                                    UfoTaskMode *mode)
 {
     *mode = UFO_TASK_MODE_PROCESSOR;
     *n_inputs = 1;
@@ -117,18 +117,19 @@ ufo_zeropadding_task_get_structure (UfoTask *task,
 
 static gboolean
 ufo_zeropadding_task_process (UfoGpuTask *task,
-                         UfoBuffer **inputs,
-                         UfoBuffer *output,
-                         UfoRequisition *requisition,
-                         UfoGpuNode *node)
+                              UfoBuffer **inputs,
+                              UfoBuffer *output,
+                              UfoRequisition *requisition)
 {
     UfoZeropaddingTaskPrivate *priv;
+    UfoGpuNode *node;
     cl_command_queue cmd_queue;
     cl_mem in_mem, out_mem;
     cl_int xdim, offset;
 
     priv = UFO_ZEROPADDING_TASK_GET_PRIVATE (task);
-    cmd_queue = g_list_nth_data(ufo_resources_get_cmd_queues(priv->resources), 0);
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+    cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 
     UfoRequisition input_requisition;
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
@@ -136,8 +137,8 @@ ufo_zeropadding_task_process (UfoGpuTask *task,
     /* args */
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
-    xdim = input_requisition.dims[0];
-    int center_pos = roundf(priv->center_rot);
+    xdim = (cl_int) input_requisition.dims[0];
+    int center_pos = priv->center_rot;
     offset = (center_pos != -1) ? xdim - (xdim - center_pos) * 2 : 0;
     
     CL_CHECK_ERROR (clSetKernelArg (priv->zeropadding_kernel, 0, sizeof (cl_mem), &in_mem));
@@ -170,7 +171,7 @@ ufo_zeropadding_task_set_property (GObject *object,
             priv->oversampling = g_value_get_uint (value);
             break;
         case PROP_CENTER_ROT:
-            priv->center_rot = g_value_get_float (value);
+            priv->center_rot = g_value_get_int (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -180,9 +181,9 @@ ufo_zeropadding_task_set_property (GObject *object,
 
 static void
 ufo_zeropadding_task_get_property (GObject *object,
-                              guint property_id,
-                              GValue *value,
-                              GParamSpec *pspec)
+                                   guint property_id,
+                                   GValue *value,
+                                   GParamSpec *pspec)
 {
     UfoZeropaddingTaskPrivate *priv = UFO_ZEROPADDING_TASK_GET_PRIVATE (object);
 
@@ -191,7 +192,7 @@ ufo_zeropadding_task_get_property (GObject *object,
             g_value_set_uint (value, priv->oversampling);
             break;
         case PROP_CENTER_ROT:
-            g_value_set_float (value, priv->center_rot);
+            g_value_set_int (value, priv->center_rot);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -236,10 +237,10 @@ ufo_zeropadding_task_class_init (UfoZeropaddingTaskClass *klass)
             G_PARAM_READWRITE);
 
     properties[PROP_CENTER_ROT] =
-        g_param_spec_float ("center-of-rotation",
+        g_param_spec_int ("center-of-rotation",
             "Center of rotation",
             "Center of rotation of specimen",
-            -1, G_MAXFLOAT, -1,
+            -1, G_MAXINT, -1,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
