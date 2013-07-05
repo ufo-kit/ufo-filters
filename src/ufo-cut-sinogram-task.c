@@ -48,7 +48,7 @@ abort(); \
 struct _UfoCutSinogramTaskPrivate {
     UfoResources *resources;
     cl_kernel cut_sinogram_kernel;
-    gfloat center_rot;
+    gint center_rot;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -97,7 +97,7 @@ ufo_cut_sinogram_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
 
     requisition->n_dims = input_requisition.n_dims;
-    requisition->dims[0] = (input_requisition.dims[0] - roundf(priv->center_rot)) * 2;
+    requisition->dims[0] = (input_requisition.dims[0] - (gsize) priv->center_rot) * 2;
     requisition->dims[1] = input_requisition.dims[1];
 }
 
@@ -115,18 +115,19 @@ ufo_cut_sinogram_task_get_structure (UfoTask *task,
 
 static gboolean
 ufo_cut_sinogram_task_process (UfoGpuTask *task,
-                         UfoBuffer **inputs,
-                         UfoBuffer *output,
-                         UfoRequisition *requisition,
-                         UfoGpuNode *node)
+                               UfoBuffer **inputs,
+                               UfoBuffer *output,
+                               UfoRequisition *requisition)
 {
     UfoCutSinogramTaskPrivate *priv;
+    UfoGpuNode *node;
     cl_command_queue cmd_queue;
     cl_mem in_mem, out_mem;
     cl_int offset, xdim, center_pos;
 
     priv = UFO_CUT_SINOGRAM_TASK_GET_PRIVATE (task);
-    cmd_queue = g_list_nth_data(ufo_resources_get_cmd_queues(priv->resources), 0);
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+    cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 
     UfoRequisition input_requisition;
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
@@ -135,8 +136,8 @@ ufo_cut_sinogram_task_process (UfoGpuTask *task,
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     
-    xdim = input_requisition.dims[0];
-    center_pos = roundf(priv->center_rot);
+    xdim = (cl_int) input_requisition.dims[0];
+    center_pos = priv->center_rot;
     offset = (center_pos != -1) ? xdim - (xdim - center_pos) * 2 : 0;
     
     CL_CHECK_ERROR (clSetKernelArg (priv->cut_sinogram_kernel, 0, sizeof (cl_mem), &in_mem));
@@ -165,7 +166,7 @@ ufo_cut_sinogram_task_set_property (GObject *object,
 
     switch (property_id) {
         case PROP_CENTER_ROT:
-            priv->center_rot = g_value_get_float (value);
+            priv->center_rot = g_value_get_int (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -183,7 +184,7 @@ ufo_cut_sinogram_task_get_property (GObject *object,
 
     switch (property_id) {
         case PROP_CENTER_ROT:
-            g_value_set_float (value, priv->center_rot);
+            g_value_set_int (value, priv->center_rot);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -221,10 +222,10 @@ ufo_cut_sinogram_task_class_init (UfoCutSinogramTaskClass *klass)
     gobject_class->finalize = ufo_cut_sinogram_task_finalize;
 
     properties[PROP_CENTER_ROT] =
-        g_param_spec_float ("center-of-rotation",
+        g_param_spec_int ("center-of-rotation",
             "Center of rotation",
             "Center of rotation of specimen",
-            -1, G_MAXFLOAT, -1,
+            -1, G_MAXINT, -1,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
