@@ -105,27 +105,27 @@ ufo_dfi_sinc_task_new (void)
 }
 
 static gfloat
-ufo_gridding_task_sinc(gfloat x) {
-  return (x == 0.0f) ? 1.0 : sin(M_PI * x)/(M_PI * x);
-} 
+ufo_gridding_task_sinc(gfloat x)
+{
+    return (x == 0.0f) ? 1.0f : (gfloat) (sin(M_PI * x) / (M_PI * x));
+}
 
 static gfloat *
-ufo_gridding_task_get_ktbl(gint length) 
+ufo_gridding_task_get_ktbl(guint length)
 {
     gfloat *ktbl = (gfloat *)g_malloc0(length * sizeof (gfloat));
 
     if (!length%2) {
-      g_print("Error: Length of ktbl cannot be even!\n");
-      exit(1);
+        g_print("Error: Length of ktbl cannot be even!\n");
+        exit(1);
     }
 
-    gint ktbl_len2 = (length - 1)/2;
-    gfloat step = M_PI/(gfloat)ktbl_len2;
+    guint ktbl_len2 = (length - 1) / 2;
+    gfloat step = (gfloat)  (M_PI / ktbl_len2);
+    gfloat value = -((gfloat) ktbl_len2) * step;
 
-    gfloat value = -ktbl_len2 * step;
-
-    for (int i = 0; i < length; ++i, value += step) {
-      ktbl[i] = ufo_gridding_task_sinc(value) * (0.54f - 0.46f * cos(2*M_PI*((gfloat)i/(gfloat)length)));
+    for (guint i = 0; i < length; ++i, value += step) {
+        ktbl[i] = (gfloat) (ufo_gridding_task_sinc(value) * (0.54f - 0.46f * cos(2*M_PI*((gfloat)i/(gfloat)length))));
     }
 
     return ktbl;
@@ -133,8 +133,8 @@ ufo_gridding_task_get_ktbl(gint length)
 
 static void
 ufo_dfi_sinc_task_setup (UfoTask *task,
-                       UfoResources *resources,
-                       GError **error)
+                         UfoResources *resources,
+                         GError **error)
 {
     UfoDfiSincTaskPrivate *priv;
     cl_context context;
@@ -175,19 +175,13 @@ ufo_dfi_sinc_task_get_requisition (UfoTask *task,
     requisition->n_dims = 2;
     requisition->dims[0] = input_requisition.dims[0];
     requisition->dims[1] = input_requisition.dims[0]/2;
-
-    g_print("ufo_dfi_sinc_task_get_requisition (complex): 2 * input_requisition.dims[0] = 2 * %d\n", (int)(input_requisition.dims[0]/2));
-    g_print("ufo_dfi_sinc_task_get_requisition (number): input_requisition.dims[1] = %d\n", (int)(input_requisition.dims[1]));
-
-    g_print("ufo_dfi_sinc_task_get_requisition (complex == 2 floats): requisition->dims[0] = %d\n", (int)(requisition->dims[0]));
-    g_print("ufo_dfi_sinc_task_get_requisition (number of rows): requisition->dims[1] = %d\n", (int)(requisition->dims[1]));
 }
 
 static void
 ufo_dfi_sinc_task_get_structure (UfoTask *task,
-                               guint *n_inputs,
-                               UfoInputParam **in_params,
-                               UfoTaskMode *mode)
+                                 guint *n_inputs,
+                                 UfoInputParam **in_params,
+                                 UfoTaskMode *mode)
 {
     *mode = UFO_TASK_MODE_PROCESSOR;
     *n_inputs = 1;
@@ -197,12 +191,12 @@ ufo_dfi_sinc_task_get_structure (UfoTask *task,
 
 static gboolean
 ufo_dfi_sinc_task_process (UfoGpuTask *task,
-                         UfoBuffer **inputs,
-                         UfoBuffer *output,
-                         UfoRequisition *requisition,
-                         UfoGpuNode *node)
+                           UfoBuffer **inputs,
+                           UfoBuffer *output,
+                           UfoRequisition *requisition)
 {
     UfoDfiSincTaskPrivate *priv;
+    UfoGpuNode *node;
     UfoRequisition input_requisition;
     cl_command_queue cmd_queue;
     cl_context context;
@@ -210,9 +204,10 @@ ufo_dfi_sinc_task_process (UfoGpuTask *task,
     cl_mem in_mem, out_mem, ktbl_mem;
 
     priv = UFO_DFI_SINC_TASK_GET_PRIVATE (task);
-    cmd_queue = g_list_nth_data(ufo_resources_get_cmd_queues(priv->resources), 0);
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+    cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     context = ufo_resources_get_context(priv->resources);
-    
+
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     ktbl_mem = ufo_buffer_get_device_image(priv->ktbl_buffer, cmd_queue);
@@ -220,40 +215,26 @@ ufo_dfi_sinc_task_process (UfoGpuTask *task,
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
 
     priv->L2 = ((cl_float)priv->L)/2.0f;
-    priv->ktbl_len2 = (priv->number_presampled_values - 1)/2;
-    priv->raster_size = input_requisition.dims[0]/2;
+    priv->ktbl_len2 = (cl_int) ((priv->number_presampled_values - 1) / 2);
+    priv->raster_size = (cl_int) (input_requisition.dims[0] / 2);
     priv->raster_size2 = priv->raster_size/2;
-    priv->table_spacing = ((cl_float)priv->number_presampled_values)/((cl_float)priv->L);
-    priv->angle_step_rad = M_PI/((cl_float)input_requisition.dims[1]);
-    priv->theta_max = (cl_float)input_requisition.dims[1];
-    priv->rho_max = (cl_float)input_requisition.dims[0]/2;
+    priv->table_spacing = ((cl_float) priv->number_presampled_values) / ((cl_float)priv->L);
+    priv->angle_step_rad = (cl_float) (M_PI / ((gdouble) input_requisition.dims[1]));
+    priv->theta_max = (cl_float) input_requisition.dims[1];
+    priv->rho_max = (cl_float) input_requisition.dims[0] / 2;
 
-    int interp_grid_cols = ceil((float)priv->raster_size/(float)BLOCK_SIZE);
+    int interp_grid_cols = (int) ceil((float) priv->raster_size / (float) BLOCK_SIZE);
     if (priv->roi_size >= 1 && priv->roi_size <= priv->raster_size) {
-        interp_grid_cols = ceil((float)priv->roi_size/(float)BLOCK_SIZE);
-    }                    
+        interp_grid_cols = (int) ceil((float) priv->roi_size / (float) BLOCK_SIZE);
+    }
 
     priv->spectrum_offset = (priv->raster_size - (interp_grid_cols * BLOCK_SIZE))/2;
-    priv->max_radius = (interp_grid_cols * BLOCK_SIZE)/2.0;
-
-    g_print("ufo_dfi_sinc_task_process:\n");
-    g_print("L2 = %f\n", priv->L2);
-    g_print("ktbl_len2 = %d\n", priv->ktbl_len2);
-    g_print("raster_size = %d\n", priv->raster_size);
-    g_print("raster_size2 = %d\n", priv->raster_size2);
-    g_print("table_spacing = %f\n", priv->table_spacing);
-    g_print("angle_step_rad = %f\n", priv->angle_step_rad);
-    g_print("theta_max = %f\n", priv->theta_max);
-    g_print("rho_max = %f\n", priv->rho_max);
-    g_print("oversampling = %f\n", priv->oversampling);
-    g_print("spectrum_offset = %d\n", priv->spectrum_offset);
-    g_print("max_radius = %f\n", priv->max_radius);
-    g_print("interp_grid_cols = %d\n", interp_grid_cols);
+    priv->max_radius = (gfloat) (interp_grid_cols * BLOCK_SIZE) / 2.0f;
 
     size_t local_work_size[] = {BLOCK_SIZE, BLOCK_SIZE};
 
     ////////////////
-    size_t empty_kernel_working_size[] = {priv->raster_size, priv->raster_size};
+    size_t empty_kernel_working_size[] = { (size_t) priv->raster_size, (size_t) priv->raster_size};
 
     CL_CHECK_ERROR (clSetKernelArg (priv->clear_kernel, 0, sizeof (cl_mem), &out_mem));
     CL_CHECK_ERROR (clEnqueueNDRangeKernel (cmd_queue,
@@ -264,9 +245,9 @@ ufo_dfi_sinc_task_process (UfoGpuTask *task,
                                             local_work_size,
                                             0, NULL, NULL));
     ////////////////
-    size_t working_size[] = {interp_grid_cols * BLOCK_SIZE,
-                             interp_grid_cols * BLOCK_SIZE};
-    
+    size_t working_size[] = {(size_t) interp_grid_cols * BLOCK_SIZE,
+                             (size_t) interp_grid_cols * BLOCK_SIZE};
+
     CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 0, sizeof (cl_mem), &in_mem));
     CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 1, sizeof (cl_mem), &ktbl_mem));
     CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 2, sizeof (cl_float), &(priv->L2)));
@@ -308,7 +289,7 @@ ufo_dfi_sinc_task_set_property (GObject *object,
             priv->number_presampled_values = g_value_get_uint (value);
             break;
         case PROP_OVERSAMPLING:
-            priv->oversampling = g_value_get_uint (value);
+            priv->oversampling = g_value_get_float (value);
             break;
         case PROP_ROI_SIZE:
             priv->roi_size = g_value_get_int (value);
@@ -335,7 +316,7 @@ ufo_dfi_sinc_task_get_property (GObject *object,
             g_value_set_uint (value, priv->number_presampled_values);
             break;
         case PROP_OVERSAMPLING:
-            g_value_set_uint (value, priv->oversampling);
+            g_value_set_float (value, priv->oversampling);
             break;
         case PROP_ROI_SIZE:
             g_value_set_int (value, priv->roi_size);
@@ -390,10 +371,10 @@ ufo_dfi_sinc_task_class_init (UfoDfiSincTaskClass *klass)
             G_PARAM_READWRITE);
 
     properties[PROP_OVERSAMPLING] =
-        g_param_spec_uint ("oversampling",
+        g_param_spec_float ("oversampling",
             "Oversampling",
             "Coefficient of oversampling.",
-            1, G_MAXUINT, 1,
+            1.0, G_MAXFLOAT, 1.0,
             G_PARAM_READWRITE);
 
     properties[PROP_ROI_SIZE] =
