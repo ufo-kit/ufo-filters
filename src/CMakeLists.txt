@@ -39,6 +39,7 @@ set(ufofilter_KERNELS
     nlm.cl
     swap_quadrants_kernel.cl
     volume.cl
+    zeropadding_kernel.cl
     )
 
 set(ufofilter_LIBS
