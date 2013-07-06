@@ -42,6 +42,7 @@ struct _UfoOpenCLTaskPrivate {
     cl_uint n_inputs;
     gchar *filename;
     gchar *funcname;
+    gchar *source;
     guint n_dims;
 };
 
@@ -59,6 +60,7 @@ G_DEFINE_TYPE_WITH_CODE (UfoOpenCLTask, ufo_opencl_task, UFO_TYPE_TASK_NODE,
 enum {
     PROP_0,
     PROP_FILENAME,
+    PROP_SOURCE,
     PROP_KERNEL,
     PROP_NUM_DIMS,
     N_PROPERTIES
@@ -118,9 +120,9 @@ ufo_opencl_task_setup (UfoTask *task,
 
     priv = UFO_OPENCL_TASK_GET_PRIVATE (task);
 
-    if (priv->filename == NULL) {
+    if (priv->filename == NULL && priv->source == NULL) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                     "Property ::filename not specified");
+                     "Neither property ::filename nor ::source specified");
         return;
     }
 
@@ -130,15 +132,22 @@ ufo_opencl_task_setup (UfoTask *task,
         return;
     }
 
-    priv->kernel = ufo_resources_get_kernel (resources,
-                                             priv->filename,
-                                             priv->funcname,
-                                             error);
+    if (priv->source != NULL) {
+        priv->kernel = ufo_resources_get_kernel_from_source (resources,
+                                                             priv->source,
+                                                             priv->funcname,
+                                                             error);
+    }
+    else {
+        priv->kernel = ufo_resources_get_kernel (resources,
+                                                 priv->filename,
+                                                 priv->funcname,
+                                                 error);
+    }
 
     if (priv->kernel != NULL) {
         cl_uint n_args;
 
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
         UFO_RESOURCES_CHECK_CLERR (clGetKernelInfo (priv->kernel,
                                    CL_KERNEL_NUM_ARGS,
                                    sizeof (cl_uint),
@@ -152,6 +161,7 @@ ufo_opencl_task_setup (UfoTask *task,
         }
 
         priv->n_inputs = n_args - 1;
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
     }
 }
 
@@ -255,6 +265,10 @@ ufo_opencl_task_set_property (GObject *object,
             g_free (priv->filename);
             priv->filename = g_value_dup_string (value);
             break;
+        case PROP_SOURCE:
+            g_free (priv->source);
+            priv->source = g_value_dup_string (value);
+            break;
         case PROP_KERNEL:
             g_free (priv->funcname);
             priv->funcname = g_value_dup_string (value);
@@ -279,6 +293,9 @@ ufo_opencl_task_get_property (GObject *object,
     switch (property_id) {
         case PROP_FILENAME:
             g_value_set_string (value, priv->filename);
+            break;
+        case PROP_SOURCE:
+            g_value_set_string (value, priv->source);
             break;
         case PROP_KERNEL:
             g_value_set_string (value, priv->funcname);
@@ -309,6 +326,13 @@ ufo_opencl_task_class_init (UfoOpenCLTaskClass *klass)
         g_param_spec_string ("filename",
             "OpenCL kernel filename",
             "OpenCL kernel filename",
+            "",
+            G_PARAM_READWRITE);
+
+    properties[PROP_SOURCE] =
+        g_param_spec_string ("source",
+            "OpenCL kernel source",
+            "OpenCL kernel source",
             "",
             G_PARAM_READWRITE);
 
@@ -343,6 +367,7 @@ ufo_opencl_task_init (UfoOpenCLTask *self)
     priv->kernel = NULL;
     priv->filename = NULL;
     priv->funcname = NULL;
+    priv->source = NULL;
     priv->n_dims = 2;
     priv->n_inputs = 1;
 }
