@@ -126,12 +126,6 @@ ufo_opencl_task_setup (UfoTask *task,
         return;
     }
 
-    if (priv->funcname == NULL) {
-        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                     "Property ::kernel not specified");
-        return;
-    }
-
     if (priv->source != NULL) {
         priv->kernel = ufo_resources_get_kernel_from_source (resources,
                                                              priv->source,
@@ -338,8 +332,8 @@ ufo_opencl_task_class_init (UfoOpenCLTaskClass *klass)
 
     properties[PROP_KERNEL] =
         g_param_spec_string ("kernel",
-            "Kernel name",
-            "Name of the kernel that should be computed with this task",
+            "Kernel name or NULL",
+            "Name of the kernel that should be computed with this task or NULL",
             "",
             G_PARAM_READWRITE);
 
