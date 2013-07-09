@@ -23,6 +23,7 @@
 #include <CL/cl.h>
 #endif
 
+#include <math.h>
 #include "ufo-backproject-task.h"
 
 /**
@@ -39,8 +40,13 @@
 struct _UfoBackprojectTaskPrivate {
     cl_context context;
     cl_kernel kernel;
+    cl_mem sin_lut;
+    cl_mem cos_lut;
+    gfloat *host_sin_lut;
+    gfloat *host_cos_lut;
     gfloat axis_pos;
     gfloat angle_step;
+    gfloat real_angle_step;
     guint n_projections;
 };
 
@@ -82,7 +88,6 @@ ufo_backproject_task_process (UfoGpuTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
-    gfloat angle_step;
     gfloat axis_pos;
 
     priv = UFO_BACKPROJECT_TASK (task)->priv;
@@ -91,15 +96,7 @@ ufo_backproject_task_process (UfoGpuTask *task,
     in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
 
-    /* Guess angle step and axis position if they are not provided by the user. */
-    if (priv->angle_step <= 0.0) {
-        UfoRequisition in_req;
-        ufo_buffer_get_requisition (inputs[0], &in_req);
-        angle_step = (gfloat) (G_PI / ((gfloat) in_req.dims[1]));
-    }
-    else
-        angle_step = priv->angle_step;
-
+    /* Guess axis position if they are not provided by the user. */
     if (priv->axis_pos <= 0.0)
         axis_pos = (gfloat) ((gfloat) requisition->dims[0]) / 2.0f;
     else
@@ -107,9 +104,11 @@ ufo_backproject_task_process (UfoGpuTask *task,
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (guint),  &priv->n_projections));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (gfloat), &axis_pos));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (gfloat), &angle_step));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_mem), &priv->sin_lut));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_mem), &priv->cos_lut));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (guint),  &priv->n_projections));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 5, sizeof (gfloat), &axis_pos));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 6, sizeof (gfloat), &priv->real_angle_step));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
 
@@ -142,6 +141,33 @@ ufo_backproject_task_setup (UfoTask *task,
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
 }
 
+static cl_mem
+create_lut_buffer (UfoBackprojectTaskPrivate *priv,
+                   gfloat **host_mem,
+                   gsize n_entries,
+                   double (*func)(double))
+{
+    cl_int errcode;
+    gsize size = n_entries * sizeof (gfloat);
+    cl_mem mem = NULL;
+    gfloat angle = 0.0f;
+
+    *host_mem = g_malloc0 (size);
+
+    for (guint i = 0; i < n_entries; i++) {
+        (*host_mem)[i] = (gfloat) func (angle);
+        angle += priv->real_angle_step;
+    }
+
+    mem = clCreateBuffer (priv->context,
+                          CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY,
+                          size, *host_mem,
+                          &errcode);
+
+    UFO_RESOURCES_CHECK_CLERR (errcode);
+    return mem;
+}
+
 static void
 ufo_backproject_task_get_requisition (UfoTask *task,
                                       UfoBuffer **inputs,
@@ -158,6 +184,23 @@ ufo_backproject_task_get_requisition (UfoTask *task,
     requisition->n_dims = 2;
     requisition->dims[0] = in_req.dims[0];
     requisition->dims[1] = in_req.dims[0];
+
+    if (priv->real_angle_step < 0.0) {
+        if (priv->angle_step <= 0.0)
+            priv->real_angle_step = (gfloat) (G_PI / ((gfloat) in_req.dims[1]));
+        else
+            priv->real_angle_step = priv->angle_step;
+    }
+
+    if (priv->sin_lut == NULL) {
+        priv->sin_lut = create_lut_buffer (priv, &priv->host_sin_lut,
+                                           requisition->dims[1], sin);
+    }
+
+    if (priv->cos_lut == NULL) {
+        priv->cos_lut = create_lut_buffer (priv, &priv->host_cos_lut,
+                                           requisition->dims[1], cos);
+    }
 }
 
 static void
@@ -186,6 +229,19 @@ ufo_backproject_task_finalize (GObject *object)
     UfoBackprojectTaskPrivate *priv;
 
     priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (object);
+
+    if (priv->sin_lut) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->sin_lut));
+        priv->sin_lut = NULL;
+    }
+
+    if (priv->cos_lut) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->cos_lut));
+        priv->sin_lut = NULL;
+    }
+
+    g_free (priv->host_sin_lut);
+    g_free (priv->host_cos_lut);
 
     if (priv->kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
@@ -300,5 +356,10 @@ ufo_backproject_task_init (UfoBackprojectTask *self)
     priv->kernel = NULL;
     priv->axis_pos = -1.0;
     priv->angle_step = -1.0;
+    priv->real_angle_step = -1.0;
     priv->kernel = NULL;
+    priv->sin_lut = NULL;
+    priv->cos_lut = NULL;
+    priv->host_sin_lut = NULL;
+    priv->host_cos_lut = NULL;
 }

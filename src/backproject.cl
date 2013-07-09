@@ -54,6 +54,8 @@ backproject(const int num_proj,
 __kernel void
 backproject_tex (__read_only image2d_t sinogram,
                  __global float *slice,
+                 __constant float *sin_lut,
+                 __constant float *cos_lut,
                  const unsigned int n_projections,
                  const float axis_pos,
                  const float angle_step)
@@ -61,20 +63,15 @@ backproject_tex (__read_only image2d_t sinogram,
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
     const int slice_width = get_global_size(0);
-    const int slice_index = idy * slice_width + idx;
-
-    float h;
     const float bx = idx - axis_pos;
     const float by = idy - axis_pos;
     float sum = 0.0f;
 
-#pragma unroll 8
     for(int proj = 0; proj < n_projections; proj++) {
-        float p = proj * angle_step;
-        h = mad(by, sin(p), mad(bx, cos(p), axis_pos));
+        float h = mad(by, sin_lut[proj], mad(bx, cos_lut[proj], axis_pos));
         sum += read_imagef(sinogram, volumeSampler, (float2)(h, proj)).x;
     }
 
-    slice[slice_index] = sum * 4.0 * M_PI;
+    slice[idy * slice_width + idx] = sum * 4.0 * M_PI;
 }
 
