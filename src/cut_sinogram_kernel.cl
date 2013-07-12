@@ -21,27 +21,8 @@ __kernel void cut_sinogram_kernel(__global float *input, int offset, __global fl
 {
 	const uint global_x_size = get_global_size(0);
 
-	const uint wg_x_size = get_local_size(0);
-	const uint wg_y_size = get_local_size(1);
+	int g_idx = get_global_id(0);
+	int g_idy = get_global_id(1);
 
-	const uint wg_x_number = get_num_groups(0);
-	const uint wg_y_number = get_num_groups(1);
-
-	uint wg_x_id = get_group_id(0);
-	uint wg_y_id = get_group_id(1);
-
-	uint local_x_id = get_local_id(0);
-	uint local_y_id = get_local_id(1);
-
-	while (wg_y_id < wg_y_number) {
-		while (wg_x_id < wg_x_number) {
-			int g_idx = wg_x_id * wg_x_size + local_x_id;
-			int g_idy = wg_y_id * wg_x_size + local_y_id;
-
-			output[g_idy * global_x_size + g_idx] = input[g_idy * (global_x_size + offset) + g_idx + offset];
-
-			wg_x_id += wg_x_number;
-		}
-		wg_y_id += wg_y_number;
-	}
+	output[g_idy * global_x_size + g_idx] = input[g_idy * (global_x_size + offset) + g_idx + offset];
 }
