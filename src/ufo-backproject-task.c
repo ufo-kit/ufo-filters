@@ -111,11 +111,7 @@ ufo_backproject_task_process (UfoGpuTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 6, sizeof (gfloat), &priv->real_angle_step));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-
-    ufo_profiler_call (profiler,
-                       cmd_queue,
-                       priv->kernel,
-                       2, requisition->dims, NULL);
+    ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
 
     return TRUE;
 }

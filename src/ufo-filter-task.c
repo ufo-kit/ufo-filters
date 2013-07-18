@@ -82,6 +82,7 @@ ufo_filter_task_process (UfoGpuTask *task,
 {
     UfoFilterTaskPrivate *priv;
     UfoGpuNode *node;
+    UfoProfiler *profiler;
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
@@ -96,10 +97,8 @@ ufo_filter_task_process (UfoGpuTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_mem), &priv->filter_mem));
 
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
-                                                       priv->kernel,
-                                                       2, NULL, requisition->dims, NULL,
-                                                       0, NULL, NULL));
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
 
     return TRUE;
 }
