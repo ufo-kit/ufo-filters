@@ -37,11 +37,13 @@ abort(); \
 }; \
 }
 
-
 /**
  * SECTION:ufo-zeropadding-task
- * @Short_description: Write TIFF files
+ * @Short_description: Add zeros in the center of sinogram
  * @Title: zeropadding
+ *
+ * Add zeros in the center of sinogram using #UfoZeropaddingTask:oversampling 
+ * to manage the amount of zeros which will be added.
  *
  */
 
