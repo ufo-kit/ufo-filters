@@ -46,8 +46,18 @@ abort(); \
 
 /**
  * SECTION:ufo-dfi-sinc-task
- * @Short_description: Write TIFF files
- * @Title: dfi_sinc
+ * @Short_description: Compute the 2D Fourier spectrum of reconstructed image
+ * using 1D Fourier projection of sinogram and sinc interpolation
+ * @Title: dfi-sinc
+ *
+ * Computes the 2D Fourier spectrum of reconstructed image using 
+ * 1D Fourier prijection of sinogram (fft filter should be applied before). 
+ * There are no default values for properties, therefore they should be 
+ * assign manually. The property #UfoDfiSincTask:kernel-size is the length 
+ * of kernel which will be used in interpolation, #UfoDfiSincTask:number-presampled-values 
+ * is the number of presampled values which will be used to calculate 
+ * #UfoDfiSincTask:kernel-size kernel coefficients, #UfoDfiSincTask:roi-size - is the 
+ * length of one side of Region of Interest.
  *
  */
 
@@ -60,20 +70,9 @@ struct _UfoDfiSincTaskPrivate {
 
     guint number_presampled_values;
     guint L;
-    gfloat oversampling;
-
     gint roi_size;
-    cl_float L2;
-    cl_int ktbl_len2;
-    cl_int raster_size;
-    cl_int raster_size2;
-    cl_float table_spacing;
-    cl_float angle_step_rad;
-    cl_float theta_max;
-    cl_float rho_max;
 
-    gint spectrum_offset;
-    gfloat max_radius;
+    cl_mem in_tex;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -91,7 +90,6 @@ enum {
     PROP_0,
     PROP_L,
     PROP_NUM_PRESAMPLED_VLS,
-    PROP_OVERSAMPLING,
     PROP_ROI_SIZE,
     N_PROPERTIES
 };
@@ -104,14 +102,27 @@ ufo_dfi_sinc_task_new (void)
     return UFO_NODE (g_object_new (UFO_TYPE_DFI_SINC_TASK, NULL));
 }
 
+/**
+ * ufo_dfi_sinc_task_hammingw:
+ * @i:  the number of current element in the array
+ * @length:  the length of array 
+ *
+ * http://en.wikipedia.org/wiki/Hamming_window#Hamming_window
+ *
+ * Returns: an float.
+ */
 static gfloat
-ufo_gridding_task_sinc(gfloat x)
-{
-    return (x == 0.0f) ? 1.0f : (gfloat) (sin(M_PI * x) / (M_PI * x));
+ufo_dfi_sinc_task_hammingw(int i, int length){
+    return (0.54f - 0.46f * cos(2*M_PI*((gfloat)i/(gfloat)length)))
 }
 
+static gfloat
+ufo_dfi_sinc_task_sinc(gfloat x) {
+  return (x == 0.0f) ? 1.0 : sin(M_PI * x)/(M_PI * x);
+} 
+
 static gfloat *
-ufo_gridding_task_get_ktbl(guint length)
+ufo_dfi_sinc_task_get_ktbl(gint length) 
 {
     gfloat *ktbl = (gfloat *)g_malloc0(length * sizeof (gfloat));
 
@@ -124,8 +135,10 @@ ufo_gridding_task_get_ktbl(guint length)
     gfloat step = (gfloat)  (M_PI / ktbl_len2);
     gfloat value = -((gfloat) ktbl_len2) * step;
 
-    for (guint i = 0; i < length; ++i, value += step) {
-        ktbl[i] = (gfloat) (ufo_gridding_task_sinc(value) * (0.54f - 0.46f * cos(2*M_PI*((gfloat)i/(gfloat)length))));
+    gfloat value = -ktbl_len2 * step;
+
+    for (int i = 0; i < length; ++i, value += step) {
+      ktbl[i] = ufo_dfi_sinc_task_sinc(value) * ufo_dfi_sinc_task_hammingw(i, length);
     }
 
     return ktbl;
@@ -152,7 +165,7 @@ ufo_dfi_sinc_task_setup (UfoTask *task,
     priv->clear_kernel = ufo_resources_get_kernel(resources, "dfi_sinc_kernel.cl", "clear_kernel", error);
 
     //calculate and setup kernel lookup table to buffer
-    gfloat *tmp_ktbl = ufo_gridding_task_get_ktbl(priv->number_presampled_values);
+    gfloat *tmp_ktbl = ufo_dfi_sinc_task_get_ktbl(priv->number_presampled_values);
     UfoRequisition ktbl_requisition;
     ktbl_requisition.n_dims = 2;
     ktbl_requisition.dims[0] = priv->number_presampled_values;
@@ -200,7 +213,6 @@ ufo_dfi_sinc_task_process (UfoGpuTask *task,
     UfoRequisition input_requisition;
     cl_command_queue cmd_queue;
     cl_context context;
-
     cl_mem in_mem, out_mem, ktbl_mem;
 
     priv = UFO_DFI_SINC_TASK_GET_PRIVATE (task);
@@ -214,27 +226,54 @@ ufo_dfi_sinc_task_process (UfoGpuTask *task,
 
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
 
-    priv->L2 = ((cl_float)priv->L)/2.0f;
-    priv->ktbl_len2 = (cl_int) ((priv->number_presampled_values - 1) / 2);
-    priv->raster_size = (cl_int) (input_requisition.dims[0] / 2);
-    priv->raster_size2 = priv->raster_size/2;
-    priv->table_spacing = ((cl_float) priv->number_presampled_values) / ((cl_float)priv->L);
-    priv->angle_step_rad = (cl_float) (M_PI / ((gdouble) input_requisition.dims[1]));
-    priv->theta_max = (cl_float) input_requisition.dims[1];
-    priv->rho_max = (cl_float) input_requisition.dims[0] / 2;
+    cl_float L2 = ((cl_float)priv->L)/2.0f;
+    cl_int ktbl_len2 = (priv->number_presampled_values - 1)/2;
+    cl_int raster_size = input_requisition.dims[0]/2;
+    cl_int raster_size2 = raster_size/2;
+    cl_float table_spacing = ((cl_float)priv->number_presampled_values)/((cl_float)priv->L);
+    cl_float angle_step_rad = M_PI/((cl_float)input_requisition.dims[1]);
+    cl_float theta_max = (cl_float)input_requisition.dims[1];
+    cl_float rho_max = (cl_float)input_requisition.dims[0]/2;
+    gint spectrum_offset = (raster_size - (interp_grid_cols * BLOCK_SIZE))/2;
+    gfloat max_radius = (interp_grid_cols * BLOCK_SIZE)/2.0;
 
-    int interp_grid_cols = (int) ceil((float) priv->raster_size / (float) BLOCK_SIZE);
-    if (priv->roi_size >= 1 && priv->roi_size <= priv->raster_size) {
-        interp_grid_cols = (int) ceil((float) priv->roi_size / (float) BLOCK_SIZE);
+    int interp_grid_cols = ceil((float)raster_size/(float)BLOCK_SIZE);
+    if (priv->roi_size >= 1 && priv->roi_size <= raster_size) {
+        interp_grid_cols = ceil((float)priv->roi_size/(float)BLOCK_SIZE);
+    }                    
+
+    /* Setup texture */
+    if (priv->in_tex == NULL) {
+        cl_image_format format;
+        cl_mem_flags flags;
+        gsize width, height;
+
+        format.image_channel_order = CL_RG;
+        format.image_channel_data_type = CL_FLOAT;
+
+        flags = CL_MEM_READ_WRITE;
+        width = input_requisition.dims[0]/2;
+        height = input_requisition.dims[1];
+
+        cl_int eer2;
+        priv->in_tex = clCreateImage2D (context,
+                                        flags, &format,
+                                        width, height, 0,
+                                        NULL, &eer2);
+
+        UFO_RESOURCES_CHECK_CLERR (eer2);
     }
 
-    priv->spectrum_offset = (priv->raster_size - (interp_grid_cols * BLOCK_SIZE))/2;
-    priv->max_radius = (gfloat) (interp_grid_cols * BLOCK_SIZE) / 2.0f;
+    size_t zero_offset[] = {0, 0, 0};
+    size_t projection_region[] = {input_requisition.dims[0]/2, input_requisition.dims[1], 1};
 
+    clEnqueueCopyBufferToImage(cmd_queue, in_mem, priv->in_tex, 0, zero_offset, projection_region, 0, NULL, NULL);
+
+    /* Set size of working group */
     size_t local_work_size[] = {BLOCK_SIZE, BLOCK_SIZE};
 
-    ////////////////
-    size_t empty_kernel_working_size[] = { (size_t) priv->raster_size, (size_t) priv->raster_size};
+    /* Execution of cleaning kernel */
+    size_t empty_kernel_working_size[] = {raster_size, raster_size};
 
     CL_CHECK_ERROR (clSetKernelArg (priv->clear_kernel, 0, sizeof (cl_mem), &out_mem));
     CL_CHECK_ERROR (clEnqueueNDRangeKernel (cmd_queue,
@@ -244,22 +283,23 @@ ufo_dfi_sinc_task_process (UfoGpuTask *task,
                                             empty_kernel_working_size,
                                             local_work_size,
                                             0, NULL, NULL));
-    ////////////////
-    size_t working_size[] = {(size_t) interp_grid_cols * BLOCK_SIZE,
-                             (size_t) interp_grid_cols * BLOCK_SIZE};
-
-    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 0, sizeof (cl_mem), &in_mem));
+    
+    /* Execution of DFI kernel */
+    size_t working_size[] = {interp_grid_cols * BLOCK_SIZE,
+                             interp_grid_cols * BLOCK_SIZE};
+    
+    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 0, sizeof (cl_mem), &in_tex));
     CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 1, sizeof (cl_mem), &ktbl_mem));
-    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 2, sizeof (cl_float), &(priv->L2)));
-    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 3, sizeof (cl_int), &(priv->ktbl_len2)));
-    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 4, sizeof (cl_int), &(priv->raster_size)));
-    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 5, sizeof (cl_int), &(priv->raster_size2)));
-    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 6, sizeof (cl_float), &(priv->table_spacing)));
-    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 7, sizeof (cl_float), &(priv->angle_step_rad)));
-    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 8, sizeof (cl_float), &(priv->theta_max)));
-    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 9, sizeof (cl_float), &(priv->rho_max)));
-    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 10, sizeof (cl_float), &(priv->max_radius)));
-    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 11, sizeof (cl_int), &(priv->spectrum_offset)));
+    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 2, sizeof (cl_float), &L2));
+    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 3, sizeof (cl_int), &ktbl_len2));
+    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 4, sizeof (cl_int), &raster_size));
+    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 5, sizeof (cl_int), &raster_size2));
+    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 6, sizeof (cl_float), &table_spacing));
+    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 7, sizeof (cl_float), &angle_step_rad));
+    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 8, sizeof (cl_float), &theta_max));
+    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 9, sizeof (cl_float), &rho_max));
+    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 10, sizeof (cl_float), &max_radius));
+    CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 11, sizeof (cl_int), &spectrum_offset));
     CL_CHECK_ERROR (clSetKernelArg (priv->dfi_sinc_kernel, 12, sizeof (cl_mem), &out_mem));
 
     CL_CHECK_ERROR (clEnqueueNDRangeKernel (cmd_queue,
@@ -288,9 +328,6 @@ ufo_dfi_sinc_task_set_property (GObject *object,
         case PROP_NUM_PRESAMPLED_VLS:
             priv->number_presampled_values = g_value_get_uint (value);
             break;
-        case PROP_OVERSAMPLING:
-            priv->oversampling = g_value_get_float (value);
-            break;
         case PROP_ROI_SIZE:
             priv->roi_size = g_value_get_int (value);
             break;
@@ -314,9 +351,6 @@ ufo_dfi_sinc_task_get_property (GObject *object,
             break;
         case PROP_NUM_PRESAMPLED_VLS:
             g_value_set_uint (value, priv->number_presampled_values);
-            break;
-        case PROP_OVERSAMPLING:
-            g_value_set_float (value, priv->oversampling);
             break;
         case PROP_ROI_SIZE:
             g_value_set_int (value, priv->roi_size);
@@ -359,7 +393,7 @@ ufo_dfi_sinc_task_class_init (UfoDfiSincTaskClass *klass)
     properties[PROP_L] =
         g_param_spec_uint ("kernel-size",
             "Kernel size",
-            "The length of kernel which will be used in gridding.",
+            "The length of kernel which will be used in interpolation.",
             1, G_MAXUINT, 1,
             G_PARAM_READWRITE);
 
@@ -368,13 +402,6 @@ ufo_dfi_sinc_task_class_init (UfoDfiSincTaskClass *klass)
             "Number of presampled values",
             "Number of presampled values which will be used to calculate L kernel coefficients.",
             1, G_MAXUINT, 1,
-            G_PARAM_READWRITE);
-
-    properties[PROP_OVERSAMPLING] =
-        g_param_spec_float ("oversampling",
-            "Oversampling",
-            "Coefficient of oversampling.",
-            1.0, G_MAXFLOAT, 1.0,
             G_PARAM_READWRITE);
 
     properties[PROP_ROI_SIZE] =
