@@ -82,9 +82,9 @@ ufo_opencl_task_process (UfoGpuTask *task,
 {
     UfoOpenCLTaskPrivate *priv;
     UfoGpuNode *node;
+    UfoProfiler *profiler;
     cl_command_queue cmd_queue;
     cl_mem out_mem;
-    cl_event event;
 
     priv = UFO_OPENCL_TASK (task)->priv;
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
@@ -100,13 +100,8 @@ ufo_opencl_task_process (UfoGpuTask *task,
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, priv->n_inputs, sizeof (cl_mem), &out_mem));
 
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
-                                                       priv->kernel,
-                                                       priv->n_dims, NULL, requisition->dims, NULL,
-                                                       0, NULL, &event));
-
-    UFO_RESOURCES_CHECK_CLERR (clWaitForEvents (1, &event));
-    UFO_RESOURCES_CHECK_CLERR (clReleaseEvent (event));
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    ufo_profiler_call (profiler, cmd_queue, priv->kernel, priv->n_dims, requisition->dims, NULL);
 
     return TRUE;
 }
