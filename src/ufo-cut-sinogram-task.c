@@ -40,12 +40,8 @@ abort(); \
 
 /**
  * SECTION:ufo-cut_sinogram-task
- * @Short_description: Crop sinogram using the shifted center of rotation
- * @Title: cut-sinogram
- *
- * Crop sinogram using the shifted center of 
- * rotation ( #UfoCutSinogramTask:center-of-rotation ) to obtain the 
- * center of rotation in the center sinogram.
+ * @Short_description: Write TIFF files
+ * @Title: cut_sinogram
  *
  */
 
@@ -136,6 +132,7 @@ ufo_cut_sinogram_task_process (UfoGpuTask *task,
     UfoRequisition input_requisition;
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
 
+    /* args */
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     
@@ -147,7 +144,7 @@ ufo_cut_sinogram_task_process (UfoGpuTask *task,
     CL_CHECK_ERROR (clSetKernelArg (priv->cut_sinogram_kernel, 1, sizeof (cl_int), &offset));
     CL_CHECK_ERROR (clSetKernelArg (priv->cut_sinogram_kernel, 2, sizeof (cl_mem), &out_mem));
 
-    /* Execution */
+    /* execution */
     size_t local_work_size[] = {2,2};
     CL_CHECK_ERROR (clEnqueueNDRangeKernel (cmd_queue,
                                             priv->cut_sinogram_kernel,

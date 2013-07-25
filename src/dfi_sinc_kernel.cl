@@ -18,7 +18,6 @@
  */
  
 const sampler_t image_sampler_ktbl = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_LINEAR;
-const sampler_t image_sampler_data = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
 typedef struct {
         float real;
@@ -34,7 +33,7 @@ __kernel void clear_kernel(__global clFFT_Complex *output) {
 	output[local_y_id * global_x_size + local_x_id].imag = 0.0f;
 }
 
-__kernel void dfi_sinc_kernel(__read_only image2d_t input, 
+__kernel void dfi_sinc_kernel(__global clFFT_Complex *input, 
 							  __read_only image2d_t ktbl,
 							  float L2, 
 							  int ktbl_len2, 
@@ -48,18 +47,19 @@ __kernel void dfi_sinc_kernel(__read_only image2d_t input,
 							  int spectrum_offset,
 							  __global clFFT_Complex *output)
 {
-	float2 out_coord, norm_gl_coord, in_coord, ktbl_coord, id_data_coord;
+	float2 out_coord, norm_gl_coord, in_coord, ktbl_coord;
 	int iul, iuh, ivl, ivh, sign, i, j, k;
 	float res_real, res_imag, weight, kernel_x_val;
-	long out_idx;
+	long in_idx, out_idx;
 
 	ktbl_coord.y = 0.5f;
 	sign = 1;
 	res_real = 0.0f, res_imag = 0.0f;
 	out_idx = 0;
 
-    out_coord.x = get_global_id(0) + spectrum_offset;
+	out_coord.x = get_global_id(0) + spectrum_offset;
 	out_coord.y = get_global_id(1) + spectrum_offset;
+
 	out_idx = out_coord.y * raster_size + out_coord.x;
 
 	norm_gl_coord.x = out_coord.x - raster_size2;
@@ -67,55 +67,55 @@ __kernel void dfi_sinc_kernel(__read_only image2d_t input,
 
 	//calculate coordinates
 	float radius = sqrt(norm_gl_coord.x * norm_gl_coord.x + norm_gl_coord.y * norm_gl_coord.y);
-	if (radius > max_radius)
-		return;
-
-	in_coord.y = atan2(norm_gl_coord.y,norm_gl_coord.x);
-	in_coord.y = -in_coord.y; // spike here! (mirroring along y-axis)
-
-	sign = (in_coord.y < 0.0) ? -1 : 1;
-
-	in_coord.y = (in_coord.y < 0.0f) ? in_coord.y+= M_PI : in_coord.y;
-	in_coord.y = (float) min(1.0f + in_coord.y/angle_step_rad, theta_max - 1);
-
-	in_coord.x = (float) min(radius, (float)raster_size2);
-
-	//sinc interpoaltion
-	iul = (int)ceil(in_coord.x - L2);
-	iul = (iul < 0) ? 0 : iul;
-
-	iuh = (int)floor(in_coord.x + L2);
-	iuh = (iuh > rho_max - 1) ? iuh = rho_max - 1 : iuh;
-
-	ivl = (int)ceil(in_coord.y - L2);
-	ivl = (ivl < 0) ? 0 : ivl;
-
-	ivh = (int)floor(in_coord.y + L2);
-	ivh = (ivh > theta_max - 1) ? ivh = theta_max - 1 : ivh;
-
-	float kernel_y[20];
-	for (i = ivl, j = 0; i <= ivh; ++i, ++j) {
-		ktbl_coord.x = ktbl_len2 + (in_coord.y - (float)i) * table_spacing;
-		kernel_y[j] = read_imagef(ktbl, image_sampler_ktbl, ktbl_coord).s0;
+	if (radius > max_radius) {
+		output[out_idx].real = 0.0f;
+		output[out_idx].imag = 0.0f;
 	}
+	else {
+		in_coord.y = atan2(norm_gl_coord.y,norm_gl_coord.x);
+		in_coord.y = -in_coord.y; // spike here! (mirroring along y-axis)
 
-	for (i = iul; i <= iuh; ++i) {
-		ktbl_coord.x = ktbl_len2 + (in_coord.x - (float)i) * table_spacing;
-		kernel_x_val = read_imagef(ktbl, image_sampler_ktbl, ktbl_coord).s0;
+		sign = (in_coord.y < 0.0) ? -1 : 1;
 
-		for (k = ivl, j = 0; k <= ivh; ++k, ++j) {
-			weight = kernel_y[j] * kernel_x_val;
+		in_coord.y = (in_coord.y < 0.0f) ? in_coord.y+= M_PI : in_coord.y;
+		in_coord.y = (float) min(1.0f + in_coord.y/angle_step_rad, theta_max - 1);
 
-			id_data_coord.x = i;
-			id_data_coord.y = k;
+		in_coord.x = (float) min(radius, (float)raster_size2);
+				
+		//sinc interpoaltion
+		iul = (int)ceil(in_coord.x - L2);
+		iul = (iul < 0) ? 0 : iul;
 
-			float4 cpxl = read_imagef(input, image_sampler_data, id_data_coord);
+		iuh = (int)floor(in_coord.x + L2);
+		iuh = (iuh > rho_max - 1) ? iuh = rho_max - 1 : iuh;
 
-			res_real += cpxl.x * weight;
-			res_imag += cpxl.y * weight;
+		ivl = (int)ceil(in_coord.y - L2);
+		ivl = (ivl < 0) ? 0 : ivl;
+
+		ivh = (int)floor(in_coord.y + L2);
+	 	ivh = (ivh > theta_max - 1) ? ivh = theta_max - 1 : ivh;
+	 	
+	 	float kernel_y[20];
+	 	for (i = ivl, j = 0; i <= ivh; ++i, ++j) {
+		    ktbl_coord.x = ktbl_len2 + (in_coord.y - (float)i) * table_spacing;
+		    kernel_y[j] = read_imagef(ktbl, image_sampler_ktbl, ktbl_coord).s0;
 		}
-	}
 
-	output[out_idx].real = res_real;
-	output[out_idx].imag = sign * res_imag;
+		for (i = iul; i <= iuh; ++i) {
+			ktbl_coord.x = ktbl_len2 + (in_coord.x - (float)i) * table_spacing;
+			kernel_x_val = read_imagef(ktbl, image_sampler_ktbl, ktbl_coord).s0;
+				    
+			for (k = ivl, j = 0; k <= ivh; ++k, ++j) {
+				weight = kernel_y[j] * kernel_x_val;
+
+				in_idx = k * rho_max + i;
+
+				res_real += input[in_idx].real * weight;
+				res_imag += input[in_idx].imag * weight;
+			}
+		}
+				
+		output[out_idx].real = res_real;
+		output[out_idx].imag = sign * res_imag;
+	}
 }

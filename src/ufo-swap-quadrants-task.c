@@ -41,10 +41,8 @@ abort(); \
 
 /**
  * SECTION:ufo-swap_quadrants-task
- * @Short_description: Swap quadrants of the image
- * @Title: swap-quadrants
- *
- * Swaps quadrants of the image.
+ * @Short_description: Write TIFF files
+ * @Title: swap_quadrants
  *
  */
 
