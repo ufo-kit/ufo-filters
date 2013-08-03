@@ -96,6 +96,13 @@ endif ()
 #    include_directories(${OPENCV_INCLUDE_DIRS})
 #endif ()
 
+pkg_check_modules(UFOART ufoart>=0.1)
+if (UFOART_FOUND)
+    include_directories(${UFOART_INCLUDE_DIRS})
+    set(ufofilter_LIBS ${ufofilter_LIBS} ${UFOART_LIBRARIES})
+    list(APPEND ufofilter_SRCS ufo-art-task.c)
+endif()
+
 # --- Target ------------------------------------------------------------------
 get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
 
