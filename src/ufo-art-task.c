@@ -210,7 +210,7 @@ ufo_art_task_process (UfoGpuTask     *task,
   UfoBuffer *volume = output;
 
 // TODO: instead of op_set we should copy initial assumption into the volume
-  op_set (volume, 0, priv->resources, priv->command_queue);
+  ufo_op_set (volume, 0, priv->resources, priv->command_queue);
 
   g_print ("START: %s (%s projector, %d max iterations)",
     priv->method_key, priv->projector_key, priv->max_iterations);
