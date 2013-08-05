@@ -305,6 +305,34 @@ ufo_art_task_get_property (GObject *object,
 }
 
 static void
+ufo_art_task_dispose (GObject *object)
+{
+    UfoArtTaskPrivate *priv = UFO_ART_TASK_GET_PRIVATE (object);
+
+    if (priv->method != NULL) {
+        g_object_unref (priv->method);
+        priv->method = NULL;
+    }
+
+    if (priv->projector != NULL) {
+        g_object_unref (priv->projector);
+        priv->projector = NULL;
+    }
+
+    if (priv->regularizer != NULL) {
+        g_object_unref (priv->regularizer);
+        priv->regularizer = NULL;
+    }
+
+    if (priv->resources != NULL) {
+        g_object_unref (priv->resources);
+        priv->resources = NULL;
+    }
+
+    G_OBJECT_CLASS (ufo_art_task_parent_class)->dispose (object);
+}
+
+static void
 ufo_art_task_finalize (GObject *object)
 {
   UfoArtTaskPrivate *priv = UFO_ART_TASK_GET_PRIVATE (object);
@@ -313,12 +341,7 @@ ufo_art_task_finalize (GObject *object)
   if (priv->projector_key)  g_free (priv->projector_key);
   if (priv->regularizer_key) g_free (priv->regularizer_key);
 
-  if (priv->method) g_object_unref (priv->method);
-  if (priv->projector) g_object_unref (priv->projector);
-  if (priv->regularizer) g_object_unref (priv->regularizer);
-
   g_free (priv->angles);
-  //g_object_unref (priv->resources); // despite on g_objet_ref it leads to SIGSEGV error.
   UFO_CHECK_CLERR (clReleaseCommandQueue(priv->command_queue));
   G_OBJECT_CLASS (ufo_art_task_parent_class)->finalize (object);
 }
@@ -346,6 +369,7 @@ ufo_art_task_class_init (UfoArtTaskClass *klass)
   gobject_class->set_property = ufo_art_task_set_property;
   gobject_class->get_property = ufo_art_task_get_property;
   gobject_class->finalize = ufo_art_task_finalize;
+  gobject_class->dispose = ufo_art_task_dispose;
 
   properties[PROP_METHOD] =
       g_param_spec_string ("method",
