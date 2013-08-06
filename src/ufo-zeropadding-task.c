@@ -137,14 +137,11 @@ ufo_zeropadding_task_process (UfoGpuTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->zeropadding_kernel, 2, sizeof (cl_mem), &out_mem));
 
     /* execution */
-    size_t local_work_size[] = {16,16};
     size_t working_dims[] = {requisition->dims[0]/2, requisition->dims[1]};
     UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
                                             priv->zeropadding_kernel,
                                             requisition->n_dims,
-                                            NULL,
-                                            working_dims,
-                                            local_work_size,
+                                            NULL, working_dims, NULL,
                                             0, NULL, NULL));
     return TRUE;
 }
