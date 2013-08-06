@@ -27,16 +27,6 @@
 #include <math.h>
 #include "ufo-zeropadding-task.h"
 
-#define CL_CHECK_ERROR(FUNC) \
-{ \
-cl_int err = FUNC; \
-if (err != CL_SUCCESS) { \
-fprintf(stderr, "Error %d executing %s on %d!\n",\
-err, __FILE__, __LINE__); \
-abort(); \
-}; \
-}
-
 /**
  * SECTION:ufo-zeropadding-task
  * @Short_description: Add zeros in the center of sinogram
@@ -142,14 +132,14 @@ ufo_zeropadding_task_process (UfoGpuTask *task,
     int center_pos = (int)roundf(priv->center_rot);
     offset = (center_pos != -1) ? xdim - (xdim - center_pos) * 2 : 0;
 
-    CL_CHECK_ERROR (clSetKernelArg (priv->zeropadding_kernel, 0, sizeof (cl_mem), &in_mem));
-    CL_CHECK_ERROR (clSetKernelArg (priv->zeropadding_kernel, 1, sizeof (cl_int), &xdim));
-    CL_CHECK_ERROR (clSetKernelArg (priv->zeropadding_kernel, 2, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->zeropadding_kernel, 0, sizeof (cl_mem), &in_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->zeropadding_kernel, 1, sizeof (cl_int), &xdim));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->zeropadding_kernel, 2, sizeof (cl_mem), &out_mem));
 
     /* execution */
     size_t local_work_size[] = {16,16};
     size_t working_dims[] = {requisition->dims[0]/2, requisition->dims[1]};
-    CL_CHECK_ERROR (clEnqueueNDRangeKernel (cmd_queue,
+    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
                                             priv->zeropadding_kernel,
                                             requisition->n_dims,
                                             NULL,

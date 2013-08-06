@@ -27,17 +27,6 @@
 #include <math.h>
 #include "ufo-cut-sinogram-task.h"
 
-#define CL_CHECK_ERROR(FUNC) \
-{ \
-cl_int err = FUNC; \
-if (err != CL_SUCCESS) { \
-fprintf(stderr, "Error %d executing %s on %d!\n",\
-err, __FILE__, __LINE__); \
-abort(); \
-}; \
-}
-
-
 /**
  * SECTION:ufo-cut_sinogram-task
  * @Short_description: Crop sinogram using the shifted center of rotation
@@ -142,13 +131,13 @@ ufo_cut_sinogram_task_process (UfoGpuTask *task,
     center_pos = (cl_int)roundf(priv->center_rot);
     offset = (center_pos != -1) ? xdim - (xdim - center_pos) * 2 : 0;
 
-    CL_CHECK_ERROR (clSetKernelArg (priv->cut_sinogram_kernel, 0, sizeof (cl_mem), &in_mem));
-    CL_CHECK_ERROR (clSetKernelArg (priv->cut_sinogram_kernel, 1, sizeof (cl_int), &offset));
-    CL_CHECK_ERROR (clSetKernelArg (priv->cut_sinogram_kernel, 2, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->cut_sinogram_kernel, 0, sizeof (cl_mem), &in_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->cut_sinogram_kernel, 1, sizeof (cl_int), &offset));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->cut_sinogram_kernel, 2, sizeof (cl_mem), &out_mem));
 
     /* Execution */
     size_t local_work_size[] = {2,2};
-    CL_CHECK_ERROR (clEnqueueNDRangeKernel (cmd_queue,
+    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
                                             priv->cut_sinogram_kernel,
                                             requisition->n_dims,
                                             NULL,

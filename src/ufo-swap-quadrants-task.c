@@ -28,17 +28,6 @@
 
 #include "ufo-swap-quadrants-task.h"
 
-#define CL_CHECK_ERROR(FUNC) \
-{ \
-cl_int err = FUNC; \
-if (err != CL_SUCCESS) { \
-fprintf(stderr, "Error %d executing %s on %d!\n",\
-err, __FILE__, __LINE__); \
-abort(); \
-}; \
-}
-
-
 /**
  * SECTION:ufo-swap_quadrants-task
  * @Short_description: Write TIFF files
@@ -150,10 +139,10 @@ ufo_swap_quadrants_task_process (UfoGpuTask *task,
         used_kernel = priv->swap_quadrants_kernel_real;
     }
     /* execution */
-    CL_CHECK_ERROR (clSetKernelArg (used_kernel, 0, sizeof (cl_mem), &in_mem));
-    CL_CHECK_ERROR (clSetKernelArg (used_kernel, 1, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (used_kernel, 0, sizeof (cl_mem), &in_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (used_kernel, 1, sizeof (cl_mem), &out_mem));
 
-    CL_CHECK_ERROR (clEnqueueNDRangeKernel (cmd_queue,
+    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
                                             used_kernel,
                                             requisition->n_dims,
                                             NULL,
