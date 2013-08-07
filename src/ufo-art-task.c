@@ -95,7 +95,7 @@ ufo_art_task_setup (UfoTask *task,
   guint task_id =  ufo_node_get_index(UFO_NODE(task));
   priv->command_queue = g_list_nth_data (cmd_queues, task_id);
   clRetainCommandQueue (priv->command_queue);
- 
+
   // TODO: use plugin manager and try to get appropriate projector and rest
   // using keys.
   UfoPluginManager *plugin_manager = ufo_plugin_manager_new (NULL);
@@ -103,13 +103,13 @@ ufo_art_task_setup (UfoTask *task,
 
   if (!_error && priv->method_key)
     priv->method = ufo_plugin_manager_get_art(plugin_manager, priv->method_key, &_error);
-  
+
   if (!_error && priv->projector_key)
     priv->projector = ufo_plugin_manager_get_projector(plugin_manager, priv->projector_key, &_error);
- 
+
   if (!_error && priv->regularizer_key)
     priv->regularizer = ufo_plugin_manager_get_regularizer(plugin_manager, priv->regularizer_key, &_error);
-  
+
   if (_error) goto setup_error;
 
   if (UFO_IS_ART(priv->method)) {
@@ -125,7 +125,7 @@ ufo_art_task_setup (UfoTask *task,
 
     ufo_art_set_projector (priv->method, priv->projector);
   }
-  
+
   if (UFO_IS_REGULARIZER(priv->regularizer)) {
     ufo_regularizer_set_resources (priv->regularizer, priv->resources);
     ufo_regularizer_initialize (priv->regularizer, &_error);
@@ -134,7 +134,7 @@ ufo_art_task_setup (UfoTask *task,
     ufo_art_set_regularizer (priv->method, priv->regularizer);
     g_object_set(priv->regularizer, "max-iterations", priv->max_regularizer_iterations, NULL);
   }
-  
+
   return;
 
   setup_error:
@@ -156,13 +156,20 @@ ufo_art_task_get_requisition (UfoTask *task,
   gsize n_angles = sino_requisitions.dims[1];
   gsize n_detectors = sino_requisitions.dims[0];
 
-  if (priv->angles == NULL || 
+  if (priv->angles == NULL ||
       n_angles != priv->geometry.proj_angles) {
-    // reallocate memory for angles
-    if (priv->angles) g_free (priv->angles);
+
+    /* Guess angle step if it is not given */
+    if (priv->angle_step == 0.0)
+        priv->angle_step = (gfloat) (G_PI / ((gdouble) n_angles));
+
+    /* reallocate memory for angles */
+    if (priv->angles)
+        g_free (priv->angles);
+
     priv->angles = g_malloc0 (sizeof(gfloat) * n_angles);
 
-    // set angles according to the angle step
+    /* set angles according to the angle step */
     guint i = 0;
     priv->angles[i] = 0;
     for (i = 1; i < n_angles; ++i) {
@@ -201,7 +208,6 @@ ufo_art_task_process (UfoGpuTask     *task,
                       UfoBuffer      *output,
                       UfoRequisition *requisition)
 { PRINT_METHOD
-  #warning "For what the reason the requisition needs here?"
 
   GError *error = NULL;
   UfoArtTaskPrivate *priv = UFO_ART_TASK_GET_PRIVATE (task);
@@ -222,11 +228,11 @@ ufo_art_task_process (UfoGpuTask     *task,
 
   ufo_art_iterate (priv->method, volume, sino, priv->max_iterations, &error);
   if (error){
-    g_error (error->message);
+    g_error ("%s\n", error->message);
     return FALSE;
   }
 
-  return TRUE;  
+  return TRUE;
 }
 
 static void
@@ -297,7 +303,7 @@ ufo_art_task_get_property (GObject *object,
         break;
     case PROP_MAX_REGULARIZER_ITERATIONS:
         g_value_set_uint (value, priv->max_regularizer_iterations);
-        break;    
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
         break;
@@ -336,7 +342,7 @@ static void
 ufo_art_task_finalize (GObject *object)
 {
   UfoArtTaskPrivate *priv = UFO_ART_TASK_GET_PRIVATE (object);
-  
+
   if (priv->method_key) g_free (priv->method_key);
   if (priv->projector_key)  g_free (priv->projector_key);
   if (priv->regularizer_key) g_free (priv->regularizer_key);
@@ -405,7 +411,7 @@ ufo_art_task_class_init (UfoArtTaskClass *klass)
                         "Positive constraint",
                         FALSE,
                         G_PARAM_READWRITE);
-  
+
     properties[PROP_REGULARIZER] =
         g_param_spec_string ("regularizer",
             "Regularizer title",
@@ -437,7 +443,7 @@ ufo_art_task_init(UfoArtTask *self)
   priv->projector = NULL;
   priv->regularizer = NULL;
   priv->angles = NULL;
-  priv->angle_step = 1;
+  priv->angle_step = 0;
   priv->max_iterations = 1;
   priv->max_regularizer_iterations = 1;
 
