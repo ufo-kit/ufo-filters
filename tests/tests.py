@@ -9,20 +9,17 @@ except ImportError:
 
 import numpy as np
 from nose_parameterized import parameterized
-from gi.repository import Ufo, GLib
+from gi.repository import Ufo
 from libtiff import TIFF
 
 
 def data_path(suffix=''):
     return os.path.join(os.path.abspath('./data'), suffix)
 
+
 def ref_path(suffix=''):
     return os.path.join(os.path.abspath('./expected'), suffix)
 
-def ignore_message(domain, level, message, user):
-    pass
-
-GLib.log_set_handler('Ufo', GLib.LogLevelFlags.LEVEL_DEBUG, ignore_message, None)
 
 class BasicTests(unittest.TestCase):
     def setUp(self):
