@@ -1,2 +1,4 @@
 *.pyc
+tags
 build/
+tests/venv
