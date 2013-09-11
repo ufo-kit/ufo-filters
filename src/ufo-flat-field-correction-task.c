@@ -112,12 +112,20 @@ ufo_flat_field_correction_task_process (UfoCpuTask *task,
     n_pixels = requisition->dims[0] * requisition->dims[1];
 
     if (priv->absorption_correction) {
-        for (gsize i = 0; i < n_pixels; i++)
+        for (gsize i = 0; i < n_pixels; i++) {
             out_data[i] = (gfloat) - log ((proj_data[i] - dark_data[i]) / (flat_data[i] - dark_data[i]));
+
+            if (isnan (out_data[i]) || isinf (out_data[i]))
+                out_data[i] = 0.0;
+        }
     }
     else {
-        for (gsize i = 0; i < n_pixels; i++)
+        for (gsize i = 0; i < n_pixels; i++) {
             out_data[i] = (proj_data[i] - dark_data[i]) / (flat_data[i] - dark_data[i]);
+
+            if (isnan (out_data[i]) || isinf (out_data[i]))
+                out_data[i] = 0.0;
+        }
     }
     return TRUE;
 }
