@@ -108,10 +108,9 @@ ufo_cut_sinogram_task_get_structure (UfoTask *task,
 
 static gboolean
 ufo_cut_sinogram_task_process (UfoGpuTask *task,
-                         UfoBuffer **inputs,
-                         UfoBuffer *output,
-                         UfoRequisition *requisition,
-                         UfoGpuNode *node)
+                               UfoBuffer **inputs,
+                               UfoBuffer *output,
+                               UfoRequisition *requisition)
 {
     UfoCutSinogramTaskPrivate *priv;
     cl_command_queue cmd_queue;
