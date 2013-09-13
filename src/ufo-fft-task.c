@@ -26,7 +26,7 @@
 #endif
 
 #ifdef HAVE_OCLFFT
-#include <clFFT.h>
+#include <oclfft/clFFT.h>
 #endif
 
 #ifdef HAVE_FFTW3

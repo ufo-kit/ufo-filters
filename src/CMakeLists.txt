@@ -54,11 +54,11 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
 # --- Add filters that depend on other libraries ------------------------------
 find_package(TIFF)
-find_package(OCLFFT)
 find_program(RE2C re2c)
 pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(OPENCV opencv)
 pkg_check_modules(FFTW3 fftw3f)
+pkg_check_modules(OCLFFT oclfft)
 
 if (TIFF_FOUND)
     list(APPEND ufofilter_SRCS ufo-reader-task.c)
