@@ -109,15 +109,14 @@ ufo_zeropadding_task_get_structure (UfoTask *task,
 
 static gboolean
 ufo_zeropadding_task_process (UfoGpuTask *task,
-                         UfoBuffer **inputs,
-                         UfoBuffer *output,
-                         UfoRequisition *requisition,
-                         UfoGpuNode *node)
+                              UfoBuffer **inputs,
+                              UfoBuffer *output,
+                              UfoRequisition *requisition)
 {
     UfoZeropaddingTaskPrivate *priv;
     cl_command_queue cmd_queue;
     cl_mem in_mem, out_mem;
-    cl_int xdim, offset;
+    cl_int xdim;
 
     priv = UFO_ZEROPADDING_TASK_GET_PRIVATE (task);
     cmd_queue = g_list_nth_data(ufo_resources_get_cmd_queues(priv->resources), 0);
@@ -129,8 +128,6 @@ ufo_zeropadding_task_process (UfoGpuTask *task,
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     xdim = (cl_int)input_requisition.dims[0];
-    int center_pos = (int)roundf(priv->center_rot);
-    offset = (center_pos != -1) ? xdim - (xdim - center_pos) * 2 : 0;
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->zeropadding_kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->zeropadding_kernel, 1, sizeof (cl_int), &xdim));

@@ -27,7 +27,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <clFFT.h>
 
 #include "ufo-dfi-sinc-task.h"
 
@@ -129,7 +128,7 @@ ufo_dfi_sinc_task_get_ktbl(size_t length)
     gfloat *ktbl = (gfloat *)g_malloc0(length * sizeof (gfloat));
 
     if (!length%2) {
-      g_print("Error: Length %d of ktbl cannot be even!\n", length);
+      g_print("Error: Length %zu of ktbl cannot be even!\n", length);
       exit(1);
     }
 
@@ -205,12 +204,12 @@ ufo_dfi_sinc_task_get_structure (UfoTask *task,
 
 static gboolean
 ufo_dfi_sinc_task_process (UfoGpuTask *task,
-                         UfoBuffer **inputs,
-                         UfoBuffer *output,
-                         UfoRequisition *requisition,
-                         UfoGpuNode *node)
+                           UfoBuffer **inputs,
+                           UfoBuffer *output,
+                           UfoRequisition *requisition)
 {
     UfoDfiSincTaskPrivate *priv;
+    UfoGpuNode *node;
     UfoRequisition input_requisition;
     cl_command_queue cmd_queue;
     cl_context context;
