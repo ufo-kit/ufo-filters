@@ -99,6 +99,7 @@ ufo_flat_field_correction_task_process (UfoCpuTask *task,
                                         UfoRequisition *requisition)
 {
     UfoFlatFieldCorrectionTaskPrivate *priv;
+    UfoProfiler *profiler;
     gfloat *proj_data;
     gfloat *dark_data;
     gfloat *flat_data;
@@ -112,6 +113,9 @@ ufo_flat_field_correction_task_process (UfoCpuTask *task,
     flat_data = ufo_buffer_get_host_array (inputs[2], NULL);
     out_data = ufo_buffer_get_host_array (output, NULL);
     n_pixels = requisition->dims[0] * requisition->dims[1];
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+
+    ufo_profiler_start (profiler, UFO_PROFILER_TIMER_CPU);
 
     /* Flat field correction */
     for (gsize i = 0; i < n_pixels; i++)
@@ -129,6 +133,8 @@ ufo_flat_field_correction_task_process (UfoCpuTask *task,
         if (isnan (out_data[i]) || isinf (out_data[i]))
             out_data[i] = 0.0;
     }
+
+    ufo_profiler_stop (profiler, UFO_PROFILER_TIMER_CPU);
 
     return TRUE;
 }
