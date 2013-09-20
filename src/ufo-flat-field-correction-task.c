@@ -34,6 +34,7 @@
 
 struct _UfoFlatFieldCorrectionTaskPrivate {
     gboolean absorption_correction;
+    gboolean fix_nan_and_inf;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -50,6 +51,7 @@ G_DEFINE_TYPE_WITH_CODE (UfoFlatFieldCorrectionTask, ufo_flat_field_correction_t
 enum {
     PROP_0,
     PROP_ABSORPTION_CORRECTION,
+    PROP_FIX_NAN_AND_INF,
     N_PROPERTIES
 };
 
@@ -111,22 +113,23 @@ ufo_flat_field_correction_task_process (UfoCpuTask *task,
     out_data = ufo_buffer_get_host_array (output, NULL);
     n_pixels = requisition->dims[0] * requisition->dims[1];
 
+    /* Flat field correction */
+    for (gsize i = 0; i < n_pixels; i++)
+        out_data[i] = (proj_data[i] - dark_data[i]) / (flat_data[i] - dark_data[i]);
+
+    /* Optional absorption correction */
     if (priv->absorption_correction) {
-        for (gsize i = 0; i < n_pixels; i++) {
-            out_data[i] = (gfloat) - log ((proj_data[i] - dark_data[i]) / (flat_data[i] - dark_data[i]));
-
-            if (isnan (out_data[i]) || isinf (out_data[i]))
-                out_data[i] = 0.0;
-        }
+        for (gsize i = 0; i < n_pixels; i++)
+            out_data[i] = (gfloat) (- log (out_data[i]));
     }
-    else {
-        for (gsize i = 0; i < n_pixels; i++) {
-            out_data[i] = (proj_data[i] - dark_data[i]) / (flat_data[i] - dark_data[i]);
 
-            if (isnan (out_data[i]) || isinf (out_data[i]))
-                out_data[i] = 0.0;
-        }
+    /* Fix NANs and INFs */
+    if (priv->fix_nan_and_inf) {
+        for (gsize i = 0; i < n_pixels; i++)
+        if (isnan (out_data[i]) || isinf (out_data[i]))
+            out_data[i] = 0.0;
     }
+
     return TRUE;
 }
 
@@ -141,6 +144,9 @@ ufo_flat_field_correction_task_set_property (GObject *object,
     switch (property_id) {
         case PROP_ABSORPTION_CORRECTION:
             priv->absorption_correction = g_value_get_boolean (value);
+            break;
+        case PROP_FIX_NAN_AND_INF:
+            priv->fix_nan_and_inf = g_value_get_boolean (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -159,6 +165,9 @@ ufo_flat_field_correction_task_get_property (GObject *object,
     switch (property_id) {
         case PROP_ABSORPTION_CORRECTION:
             g_value_set_boolean (value, priv->absorption_correction);
+            break;
+        case PROP_FIX_NAN_AND_INF:
+            g_value_set_boolean (value, priv->fix_nan_and_inf);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -202,6 +211,13 @@ ufo_flat_field_correction_task_class_init (UfoFlatFieldCorrectionTaskClass *klas
                              FALSE,
                              G_PARAM_READWRITE);
 
+    properties[PROP_FIX_NAN_AND_INF] =
+        g_param_spec_boolean("fix-nan-and-inf",
+                             "Replace NAN and INF values with 0.0",
+                             "Replace NAN and INF values with 0.0",
+                             FALSE,
+                             G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -213,4 +229,5 @@ ufo_flat_field_correction_task_init(UfoFlatFieldCorrectionTask *self)
 {
     self->priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE(self);
     self->priv->absorption_correction = FALSE;
+    self->priv->fix_nan_and_inf = FALSE;
 }
