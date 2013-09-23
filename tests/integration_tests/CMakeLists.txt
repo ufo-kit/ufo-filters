@@ -18,13 +18,15 @@ include_directories(
 # as ufo-filters (usefull for development)
 get_filename_component(LOCAL_UFO_DIR "${PROJECT_SOURCE_DIR}/../ufo-core/" ABSOLUTE)
 
-if (EXISTS ${LOCAL_UFO_DIR} AND IS_DIRECTORY ${LOCAL_UFO_DIR})
+set (LOCAL_UFO_LIB ${LOCAL_UFO_DIR}/ufo/libufo.so)
+
+if (EXISTS ${LOCAL_UFO_DIR} AND IS_DIRECTORY ${LOCAL_UFO_DIR} AND EXISTS ${LOCAL_UFO_LIB})
     message ("Using local UFO at: ${LOCAL_UFO_DIR}")
 
     include_directories(${LOCAL_UFO_DIR})
     link_directories(${LOCAL_UFO_DIR/ufo/})
 
-    set (LOCAL_UFO_LIB ${LOCAL_UFO_DIR}/ufo/libufo.so)
+    message("Linking against ${LOCAL_UFO_LIB}")
     target_link_libraries(${SUITE_BIN}
         ${LOCAL_UFO_LIB}
     )
