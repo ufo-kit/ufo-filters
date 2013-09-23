@@ -47,6 +47,7 @@ endif()
 add_definitions(-DG_LOG_DOMAIN="Ufo")
 
 add_subdirectory(src)
+add_subdirectory(tests/integration_tests)
 
 
 # --- Package generation ------------------------------------------------------
