@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.6)
 
-# --- Set sources -------------------------------------------------------------
+#{{{ Sources
 set(ufofilter_SRCS 
     ufo-averager-task.c
     ufo-backproject-task.c
@@ -22,7 +22,9 @@ set(ufofilter_SRCS
     ufo-volume-render-task.c
     ufo-zeropadding-task.c
     )
+#}}}
 
+#{{{ Installed OpenCL kernels
 set(ufofilter_KERNELS
     arithmetics.cl
     backproject.cl
@@ -41,24 +43,15 @@ set(ufofilter_KERNELS
     volume.cl
     zeropadding_kernel.cl
     )
+#}}}
 
-set(ufofilter_LIBS
-    ${UFO_LIBRARIES}
-    ${GLIB2_LIBRARIES}
-    ${GOBJECT2_LIBRARIES}
-    )
+set(ufofilter_LIBS ${UFO_LIBRARIES})
 
-link_directories(${UFO_LIBRARY_DIRS})
-
-include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
-
-# --- Add filters that depend on other libraries ------------------------------
-find_package(TIFF)
-find_program(RE2C re2c)
+#{{{ Dependency checks
 pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(OPENCV opencv)
-pkg_check_modules(FFTW3 fftw3f)
 pkg_check_modules(OCLFFT oclfft)
+pkg_check_modules(UFOART ufoart>=0.1)
 
 if (TIFF_FOUND)
     list(APPEND ufofilter_SRCS ufo-reader-task.c)
@@ -96,20 +89,23 @@ endif ()
 #    include_directories(${OPENCV_INCLUDE_DIRS})
 #endif ()
 
-pkg_check_modules(UFOART ufoart>=0.1)
 if (UFOART_FOUND)
     include_directories(${UFOART_INCLUDE_DIRS})
     set(ufofilter_LIBS ${ufofilter_LIBS} ${UFOART_LIBRARIES})
     list(APPEND ufofilter_SRCS ufo-art-task.c)
 endif()
+#}}}
 
-# --- Target ------------------------------------------------------------------
+#{{{ Plugin targets
 get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
 
 set(LIB_INSTALL_DIR "lib${LIB_SUFFIX}/ufo")
 set(shared_objects "")
 set(documented_types "")
 set(all_targets)
+
+include_directories(${CMAKE_CURRENT_BINARY_DIR}
+                    ${CMAKE_CURRENT_SOURCE_DIR})
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
@@ -157,9 +153,9 @@ foreach(_kernel ${ufofilter_KERNELS})
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${_kernel}
         DESTINATION ${LIB_INSTALL_DIR})
 endforeach()
+#}}}
 
-
-# --- Build filter reference ---------------------------------------------------
+#{{{ gtk-doc targets
 pkg_check_modules(GTK_DOC gtk-doc)
 if(GTK_DOC_FOUND)
     option(WITH_GTK_DOC "Build filter documentation" ON)
@@ -230,9 +226,9 @@ if(GTK_DOC_FOUND)
         add_custom_target(reference ALL DEPENDS ${doc_base}/html.stamp)
     endif()
 endif(GTK_DOC_FOUND)
+#}}}
 
-
-# --- Execute nosetest --------------------------------------------------------
+#{{{ Python tests
 find_program(NOSETESTSBIN nosetests)
 if (NOSETESTSBIN)
     add_custom_target(test 
@@ -241,4 +237,4 @@ if (NOSETESTSBIN)
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../)
     add_dependencies(test ${all_targets})
 endif()
-
+#}}}

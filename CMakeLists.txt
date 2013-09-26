@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 project(ufo C)
 
 set(TARNAME "ufo-filters")
+
 set(UFO_FILTERS_VERSION_MAJOR "0")
 set(UFO_FILTERS_VERSION_MINOR "5")
 set(UFO_FILTERS_VERSION_PATCH "0")
@@ -21,21 +22,23 @@ if (WITH_PROFILING)
 endif ()
 
 # --- Find packages and libraries ---------------------------------------------
+set(PKG_UFO_CORE_MIN_REQUIRED "0.5")
+
 find_package(OpenCL REQUIRED)
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(GLIB2 glib-2.0>=2.22 REQUIRED)
-pkg_check_modules(GOBJECT2 gobject-2.0>=2.22 REQUIRED)
-pkg_check_modules(UFO ufo>=0.2 REQUIRED)
+pkg_check_modules(UFO ufo>=${PKG_UFO_CORE_MIN_REQUIRED} REQUIRED)
+
+#{{{ Plugin-specific dependencies
+find_package(TIFF)
+#}}}
 
 include_directories(
-    ${GLIB2_INCLUDE_DIRS}
     ${OPENCL_INCLUDE_DIRS}
-    ${UFO_INCLUDE_DIRS}
-    )
-
-link_directories(${UFO_LIBRARY_DIRS})
+    ${UFO_INCLUDE_DIRS})
 
 add_definitions("-std=c99 -pedantic -Wall -Wextra -fPIC")
+add_definitions(-DG_LOG_DOMAIN="Ufo")
+
 if (CMAKE_COMPILER_IS_GNUCC)
     add_definitions("-Wmissing-prototypes -Wmissing-declarations -Wshadow
     -Wpointer-arith -Wcast-align -Wwrite-strings -Wredundant-decls -Wcast-qual
@@ -44,13 +47,10 @@ if (CMAKE_COMPILER_IS_GNUCC)
     add_definitions("-Wno-unused-parameter -Wno-missing-field-initializers")
 endif()
 
-add_definitions(-DG_LOG_DOMAIN="Ufo")
-
 add_subdirectory(src)
 add_subdirectory(tests/integration_tests)
 
-
-# --- Package generation ------------------------------------------------------
+#{{{ CPack
 set(CPACK_PACKAGE_DESCRIPTION ${UFO_DESCRIPTION})
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY ${UFO_DESCRIPTION_SUMMARY})
 set(CPACK_PACKAGE_NAME ${TARNAME})
@@ -69,7 +69,13 @@ set(CPACK_SOURCE_GENERATOR "TGZ")
 set(CPACK_SOURCE_IGNORE_FILES "tags" ".bzr" ".swp" "~1~")
 set(CPACK_SOURCE_PACKAGE_FILE_NAME "${TARNAME}-${UFO_FILTERS_VERSION_STRING_LONG}" CACHE INTERNAL "tarball basename")
 
-# --- Distro specific
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6 (>= 2.3.6), libgcc1 (>= 1:4.1)")
+#{{{ Debian
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "libufo (>= ${PKG_UFO_CORE_MIN_REQUIRED})")
+
+if (TIFF_FOUND)
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}, libtiff4")
+endif()
+#}}}
 
 include(CPack)
+#}}}
