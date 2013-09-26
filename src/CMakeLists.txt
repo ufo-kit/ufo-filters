@@ -50,7 +50,6 @@ set(ufofilter_LIBS ${UFO_LIBRARIES})
 #{{{ Dependency checks
 pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(OPENCV opencv)
-pkg_check_modules(OCLFFT oclfft)
 pkg_check_modules(UFOART ufoart>=0.1)
 
 if (TIFF_FOUND)

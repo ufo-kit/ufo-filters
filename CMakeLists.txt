@@ -30,12 +30,14 @@ pkg_check_modules(UFO ufo>=${PKG_UFO_CORE_MIN_REQUIRED} REQUIRED)
 
 #{{{ Plugin-specific dependencies
 find_package(TIFF)
+pkg_check_modules(OCLFFT oclfft)
 #}}}
 
 include_directories(
     ${OPENCL_INCLUDE_DIRS}
     ${UFO_INCLUDE_DIRS})
 
+#{{{ Global definitions
 add_definitions("-std=c99 -pedantic -Wall -Wextra -fPIC")
 add_definitions(-DG_LOG_DOMAIN="Ufo")
 
@@ -46,9 +48,12 @@ if (CMAKE_COMPILER_IS_GNUCC)
 
     add_definitions("-Wno-unused-parameter -Wno-missing-field-initializers")
 endif()
+#}}}
 
+#{{{ Subdirectories
 add_subdirectory(src)
 add_subdirectory(tests/integration_tests)
+#}}}
 
 #{{{ CPack
 set(CPACK_PACKAGE_DESCRIPTION ${UFO_DESCRIPTION})
@@ -74,6 +79,10 @@ set(CPACK_DEBIAN_PACKAGE_DEPENDS "libufo (>= ${PKG_UFO_CORE_MIN_REQUIRED})")
 
 if (TIFF_FOUND)
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}, libtiff4")
+endif()
+
+if (OCLFFT_FOUND)
+    set(CPACK_DEBIAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}, liboclfft (>= 1.0)")
 endif()
 #}}}
 
