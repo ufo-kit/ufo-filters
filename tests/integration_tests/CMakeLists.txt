@@ -21,26 +21,18 @@ get_filename_component(LOCAL_UFO_DIR "${PROJECT_SOURCE_DIR}/../ufo-core/" ABSOLU
 set (LOCAL_UFO_LIB ${LOCAL_UFO_DIR}/ufo/libufo.so)
 
 if (EXISTS ${LOCAL_UFO_DIR} AND IS_DIRECTORY ${LOCAL_UFO_DIR} AND EXISTS ${LOCAL_UFO_LIB})
-    message ("Using local UFO at: ${LOCAL_UFO_DIR}")
+    message("++ Integration tests: Using local UFO at: ${LOCAL_UFO_DIR}")
 
     include_directories(${LOCAL_UFO_DIR})
     link_directories(${LOCAL_UFO_DIR/ufo/})
 
-    message("Linking against ${LOCAL_UFO_LIB}")
-    target_link_libraries(${SUITE_BIN}
-        ${LOCAL_UFO_LIB}
-    )
+    message("++   Linking against ${LOCAL_UFO_LIB}")
+    target_link_libraries(${SUITE_BIN} ${LOCAL_UFO_LIB})
 else ()
-    message ("Using system wide UFO installation")
-    include_directories(
-        ${UFO_INCLUDE_DIRS}
-    )
-    link_directories(
-        ${UFO_LIBRARY_DIRS}
-    )
-    target_link_libraries(${SUITE_BIN}
-        ufo
-    )
+    message("++ Integration tests: Using system wide UFO installation")
+    include_directories(${UFO_INCLUDE_DIRS})
+    link_directories(${UFO_LIBRARY_DIRS})
+    target_link_libraries(${SUITE_BIN} ufo)
 endif ()
 
 
