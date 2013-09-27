@@ -7,12 +7,12 @@ set(TEST_SRCS
     test-complete-remote-setup.c
 )
 
+pkg_check_modules(GLIB glib-2.0 REQUIRED)
+pkg_check_modules(GOBJECT gobject-2.0 REQUIRED)
+
 set(SUITE_BIN "test-suite")
 add_executable(${SUITE_BIN} ${TEST_SRCS})
-
-include_directories(
-    ${GLIB2_INCLUDE_DIRS}
-)
+target_link_libraries(${SUITE_BIN} ${GLIB_LIBRARIES} ${GOBJECT_LIBRARIES})
 
 # prefer a ufo-core instance if it is located in same folder
 # as ufo-filters (usefull for development)
