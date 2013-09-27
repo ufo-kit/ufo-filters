@@ -86,5 +86,9 @@ if (OCLFFT_FOUND)
 endif()
 #}}}
 
+#{{{ RPM
+set(CPACK_RPM_PACKAGE_AUTOREQPROV " no")
+#}}}
+
 include(CPack)
 #}}}
