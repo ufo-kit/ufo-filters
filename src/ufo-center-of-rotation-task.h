@@ -64,3 +64,4 @@ GType     ufo_center_of_rotation_task_get_type  (void);
 G_END_DECLS
 
 #endif
+

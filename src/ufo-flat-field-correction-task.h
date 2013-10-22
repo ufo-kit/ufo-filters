@@ -64,3 +64,4 @@ GType     ufo_flat_field_correction_task_get_type  (void);
 G_END_DECLS
 
 #endif
+

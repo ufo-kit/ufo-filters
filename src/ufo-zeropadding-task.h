@@ -64,3 +64,4 @@ GType     ufo_zeropadding_task_get_type  (void);
 G_END_DECLS
 
 #endif
+
