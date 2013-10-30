@@ -15,6 +15,10 @@ set(UFO_DESCRIPTION_SUMMARY "UFO good filters")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/common/cmake")
 
 #{{{ Variables and Options
+include(ConfigurePaths)
+configure_paths(UFO_FILTERS)
+
+set(UFO_FILTERS_PLUGINDIR "${UFO_FILTERS_LIBDIR}/ufo")
 set(PKG_UFO_CORE_MIN_REQUIRED "0.5")
 
 option(WITH_PROFILING "Enable profiling" OFF)

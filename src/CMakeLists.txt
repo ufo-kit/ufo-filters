@@ -98,7 +98,6 @@ endif()
 #{{{ Plugin targets
 get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
 
-set(LIB_INSTALL_DIR "lib${LIB_SUFFIX}/ufo")
 set(shared_objects "")
 set(documented_types "")
 set(all_targets)
@@ -142,18 +141,18 @@ foreach(_src ${ufofilter_SRCS})
         list(APPEND all_targets ${target})
         
         install(TARGETS ${target}
-            ARCHIVE DESTINATION ${LIB_INSTALL_DIR}
-            LIBRARY DESTINATION ${LIB_INSTALL_DIR})
+                ARCHIVE DESTINATION ${UFO_FILTERS_PLUGINDIR}
+                LIBRARY DESTINATION ${UFO_FILTERS_PLUGINDIR})
     endif()
 endforeach()
 
-# copy kernels into $LIB_INSTALL_DIR
+# copy kernels
 foreach(_kernel ${ufofilter_KERNELS})
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${_kernel}
                    ${CMAKE_CURRENT_BINARY_DIR}/${_kernel})
 
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${_kernel}
-            DESTINATION ${LIB_INSTALL_DIR})
+            DESTINATION ${UFO_FILTERS_PLUGINDIR})
 endforeach()
 #}}}
 #{{{ gtk-doc targets
