@@ -23,8 +23,7 @@ set(ufofilter_SRCS
     ufo-zeropadding-task.c
     )
 #}}}
-
-#{{{ Installed OpenCL kernels
+#{{{ Kernels
 set(ufofilter_KERNELS
     arithmetics.cl
     backproject.cl
@@ -44,13 +43,15 @@ set(ufofilter_KERNELS
     zeropadding_kernel.cl
     )
 #}}}
-
+#{{{ Variables
 set(ufofilter_LIBS ${UFO_LIBRARIES})
-
+#}}}
 #{{{ Dependency checks
+find_package(TIFF)
 pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(OPENCV opencv)
 pkg_check_modules(UFOART ufoart>=0.1)
+pkg_check_modules(OCLFFT oclfft)
 
 if (TIFF_FOUND)
     list(APPEND ufofilter_SRCS ufo-reader-task.c)
@@ -94,7 +95,6 @@ if (UFOART_FOUND)
     list(APPEND ufofilter_SRCS ufo-art-task.c)
 endif()
 #}}}
-
 #{{{ Plugin targets
 get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
 
@@ -104,9 +104,12 @@ set(documented_types "")
 set(all_targets)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}
-                    ${CMAKE_CURRENT_SOURCE_DIR})
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${OPENCL_INCLUDE_DIRS}
+                    ${UFO_INCLUDE_DIRS})
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in
+               ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
 foreach(_src ${ufofilter_SRCS})
     # find plugin suffix
@@ -147,15 +150,15 @@ endforeach()
 # copy kernels into $LIB_INSTALL_DIR
 foreach(_kernel ${ufofilter_KERNELS})
     configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${_kernel}
-        ${CMAKE_CURRENT_BINARY_DIR}/${_kernel})
+                   ${CMAKE_CURRENT_BINARY_DIR}/${_kernel})
 
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${_kernel}
-        DESTINATION ${LIB_INSTALL_DIR})
+            DESTINATION ${LIB_INSTALL_DIR})
 endforeach()
 #}}}
-
 #{{{ gtk-doc targets
 pkg_check_modules(GTK_DOC gtk-doc)
+
 if(GTK_DOC_FOUND)
     option(WITH_GTK_DOC "Build filter documentation" ON)
     if (WITH_GTK_DOC)
@@ -225,7 +228,6 @@ if(GTK_DOC_FOUND)
     endif()
 endif(GTK_DOC_FOUND)
 #}}}
-
 #{{{ Python tests
 find_program(NOSETESTSBIN nosetests)
 if (NOSETESTSBIN)

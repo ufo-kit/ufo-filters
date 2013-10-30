@@ -12,31 +12,23 @@ set(UFO_FILTERS_VERSION_STRING_SHORT "${UFO_FILTERS_VERSION_MAJOR}.${UFO_FILTERS
 set(UFO_DESCRIPTION "UFO good filters")
 set(UFO_DESCRIPTION_SUMMARY "UFO good filters")
 
-set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/common/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/common/cmake")
 
-# --- Options -----------------------------------------------------------------
+#{{{ Variables and Options
+set(PKG_UFO_CORE_MIN_REQUIRED "0.5")
+
 option(WITH_PROFILING "Enable profiling" OFF)
+
 if (WITH_PROFILING)
     add_definitions("-pg")
     set(CMAKE_C_FLAGS "-pg")
 endif ()
-
-# --- Find packages and libraries ---------------------------------------------
-set(PKG_UFO_CORE_MIN_REQUIRED "0.5")
-
+#}}}
+#{{{ Common dependencies
 find_package(OpenCL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(UFO ufo>=${PKG_UFO_CORE_MIN_REQUIRED} REQUIRED)
-
-#{{{ Plugin-specific dependencies
-find_package(TIFF)
-pkg_check_modules(OCLFFT oclfft)
 #}}}
-
-include_directories(
-    ${OPENCL_INCLUDE_DIRS}
-    ${UFO_INCLUDE_DIRS})
-
 #{{{ Global definitions
 add_definitions("-std=c99 -pedantic -Wall -Wextra -fPIC")
 add_definitions(-DG_LOG_DOMAIN="Ufo")
@@ -58,12 +50,10 @@ if (CMAKE_COMPILER_IS_GNUCC OR ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang"))
                      -Wwrite-strings")
 endif()
 #}}}
-
 #{{{ Subdirectories
 add_subdirectory(src)
 add_subdirectory(tests/integration_tests)
 #}}}
-
 #{{{ CPack
 set(CPACK_PACKAGE_DESCRIPTION ${UFO_DESCRIPTION})
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY ${UFO_DESCRIPTION_SUMMARY})
@@ -94,7 +84,6 @@ if (OCLFFT_FOUND)
     set(CPACK_DEBIAN_PACKAGE_DEPENDS "${CPACK_DEBIAN_PACKAGE_DEPENDS}, liboclfft (>= 1.0)")
 endif()
 #}}}
-
 #{{{ RPM
 set(CPACK_RPM_PACKAGE_AUTOREQPROV " no")
 #}}}
