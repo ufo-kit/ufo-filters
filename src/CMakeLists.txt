@@ -198,7 +198,6 @@ if(GTK_DOC_FOUND)
             COMMAND ${GTK_DOC_SCAN}
                     --module=UfoFilters
                     --source-dir=${CMAKE_CURRENT_SOURCE_DIR}/../src
-                    --types=${doc_out}/UfoFilters.types
                     DEPENDS ${ufofilter_SRCS}
             WORKING_DIRECTORY ${doc_out})
 
