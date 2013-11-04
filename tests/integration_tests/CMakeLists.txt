@@ -24,6 +24,10 @@ if (EXISTS ${LOCAL_UFO_DIR} AND IS_DIRECTORY ${LOCAL_UFO_DIR} AND EXISTS ${LOCAL
     message("++ Integration tests: Using local UFO at: ${LOCAL_UFO_DIR}")
 
     include_directories(${LOCAL_UFO_DIR})
+    include_directories(
+        ${GOBJECT_LIBRARIES}
+        ${GLIB_LIBRARIES}
+    )
     link_directories(${LOCAL_UFO_DIR/ufo/})
 
     message("++   Linking against ${LOCAL_UFO_LIB}")
