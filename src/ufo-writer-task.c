@@ -163,6 +163,7 @@ open_tiff_file (UfoWriterTaskPrivate *priv)
 
     filename = build_filename (priv);
     priv->tif = TIFFOpen (filename, "w");
+    g_debug ("open tiff file for writing: %s",filename);
     g_free (filename);
 }
 
