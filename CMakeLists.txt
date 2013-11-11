@@ -37,6 +37,8 @@ pkg_check_modules(UFO ufo>=${PKG_UFO_CORE_MIN_REQUIRED} REQUIRED)
 add_definitions("-std=c99 -pedantic -Wall -Wextra -fPIC")
 add_definitions(-DG_LOG_DOMAIN="Ufo")
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
+
 if (CMAKE_COMPILER_IS_GNUCC OR ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang"))
     add_definitions("-Wcast-align
                      -Wcast-qual

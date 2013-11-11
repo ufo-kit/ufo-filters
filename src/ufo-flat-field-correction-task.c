@@ -118,17 +118,20 @@ ufo_flat_field_correction_task_process (UfoCpuTask *task,
     ufo_profiler_start (profiler, UFO_PROFILER_TIMER_CPU);
 
     /* Flat field correction */
+    #pragma omp parallel for
     for (gsize i = 0; i < n_pixels; i++)
         out_data[i] = (proj_data[i] - dark_data[i]) / (flat_data[i] - dark_data[i]);
 
     /* Optional absorption correction */
     if (priv->absorption_correction) {
+        #pragma omp parallel for
         for (gsize i = 0; i < n_pixels; i++)
             out_data[i] = (gfloat) (- log (out_data[i]));
     }
 
     /* Fix NANs and INFs */
     if (priv->fix_nan_and_inf) {
+        #pragma omp parallel for
         for (gsize i = 0; i < n_pixels; i++)
         if (isnan (out_data[i]) || isinf (out_data[i]))
             out_data[i] = 0.0;
