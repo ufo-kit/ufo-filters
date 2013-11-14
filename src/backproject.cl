@@ -57,8 +57,7 @@ backproject_tex (__read_only image2d_t sinogram,
                  __constant float *sin_lut,
                  __constant float *cos_lut,
                  const unsigned int n_projections,
-                 const float axis_pos,
-                 const float angle_step)
+                 const float axis_pos)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
