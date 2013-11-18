@@ -19,6 +19,7 @@ include(ConfigurePaths)
 configure_paths(UFO_FILTERS)
 
 set(UFO_FILTERS_PLUGINDIR "${UFO_FILTERS_LIBDIR}/ufo")
+set(UFO_FILTERS_KERNELDIR "${UFO_FILTERS_DATADIR}/ufo")
 set(PKG_UFO_CORE_MIN_REQUIRED "0.5")
 
 option(WITH_PROFILING "Enable profiling" OFF)

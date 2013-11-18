@@ -152,7 +152,7 @@ foreach(_kernel ${ufofilter_KERNELS})
                    ${CMAKE_CURRENT_BINARY_DIR}/${_kernel})
 
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${_kernel}
-            DESTINATION ${UFO_FILTERS_PLUGINDIR})
+            DESTINATION ${UFO_FILTERS_KERNELDIR})
 endforeach()
 #}}}
 #{{{ gtk-doc targets
