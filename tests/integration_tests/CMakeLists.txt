@@ -11,7 +11,9 @@ pkg_check_modules(GLIB glib-2.0 REQUIRED)
 pkg_check_modules(GOBJECT gobject-2.0 REQUIRED)
 
 set(SUITE_BIN "test-suite")
-include_directories(${UFO_INCLUDE_DIRS})
+include_directories(${UFO_INCLUDE_DIRS}
+                    ${GLIB_INCLUDE_DIRS}
+                    ${GOBJECT_INCLUDE_DIRS})
 add_executable(${SUITE_BIN} ${TEST_SRCS})
 
 link_directories(${UFO_LIBRARY_DIRS})
