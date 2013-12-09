@@ -46,7 +46,7 @@ struct _UfoBackprojectTaskPrivate {
     gfloat *host_cos_lut;
     gfloat axis_pos;
     gfloat angle_step;
-    gfloat real_angle_step;
+    gdouble real_angle_step;
     guint n_projections;
 };
 
@@ -145,14 +145,11 @@ create_lut_buffer (UfoBackprojectTaskPrivate *priv,
     cl_int errcode;
     gsize size = n_entries * sizeof (gfloat);
     cl_mem mem = NULL;
-    gfloat angle = 0.0f;
 
     *host_mem = g_malloc0 (size);
 
-    for (guint i = 0; i < n_entries; i++) {
-        (*host_mem)[i] = (gfloat) func (angle);
-        angle += priv->real_angle_step;
-    }
+    for (guint i = 0; i < n_entries; i++)
+        (*host_mem)[i] = (gfloat) func (i * priv->real_angle_step);
 
     mem = clCreateBuffer (priv->context,
                           CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY,
@@ -182,19 +179,19 @@ ufo_backproject_task_get_requisition (UfoTask *task,
 
     if (priv->real_angle_step < 0.0) {
         if (priv->angle_step <= 0.0)
-            priv->real_angle_step = (gfloat) (G_PI / ((gfloat) in_req.dims[1]));
+            priv->real_angle_step = G_PI / ((gdouble) in_req.dims[1]);
         else
             priv->real_angle_step = priv->angle_step;
     }
 
     if (priv->sin_lut == NULL) {
         priv->sin_lut = create_lut_buffer (priv, &priv->host_sin_lut,
-                                           requisition->dims[1], sin);
+                                           in_req.dims[1], sin);
     }
 
     if (priv->cos_lut == NULL) {
         priv->cos_lut = create_lut_buffer (priv, &priv->host_cos_lut,
-                                           requisition->dims[1], cos);
+                                           in_req.dims[1], cos);
     }
 }
 
