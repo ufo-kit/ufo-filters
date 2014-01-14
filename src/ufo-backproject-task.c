@@ -46,6 +46,7 @@ struct _UfoBackprojectTaskPrivate {
     gfloat *host_cos_lut;
     gdouble axis_pos;
     gdouble angle_step;
+    gdouble angle_offset;
     gdouble real_angle_step;
     guint n_projections;
 };
@@ -65,6 +66,7 @@ enum {
     PROP_0,
     PROP_AXIS_POSITION,
     PROP_ANGLE_STEP,
+    PROP_ANGLE_OFFSET,
     N_PROPERTIES
 };
 
@@ -149,7 +151,7 @@ create_lut_buffer (UfoBackprojectTaskPrivate *priv,
     *host_mem = g_malloc0 (size);
 
     for (guint i = 0; i < n_entries; i++)
-        (*host_mem)[i] = (gfloat) func (i * priv->real_angle_step);
+        (*host_mem)[i] = (gfloat) func (priv->angle_offset + i * priv->real_angle_step);
 
     mem = clCreateBuffer (priv->context,
                           CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY,
@@ -277,6 +279,9 @@ ufo_backproject_task_set_property (GObject *object,
         case PROP_ANGLE_STEP:
             priv->angle_step = g_value_get_double (value);
             break;
+        case PROP_ANGLE_OFFSET:
+            priv->angle_offset = g_value_get_double (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -297,6 +302,9 @@ ufo_backproject_task_get_property (GObject *object,
             break;
         case PROP_ANGLE_STEP:
             g_value_set_double (value, priv->angle_step);
+            break;
+        case PROP_ANGLE_OFFSET:
+            g_value_set_double (value, priv->angle_offset);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -322,14 +330,21 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
         g_param_spec_double ("axis-pos",
                              "Position of rotation axis",
                              "Position of rotation axis",
-                             -1.0, +8192.0, 0.0f,
+                             -1.0, +8192.0, 0.0,
                              G_PARAM_READWRITE);
 
     properties[PROP_ANGLE_STEP] =
         g_param_spec_double ("angle-step",
                              "Increment of angle in radians",
                              "Increment of angle in radians",
-                             -limit, +limit, 0.0f,
+                             -limit, +limit, 0.0,
+                             G_PARAM_READWRITE);
+
+    properties[PROP_ANGLE_OFFSET] =
+        g_param_spec_double ("angle-offset",
+                             "Angle offset in radians",
+                             "Angle offset in radians determining the first angle position",
+                             0.0, +limit, 0.0,
                              G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -348,6 +363,7 @@ ufo_backproject_task_init (UfoBackprojectTask *self)
     priv->kernel = NULL;
     priv->axis_pos = -1.0;
     priv->angle_step = -1.0;
+    priv->angle_offset = 0.0;
     priv->real_angle_step = -1.0;
     priv->kernel = NULL;
     priv->sin_lut = NULL;
