@@ -44,8 +44,8 @@ struct _UfoBackprojectTaskPrivate {
     cl_mem cos_lut;
     gfloat *host_sin_lut;
     gfloat *host_cos_lut;
-    gfloat axis_pos;
-    gfloat angle_step;
+    gdouble axis_pos;
+    gdouble angle_step;
     gdouble real_angle_step;
     guint n_projections;
 };
@@ -272,10 +272,10 @@ ufo_backproject_task_set_property (GObject *object,
 
     switch (property_id) {
         case PROP_AXIS_POSITION:
-            priv->axis_pos = g_value_get_float (value);
+            priv->axis_pos = g_value_get_double (value);
             break;
         case PROP_ANGLE_STEP:
-            priv->angle_step = g_value_get_float (value);
+            priv->angle_step = g_value_get_double (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -293,10 +293,10 @@ ufo_backproject_task_get_property (GObject *object,
 
     switch (property_id) {
         case PROP_AXIS_POSITION:
-            g_value_set_float (value, priv->axis_pos);
+            g_value_set_double (value, priv->axis_pos);
             break;
         case PROP_ANGLE_STEP:
-            g_value_set_float (value, priv->angle_step);
+            g_value_set_double (value, priv->angle_step);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -319,18 +319,18 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
     oclass->get_property = ufo_backproject_task_get_property;
 
     properties[PROP_AXIS_POSITION] =
-        g_param_spec_float ("axis-pos",
-                            "Position of rotation axis",
-                            "Position of rotation axis",
-                            -1.0, +8192.0, 0.0f,
-                            G_PARAM_READWRITE);
+        g_param_spec_double ("axis-pos",
+                             "Position of rotation axis",
+                             "Position of rotation axis",
+                             -1.0, +8192.0, 0.0f,
+                             G_PARAM_READWRITE);
 
     properties[PROP_ANGLE_STEP] =
-        g_param_spec_float ("angle-step",
-                            "Increment of angle in radians",
-                            "Increment of angle in radians",
-                            -limit, +limit, 0.0f,
-                            G_PARAM_READWRITE);
+        g_param_spec_double ("angle-step",
+                             "Increment of angle in radians",
+                             "Increment of angle in radians",
+                             -limit, +limit, 0.0f,
+                             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
