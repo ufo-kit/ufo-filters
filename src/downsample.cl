@@ -9,5 +9,5 @@ downsample_fast(__global float *input,
     int idy = get_global_id (1);
     int width = get_global_size (0);
 
-    output[idy * width + idx] = input[factor * idy * width + factor * idx];
+    output[idy * width + idx] = input[factor * factor * idy * width + factor * idx];
 }
