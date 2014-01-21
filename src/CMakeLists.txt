@@ -8,6 +8,7 @@ set(ufofilter_SRCS
     ufo-cut-sinogram-task.c
     ufo-center-of-rotation-task.c
     ufo-dfi-sinc-task.c
+    ufo-downsample-task.c
     ufo-filter-task.c
     ufo-flat-field-correction-task.c
     ufo-gaussian-blur-task.c
@@ -30,6 +31,7 @@ set(ufofilter_KERNELS
     complex.cl
     cut_sinogram_kernel.cl
     dfi_sinc_kernel.cl
+    downsample.cl
     fft.cl
     filter.cl
     forwardproject.cl
