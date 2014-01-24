@@ -1,11 +1,17 @@
-Changes from ufo-filters 0.1.1 to 0.1.2
----------------------------------------
+Version 0.6.0
+=============
 
-- Add ufo-filter-region-of-interest.*
+Changes
+-------
 
+- Added angle offset parameter to backproject filter.
+- Fix backprojection for NaN in input
+- Fix LUT computation resulting in wrong reconstructions.
+- Install kernel files into ${datadir}/ufo as required by ufo-core 0.6.
 
-Changes from ufo-filters 0.1.0 to 0.1.1
----------------------------------------
+New filters
+-----------
 
-- Fix mux-filter
-- Renamed ufo-filter-uca.* to uca-filter-cam-access.* 
+- "generate": takes width, height and depth parameters as well as a number that
+  is produces with the specified dimensions.
+- "downsample": reduce the size of an image by an integer
