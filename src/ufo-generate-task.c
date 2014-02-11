@@ -41,13 +41,13 @@ struct _UfoGenerateTaskPrivate {
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
-static void ufo_gpu_task_interface_init (UfoGpuTaskIface *iface);
+static void ufo_cpu_task_interface_init (UfoCpuTaskIface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (UfoGenerateTask, ufo_generate_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
                                                 ufo_task_interface_init)
-                         G_IMPLEMENT_INTERFACE (UFO_TYPE_GPU_TASK,
-                                                ufo_gpu_task_interface_init))
+                         G_IMPLEMENT_INTERFACE (UFO_TYPE_CPU_TASK,
+                                                ufo_cpu_task_interface_init))
 
 #define UFO_GENERATE_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_GENERATE_TASK, UfoGenerateTaskPrivate))
 
@@ -109,7 +109,7 @@ ufo_generate_task_get_structure (UfoTask *task,
 }
 
 static gboolean
-ufo_generate_task_generate (UfoGpuTask *task,
+ufo_generate_task_generate (UfoCpuTask *task,
                             UfoBuffer *output,
                             UfoRequisition *requisition)
 {
@@ -188,7 +188,7 @@ ufo_task_interface_init (UfoTaskIface *iface)
 }
 
 static void
-ufo_gpu_task_interface_init (UfoGpuTaskIface *iface)
+ufo_cpu_task_interface_init (UfoCpuTaskIface *iface)
 {
     iface->generate = ufo_generate_task_generate;
 }
