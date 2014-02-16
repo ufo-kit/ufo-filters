@@ -33,6 +33,8 @@ endif ()
 find_package(OpenCL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(UFO ufo>=${PKG_UFO_CORE_MIN_REQUIRED} REQUIRED)
+
+link_directories(${UFO_LIBRARY_DIRS})
 #}}}
 #{{{ Global definitions
 add_definitions("-std=c99 -pedantic -Wall -Wextra -fPIC")
