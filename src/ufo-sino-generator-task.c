@@ -83,13 +83,11 @@ ufo_sino_generator_task_process (UfoCpuTask *task,
     gsize row_mem_offset;
     gsize sino_mem_offset;
     gfloat *host_array;
+    guint i;
 
     priv = UFO_SINO_GENERATOR_TASK_GET_PRIVATE (task);
 
     if (priv->projection > priv->n_projections) {
-        /* g_set_error (error, UFO_FILTER_ERROR, UFO_FILTER_ERROR_NOSUCHINPUT, */
-        /*              "Received %i projections, but can only handle %i projections", */
-        /*              (gint) priv->projection, priv->num_projections); */
         return FALSE;
     }
 
@@ -99,12 +97,14 @@ ufo_sino_generator_task_process (UfoCpuTask *task,
     row_mem_offset = priv->sino_width;
     sino_mem_offset = row_mem_offset * priv->n_projections;
 
-    for (guint i = 0; i < priv->n_sinos; i++) {
-        memcpy (priv->sinograms + sino_index,
-                host_array + proj_index,
-                sizeof (float) * priv->sino_width);
-        proj_index += row_mem_offset;
-        sino_index += sino_mem_offset;
+#pragma omp parallel
+    {
+#pragma omp for
+        for (i = 0; i < priv->n_sinos; i++) {
+            memcpy (priv->sinograms + sino_index + i * sino_mem_offset,
+                    host_array + i * row_mem_offset,
+                    sizeof (float) * priv->sino_width);
+        }
     }
 
     priv->projection++;

@@ -56,6 +56,8 @@ pkg_check_modules(OPENCV opencv)
 pkg_check_modules(UFOART ufoart>=0.1)
 pkg_check_modules(OCLFFT oclfft)
 
+set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
+
 if (TIFF_FOUND)
     list(APPEND ufofilter_SRCS ufo-reader-task.c)
     list(APPEND ufofilter_SRCS ufo-writer-task.c)
