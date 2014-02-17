@@ -118,7 +118,6 @@ ufo_sino_generator_task_generate (UfoCpuTask *task,
 {
     UfoSinoGeneratorTaskPrivate *priv;
     gsize index;
-    gfloat *host_array;
 
     priv = UFO_SINO_GENERATOR_TASK_GET_PRIVATE (task);
 
@@ -126,10 +125,7 @@ ufo_sino_generator_task_generate (UfoCpuTask *task,
         return FALSE;
 
     index = priv->current_sino * priv->sino_offset;
-    host_array = ufo_buffer_get_host_array (output, NULL);
-    memcpy (host_array,
-            priv->sinograms + index,
-            sizeof (gfloat) * priv->sino_offset);
+    ufo_buffer_set_host_array (output, priv->sinograms + index, FALSE);
 
     priv->current_sino++;
     return TRUE;
