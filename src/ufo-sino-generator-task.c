@@ -78,7 +78,6 @@ ufo_sino_generator_task_process (UfoCpuTask *task,
                                  UfoRequisition *requisition)
 {
     UfoSinoGeneratorTaskPrivate *priv;
-    gsize proj_index;
     gsize sino_index;
     gsize row_mem_offset;
     gsize sino_mem_offset;
@@ -87,11 +86,9 @@ ufo_sino_generator_task_process (UfoCpuTask *task,
 
     priv = UFO_SINO_GENERATOR_TASK_GET_PRIVATE (task);
 
-    if (priv->projection > priv->n_projections) {
+    if (priv->projection > priv->n_projections)
         return FALSE;
-    }
 
-    proj_index = 0;
     sino_index = (priv->projection - 1) * priv->sino_width;
     host_array = ufo_buffer_get_host_array (inputs[0], NULL);
     row_mem_offset = priv->sino_width;
