@@ -210,6 +210,7 @@ ufo_dfi_sinc_task_process (UfoGpuTask *task,
 {
     UfoDfiSincTaskPrivate *priv;
     UfoGpuNode *node;
+    UfoProfiler *profiler;
     UfoRequisition input_requisition;
     cl_command_queue cmd_queue;
     cl_context context;
@@ -303,14 +304,9 @@ ufo_dfi_sinc_task_process (UfoGpuTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 11, sizeof (cl_int), &spectrum_offset));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 12, sizeof (cl_mem), &out_mem));
 
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
-                                            priv->dfi_sinc_kernel,
-                                            requisition->n_dims,
-                                            NULL,
-                                            working_size,
-                                            local_work_size,
-                                            0, NULL, NULL));
-
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    ufo_profiler_call (profiler, cmd_queue, priv->dfi_sinc_kernel, requisition->n_dims, working_size, local_work_size);
+    
     return TRUE;
 }
 

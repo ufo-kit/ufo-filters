@@ -112,6 +112,7 @@ ufo_cut_sinogram_task_process (UfoGpuTask *task,
                                UfoBuffer *output,
                                UfoRequisition *requisition)
 {
+    UfoProfiler *profiler;
     UfoCutSinogramTaskPrivate *priv;
     cl_command_queue cmd_queue;
     cl_mem in_mem, out_mem;
@@ -133,16 +134,10 @@ ufo_cut_sinogram_task_process (UfoGpuTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->cut_sinogram_kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->cut_sinogram_kernel, 1, sizeof (cl_int), &offset));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->cut_sinogram_kernel, 2, sizeof (cl_mem), &out_mem));
-
-    /* Execution */
-    size_t local_work_size[] = {2,2};
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
-                                            priv->cut_sinogram_kernel,
-                                            requisition->n_dims,
-                                            NULL,
-                                            requisition->dims,
-                                            local_work_size,
-                                            0, NULL, NULL));
+    
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    ufo_profiler_call (profiler, cmd_queue, priv->cut_sinogram_kernel, requisition->n_dims, requisition->dims, NULL);
+    
     return TRUE;
 }
 
