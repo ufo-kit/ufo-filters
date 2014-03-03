@@ -109,6 +109,7 @@ ufo_swap_quadrants_task_process (UfoGpuTask *task,
 {
     UfoSwapQuadrantsTaskPrivate *priv;
     UfoGpuNode *node;
+    UfoProfiler *profiler;
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
@@ -142,14 +143,9 @@ ufo_swap_quadrants_task_process (UfoGpuTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (used_kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (used_kernel, 1, sizeof (cl_mem), &out_mem));
 
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
-                                            used_kernel,
-                                            requisition->n_dims,
-                                            NULL,
-                                            working_size,
-                                            local_work_size,
-                                            0, NULL, NULL));
-
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    ufo_profiler_call (profiler, cmd_queue, used_kernel, requisition->n_dims, working_size, local_work_size);
+    
     return TRUE;
 }
 
@@ -159,7 +155,15 @@ ufo_swap_quadrants_task_set_property (GObject *object,
                                       const GValue *value,
                                       GParamSpec *pspec)
 {
-    switch (property_id) {
+    switch (property_id) {    /*
+    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
+                                            priv->dfi_sinc_kernel,
+                                            requisition->n_dims,
+                                            NULL,
+                                            working_size,
+                                            local_work_size,
+                                            0, NULL, NULL));
+    */
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;

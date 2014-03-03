@@ -114,12 +114,15 @@ ufo_zeropadding_task_process (UfoGpuTask *task,
                               UfoRequisition *requisition)
 {
     UfoZeropaddingTaskPrivate *priv;
+    UfoGpuNode *node;
+    UfoProfiler *profiler;
     cl_command_queue cmd_queue;
     cl_mem in_mem, out_mem;
     cl_int xdim;
 
     priv = UFO_ZEROPADDING_TASK_GET_PRIVATE (task);
-    cmd_queue = g_list_nth_data(ufo_resources_get_cmd_queues(priv->resources), 0);
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+    cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 
     UfoRequisition input_requisition;
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
@@ -135,11 +138,9 @@ ufo_zeropadding_task_process (UfoGpuTask *task,
 
     /* execution */
     size_t working_dims[] = {requisition->dims[0]/2, requisition->dims[1]};
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
-                                            priv->zeropadding_kernel,
-                                            requisition->n_dims,
-                                            NULL, working_dims, NULL,
-                                            0, NULL, NULL));
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    ufo_profiler_call (profiler, cmd_queue, priv->zeropadding_kernel, requisition->n_dims, working_dims, NULL);
+    
     return TRUE;
 }
 
