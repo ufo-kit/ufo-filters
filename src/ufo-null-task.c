@@ -40,6 +40,18 @@ G_DEFINE_TYPE_WITH_CODE (UfoNullTask, ufo_null_task, UFO_TYPE_TASK_NODE,
 
 #define UFO_NULL_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_NULL_TASK, UfoNullTaskPrivate))
 
+struct _UfoNullTaskPrivate {
+    gboolean force_download;
+};
+
+enum {
+    PROP_0,
+    PROP_FORCE_DOWNLOAD,
+    N_PROPERTIES
+};
+
+static GParamSpec *properties[N_PROPERTIES] = { NULL, };
+
 UfoNode *
 ufo_null_task_new (void)
 {
@@ -79,6 +91,17 @@ ufo_null_task_process (UfoCpuTask *task,
                        UfoBuffer *output,
                        UfoRequisition *requisition)
 {
+    UfoNullTaskPrivate *priv;
+
+    priv = UFO_NULL_TASK_GET_PRIVATE (task);
+
+    if (priv->force_download) {
+        gfloat *host_array;
+
+        host_array = ufo_buffer_get_host_array (inputs[0], NULL);
+        host_array[0] = 0.0;
+    }
+
     return TRUE;
 }
 
@@ -97,11 +120,69 @@ ufo_cpu_task_interface_init (UfoCpuTaskIface *iface)
 }
 
 static void
+ufo_null_task_set_property (GObject *object,
+                            guint property_id,
+                            const GValue *value,
+                            GParamSpec *pspec)
+{
+    UfoNullTaskPrivate *priv = UFO_NULL_TASK_GET_PRIVATE (object);
+
+    switch (property_id) {
+        case PROP_FORCE_DOWNLOAD:
+            priv->force_download = g_value_get_boolean (value);
+            break;
+
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+            break;
+    }
+}
+
+static void
+ufo_null_task_get_property (GObject *object,
+                            guint property_id,
+                            GValue *value,
+                            GParamSpec *pspec)
+{
+    UfoNullTaskPrivate *priv = UFO_NULL_TASK_GET_PRIVATE (object);
+
+    switch (property_id) {
+        case PROP_FORCE_DOWNLOAD:
+            g_value_set_boolean (value, priv->force_download);
+            break;
+
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+            break;
+    }
+}
+
+static void
 ufo_null_task_class_init (UfoNullTaskClass *klass)
 {
+    GObjectClass *oclass;
+    oclass = G_OBJECT_CLASS (klass);
+
+    oclass->set_property = ufo_null_task_set_property;
+    oclass->get_property = ufo_null_task_get_property;
+
+    properties[PROP_FORCE_DOWNLOAD] =
+        g_param_spec_boolean ("force-download",
+                              "Force data to be transferred from device to host",
+                              "Force data to be transferred from device to host",
+                              FALSE, G_PARAM_READWRITE);
+
+    for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
+        g_object_class_install_property (oclass, i, properties[i]);
+
+    g_type_class_add_private(klass, sizeof (UfoNullTaskPrivate));
 }
 
 static void
 ufo_null_task_init(UfoNullTask *self)
 {
+    UfoNullTaskPrivate *priv;
+
+    self->priv = priv = UFO_NULL_TASK_GET_PRIVATE (self);
+    priv->force_download = FALSE;
 }
