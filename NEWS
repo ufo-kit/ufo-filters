@@ -1,3 +1,13 @@
+Version 0.6.1
+=============
+
+- generate: Use CPU type and fix dimension bug
+- null: Add force-download property to enforce GPU transfer
+- cut-sinogram: Fix with non-power-of-2 dimensions
+
+- Fix building with local ufo installation
+
+
 Version 0.6.0
 =============
 
