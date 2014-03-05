@@ -26,16 +26,6 @@
 #include <math.h>
 #include "ufo-backproject-task.h"
 
-/**
- * SECTION:ufo-backproject-task
- * @Short_description: Compute the backprojection on sinograms
- * @Title: backproject
- *
- * Computes the backprojection for a single sinogram. By default, the
- * #UfoBackprojectTask:axis-pos is assumed to be half the width of the input
- * sinogram and the #UfoBackprojectTask:angle-step to be height of the sinogram
- * divided by 180 degrees.
- */
 
 typedef enum {
     MODE_NEAREST,
