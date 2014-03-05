@@ -37,9 +37,15 @@
  * divided by 180 degrees.
  */
 
+typedef enum {
+    MODE_NEAREST,
+    MODE_TEXTURE
+} Mode;
+
 struct _UfoBackprojectTaskPrivate {
     cl_context context;
-    cl_kernel kernel;
+    cl_kernel nearest_kernel;
+    cl_kernel texture_kernel;
     cl_mem sin_lut;
     cl_mem cos_lut;
     gfloat *host_sin_lut;
@@ -49,6 +55,7 @@ struct _UfoBackprojectTaskPrivate {
     gdouble angle_offset;
     gdouble real_angle_step;
     guint n_projections;
+    Mode mode;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -67,6 +74,7 @@ enum {
     PROP_AXIS_POSITION,
     PROP_ANGLE_STEP,
     PROP_ANGLE_OFFSET,
+    PROP_MODE,
     N_PROPERTIES
 };
 
@@ -90,13 +98,22 @@ ufo_backproject_task_process (UfoGpuTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
+    cl_kernel kernel;
     gfloat axis_pos;
 
     priv = UFO_BACKPROJECT_TASK (task)->priv;
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
-    in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
+
+    if (priv->mode == MODE_TEXTURE) {
+        in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
+        kernel = priv->texture_kernel;
+    }
+    else {
+        in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
+        kernel = priv->nearest_kernel;
+    }
 
     /* Guess axis position if they are not provided by the user. */
     if (priv->axis_pos <= 0.0)
@@ -104,15 +121,15 @@ ufo_backproject_task_process (UfoGpuTask *task,
     else
         axis_pos = priv->axis_pos;
 
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_mem), &priv->sin_lut));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_mem), &priv->cos_lut));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (guint),  &priv->n_projections));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 5, sizeof (gfloat), &axis_pos));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 0, sizeof (cl_mem), &in_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 1, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 2, sizeof (cl_mem), &priv->sin_lut));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (cl_mem), &priv->cos_lut));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (guint),  &priv->n_projections));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 5, sizeof (gfloat), &axis_pos));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-    ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
+    ufo_profiler_call (profiler, cmd_queue, kernel, 2, requisition->dims, NULL);
 
     return TRUE;
 }
@@ -127,15 +144,16 @@ ufo_backproject_task_setup (UfoTask *task,
     priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (task);
 
     priv->context = ufo_resources_get_context (resources);
-    priv->kernel = ufo_resources_get_kernel (resources,
-                                             "backproject.cl",
-                                             "backproject_tex",
-                                             error);
+    priv->nearest_kernel = ufo_resources_get_kernel (resources, "backproject.cl", "backproject_nearest", error);
+    priv->texture_kernel = ufo_resources_get_kernel (resources, "backproject.cl", "backproject_tex", error);
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
 
-    if (priv->kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+    if (priv->nearest_kernel != NULL)
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->nearest_kernel));
+
+    if (priv->texture_kernel != NULL)
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->texture_kernel));
 }
 
 static cl_mem
@@ -214,7 +232,7 @@ ufo_backproject_task_equal_real (UfoNode *n1,
                             UfoNode *n2)
 {
     g_return_val_if_fail (UFO_IS_BACKPROJECT_TASK (n1) && UFO_IS_BACKPROJECT_TASK (n2), FALSE);
-    return UFO_BACKPROJECT_TASK (n1)->priv->kernel == UFO_BACKPROJECT_TASK (n2)->priv->kernel;
+    return UFO_BACKPROJECT_TASK (n1)->priv->texture_kernel == UFO_BACKPROJECT_TASK (n2)->priv->texture_kernel;
 }
 
 static void
@@ -237,9 +255,14 @@ ufo_backproject_task_finalize (GObject *object)
     g_free (priv->host_sin_lut);
     g_free (priv->host_cos_lut);
 
-    if (priv->kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
-        priv->kernel = NULL;
+    if (priv->nearest_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->nearest_kernel));
+        priv->nearest_kernel = NULL;
+    }
+
+    if (priv->texture_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->texture_kernel));
+        priv->texture_kernel = NULL;
     }
 
     if (priv->context) {
@@ -282,6 +305,12 @@ ufo_backproject_task_set_property (GObject *object,
         case PROP_ANGLE_OFFSET:
             priv->angle_offset = g_value_get_double (value);
             break;
+        case PROP_MODE:
+            if (!g_strcmp0 (g_value_get_string (value), "nearest"))
+                priv->mode = MODE_NEAREST;
+            else if (!g_strcmp0 (g_value_get_string (value), "texture"))
+                priv->mode = MODE_TEXTURE;
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -305,6 +334,16 @@ ufo_backproject_task_get_property (GObject *object,
             break;
         case PROP_ANGLE_OFFSET:
             g_value_set_double (value, priv->angle_offset);
+            break;
+        case PROP_MODE:
+            switch (priv->mode) {
+                case MODE_NEAREST:
+                    g_value_set_string (value, "nearest");
+                    break;
+                case MODE_TEXTURE:
+                    g_value_set_string (value, "texture");
+                    break;
+            }
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -347,6 +386,13 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
                              0.0, +limit, 0.0,
                              G_PARAM_READWRITE);
 
+    properties[PROP_MODE] =
+        g_param_spec_string ("mode",
+                             "Backprojection mode",
+                             "Backprojection mode from: \"nearest\", \"texture\"",
+                             "texture",
+                             G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -360,14 +406,15 @@ ufo_backproject_task_init (UfoBackprojectTask *self)
 {
     UfoBackprojectTaskPrivate *priv;
     self->priv = priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (self);
-    priv->kernel = NULL;
+    priv->nearest_kernel = NULL;
+    priv->texture_kernel = NULL;
     priv->axis_pos = -1.0;
     priv->angle_step = -1.0;
     priv->angle_offset = 0.0;
     priv->real_angle_step = -1.0;
-    priv->kernel = NULL;
     priv->sin_lut = NULL;
     priv->cos_lut = NULL;
     priv->host_sin_lut = NULL;
     priv->host_cos_lut = NULL;
+    priv->mode = MODE_TEXTURE;
 }
