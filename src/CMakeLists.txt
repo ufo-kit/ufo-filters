@@ -27,7 +27,7 @@ set(ufofilter_SRCS
     ufo-zeropadding-task.c
     )
 
-file(GLOB ufofilter_KERNELS "*.cl")
+file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}
 #{{{ Variables
 set(ufofilter_LIBS
