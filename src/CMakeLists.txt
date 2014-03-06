@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.6)
 
 #{{{ Sources
-set(ufofilter_SRCS 
+set(ufofilter_SRCS
     ufo-averager-task.c
     ufo-backproject-task.c
     ufo-buffer-task.c
@@ -24,27 +24,8 @@ set(ufofilter_SRCS
     ufo-volume-render-task.c
     ufo-zeropadding-task.c
     )
-#}}}
-#{{{ Kernels
-set(ufofilter_KERNELS
-    arithmetics.cl
-    backproject.cl
-    complex.cl
-    cut_sinogram_kernel.cl
-    dfi_sinc_kernel.cl
-    downsample.cl
-    fft.cl
-    filter.cl
-    forwardproject.cl
-    gaussian.cl
-    histthreshold.cl
-    interpolator.cl
-    metaballs.cl
-    nlm.cl
-    swap_quadrants_kernel.cl
-    volume.cl
-    zeropadding_kernel.cl
-    )
+
+file(GLOB ufofilter_KERNELS "*.cl")
 #}}}
 #{{{ Variables
 set(ufofilter_LIBS ${UFO_LIBRARIES})
@@ -79,23 +60,11 @@ if (OCLFFT_FOUND)
     include_directories(${OCLFFT_INCLUDE_DIRS})
     link_directories(${OCLFFT_LIBRARY_DIRS})
 endif ()
-#
-#if (FFTW3_FOUND)
-#    set(HAVE_FFTW3 "1")
-#    set(ufofilter_LIBS ${ufofilter_LIBS} ${FFTW3_LIBRARIES})
-#    include_directories(${FFTW3_INCLUDE_DIRS})
-#endif ()
-#
+
 if (OCLFFT_FOUND OR FFTW3_FOUND)
     list(APPEND ufofilter_SRCS ufo-fft-task.c)
     list(APPEND ufofilter_SRCS ufo-ifft-task.c)
 endif ()
-#
-#if (OPENCV_FOUND)
-#    set(ufofilter_SRCS ${ufofilter_SRCS} ufo-filter-cv-show.c)
-#    set(ufofilter_LIBS ${ufofilter_LIBS} ${OPENCV_LIBRARIES})
-#    include_directories(${OPENCV_INCLUDE_DIRS})
-#endif ()
 
 if (UFOART_FOUND)
     include_directories(${UFOART_INCLUDE_DIRS})
@@ -148,11 +117,7 @@ endforeach()
 
 # copy kernels
 foreach(_kernel ${ufofilter_KERNELS})
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${_kernel}
-                   ${CMAKE_CURRENT_BINARY_DIR}/${_kernel})
-
-    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${_kernel}
-            DESTINATION ${UFO_FILTERS_KERNELDIR})
+    install(FILES ${_kernel} DESTINATION ${UFO_FILTERS_KERNELDIR})
 endforeach()
 #}}}
 #{{{ Python tests
