@@ -49,8 +49,10 @@ backproject_tex (read_only image2d_t sinogram,
                  global float *slice,
                  constant float *sin_lut,
                  constant float *cos_lut,
+                 const unsigned int offset,
                  const unsigned int n_projections,
-                 const float axis_pos)
+                 const float axis_pos,
+                 const int overwrite)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
@@ -59,7 +61,7 @@ backproject_tex (read_only image2d_t sinogram,
     const float by = idy - axis_pos;
     float sum = 0.0f;
 
-    for(int proj = 0; proj < n_projections; proj++) {
+    for(int proj = offset; proj < n_projections; proj++) {
         /* mad() instructions have a performance impact of about 1% on GTX 580 */
         /* float h = mad (by, sin_lut[proj], mad(bx, cos_lut[proj], axis_pos)); */
 
@@ -68,6 +70,11 @@ backproject_tex (read_only image2d_t sinogram,
         sum += (isnan (val) ? 0.0 : val);
     }
 
-    slice[idy * width + idx] = sum * 4.0 * M_PI;
+    if (overwrite) {
+        slice[idy * width + idx] = sum * 4.0 * M_PI;
+    }
+    else {
+        slice[idy * width + idx] = slice[idy * width + idx] + sum * 4.0 * M_PI;
+    }
 }
 

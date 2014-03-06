@@ -44,8 +44,11 @@ struct _UfoBackprojectTaskPrivate {
     gdouble angle_step;
     gdouble angle_offset;
     gdouble real_angle_step;
+    guint offset;
+    guint burst_projections;
     guint n_projections;
     Mode mode;
+    gboolean overwrite;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -61,10 +64,13 @@ G_DEFINE_TYPE_WITH_CODE (UfoBackprojectTask, ufo_backproject_task, UFO_TYPE_TASK
 
 enum {
     PROP_0,
+    PROP_NUM_PROJECTIONS,
+    PROP_OFFSET,
     PROP_AXIS_POSITION,
     PROP_ANGLE_STEP,
     PROP_ANGLE_OFFSET,
     PROP_MODE,
+    PROP_OVERWRITE,
     N_PROPERTIES
 };
 
@@ -115,8 +121,10 @@ ufo_backproject_task_process (UfoGpuTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 1, sizeof (cl_mem), &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 2, sizeof (cl_mem), &priv->sin_lut));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (cl_mem), &priv->cos_lut));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (guint),  &priv->n_projections));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 5, sizeof (gfloat), &axis_pos));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (guint),  &priv->offset));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 5, sizeof (guint),  &priv->burst_projections));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 6, sizeof (gfloat), &axis_pos));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 7, sizeof (gint), &priv->overwrite));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, kernel, 2, requisition->dims, NULL);
@@ -181,7 +189,17 @@ ufo_backproject_task_get_requisition (UfoTask *task,
     priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
-    priv->n_projections = (guint) in_req.dims[1];
+    /* If the number of projections is not specified use the input size */
+    if (priv->n_projections == 0) {
+        priv->n_projections = (guint) in_req.dims[1];
+    }
+
+    priv->burst_projections = (guint) in_req.dims[1];
+
+    if (priv->burst_projections > priv->n_projections) {
+        g_error("Total number of projections (%u) must be greater than "
+                "or equal to sinogram height (%u)", priv->n_projections, priv->burst_projections);
+    }
 
     requisition->n_dims = 2;
     requisition->dims[0] = in_req.dims[0];
@@ -196,12 +214,12 @@ ufo_backproject_task_get_requisition (UfoTask *task,
 
     if (priv->sin_lut == NULL) {
         priv->sin_lut = create_lut_buffer (priv, &priv->host_sin_lut,
-                                           in_req.dims[1], sin);
+                                           priv->n_projections, sin);
     }
 
     if (priv->cos_lut == NULL) {
         priv->cos_lut = create_lut_buffer (priv, &priv->host_cos_lut,
-                                           in_req.dims[1], cos);
+                                           priv->n_projections, cos);
     }
 }
 
@@ -286,6 +304,12 @@ ufo_backproject_task_set_property (GObject *object,
     UfoBackprojectTaskPrivate *priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
+        case PROP_NUM_PROJECTIONS:
+            priv->n_projections = g_value_get_uint (value);
+            break;
+        case PROP_OFFSET:
+            priv->offset = g_value_get_uint (value);
+            break;
         case PROP_AXIS_POSITION:
             priv->axis_pos = g_value_get_double (value);
             break;
@@ -300,6 +324,9 @@ ufo_backproject_task_set_property (GObject *object,
                 priv->mode = MODE_NEAREST;
             else if (!g_strcmp0 (g_value_get_string (value), "texture"))
                 priv->mode = MODE_TEXTURE;
+            break;
+        case PROP_OVERWRITE:
+            priv->overwrite = g_value_get_boolean (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -316,6 +343,12 @@ ufo_backproject_task_get_property (GObject *object,
     UfoBackprojectTaskPrivate *priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
+        case PROP_NUM_PROJECTIONS:
+            g_value_set_uint (value, priv->n_projections);
+            break;
+        case PROP_OFFSET:
+            g_value_set_uint (value, priv->offset);
+            break;
         case PROP_AXIS_POSITION:
             g_value_set_double (value, priv->axis_pos);
             break;
@@ -334,6 +367,9 @@ ufo_backproject_task_get_property (GObject *object,
                     g_value_set_string (value, "texture");
                     break;
             }
+            break;
+        case PROP_OVERWRITE:
+            g_value_set_boolean (value, priv->overwrite);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -354,6 +390,20 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
     oclass->finalize = ufo_backproject_task_finalize;
     oclass->set_property = ufo_backproject_task_set_property;
     oclass->get_property = ufo_backproject_task_get_property;
+
+    properties[PROP_NUM_PROJECTIONS] =
+        g_param_spec_uint ("num-projections",
+                           "Number of projections between 0 and 180 degrees",
+                           "Number of projections between 0 and 180 degrees",
+                           0, +8192, 0,
+                           G_PARAM_READWRITE);
+
+    properties[PROP_OFFSET] =
+        g_param_spec_uint ("offset",
+                           "Offset to the first projection",
+                           "Offset to the first projection",
+                           0, +8192, 0,
+                           G_PARAM_READWRITE);
 
     properties[PROP_AXIS_POSITION] =
         g_param_spec_double ("axis-pos",
@@ -383,6 +433,13 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
                              "texture",
                              G_PARAM_READWRITE);
 
+    properties[PROP_OVERWRITE] =
+        g_param_spec_boolean ("overwrite",
+                              "Overwrite slice with new values",
+                              "Overwrite slice with new values",
+                              TRUE,
+                              G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -398,6 +455,8 @@ ufo_backproject_task_init (UfoBackprojectTask *self)
     self->priv = priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (self);
     priv->nearest_kernel = NULL;
     priv->texture_kernel = NULL;
+    priv->n_projections = 0;
+    priv->offset = 0;
     priv->axis_pos = -1.0;
     priv->angle_step = -1.0;
     priv->angle_offset = 0.0;
@@ -407,4 +466,5 @@ ufo_backproject_task_init (UfoBackprojectTask *self)
     priv->host_sin_lut = NULL;
     priv->host_cos_lut = NULL;
     priv->mode = MODE_TEXTURE;
+    priv->overwrite = TRUE;
 }
