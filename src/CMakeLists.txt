@@ -35,19 +35,10 @@ set(ufofilter_LIBS
     oclfft)
 
 if (CMAKE_COMPILER_IS_GNUCC OR ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang"))
-    add_definitions("-Wcast-align
-                     -Wcast-qual
-                     -Winline
-                     -Wmissing-declarations
-                     -Wmissing-prototypes
-                     -Wnested-externs
-                     -Wno-long-long
-                     -Wno-missing-field-initializers
-                     -Wpointer-arith
-                     -Wredundant-decls
-                     -Wshadow
-                     -Wstrict-prototypes
-                     -Wwrite-strings")
+    add_definitions("-Wcast-align -Wcast-qual -Winline -Wmissing-declarations "
+                    "-Wmissing-prototypes -Wnested-externs -Wno-long-long "
+                    "-Wno-missing-field-initializers -Wpointer-arith "
+                    "-Wredundant-decls -Wshadow -Wstrict-prototypes -Wwrite-strings")
 endif()
 #}}}
 #{{{ Dependency checks
