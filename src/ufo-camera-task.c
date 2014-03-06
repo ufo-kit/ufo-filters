@@ -23,19 +23,6 @@
 
 #include "ufo-camera-task.h"
 
-/**
- * SECTION:ufo-camera-task
- * @Short_description: Read frames from cameras
- * @Title: camera
- *
- * The camera task uses libuca to read frames from a connected camera and
- * provides them as a stream. When #UfoCameraTask:camera-name is provided, the
- * corresponding plugin is instantiated by the camera task. You can also pass an
- * already configured UcaCamera object to #UfoCameraTask:camera.
- *
- * The amount of frames can be controlled with either #UcaCameraTask:count and
- * #UcaCameraTask:time.
- */
 
 struct _UfoCameraTaskPrivate {
     UcaPluginManager *pm;

@@ -20,17 +20,6 @@
 #include <math.h>
 #include "ufo-flat-field-correction-task.h"
 
-/**
- * SECTION:ufo-flat-field-correction-task
- * @Short_description: Flat field correct projections
- * @Title: flat_field_correction
- *
- * Reads three data streams: Projection data on input 0, (averaged) dark field
- * data on input 1 and (averaged) flat field data on input 2. The node outputs
- * the flat field correction of the input data. If
- * #UfoFlatFieldCorrectionTask:absorption-correction is %TRUE, the negative
- * logarithm is taken.
- */
 
 struct _UfoFlatFieldCorrectionTaskPrivate {
     gboolean absorption_correction;

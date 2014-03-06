@@ -104,12 +104,6 @@ if (UFOART_FOUND)
 endif()
 #}}}
 #{{{ Plugin targets
-get_property(LIB64 GLOBAL PROPERTY FIND_LIBRARY_USE_LIB64_PATHS)
-
-set(shared_objects "")
-set(documented_types "")
-set(all_targets)
-
 include_directories(${CMAKE_CURRENT_BINARY_DIR}
                     ${CMAKE_CURRENT_SOURCE_DIR}
                     ${OPENCL_INCLUDE_DIRS}
@@ -131,12 +125,10 @@ foreach(_src ${ufofilter_SRCS})
     option(${target_option} "Build filter ${task}" ON)
 
     if (${target_option})
-        set(documented_types "${documented_types}\nufo_${_misc}_task_get_type")
         set(_misc "${_misc}_misc_SRCS")
 
         string(REPLACE "-" "" _targetname ${task})
         set(target "ufofilter${_targetname}")
-        set(shared_objects "${shared_objects} -l${target}")
 
         # build single shared library per filter
         if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
@@ -162,78 +154,6 @@ foreach(_kernel ${ufofilter_KERNELS})
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/${_kernel}
             DESTINATION ${UFO_FILTERS_KERNELDIR})
 endforeach()
-#}}}
-#{{{ gtk-doc targets
-pkg_check_modules(GTK_DOC gtk-doc)
-
-if(GTK_DOC_FOUND)
-    option(WITH_GTK_DOC "Build filter documentation" ON)
-    if (WITH_GTK_DOC)
-        get_directory_property(_current_include_dirs INCLUDE_DIRECTORIES)
-
-        set(GTK_DOC_CFLAGS)
-        foreach(_incl ${_current_include_dirs})
-            set(GTK_DOC_CFLAGS "-I${_incl} ${GTK_DOC_CFLAGS}")
-        endforeach()
-
-        set(GTK_DOC_LDFLAGS)
-        foreach(_lib ${ufofilter_LIBS})
-            # check if we have an absolute library path
-            if (NOT ${_lib} MATCHES "^[/]")
-                set(GTK_DOC_LDFLAGS "-l${_lib} ${GTK_DOC_LDFLAGS}")
-            endif()
-        endforeach()
-
-        find_program(GTK_DOC_SCAN gtkdoc-scan REQUIRED)
-        find_program(GTK_DOC_SCANGOBJ gtkdoc-scangobj REQUIRED)
-        find_program(GTK_DOC_MKDB gtkdoc-mkdb REQUIRED)
-        find_program(GTK_DOC_MKHTML gtkdoc-mkhtml REQUIRED)
-
-        set(doc_base "${CMAKE_CURRENT_BINARY_DIR}/../docs")
-        set(doc_out "${doc_base}/reference")
-
-        set(_xml_doc_input)
-
-        foreach (_src ${ufofilter_SRCS})
-            string(REPLACE ".c" ".xml" _xml_doc ${_src})
-            list(APPEND _xml_doc_input "<xi:include href=\"xml/${_xml_doc}\"/>")
-        endforeach()
-
-        string(REPLACE ";" "\n" _xml_doc_input ${_xml_doc_input})
-        configure_file("${CMAKE_CURRENT_SOURCE_DIR}/UfoFilters-docs.xml.in" "${doc_out}/UfoFilters-docs.xml")
-        configure_file("${CMAKE_CURRENT_SOURCE_DIR}/scangobj.sh.in" "${doc_out}/scangobj.sh")
-        configure_file("${CMAKE_CURRENT_SOURCE_DIR}/UfoFilters.types.in" "${doc_out}/UfoFilters.types")
-
-        add_custom_command(OUTPUT ${doc_out}/UfoFilters-decl.txt
-            COMMAND ${GTK_DOC_SCAN}
-                    --module=UfoFilters
-                    --source-dir=${CMAKE_CURRENT_SOURCE_DIR}/../src
-                    DEPENDS ${ufofilter_SRCS}
-            WORKING_DIRECTORY ${doc_out})
-
-        add_custom_command(OUTPUT ${doc_out}/UfoFilters.args
-            COMMAND sh scangobj.sh
-            DEPENDS ${ufofilter_SRCS} ${doc_out}/UfoFilters-decl.txt ${all_targets}
-            WORKING_DIRECTORY ${doc_out})
-
-        add_custom_command(OUTPUT ${doc_out}/sgml.stamp
-            COMMAND ${GTK_DOC_MKDB}
-                    --module=UfoFilters
-                    --source-dir=${CMAKE_CURRENT_SOURCE_DIR}
-                    --output-format=xml
-            DEPENDS ${ufofilter_SRCS} ${doc_out}/UfoFilters.args
-            WORKING_DIRECTORY ${doc_out})
-
-        add_custom_command(OUTPUT ${doc_base}/html.stamp
-            COMMAND ${GTK_DOC_MKHTML}
-                    UfoFilters
-                    ${doc_out}/UfoFilters-docs.xml
-            DEPENDS ${doc_out}/sgml.stamp
-            WORKING_DIRECTORY ${doc_out})
-
-        add_custom_target(reference ALL DEPENDS ${doc_base}/html.stamp)
-    endif()
-endif(GTK_DOC_FOUND)
 #}}}
 #{{{ Python tests
 find_program(NOSETESTSBIN nosetests)

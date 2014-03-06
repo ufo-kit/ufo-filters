@@ -20,14 +20,6 @@
 #include <string.h>
 #include "ufo-region-of-interest-task.h"
 
-/**
- * SECTION:ufo-region-of-interest-task
- * @Short_description: Cut out a region of interest
- * @Title: region-of-interest
- *
- * Cut out a region of interest from any two-dimensional input. If the ROI is
- * (partially) outside the input, only accessible data will be copied.
- */
 
 struct _UfoRegionOfInterestTaskPrivate {
     guint x;

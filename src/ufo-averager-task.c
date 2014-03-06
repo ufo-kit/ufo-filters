@@ -22,15 +22,6 @@
 
 #include "ufo-averager-task.h"
 
-/**
- * SECTION:ufo-averager-task
- * @Short_description: Average incoming data stream
- * @Title: averager
- *
- * The averager node reads input data until the stream ends and outputs one or
- * several averaged images. #UfoAveragerTask:num-generate controls the number of
- * images that are generated.
- */
 
 struct _UfoAveragerTaskPrivate {
     gfloat *averaged;

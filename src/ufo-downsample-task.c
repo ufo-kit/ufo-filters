@@ -25,12 +25,6 @@
 
 #include "ufo-downsample-task.h"
 
-/**
- * SECTION:ufo-downsample-task
- * @Short_description: Write TIFF files
- * @Title: downsample
- *
- */
 
 struct _UfoDownsampleTaskPrivate {
     cl_kernel fast_kernel;

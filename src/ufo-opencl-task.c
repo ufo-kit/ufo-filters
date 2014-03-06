@@ -25,17 +25,6 @@
 
 #include "ufo-opencl-task.h"
 
-/**
- * SECTION:ufo-opencl-task
- * @Short_description: Process arbitrary OpenCL kernels
- * @Title: opencl
- *
- * This module is used to load an arbitrary #UfoOpenCLTask:kernel from
- * #UfoOpenCLTask:filename and execute it on each input. The kernel must have
- * only two global float array parameters, the first represents the input, the
- * second one the output. #UfoOpenCLTask:num-dims must be changed, if the kernel
- * accesses either one or three dimensional index spaces.
- */
 
 struct _UfoOpenCLTaskPrivate {
     cl_kernel kernel;

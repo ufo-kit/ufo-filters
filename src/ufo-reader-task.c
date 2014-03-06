@@ -30,16 +30,6 @@
 
 #include "ufo-reader-task.h"
 
-/**
- * SECTION:ufo-reader-task
- * @Short_description: Read TIFF and EDF files
- * @Title: reader
- *
- * The reader node loads single files from disk and provides them as a stream
- * The nominal resolution can be decreased by specifying the #UfoReaderTask:x
- * and #UfoReaderTask:y coordinates, and the #UfoReaderTask:width and
- * #UfoReaderTask:height of a region of interest.
- */
 
 struct _UfoReaderTaskPrivate {
     gchar *path;
@@ -515,13 +505,6 @@ ufo_reader_task_class_init(UfoReaderTaskClass *klass)
         -1, G_MAXINT, -1,
         G_PARAM_READWRITE);
 
-    /**
-     * UfoReaderTask:blocking:
-     *
-     * Block the reader and do not return unless #UfoReaderTask:count files
-     * have been read. This is useful in case not all files are available the
-     * time the reader was started.
-     */
     properties[PROP_BLOCKING] =
         g_param_spec_boolean("blocking",
         "Block reader",

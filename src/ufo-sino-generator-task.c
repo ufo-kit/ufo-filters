@@ -26,15 +26,6 @@
 
 #include "ufo-sino-generator-task.h"
 
-/**
- * SECTION:ufo-sino-generator-task
- * @Short_description: Generate sinograms from a series of projections
- * @Title: sino-generator
- *
- * Read projections and transpose them in space to generate a series of
- * sinograms. Note, that you have to set the
- * #UfoSinoGeneratorTask:num-projections property.
- */
 
 struct _UfoSinoGeneratorTaskPrivate {
     guint n_projections;

@@ -22,16 +22,6 @@
 
 #include "ufo-writer-task.h"
 
-/**
- * SECTION:ufo-writer-task
- * @Short_description: Write TIFF files
- * @Title: writer
- *
- * The writer node writes each incoming image as a TIFF using libtiff to disk.
- * Each file is named after the #UfoWriterTask:format string. If
- * #UfoWriterTask:single-file is %FALSE, the format string must contain a `%i'
- * specifier that denotes the current image number.
- */
 
 struct _UfoWriterTaskPrivate {
     gchar *format;
