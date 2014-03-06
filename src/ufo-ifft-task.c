@@ -25,24 +25,9 @@
 #include <CL/cl.h>
 #endif
 
-#ifdef HAVE_OCLFFT
-#include <oclfft/clFFT.h>
-#endif
-
-#ifdef HAVE_FFTW3
-#include <fftw3.h>
-#endif
-
+#include "clFFT.h"
 #include "ufo-ifft-task.h"
 
-/**
- * SECTION:ufo-ifft-task
- * @Short_description: Compute inverse Fast Fourier transform
- * @Title: ifft
- *
- * Compute the inverse Fourier transform of the input. #UfoIfftTask:crop-width
- * controls the horizontal output size.
- */
 
 struct _UfoIfftTaskPrivate {
     enum {
@@ -51,11 +36,9 @@ struct _UfoIfftTaskPrivate {
         FFT_3D
     } fft_dimensions;
 
-#ifdef HAVE_OCLFFT
     cl_context  context;
     cl_kernel   kernel;
     clFFT_Plan  fft_plan;
-#endif
 
     gint crop_width;
 };
@@ -91,7 +74,6 @@ ufo_ifft_task_setup (UfoTask *task,
                      UfoResources *resources,
                      GError **error)
 {
-#ifdef HAVE_OCLFFT
     UfoIfftTaskPrivate *priv;
 
     priv = UFO_IFFT_TASK_GET_PRIVATE (task);
@@ -102,7 +84,6 @@ ufo_ifft_task_setup (UfoTask *task,
 
     if (priv->kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
-#endif
 }
 
 static void
@@ -179,7 +160,6 @@ ufo_ifft_task_finalize (GObject *object)
 
     priv = UFO_IFFT_TASK_GET_PRIVATE (object);
 
-#ifdef HAVE_OCLFFT
     if (priv->kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
         priv->kernel = NULL;
@@ -191,7 +171,6 @@ ufo_ifft_task_finalize (GObject *object)
     }
 
     clFFT_DestroyPlan (priv->fft_plan);
-#endif
 
     G_OBJECT_CLASS (ufo_ifft_task_parent_class)->finalize (object);
 }
@@ -204,7 +183,6 @@ ufo_task_interface_init (UfoTaskIface *iface)
     iface->get_structure = ufo_ifft_task_get_structure;
 }
 
-#ifdef HAVE_OCLFFT
 static gboolean
 ufo_ifft_task_process_gpu (UfoGpuTask *task,
                           UfoBuffer **inputs,
@@ -263,7 +241,6 @@ ufo_gpu_task_interface_init (UfoGpuTaskIface *iface)
 {
     iface->process = ufo_ifft_task_process_gpu;
 }
-#endif
 
 static void
 ufo_ifft_task_set_property (GObject *object,
@@ -348,10 +325,8 @@ ufo_ifft_task_init (UfoIfftTask *self)
     UfoIfftTaskPrivate *priv;
     self->priv = priv = UFO_IFFT_TASK_GET_PRIVATE (self);
     priv->crop_width = -1;
-#ifdef HAVE_OCLFFT
     priv->fft_dimensions = FFT_1D;
     priv->fft_plan = NULL;
     priv->kernel = NULL;
     priv->context = NULL;
-#endif
 }

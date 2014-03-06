@@ -34,6 +34,8 @@ find_package(OpenCL REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(UFO ufo>=${PKG_UFO_CORE_MIN_REQUIRED} REQUIRED)
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps/oclfft)
+
 link_directories(${UFO_LIBRARY_DIRS})
 #}}}
 #{{{ Global definitions
@@ -41,23 +43,12 @@ add_definitions("-std=c99 -pedantic -Wall -Wextra -fPIC")
 add_definitions(-DG_LOG_DOMAIN="Ufo")
 
 if (CMAKE_COMPILER_IS_GNUCC OR ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang"))
-    add_definitions("-Wcast-align
-                     -Wcast-qual
-                     -Winline
-                     -Wmissing-declarations
-                     -Wmissing-prototypes
-                     -Wnested-externs
-                     -Wno-long-long
-                     -Wno-missing-field-initializers
-                     -Wno-unused-parameter
-                     -Wpointer-arith
-                     -Wredundant-decls
-                     -Wshadow
-                     -Wstrict-prototypes
-                     -Wwrite-strings")
-endif()
+    add_definitions("-Wno-unused-parameter")
+endif ()
+
 #}}}
 #{{{ Subdirectories
+add_subdirectory(deps)
 add_subdirectory(src)
 add_subdirectory(tests/integration_tests)
 #}}}

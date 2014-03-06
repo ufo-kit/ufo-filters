@@ -25,14 +25,11 @@
 #include <CL/cl.h>
 #endif
 
-#ifdef HAVE_OCLFFT
-#include <oclfft/clFFT.h>
-#endif
-
 #ifdef HAVE_FFTW3
 #include <fftw3.h>
 #endif
 
+#include "clFFT.h"
 #include "ufo-fft-task.h"
 
 
@@ -43,12 +40,10 @@ struct _UfoFftTaskPrivate {
         FFT_3D
     } fft_dimensions;
 
-#ifdef HAVE_OCLFFT
     cl_context  context;
     cl_kernel   kernel;
     clFFT_Plan  fft_plan;
     clFFT_Dim3  fft_size;
-#endif
 
     gboolean auto_zeropadding;
 };
@@ -100,7 +95,6 @@ ufo_fft_task_setup (UfoTask *task,
                     UfoResources *resources,
                     GError **error)
 {
-#ifdef HAVE_OCLFFT
     UfoFftTaskPrivate *priv;
 
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
@@ -115,7 +109,6 @@ ufo_fft_task_setup (UfoTask *task,
 
     if (priv->kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
-#endif
 }
 
 static void
@@ -192,7 +185,6 @@ ufo_fft_task_finalize (GObject *object)
 
     priv = UFO_FFT_TASK_GET_PRIVATE (object);
 
-#ifdef HAVE_OCLFFT
     if (priv->kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
         priv->kernel = NULL;
@@ -204,7 +196,6 @@ ufo_fft_task_finalize (GObject *object)
     }
 
     clFFT_DestroyPlan (priv->fft_plan);
-#endif
 
     G_OBJECT_CLASS (ufo_fft_task_parent_class)->finalize (object);
 }
@@ -217,7 +208,6 @@ ufo_task_interface_init (UfoTaskIface *iface)
     iface->get_structure = ufo_fft_task_get_structure;
 }
 
-#ifdef HAVE_OCLFFT
 static gboolean
 ufo_fft_task_process_gpu (UfoGpuTask *task,
                           UfoBuffer **inputs,
@@ -289,7 +279,6 @@ ufo_gpu_task_interface_init (UfoGpuTaskIface *iface)
 {
     iface->process = ufo_fft_task_process_gpu;
 }
-#endif
 
 static void
 ufo_fft_task_set_property (GObject *object,
@@ -412,14 +401,12 @@ ufo_fft_task_init (UfoFftTask *self)
 {
     UfoFftTaskPrivate *priv;
     self->priv = priv = UFO_FFT_TASK_GET_PRIVATE (self);
-#ifdef HAVE_OCLFFT
     priv->fft_dimensions = FFT_1D;
     priv->fft_size.x = 1;
     priv->fft_size.y = 1;
     priv->fft_size.z = 1;
     priv->fft_plan = NULL;
     priv->kernel = NULL;
-#endif
 
     priv->auto_zeropadding = TRUE;
 }

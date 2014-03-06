@@ -11,8 +11,10 @@ set(ufofilter_SRCS
     ufo-downsample-task.c
     ufo-filter-task.c
     ufo-flat-field-correction-task.c
+    ufo-fft-task.c
     ufo-gaussian-blur-task.c
     ufo-generate-task.c
+    ufo-ifft-task.c
     ufo-sharpness-measure-task.c
     ufo-meta-balls-task.c
     ufo-null-task.c
@@ -28,14 +30,32 @@ set(ufofilter_SRCS
 file(GLOB ufofilter_KERNELS "*.cl")
 #}}}
 #{{{ Variables
-set(ufofilter_LIBS ${UFO_LIBRARIES})
+set(ufofilter_LIBS
+    ${UFO_LIBRARIES}
+    oclfft)
+
+if (CMAKE_COMPILER_IS_GNUCC OR ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang"))
+    add_definitions("-Wcast-align
+                     -Wcast-qual
+                     -Winline
+                     -Wmissing-declarations
+                     -Wmissing-prototypes
+                     -Wnested-externs
+                     -Wno-long-long
+                     -Wno-missing-field-initializers
+                     -Wpointer-arith
+                     -Wredundant-decls
+                     -Wshadow
+                     -Wstrict-prototypes
+                     -Wwrite-strings")
+endif()
 #}}}
 #{{{ Dependency checks
 find_package(TIFF)
+
 pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(OPENCV opencv)
 pkg_check_modules(UFOART ufoart>=0.1)
-pkg_check_modules(OCLFFT oclfft)
 
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
 
@@ -52,18 +72,6 @@ if (UCA_INCLUDE_DIRS AND UCA_LIBRARIES)
     list(APPEND ufofilter_LIBS ${UCA_LIBRARIES})
     include_directories(${UCA_INCLUDE_DIRS})
     link_directories(${UCA_LIBRARY_DIRS})
-endif ()
-
-if (OCLFFT_FOUND)
-    set(HAVE_OCLFFT "1")
-    set(ufofilter_LIBS ${ufofilter_LIBS} ${OCLFFT_LIBRARIES})
-    include_directories(${OCLFFT_INCLUDE_DIRS})
-    link_directories(${OCLFFT_LIBRARY_DIRS})
-endif ()
-
-if (OCLFFT_FOUND OR FFTW3_FOUND)
-    list(APPEND ufofilter_SRCS ufo-fft-task.c)
-    list(APPEND ufofilter_SRCS ufo-ifft-task.c)
 endif ()
 
 if (UFOART_FOUND)
@@ -107,6 +115,7 @@ foreach(_src ${ufofilter_SRCS})
         endif()
 
         target_link_libraries(${target} ${ufofilter_LIBS})
+
         list(APPEND all_targets ${target})
         
         install(TARGETS ${target}
