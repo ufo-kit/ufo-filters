@@ -1,4 +1,0 @@
-export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${CMAKE_CURRENT_BINARY_DIR}"
-export LDFLAGS="${GTK_DOC_LDFLAGS} ${shared_objects} -L${CMAKE_CURRENT_BINARY_DIR} -L${UFO_LIBRARY_DIRS}"
-export CFLAGS="${GTK_DOC_CFLAGS}"
-gtkdoc-scangobj --module=UfoFilters
