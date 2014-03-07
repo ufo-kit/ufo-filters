@@ -217,6 +217,7 @@ ufo_fft_task_process_gpu (UfoGpuTask *task,
     UfoFftTaskPrivate *priv;
     UfoGpuNode *node;
     UfoRequisition in_req;
+    UfoProfiler *profiler;
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
@@ -227,6 +228,7 @@ ufo_fft_task_process_gpu (UfoGpuTask *task,
 
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
@@ -250,20 +252,20 @@ ufo_fft_task_process_gpu (UfoGpuTask *task,
                                                            2, NULL, global_work_size, NULL,
                                                            0, NULL, &event));
     }
-
+    
     if (priv->fft_dimensions == FFT_1D) {
-        clFFT_ExecuteInterleaved (cmd_queue, priv->fft_plan,
-                                  (cl_int) in_req.dims[1], clFFT_Forward,
-                                  (priv->auto_zeropadding)? out_mem : in_mem, out_mem,
-                                  (priv->auto_zeropadding)? 1 : 0, 
-                                  (priv->auto_zeropadding)? &event : NULL, NULL);
+        clFFT_ExecuteInterleaved_Ufo (cmd_queue, priv->fft_plan,
+				      (cl_int) in_req.dims[1], clFFT_Forward,
+				      (priv->auto_zeropadding)? out_mem : in_mem, out_mem,
+				      (priv->auto_zeropadding)? 1 : 0, 
+				      (priv->auto_zeropadding)? &event : NULL, NULL, profiler);
     }
     else {
-        clFFT_ExecuteInterleaved (cmd_queue, priv->fft_plan,
-                                  1, clFFT_Forward,
-                                  (priv->auto_zeropadding)? out_mem : in_mem, out_mem, 
-                                  (priv->auto_zeropadding)? 1 : 0, 
-                                  (priv->auto_zeropadding)? &event : NULL, NULL);
+        clFFT_ExecuteInterleaved_Ufo (cmd_queue, priv->fft_plan,
+				      1, clFFT_Forward,
+				      (priv->auto_zeropadding)? out_mem : in_mem, out_mem, 
+				      (priv->auto_zeropadding)? 1 : 0, 
+				      (priv->auto_zeropadding)? &event : NULL, NULL, profiler);
     }
 
     if (priv->auto_zeropadding) {
