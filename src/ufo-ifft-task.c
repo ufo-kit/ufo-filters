@@ -190,6 +190,7 @@ ufo_ifft_task_process_gpu (UfoGpuTask *task,
                           UfoRequisition *requisition)
 {
     UfoIfftTaskPrivate *priv;
+    UfoProfiler *profiler;
     UfoGpuNode *node;
     UfoRequisition in_req;
     cl_command_queue cmd_queue;
@@ -202,15 +203,16 @@ ufo_ifft_task_process_gpu (UfoGpuTask *task,
 
     priv = UFO_IFFT_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     batch_size = priv->fft_dimensions == FFT_1D ? (cl_int) requisition->dims[1] : 1;
 
-    clFFT_ExecuteInterleaved (cmd_queue,
-                              priv->fft_plan, batch_size, clFFT_Inverse,
-                              in_mem, in_mem,
-                              0, NULL, NULL);
+    clFFT_ExecuteInterleaved_Ufo (cmd_queue,
+				  priv->fft_plan, batch_size, clFFT_Inverse,
+				  in_mem, in_mem,
+				  0, NULL, NULL, profiler);
 
     clFinish (cmd_queue);
 
