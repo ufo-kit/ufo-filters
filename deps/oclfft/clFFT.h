@@ -55,6 +55,7 @@ extern "C" {
 
 #include <CL/cl.h>
 #include <stdio.h>
+#include <ufo/ufo.h>
 
 // XForm type
 typedef enum 
@@ -107,18 +108,31 @@ void clFFT_DestroyPlan( clFFT_Plan plan );
 
 cl_int clFFT_ExecuteInterleaved( cl_command_queue queue, clFFT_Plan plan, cl_int batchSize, clFFT_Direction dir, 
 								 cl_mem data_in, cl_mem data_out,
-								 cl_int num_events, cl_event *event_list, cl_event *event );
+								 cl_int num_events, cl_event *event_list, cl_event *event);
+
+cl_int clFFT_ExecuteInterleaved_Ufo( cl_command_queue queue, clFFT_Plan plan, cl_int batchSize, clFFT_Direction dir, 
+								 cl_mem data_in, cl_mem data_out,
+								 cl_int num_events, cl_event *event_list, cl_event *event, UfoProfiler *profiler);
 
 cl_int clFFT_ExecutePlannar( cl_command_queue queue, clFFT_Plan plan, cl_int batchSize, clFFT_Direction dir, 
 							 cl_mem data_in_real, cl_mem data_in_imag, cl_mem data_out_real, cl_mem data_out_imag,
-							 cl_int num_events, cl_event *event_list, cl_event *event );
+							 cl_int num_events, cl_event *event_list, cl_event *event);
+
+cl_int clFFT_ExecutePlannar_Ufo( cl_command_queue queue, clFFT_Plan plan, cl_int batchSize, clFFT_Direction dir, 
+							 cl_mem data_in_real, cl_mem data_in_imag, cl_mem data_out_real, cl_mem data_out_imag,
+							 cl_int num_events, cl_event *event_list, cl_event *event, UfoProfiler *profiler);
 
 cl_int clFFT_1DTwistInterleaved(clFFT_Plan Plan, cl_command_queue queue, cl_mem array, 
 						        size_t numRows, size_t numCols, size_t startRow, size_t rowsToProcess, clFFT_Direction dir);
-	
+
+cl_int clFFT_1DTwistInterleaved_Ufo(clFFT_Plan Plan, cl_command_queue queue, cl_mem array, 
+						        size_t numRows, size_t numCols, size_t startRow, size_t rowsToProcess, clFFT_Direction dir, UfoProfiler *profiler);
 
 cl_int clFFT_1DTwistPlannar(clFFT_Plan Plan, cl_command_queue queue, cl_mem array_real, cl_mem array_imag, 
 					        size_t numRows, size_t numCols, size_t startRow, size_t rowsToProcess, clFFT_Direction dir);
+
+cl_int clFFT_1DTwistPlannar_Ufo(clFFT_Plan Plan, cl_command_queue queue, cl_mem array_real, cl_mem array_imag, 
+					        size_t numRows, size_t numCols, size_t startRow, size_t rowsToProcess, clFFT_Direction dir, UfoProfiler *profiler);
 	
 void clFFT_DumpPlan( clFFT_Plan plan, FILE *file);	
 
