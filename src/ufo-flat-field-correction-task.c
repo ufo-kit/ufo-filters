@@ -22,7 +22,6 @@
 
 
 struct _UfoFlatFieldCorrectionTaskPrivate {
-    gboolean absorption_correction;
     gboolean fix_nan_and_inf;
 };
 
@@ -39,7 +38,6 @@ G_DEFINE_TYPE_WITH_CODE (UfoFlatFieldCorrectionTask, ufo_flat_field_correction_t
 
 enum {
     PROP_0,
-    PROP_ABSORPTION_CORRECTION,
     PROP_FIX_NAN_AND_INF,
     N_PROPERTIES
 };
@@ -93,6 +91,7 @@ ufo_flat_field_correction_task_process (UfoCpuTask *task,
     gfloat *dark_data;
     gfloat *flat_data;
     gfloat *out_data;
+    gfloat corrected_value;
     gsize n_pixels;
 
     priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (task);
@@ -107,20 +106,12 @@ ufo_flat_field_correction_task_process (UfoCpuTask *task,
     ufo_profiler_start (profiler, UFO_PROFILER_TIMER_CPU);
 
     /* Flat field correction */
-    for (gsize i = 0; i < n_pixels; i++)
-        out_data[i] = (proj_data[i] - dark_data[i]) / (flat_data[i] - dark_data[i]);
-
-    /* Optional absorption correction */
-    if (priv->absorption_correction) {
-        for (gsize i = 0; i < n_pixels; i++)
-            out_data[i] = (gfloat) (- log (out_data[i]));
-    }
-
-    /* Fix NANs and INFs */
-    if (priv->fix_nan_and_inf) {
-        for (gsize i = 0; i < n_pixels; i++)
-        if (isnan (out_data[i]) || isinf (out_data[i]))
-            out_data[i] = 0.0;
+    for (gsize i = 0; i < n_pixels; i++) {
+        corrected_value = (proj_data[i] - dark_data[i]) / (flat_data[i] - dark_data[i]);
+        if (priv->fix_nan_and_inf && (isnan (out_data[i]) || isinf (out_data[i]))) {
+            corrected_value = 0.0;
+        }
+        out_data[i] = corrected_value;
     }
 
     ufo_profiler_stop (profiler, UFO_PROFILER_TIMER_CPU);
@@ -137,9 +128,6 @@ ufo_flat_field_correction_task_set_property (GObject *object,
     UfoFlatFieldCorrectionTaskPrivate *priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_ABSORPTION_CORRECTION:
-            priv->absorption_correction = g_value_get_boolean (value);
-            break;
         case PROP_FIX_NAN_AND_INF:
             priv->fix_nan_and_inf = g_value_get_boolean (value);
             break;
@@ -158,9 +146,6 @@ ufo_flat_field_correction_task_get_property (GObject *object,
     UfoFlatFieldCorrectionTaskPrivate *priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_ABSORPTION_CORRECTION:
-            g_value_set_boolean (value, priv->absorption_correction);
-            break;
         case PROP_FIX_NAN_AND_INF:
             g_value_set_boolean (value, priv->fix_nan_and_inf);
             break;
@@ -199,13 +184,6 @@ ufo_flat_field_correction_task_class_init (UfoFlatFieldCorrectionTaskClass *klas
     gobject_class->get_property = ufo_flat_field_correction_task_get_property;
     gobject_class->finalize = ufo_flat_field_correction_task_finalize;
 
-    properties[PROP_ABSORPTION_CORRECTION] =
-        g_param_spec_boolean("absorption-correction",
-                             "Take the negative natural logarithm of the result",
-                             "Take the negative natural logarithm of the result",
-                             FALSE,
-                             G_PARAM_READWRITE);
-
     properties[PROP_FIX_NAN_AND_INF] =
         g_param_spec_boolean("fix-nan-and-inf",
                              "Replace NAN and INF values with 0.0",
@@ -223,6 +201,5 @@ static void
 ufo_flat_field_correction_task_init(UfoFlatFieldCorrectionTask *self)
 {
     self->priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE(self);
-    self->priv->absorption_correction = FALSE;
     self->priv->fix_nan_and_inf = FALSE;
 }
