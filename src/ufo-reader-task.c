@@ -22,11 +22,6 @@
 #include <string.h>
 #include <tiffio.h>
 #include <glob.h>
-#ifdef __APPLE__
-#include <OpenCL/cl.h>
-#else
-#include <CL/cl.h>
-#endif
 
 #include "ufo-reader-task.h"
 
