@@ -119,6 +119,23 @@ Tomographic backprojection
         Reconstruction mode which can be either ``nearest`` or ``texture``.
 
 
+Forward projection
+------------------
+
+.. gobj:class:: forwardproject
+
+    Computes the forward projection of slices into sinograms.
+
+    .. gobj:prop:: num-projections:int
+
+        Number of final 1D projections, that means height of the sinogram.
+
+    .. gobj:prop:: angle-step:float
+
+        Angular step between two adjacent projections. If not changed, it is
+        simply pi divided by :gobj:prop:`num-projections`.
+
+
 Gaussian blur
 -------------
 

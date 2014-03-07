@@ -12,6 +12,7 @@ set(ufofilter_SRCS
     ufo-filter-task.c
     ufo-flat-field-correction-task.c
     ufo-fft-task.c
+    ufo-forwardproject-task.c
     ufo-gaussian-blur-task.c
     ufo-generate-task.c
     ufo-ifft-task.c
