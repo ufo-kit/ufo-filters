@@ -51,10 +51,7 @@ struct _UfoReaderTaskPrivate {
     guint16 spp;
     gsize size;
 
-    gboolean roi;
-    guint roi_x;
     guint roi_y;
-    guint roi_width;
     guint roi_height;
 };
 
@@ -76,10 +73,7 @@ enum {
     PROP_BLOCKING,
     PROP_NTH,
     PROP_NORMALIZE,
-    PROP_ROI,
-    PROP_ROI_X,
     PROP_ROI_Y,
-    PROP_ROI_WIDTH,
     PROP_ROI_HEIGHT,
     N_PROPERTIES
 };
@@ -93,21 +87,30 @@ ufo_reader_task_new (void)
 }
 
 static gboolean
-read_tiff_data (TIFF *tif, gpointer buffer)
+read_tiff_data (UfoReaderTaskPrivate *priv, gpointer buffer, UfoRequisition *requisition)
 {
-    const tsize_t strip_size = TIFFStripSize(tif);
-    const guint n_strips = TIFFNumberOfStrips(tif);
+    const guint32 width = requisition->dims[0];
+    const guint32 height = requisition->dims[1];
+    tsize_t result;
     int offset = 0;
-    tsize_t result = 0;
+    int step = width;
 
-    for (guint strip = 0; strip < n_strips; strip++) {
-        result = TIFFReadEncodedStrip(tif, strip, ((gchar *) buffer) +offset, strip_size);
+    if (priv->bps > 8) {
+        if (priv->bps <= 16)
+            step *= 2;
+        else
+            step *= 4;
+    }
+
+    for (guint32 i = 0; i < height; i++) {
+        result = TIFFReadScanline (priv->tiff, ((gchar *) buffer) + offset, i + priv->roi_y, 0);
 
         if (result == -1)
             return FALSE;
 
-        offset += result;
+        offset += step;
     }
+
     return TRUE;
 }
 
@@ -286,13 +289,17 @@ ufo_reader_task_get_requisition (UfoTask *task,
 
     requisition->n_dims = 2;
 
-    if (!priv->roi || (priv->roi_width == 0) || (priv->roi_height == 0)) {
+    if (priv->roi_height == 0 && priv->roi_y == 0) {
         requisition->dims[0] = priv->width;
         requisition->dims[1] = priv->height;
     }
     else {
-        requisition->dims[0] = priv->roi_width;
-        requisition->dims[1] = priv->roi_height;
+        requisition->dims[0] = priv->width;
+
+        if (priv->roi_height > 0)
+            requisition->dims[1] = MIN (priv->height - priv->roi_y, priv->roi_height);
+        else
+            requisition->dims[1] = priv->height - priv->roi_y;
     }
 }
 
@@ -323,7 +330,7 @@ ufo_reader_task_generate (UfoCpuTask *task,
         ufo_profiler_start (profiler, UFO_PROFILER_TIMER_IO);
 
         if (priv->tiff != NULL) {
-            read_tiff_data (priv->tiff, data);
+            read_tiff_data (priv, data, requisition);
             TIFFClose (priv->tiff);
             priv->tiff = NULL;
         }
@@ -378,17 +385,8 @@ ufo_reader_task_set_property (GObject *object,
         case PROP_NORMALIZE:
             priv->normalize = g_value_get_boolean (value);
             break;
-        case PROP_ROI:
-            priv->roi = g_value_get_boolean (value);
-            break;
-        case PROP_ROI_X:
-            priv->roi_x = g_value_get_uint (value);
-            break;
         case PROP_ROI_Y:
             priv->roi_y = g_value_get_uint (value);
-            break;
-        case PROP_ROI_WIDTH:
-            priv->roi_width = g_value_get_uint (value);
             break;
         case PROP_ROI_HEIGHT:
             priv->roi_height = g_value_get_uint (value);
@@ -423,17 +421,8 @@ ufo_reader_task_get_property (GObject *object,
         case PROP_NORMALIZE:
             g_value_set_boolean (value, priv->normalize);
             break;
-        case PROP_ROI:
-            g_value_set_boolean (value, priv->roi);
-            break;
-        case PROP_ROI_X:
-            g_value_set_uint (value, priv->roi_x);
-            break;
         case PROP_ROI_Y:
             g_value_set_uint (value, priv->roi_y);
-            break;
-        case PROP_ROI_WIDTH:
-            g_value_set_uint (value, priv->roi_width);
             break;
         case PROP_ROI_HEIGHT:
             g_value_set_uint (value, priv->roi_height);
@@ -519,38 +508,17 @@ ufo_reader_task_class_init(UfoReaderTaskClass *klass)
         FALSE,
         G_PARAM_READWRITE);
 
-    properties[PROP_ROI] =
-        g_param_spec_boolean("region-of-interest",
-        "Read region of interest",
-        "Read region of interest instead of full image",
-        FALSE,
-        G_PARAM_READWRITE);
-
-    properties[PROP_ROI_X] =
-        g_param_spec_uint("x",
-            "Horizontal coordinate",
-            "Horizontal coordinate from where to start the ROI",
-            0, G_MAXUINT, 0,
-            G_PARAM_READWRITE);
-
     properties[PROP_ROI_Y] =
         g_param_spec_uint("y",
             "Vertical coordinate",
-            "Vertical coordinate from where to start the ROI",
-            0, G_MAXUINT, 0,
-            G_PARAM_READWRITE);
-
-    properties[PROP_ROI_WIDTH] =
-        g_param_spec_uint("width",
-            "Width",
-            "Width of the region of interest",
+            "Vertical coordinate from where to start reading the image",
             0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_ROI_HEIGHT] =
         g_param_spec_uint("height",
             "Height",
-            "Height of the region of interest",
+            "Height of the region of interest to read",
             0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
@@ -572,8 +540,8 @@ ufo_reader_task_init(UfoReaderTask *self)
     priv->blocking = FALSE;
     priv->normalize = FALSE;
     priv->more_pages = FALSE;
-    priv->roi = FALSE;
-    priv->roi_x = priv->roi_y = priv->roi_width = priv->roi_height = 0;
+    priv->roi_y = 0;
+    priv->roi_height = 0;
     priv->tiff = NULL;
     priv->edf = NULL;
 }

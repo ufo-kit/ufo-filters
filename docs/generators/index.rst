@@ -49,9 +49,9 @@ TIFF/EDF reader
 .. gobj:class:: reader
 
     The reader loads single files from disk and provides them as a stream The
-    nominal resolution can be decreased by specifying the :gobj:prop:`x` and
-    :gobj:prop:`y` coordinates, and the :gobj:prop:`width` and
-    :gobj:prop:`height` of a region of interest.
+    nominal resolution can be decreased by specifying the :gobj:prop:`y`
+    coordinate and a :gobj:prop:`height`. Due to reduced I/O, this can
+    dramatically improve performance.
 
     .. gobj:prop:: path:string
 
@@ -71,27 +71,15 @@ TIFF/EDF reader
 
     .. gobj:prop:: normalize:boolean
 
-        Whether 8-bit or 16-bit values are normalized to [0.0, 1.0]
-
-    .. gobj:prop:: region-of-interest: boolean
-
-        Read region of interest instead of full image
-
-    .. gobj:prop:: x:int
-
-        Horizontal coordinate from where to start the ROI
+        Whether 8-bit or 16-bit values are normalized to [0.0, 1.0].
 
     .. gobj:prop:: y:int
 
-        Vertical coordinate from where to start the ROI
-
-    .. gobj:prop:: width:int
-
-        Width of the region of interest
+        Vertical coordinate from where to start reading.
 
     .. gobj:prop:: height:int
 
-        Height of the region of interest
+        Height of the region that is read from the image.
 
 
 Auxiliary generators
