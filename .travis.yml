@@ -1,0 +1,23 @@
+language: c
+
+before_script:
+  # Hijacking the crystfel repos for OpenCL headers and ICD
+  - sudo add-apt-repository ppa:valmar-lp/crystfel-releases -y
+  - sudo apt-get update -qq -y
+  - sudo apt-get install opencl-headers ocl-icd-opencl-dev libjson-glib-dev libzmq3-dev autoconf-archive
+  - sudo apt-get install libtiff4-dev
+
+  # build ufo-core first
+  - mkdir core
+  - cd core
+  - git clone https://github.com/ufo-kit/ufo-core
+  - cd ufo-core
+  - cmake -DPREFIX=$HOME/usr -DWITH_GIR=OFF -DWITH_GTK_DOC=OFF -DWITH_PYTHON=OFF .
+  - make install
+  - cd ../..
+
+script:
+  - export LD_LIBRARY_PATH=$HOME/usr/lib
+  - export PKG_CONFIG_PATH=$HOME/usr/lib/pkgconfig
+  - cmake .
+  - make
