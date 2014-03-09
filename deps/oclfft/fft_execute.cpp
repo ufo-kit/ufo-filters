@@ -124,7 +124,15 @@ getKernelWorkDimensions(cl_fft_plan *plan, cl_fft_kernel_info *kernelInfo, cl_in
 cl_int 
 clFFT_ExecuteInterleaved( cl_command_queue queue, clFFT_Plan Plan, cl_int batchSize, clFFT_Direction dir, 
 						 cl_mem data_in, cl_mem data_out, 
-						 cl_int num_events, cl_event *event_list, cl_event *event )
+						 cl_int num_events, cl_event *event_list, cl_event *event)
+{
+  return clFFT_ExecuteInterleaved_Ufo(queue, Plan, batchSize, dir, data_in, data_out, num_events, event_list, event, NULL);
+}
+
+cl_int 
+clFFT_ExecuteInterleaved_Ufo( cl_command_queue queue, clFFT_Plan Plan, cl_int batchSize, clFFT_Direction dir, 
+						 cl_mem data_in, cl_mem data_out, 
+						 cl_int num_events, cl_event *event_list, cl_event *event, UfoProfiler *profiler)
 {	
 	int s;
 	cl_fft_plan *plan = (cl_fft_plan *) Plan;
@@ -181,7 +189,11 @@ clFFT_ExecuteInterleaved( cl_command_queue queue, clFFT_Plan Plan, cl_int batchS
 			err |= clSetKernelArg(kernelInfo->kernel, 2, sizeof(cl_int), &dir);
 			err |= clSetKernelArg(kernelInfo->kernel, 3, sizeof(cl_int), &s);
 			
-			err |= clEnqueueNDRangeKernel(queue,  kernelInfo->kernel, 1, NULL, &gWorkItems, &lWorkItems, num_events, event_list, event);
+			if (profiler)
+			  ufo_profiler_call (profiler, queue, kernelInfo->kernel, 1, &gWorkItems, &lWorkItems);
+			else
+			  err |= clEnqueueNDRangeKernel(queue,  kernelInfo->kernel, 1, NULL, &gWorkItems, &lWorkItems, num_events, event_list, event);
+			
 			if(err)
 				return err;
 			
@@ -203,8 +215,12 @@ clFFT_ExecuteInterleaved( cl_command_queue queue, clFFT_Plan Plan, cl_int batchS
 		    err |= clSetKernelArg(kernelInfo->kernel, 1, sizeof(cl_mem), &memObj[currWrite]);
 		    err |= clSetKernelArg(kernelInfo->kernel, 2, sizeof(cl_int), &dir);
 		    err |= clSetKernelArg(kernelInfo->kernel, 3, sizeof(cl_int), &s);
-		
-		    err |= clEnqueueNDRangeKernel(queue,  kernelInfo->kernel, 1, NULL, &gWorkItems, &lWorkItems, num_events, event_list, event);
+		        
+		    if (profiler)
+		      ufo_profiler_call (profiler, queue, kernelInfo->kernel, 1, &gWorkItems, &lWorkItems);
+		    else
+		      err |= clEnqueueNDRangeKernel(queue,  kernelInfo->kernel, 1, NULL, &gWorkItems, &lWorkItems, num_events, event_list, event);
+		    
 		    if(err)
 			    return err;		
 			
@@ -222,6 +238,14 @@ cl_int
 clFFT_ExecutePlannar( cl_command_queue queue, clFFT_Plan Plan, cl_int batchSize, clFFT_Direction dir, 
 					  cl_mem data_in_real, cl_mem data_in_imag, cl_mem data_out_real, cl_mem data_out_imag,
 					  cl_int num_events, cl_event *event_list, cl_event *event)
+{
+  return clFFT_ExecutePlannar_Ufo(queue, Plan, batchSize, dir, data_in_real, data_in_imag, data_out_real, data_out_imag, num_events, event_list, event, NULL);
+}
+
+cl_int 
+clFFT_ExecutePlannar_Ufo( cl_command_queue queue, clFFT_Plan Plan, cl_int batchSize, clFFT_Direction dir, 
+					  cl_mem data_in_real, cl_mem data_in_imag, cl_mem data_out_real, cl_mem data_out_imag,
+					  cl_int num_events, cl_event *event_list, cl_event *event, UfoProfiler *profiler)
 {	
 	int s;
 	cl_fft_plan *plan = (cl_fft_plan *) Plan;
@@ -286,7 +310,11 @@ clFFT_ExecutePlannar( cl_command_queue queue, clFFT_Plan Plan, cl_int batchSize,
 			err |= clSetKernelArg(kernelInfo->kernel, 4, sizeof(cl_int), &dir);
 			err |= clSetKernelArg(kernelInfo->kernel, 5, sizeof(cl_int), &s);
 			
-			err |= clEnqueueNDRangeKernel(queue,  kernelInfo->kernel, 1, NULL, &gWorkItems, &lWorkItems, num_events, event_list, event);
+			if (profiler)
+			  ufo_profiler_call (profiler, queue, kernelInfo->kernel, 1, &gWorkItems, &lWorkItems);
+			else
+			  err |= clEnqueueNDRangeKernel(queue,  kernelInfo->kernel, 1, NULL, &gWorkItems, &lWorkItems, num_events, event_list, event);
+			
 			if(err)
 				return err;			
 			
@@ -309,8 +337,12 @@ clFFT_ExecutePlannar( cl_command_queue queue, clFFT_Plan Plan, cl_int batchSize,
 		    err |= clSetKernelArg(kernelInfo->kernel, 3, sizeof(cl_mem), &memObj_imag[currWrite]);
 		    err |= clSetKernelArg(kernelInfo->kernel, 4, sizeof(cl_int), &dir);
 		    err |= clSetKernelArg(kernelInfo->kernel, 5, sizeof(cl_int), &s);
-		
-		    err |= clEnqueueNDRangeKernel(queue,  kernelInfo->kernel, 1, NULL, &gWorkItems, &lWorkItems, num_events, event_list, event);
+		    
+		    if (profiler)
+		      ufo_profiler_call (profiler, queue, kernelInfo->kernel, 1, &gWorkItems, &lWorkItems);
+		    else
+		      err |= clEnqueueNDRangeKernel(queue,  kernelInfo->kernel, 1, NULL, &gWorkItems, &lWorkItems, num_events, event_list, event);
+		    
 		    if(err)
 			    return err;	
 			
@@ -327,6 +359,13 @@ clFFT_ExecutePlannar( cl_command_queue queue, clFFT_Plan Plan, cl_int batchSize,
 cl_int 
 clFFT_1DTwistInterleaved(clFFT_Plan Plan, cl_command_queue queue, cl_mem array, 
 						 size_t numRows, size_t numCols, size_t startRow, size_t rowsToProcess, clFFT_Direction dir)
+{
+  return clFFT_1DTwistInterleaved_Ufo(Plan, queue, array, numRows, numCols, startRow, rowsToProcess, dir, NULL); 
+}
+
+cl_int 
+clFFT_1DTwistInterleaved_Ufo(clFFT_Plan Plan, cl_command_queue queue, cl_mem array, 
+						 size_t numRows, size_t numCols, size_t startRow, size_t rowsToProcess, clFFT_Direction dir, UfoProfiler *profiler)
 {
 	cl_fft_plan *plan = (cl_fft_plan *) Plan;
 	
@@ -358,7 +397,10 @@ clFFT_1DTwistInterleaved(clFFT_Plan Plan, cl_command_queue queue, cl_mem array,
 	err |= clSetKernelArg(plan->twist_kernel, 4, sizeof(unsigned int), &rToProcess);
 	err |= clSetKernelArg(plan->twist_kernel, 5, sizeof(int), &d);
 	
-	err |= clEnqueueNDRangeKernel(queue, plan->twist_kernel, 1, NULL, numGlobalThreads, numLocalThreads, 0, NULL, NULL);            
+	if (profiler)
+	  ufo_profiler_call (profiler, queue, plan->twist_kernel, 1, numGlobalThreads, numLocalThreads);
+	else
+	  err |= clEnqueueNDRangeKernel(queue, plan->twist_kernel, 1, NULL, numGlobalThreads, numLocalThreads, 0, NULL, NULL);            
 	
 	return err;	
 }
@@ -366,6 +408,13 @@ clFFT_1DTwistInterleaved(clFFT_Plan Plan, cl_command_queue queue, cl_mem array,
 cl_int 
 clFFT_1DTwistPlannar(clFFT_Plan Plan, cl_command_queue queue, cl_mem array_real, cl_mem array_imag, 
 					 size_t numRows, size_t numCols, size_t startRow, size_t rowsToProcess, clFFT_Direction dir)
+{
+  return clFFT_1DTwistPlannar_Ufo(Plan, queue, array_real, array_imag, numRows, numCols, startRow, rowsToProcess, dir, NULL);
+}
+
+cl_int 
+clFFT_1DTwistPlannar_Ufo(clFFT_Plan Plan, cl_command_queue queue, cl_mem array_real, cl_mem array_imag, 
+					 size_t numRows, size_t numCols, size_t startRow, size_t rowsToProcess, clFFT_Direction dir, UfoProfiler *profiler)
 {
 	cl_fft_plan *plan = (cl_fft_plan *) Plan;
 	
@@ -398,7 +447,10 @@ clFFT_1DTwistPlannar(clFFT_Plan Plan, cl_command_queue queue, cl_mem array_real,
 	err |= clSetKernelArg(plan->twist_kernel, 5, sizeof(unsigned int), &rToProcess);
 	err |= clSetKernelArg(plan->twist_kernel, 6, sizeof(int), &d);
 	
-	err |= clEnqueueNDRangeKernel(queue, plan->twist_kernel, 1, NULL, numGlobalThreads, numLocalThreads, 0, NULL, NULL);            
+	if (profiler)
+	  ufo_profiler_call (profiler, queue, plan->twist_kernel, 1, numGlobalThreads, numLocalThreads);
+	else
+	  err |= clEnqueueNDRangeKernel(queue, plan->twist_kernel, 1, NULL, numGlobalThreads, numLocalThreads, 0, NULL, NULL);            
 	
 	return err;	
 }
