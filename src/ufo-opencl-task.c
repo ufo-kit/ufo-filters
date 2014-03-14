@@ -104,21 +104,27 @@ ufo_opencl_task_setup (UfoTask *task,
 
     priv = UFO_OPENCL_TASK_GET_PRIVATE (task);
 
-    if (priv->filename == NULL && priv->source == NULL) {
+    if (priv->filename == NULL && priv->source == NULL && priv->funcname == NULL) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                     "Neither property ::filename nor ::source specified");
+                     "Neither property ::filename nor ::source nor ::kernel specified");
         return;
     }
 
-    if (priv->source != NULL) {
+    if (priv->source != NULL && priv->funcname != NULL) {
         priv->kernel = ufo_resources_get_kernel_from_source (resources,
                                                              priv->source,
                                                              priv->funcname,
                                                              error);
     }
-    else {
+    else if (priv->filename != NULL && priv->funcname != NULL) {
         priv->kernel = ufo_resources_get_kernel (resources,
                                                  priv->filename,
+                                                 priv->funcname,
+                                                 error);
+    }
+    else if (priv->funcname != NULL) {
+        priv->kernel = ufo_resources_get_kernel (resources,
+                                                 "default.cl",
                                                  priv->funcname,
                                                  error);
     }
