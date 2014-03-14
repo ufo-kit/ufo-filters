@@ -45,6 +45,7 @@ struct _UfoReaderTaskPrivate {
     guint16 bps;
     guint16 spp;
     gsize size;
+    gboolean enable_conversion;
 
     guint roi_y;
     guint roi_height;
@@ -70,6 +71,7 @@ enum {
     PROP_NORMALIZE,
     PROP_ROI_Y,
     PROP_ROI_HEIGHT,
+    PROP_ENABLE_CONVERSION,
     N_PROPERTIES
 };
 
@@ -338,7 +340,7 @@ ufo_reader_task_generate (UfoCpuTask *task,
         ufo_profiler_stop (profiler, UFO_PROFILER_TIMER_IO);
         ufo_profiler_start (profiler, UFO_PROFILER_TIMER_CPU);
 
-        if (priv->bps < 32) {
+        if (priv->bps < 32 && priv->enable_conversion) {
             UfoBufferDepth depth;
 
             depth = priv->bps <= 8 ? UFO_BUFFER_DEPTH_8U : UFO_BUFFER_DEPTH_16U;
@@ -386,6 +388,9 @@ ufo_reader_task_set_property (GObject *object,
         case PROP_ROI_HEIGHT:
             priv->roi_height = g_value_get_uint (value);
             break;
+        case PROP_ENABLE_CONVERSION:
+            priv->enable_conversion = g_value_get_boolean (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -421,6 +426,9 @@ ufo_reader_task_get_property (GObject *object,
             break;
         case PROP_ROI_HEIGHT:
             g_value_set_uint (value, priv->roi_height);
+            break;
+        case PROP_ENABLE_CONVERSION:
+            g_value_set_boolean (value, priv->enable_conversion);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -517,6 +525,13 @@ ufo_reader_task_class_init(UfoReaderTaskClass *klass)
             0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
+    properties[PROP_ENABLE_CONVERSION] =
+        g_param_spec_boolean("enable-conversion",
+            "Enable automatic conversion",
+            "Enable automatic conversion of input data types to float",
+            TRUE,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -539,4 +554,5 @@ ufo_reader_task_init(UfoReaderTask *self)
     priv->roi_height = 0;
     priv->tiff = NULL;
     priv->edf = NULL;
+    priv->enable_conversion = TRUE;
 }
