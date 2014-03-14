@@ -119,6 +119,9 @@ ufo_generate_task_generate (UfoCpuTask *task,
 
     priv = UFO_GENERATE_TASK_GET_PRIVATE (task);
 
+    if (priv->current == priv->number)
+        return FALSE;
+
     if (priv->bitdepth == 8 || priv->bitdepth == 16) {
         gfloat *array;
 
@@ -129,7 +132,9 @@ ufo_generate_task_generate (UfoCpuTask *task,
         ufo_buffer_convert (output, priv->bitdepth == 8 ? UFO_BUFFER_DEPTH_8U : UFO_BUFFER_DEPTH_16U);
     }
 
-    return priv->current++ < priv->number;
+    priv->current++;
+
+    return TRUE;
 }
 
 static void
