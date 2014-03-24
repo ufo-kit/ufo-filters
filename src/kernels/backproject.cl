@@ -39,7 +39,7 @@ backproject_nearest (global float *sinogram,
     float sum = 0.0;
 
     for(int proj = offset; proj < n_projections; proj++) {
-        float h = axis_pos + bx * cos_lut[proj] - by * sin_lut[proj];
+        float h = axis_pos + bx * cos_lut[proj] + by * sin_lut[proj];
         sum += sinogram[(int)(proj * width + h)];
     }
 
