@@ -26,8 +26,10 @@ backproject_nearest (global float *sinogram,
                      global float *slice,
                      constant float *sin_lut,
                      constant float *cos_lut,
+                     const unsigned int offset,
                      const unsigned n_projections,
-                     const float axis_pos)
+                     const float axis_pos,
+                     const int overwrite)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
@@ -36,12 +38,17 @@ backproject_nearest (global float *sinogram,
     const float by = idy - axis_pos;
     float sum = 0.0;
 
-    for(int proj = 0; proj < n_projections; proj++) {
+    for(int proj = offset; proj < n_projections; proj++) {
         float h = axis_pos + bx * cos_lut[proj] - by * sin_lut[proj];
         sum += sinogram[(int)(proj * width + h)];
     }
 
-    slice[idy * width + idx] = sum * 4.0 * M_PI;
+    if (overwrite) {
+        slice[idy * width + idx] = sum * 4.0 * M_PI;
+    }
+    else {
+        slice[idy * width + idx] = slice[idy * width + idx] + sum * 4.0 * M_PI;
+    }
 }
 
 __kernel void
