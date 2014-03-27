@@ -48,7 +48,6 @@ struct _UfoBackprojectTaskPrivate {
     guint burst_projections;
     guint n_projections;
     Mode mode;
-    gboolean overwrite;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -70,7 +69,6 @@ enum {
     PROP_ANGLE_STEP,
     PROP_ANGLE_OFFSET,
     PROP_MODE,
-    PROP_OVERWRITE,
     N_PROPERTIES
 };
 
@@ -124,7 +122,6 @@ ufo_backproject_task_process (UfoGpuTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (guint),  &priv->offset));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 5, sizeof (guint),  &priv->burst_projections));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 6, sizeof (gfloat), &axis_pos));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 7, sizeof (gint), &priv->overwrite));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, kernel, 2, requisition->dims, NULL);
@@ -325,9 +322,6 @@ ufo_backproject_task_set_property (GObject *object,
             else if (!g_strcmp0 (g_value_get_string (value), "texture"))
                 priv->mode = MODE_TEXTURE;
             break;
-        case PROP_OVERWRITE:
-            priv->overwrite = g_value_get_boolean (value);
-            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -367,9 +361,6 @@ ufo_backproject_task_get_property (GObject *object,
                     g_value_set_string (value, "texture");
                     break;
             }
-            break;
-        case PROP_OVERWRITE:
-            g_value_set_boolean (value, priv->overwrite);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -433,13 +424,6 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
                              "texture",
                              G_PARAM_READWRITE);
 
-    properties[PROP_OVERWRITE] =
-        g_param_spec_boolean ("overwrite",
-                              "Overwrite slice with new values",
-                              "Overwrite slice with new values",
-                              TRUE,
-                              G_PARAM_READWRITE);
-
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -466,5 +450,4 @@ ufo_backproject_task_init (UfoBackprojectTask *self)
     priv->host_sin_lut = NULL;
     priv->host_cos_lut = NULL;
     priv->mode = MODE_TEXTURE;
-    priv->overwrite = TRUE;
 }

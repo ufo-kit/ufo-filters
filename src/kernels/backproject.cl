@@ -28,8 +28,7 @@ backproject_nearest (global float *sinogram,
                      constant float *cos_lut,
                      const unsigned int offset,
                      const unsigned n_projections,
-                     const float axis_pos,
-                     const int overwrite)
+                     const float axis_pos)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
@@ -43,12 +42,7 @@ backproject_nearest (global float *sinogram,
         sum += sinogram[(int)(proj * width + h)];
     }
 
-    if (overwrite) {
-        slice[idy * width + idx] = sum * 4.0 * M_PI;
-    }
-    else {
-        slice[idy * width + idx] = slice[idy * width + idx] + sum * 4.0 * M_PI;
-    }
+    slice[idy * width + idx] = sum * 4.0 * M_PI;
 }
 
 __kernel void
@@ -58,8 +52,7 @@ backproject_tex (read_only image2d_t sinogram,
                  constant float *cos_lut,
                  const unsigned int offset,
                  const unsigned int n_projections,
-                 const float axis_pos,
-                 const int overwrite)
+                 const float axis_pos)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
@@ -77,11 +70,6 @@ backproject_tex (read_only image2d_t sinogram,
         sum += (isnan (val) ? 0.0 : val);
     }
 
-    if (overwrite) {
-        slice[idy * width + idx] = sum * 4.0 * M_PI;
-    }
-    else {
-        slice[idy * width + idx] = slice[idy * width + idx] + sum * 4.0 * M_PI;
-    }
+    slice[idy * width + idx] = sum * 4.0 * M_PI;
 }
 
