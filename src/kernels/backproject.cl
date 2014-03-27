@@ -28,8 +28,7 @@ backproject_nearest (global float *sinogram,
                      constant float *cos_lut,
                      const unsigned int offset,
                      const unsigned n_projections,
-                     const float axis_pos,
-                     const int overwrite)
+                     const float axis_pos)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
@@ -38,17 +37,12 @@ backproject_nearest (global float *sinogram,
     const float by = idy - axis_pos;
     float sum = 0.0;
 
-    for(int proj = offset; proj < n_projections; proj++) {
-        float h = axis_pos + bx * cos_lut[proj] + by * sin_lut[proj];
+    for(int proj = 0; proj < n_projections; proj++) {
+        float h = axis_pos + bx * cos_lut[offset + proj] + by * sin_lut[offset + proj];
         sum += sinogram[(int)(proj * width + h)];
     }
 
-    if (overwrite) {
-        slice[idy * width + idx] = sum * 4.0 * M_PI;
-    }
-    else {
-        slice[idy * width + idx] = slice[idy * width + idx] + sum * 4.0 * M_PI;
-    }
+    slice[idy * width + idx] = sum * 4.0 * M_PI;
 }
 
 __kernel void
@@ -58,8 +52,7 @@ backproject_tex (read_only image2d_t sinogram,
                  constant float *cos_lut,
                  const unsigned int offset,
                  const unsigned int n_projections,
-                 const float axis_pos,
-                 const int overwrite)
+                 const float axis_pos)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
@@ -68,20 +61,15 @@ backproject_tex (read_only image2d_t sinogram,
     const float by = idy - axis_pos;
     float sum = 0.0f;
 
-    for(int proj = offset; proj < n_projections; proj++) {
+    for(int proj = 0; proj < n_projections; proj++) {
         /* mad() instructions have a performance impact of about 1% on GTX 580 */
         /* float h = mad (by, sin_lut[proj], mad(bx, cos_lut[proj], axis_pos)); */
 
-        float h = by * sin_lut[proj] + bx * cos_lut[proj] + axis_pos;
+        float h = by * sin_lut[offset + proj] + bx * cos_lut[offset + proj] + axis_pos;
         float val = read_imagef (sinogram, volumeSampler, (float2)(h, proj)).x;
         sum += (isnan (val) ? 0.0 : val);
     }
 
-    if (overwrite) {
-        slice[idy * width + idx] = sum * 4.0 * M_PI;
-    }
-    else {
-        slice[idy * width + idx] = slice[idy * width + idx] + sum * 4.0 * M_PI;
-    }
+    slice[idy * width + idx] = sum * 4.0 * M_PI;
 }
 
