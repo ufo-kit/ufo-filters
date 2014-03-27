@@ -36,13 +36,10 @@ struct _UfoOpenCLTaskPrivate {
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
-static void ufo_gpu_task_interface_init (UfoGpuTaskIface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (UfoOpenCLTask, ufo_opencl_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
-                                                ufo_task_interface_init)
-                         G_IMPLEMENT_INTERFACE (UFO_TYPE_GPU_TASK,
-                                                ufo_gpu_task_interface_init))
+                                                ufo_task_interface_init))
 
 #define UFO_OPENCL_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_OPENCL_TASK, UfoOpenCLTaskPrivate))
 
@@ -64,7 +61,7 @@ ufo_opencl_task_new (void)
 }
 
 static gboolean
-ufo_opencl_task_process (UfoGpuTask *task,
+ufo_opencl_task_process (UfoTask *task,
                          UfoBuffer **inputs,
                          UfoBuffer *output,
                          UfoRequisition *requisition)
@@ -157,22 +154,23 @@ ufo_opencl_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], requisition);
 }
 
-static void
-ufo_opencl_task_get_structure (UfoTask *task,
-                               guint *n_inputs,
-                               UfoInputParam **in_params,
-                               UfoTaskMode *mode)
+static guint
+ufo_opencl_task_get_num_inputs (UfoTask *task)
 {
-    UfoOpenCLTaskPrivate *priv;
+    return UFO_OPENCL_TASK_GET_PRIVATE (task)->n_inputs;
+}
 
-    priv = UFO_OPENCL_TASK_GET_PRIVATE (task);
-    *mode = UFO_TASK_MODE_PROCESSOR;
-    *n_inputs = priv->n_inputs;
-    *in_params = g_new0 (UfoInputParam, priv->n_inputs);
+static guint
+ufo_opencl_task_get_num_dimensions (UfoTask *task,
+                                    guint input)
+{
+    return UFO_OPENCL_TASK_GET_PRIVATE (task)->n_dims;
+}
 
-    for (guint i = 0; i < priv->n_inputs; i++) {
-        (*in_params)[i].n_dims = priv->n_dims;
-    }
+static UfoTaskMode
+ufo_opencl_task_get_mode (UfoTask *task)
+{
+    return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
 static UfoNode *
@@ -228,12 +226,9 @@ ufo_task_interface_init (UfoTaskIface *iface)
 {
     iface->setup = ufo_opencl_task_setup;
     iface->get_requisition = ufo_opencl_task_get_requisition;
-    iface->get_structure = ufo_opencl_task_get_structure;
-}
-
-static void
-ufo_gpu_task_interface_init (UfoGpuTaskIface *iface)
-{
+    iface->get_num_inputs = ufo_opencl_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_opencl_task_get_num_dimensions;
+    iface->get_mode = ufo_opencl_task_get_mode;
     iface->process = ufo_opencl_task_process;
 }
 

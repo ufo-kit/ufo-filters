@@ -49,14 +49,10 @@ struct _UfoFftTaskPrivate {
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
-static void ufo_gpu_task_interface_init (UfoGpuTaskIface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (UfoFftTask, ufo_fft_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
-                                                ufo_task_interface_init)
-                         G_IMPLEMENT_INTERFACE (UFO_TYPE_GPU_TASK,
-                                                ufo_gpu_task_interface_init)
-                         )
+                                                ufo_task_interface_init))
 
 #define UFO_FFT_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FFT_TASK, UfoFftTaskPrivate))
 
@@ -155,19 +151,24 @@ ufo_fft_task_get_requisition (UfoTask *task,
     requisition->dims[1] = priv->fft_dimensions == FFT_1D ? in_req.dims[1] : priv->fft_size.y;
 }
 
-static void
-ufo_fft_task_get_structure (UfoTask *task,
-                            guint *n_inputs,
-                            UfoInputParam **in_params,
-                            UfoTaskMode *mode)
+static guint
+ufo_fft_task_get_num_inputs (UfoTask *task)
 {
-    UfoFftTaskPrivate *priv;
+    return 1;
+}
 
-    priv = UFO_FFT_TASK_GET_PRIVATE (task);
-    *mode = UFO_TASK_MODE_PROCESSOR;
-    *n_inputs = 1;
-    *in_params = g_new0 (UfoInputParam, 1);
-    (*in_params)[0].n_dims = priv->fft_dimensions;
+static guint
+ufo_fft_task_get_num_dimensions (UfoTask *task,
+                                 guint input)
+{
+    g_return_val_if_fail (input == 0, 0);
+    return UFO_FFT_TASK_GET_PRIVATE (task)->fft_dimensions;
+}
+
+static UfoTaskMode
+ufo_fft_task_get_mode (UfoTask *task)
+{
+    return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
 static gboolean
@@ -178,41 +179,11 @@ ufo_fft_task_equal_real (UfoNode *n1,
     return UFO_FFT_TASK (n1)->priv->kernel == UFO_FFT_TASK (n2)->priv->kernel;
 }
 
-static void
-ufo_fft_task_finalize (GObject *object)
-{
-    UfoFftTaskPrivate *priv;
-
-    priv = UFO_FFT_TASK_GET_PRIVATE (object);
-
-    if (priv->kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
-        priv->kernel = NULL;
-    }
-
-    if (priv->context) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
-        priv->context = NULL;
-    }
-
-    clFFT_DestroyPlan (priv->fft_plan);
-
-    G_OBJECT_CLASS (ufo_fft_task_parent_class)->finalize (object);
-}
-
-static void
-ufo_task_interface_init (UfoTaskIface *iface)
-{
-    iface->setup = ufo_fft_task_setup;
-    iface->get_requisition = ufo_fft_task_get_requisition;
-    iface->get_structure = ufo_fft_task_get_structure;
-}
-
 static gboolean
-ufo_fft_task_process_gpu (UfoGpuTask *task,
-                          UfoBuffer **inputs,
-                          UfoBuffer *output,
-                          UfoRequisition *requisition)
+ufo_fft_task_process (UfoTask *task,
+                      UfoBuffer **inputs,
+                      UfoBuffer *output,
+                      UfoRequisition *requisition)
 {
     UfoFftTaskPrivate *priv;
     UfoGpuNode *node;
@@ -277,9 +248,36 @@ ufo_fft_task_process_gpu (UfoGpuTask *task,
 }
 
 static void
-ufo_gpu_task_interface_init (UfoGpuTaskIface *iface)
+ufo_fft_task_finalize (GObject *object)
 {
-    iface->process = ufo_fft_task_process_gpu;
+    UfoFftTaskPrivate *priv;
+
+    priv = UFO_FFT_TASK_GET_PRIVATE (object);
+
+    if (priv->kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
+        priv->kernel = NULL;
+    }
+
+    if (priv->context) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
+        priv->context = NULL;
+    }
+
+    clFFT_DestroyPlan (priv->fft_plan);
+
+    G_OBJECT_CLASS (ufo_fft_task_parent_class)->finalize (object);
+}
+
+static void
+ufo_task_interface_init (UfoTaskIface *iface)
+{
+    iface->setup = ufo_fft_task_setup;
+    iface->get_requisition = ufo_fft_task_get_requisition;
+    iface->get_num_inputs = ufo_fft_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_fft_task_get_num_dimensions;
+    iface->get_mode = ufo_fft_task_get_mode;
+    iface->process = ufo_fft_task_process;
 }
 
 static void

@@ -52,13 +52,10 @@ struct _UfoBackprojectTaskPrivate {
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
-static void ufo_gpu_task_interface_init (UfoGpuTaskIface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (UfoBackprojectTask, ufo_backproject_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
-                                                ufo_task_interface_init)
-                         G_IMPLEMENT_INTERFACE (UFO_TYPE_GPU_TASK,
-                                                ufo_gpu_task_interface_init))
+                                                ufo_task_interface_init))
 
 #define UFO_BACKPROJECT_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_BACKPROJECT_TASK, UfoBackprojectTaskPrivate))
 
@@ -83,7 +80,7 @@ ufo_backproject_task_new (void)
 }
 
 static gboolean
-ufo_backproject_task_process (UfoGpuTask *task,
+ufo_backproject_task_process (UfoTask *task,
                               UfoBuffer **inputs,
                               UfoBuffer *output,
                               UfoRequisition *requisition)
@@ -223,16 +220,24 @@ ufo_backproject_task_get_requisition (UfoTask *task,
     }
 }
 
-static void
-ufo_backproject_task_get_structure (UfoTask *task,
-                                    guint *n_inputs,
-                                    UfoInputParam **in_params,
-                                    UfoTaskMode *mode)
+static guint
+ufo_filter_task_get_num_inputs (UfoTask *task)
 {
-    *mode = UFO_TASK_MODE_PROCESSOR;
-    *n_inputs = 1;
-    *in_params = g_new0 (UfoInputParam, 1);
-    (*in_params)[0].n_dims = 2;
+    return 1;
+}
+
+static guint
+ufo_filter_task_get_num_dimensions (UfoTask *task,
+                               guint input)
+{
+    g_return_val_if_fail (input == 0, 0);
+    return 2;
+}
+
+static UfoTaskMode
+ufo_filter_task_get_mode (UfoTask *task)
+{
+    return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
 static gboolean
@@ -286,20 +291,17 @@ ufo_task_interface_init (UfoTaskIface *iface)
 {
     iface->setup = ufo_backproject_task_setup;
     iface->get_requisition = ufo_backproject_task_get_requisition;
-    iface->get_structure = ufo_backproject_task_get_structure;
-}
-
-static void
-ufo_gpu_task_interface_init (UfoGpuTaskIface *iface)
-{
+    iface->get_num_inputs = ufo_filter_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_filter_task_get_num_dimensions;
+    iface->get_mode = ufo_filter_task_get_mode;
     iface->process = ufo_backproject_task_process;
 }
 
 static void
 ufo_backproject_task_set_property (GObject *object,
-                              guint property_id,
-                              const GValue *value,
-                              GParamSpec *pspec)
+                                   guint property_id,
+                                   const GValue *value,
+                                   GParamSpec *pspec)
 {
     UfoBackprojectTaskPrivate *priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (object);
 

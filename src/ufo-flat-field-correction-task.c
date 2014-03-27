@@ -26,13 +26,10 @@ struct _UfoFlatFieldCorrectionTaskPrivate {
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
-static void ufo_cpu_task_interface_init (UfoCpuTaskIface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (UfoFlatFieldCorrectionTask, ufo_flat_field_correction_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
-                                                ufo_task_interface_init)
-                         G_IMPLEMENT_INTERFACE (UFO_TYPE_CPU_TASK,
-                                                ufo_cpu_task_interface_init))
+                                                ufo_task_interface_init))
 
 #define UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FLAT_FIELD_CORRECTION_TASK, UfoFlatFieldCorrectionTaskPrivate))
 
@@ -65,22 +62,27 @@ ufo_flat_field_correction_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], requisition);
 }
 
-static void
-ufo_flat_field_correction_task_get_structure (UfoTask *task,
-                                              guint *n_inputs,
-                                              UfoInputParam **in_params,
-                                              UfoTaskMode *mode)
+static guint
+ufo_flat_field_correction_task_get_num_inputs (UfoTask *task)
 {
-    *mode = UFO_TASK_MODE_PROCESSOR;
-    *n_inputs = 3;
-    *in_params = g_new0 (UfoInputParam, 3);
-    (*in_params)[0].n_dims = 2;
-    (*in_params)[1].n_dims = 2;
-    (*in_params)[2].n_dims = 2;
+    return 3;
+}
+
+static guint
+ufo_flat_field_correction_task_get_num_dimensions (UfoTask *task, guint input)
+{
+    g_return_val_if_fail (input <= 2, 0);
+    return 2;
+}
+
+static UfoTaskMode
+ufo_flat_field_correction_task_get_mode (UfoTask *task)
+{
+    return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_CPU;
 }
 
 static gboolean
-ufo_flat_field_correction_task_process (UfoCpuTask *task,
+ufo_flat_field_correction_task_process (UfoTask *task,
                                         UfoBuffer **inputs,
                                         UfoBuffer *output,
                                         UfoRequisition *requisition)
@@ -165,13 +167,10 @@ static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
     iface->setup = ufo_flat_field_correction_task_setup;
-    iface->get_structure = ufo_flat_field_correction_task_get_structure;
+    iface->get_num_inputs = ufo_flat_field_correction_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_flat_field_correction_task_get_num_dimensions;
+    iface->get_mode = ufo_flat_field_correction_task_get_mode;
     iface->get_requisition = ufo_flat_field_correction_task_get_requisition;
-}
-
-static void
-ufo_cpu_task_interface_init (UfoCpuTaskIface *iface)
-{
     iface->process = ufo_flat_field_correction_task_process;
 }
 
