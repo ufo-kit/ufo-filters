@@ -40,13 +40,10 @@ struct _UfoSinoCorrectionTaskPrivate {
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
-static void ufo_gpu_task_interface_init (UfoGpuTaskIface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (UfoSinoCorrectionTask, ufo_sino_correction_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
-                                                ufo_task_interface_init)
-                         G_IMPLEMENT_INTERFACE (UFO_TYPE_GPU_TASK,
-                                                ufo_gpu_task_interface_init))
+                                                ufo_task_interface_init))
 
 #define UFO_SINO_CORRECTION_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_SINO_CORRECTION_TASK, UfoSinoCorrectionTaskPrivate))
 
@@ -96,28 +93,40 @@ ufo_sino_correction_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], requisition);
 }
 
-static void
-ufo_sino_correction_task_get_structure (UfoTask *task,
-                               guint *n_inputs,
-                               UfoInputParam **in_params,
-                               UfoTaskMode *mode)
+static guint
+ufo_sino_correction_task_get_num_inputs (UfoTask *task)
 {
-    *mode = UFO_TASK_MODE_PROCESSOR;
-    *n_inputs = 3;
-    *in_params = g_new0 (UfoInputParam, 3);
+    return 3;
+}
+
+static guint
+ufo_sino_correction_task_get_num_dimensions (UfoTask *task, guint input)
+{
+    g_return_val_if_fail (input <= 2, 0);
+
     /* A sinogram */
-    (*in_params)[0].n_dims = 2;
+    if (input == 0)
+        return 2;
+
     /* A row of dark frame */
-    (*in_params)[1].n_dims = 1;
+    if (input == 1)
+        return 1;
+
     /* A row of flat frame */
-    (*in_params)[2].n_dims = 1;
+    return 1;
+}
+
+static UfoTaskMode
+ufo_sino_correction_task_get_mode (UfoTask *task)
+{
+    return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
 static gboolean
-ufo_sino_correction_task_process (UfoGpuTask *task,
-                         UfoBuffer **inputs,
-                         UfoBuffer *output,
-                         UfoRequisition *requisition)
+ufo_sino_correction_task_process (UfoTask *task,
+                                  UfoBuffer **inputs,
+                                  UfoBuffer *output,
+                                  UfoRequisition *requisition)
 {
     UfoSinoCorrectionTaskPrivate *priv;
     UfoGpuNode *node;
@@ -210,13 +219,10 @@ static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
     iface->setup = ufo_sino_correction_task_setup;
-    iface->get_structure = ufo_sino_correction_task_get_structure;
+    iface->get_num_inputs = ufo_sino_correction_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_sino_correction_task_get_num_dimensions;
+    iface->get_mode = ufo_sino_correction_task_get_mode;
     iface->get_requisition = ufo_sino_correction_task_get_requisition;
-}
-
-static void
-ufo_gpu_task_interface_init (UfoGpuTaskIface *iface)
-{
     iface->process = ufo_sino_correction_task_process;
 }
 

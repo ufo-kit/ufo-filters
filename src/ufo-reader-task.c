@@ -52,13 +52,10 @@ struct _UfoReaderTaskPrivate {
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
-static void ufo_cpu_task_interface_init (UfoCpuTaskIface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (UfoReaderTask, ufo_reader_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
-                                                ufo_task_interface_init)
-                         G_IMPLEMENT_INTERFACE (UFO_TYPE_CPU_TASK,
-                                                ufo_cpu_task_interface_init))
+                                                ufo_task_interface_init))
 
 #define UFO_READER_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_READER_TASK, UfoReaderTaskPrivate))
 
@@ -300,18 +297,27 @@ ufo_reader_task_get_requisition (UfoTask *task,
     }
 }
 
-static void
-ufo_reader_task_get_structure (UfoTask *task,
-                               guint *n_inputs,
-                               UfoInputParam **in_params,
-                               UfoTaskMode *mode)
+static guint
+ufo_reader_task_get_num_inputs (UfoTask *task)
 {
-    *n_inputs = 0;
-    *mode = UFO_TASK_MODE_GENERATOR;
+    return 0;
+}
+
+static guint
+ufo_reader_task_get_num_dimensions (UfoTask *task,
+                               guint input)
+{
+    return 0;
+}
+
+static UfoTaskMode
+ufo_reader_task_get_mode (UfoTask *task)
+{
+    return UFO_TASK_MODE_GENERATOR | UFO_TASK_MODE_CPU;
 }
 
 static gboolean
-ufo_reader_task_generate (UfoCpuTask *task,
+ufo_reader_task_generate (UfoTask *task,
                           UfoBuffer *output,
                           UfoRequisition *requisition)
 {
@@ -457,13 +463,10 @@ static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
     iface->setup = ufo_reader_task_setup;
-    iface->get_structure = ufo_reader_task_get_structure;
+    iface->get_num_inputs = ufo_reader_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_reader_task_get_num_dimensions;
+    iface->get_mode = ufo_reader_task_get_mode;
     iface->get_requisition = ufo_reader_task_get_requisition;
-}
-
-static void
-ufo_cpu_task_interface_init (UfoCpuTaskIface *iface)
-{
     iface->generate = ufo_reader_task_generate;
 }
 
