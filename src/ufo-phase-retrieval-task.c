@@ -31,8 +31,8 @@
 
 /**
  * SECTION:ufo-phase-retrieval-task
- * @Short_description: Write TIFF files
- * @Title: phase_retrieval
+ * @Short_description: Retruns phase-contrast data
+ * @Title: Phase-retrieval
  *
  */
 
@@ -69,13 +69,10 @@ struct _UfoPhaseRetrievalTaskPrivate {
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
-static void ufo_gpu_task_interface_init (UfoGpuTaskIface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (UfoPhaseRetrievalTask, ufo_phase_retrieval_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
-                                                ufo_task_interface_init)
-                         G_IMPLEMENT_INTERFACE (UFO_TYPE_GPU_TASK,
-                                                ufo_gpu_task_interface_init))
+                                                ufo_task_interface_init))
 
 #define UFO_PHASE_RETRIEVAL_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_PHASE_RETRIEVAL_TASK, UfoPhaseRetrievalTaskPrivate))
 
@@ -115,20 +112,8 @@ ufo_phase_retrieval_task_setup (UfoTask *task,
     lambda = 6.62606896e-34 * 299792458 / (priv->energy * 1.60217733e-16);
     priv->prefac = 2 * M_PI * lambda * priv->distance / (priv->pixel_size * priv->pixel_size);
 
-    g_print("\nprefac = %5.40f\n", priv->prefac);
-    g_print("\nlambda = %5.40f\n", lambda);
-    g_print("\npixel_size = %5.40f\n", priv->pixel_size);
-    g_print("\ndistance = %5.40f\n", priv->distance);
-    g_print("\nenergy = %5.40f\n", priv->energy);
-    g_print("\nthresh = %5.40f\n", priv->binary_filter);
-    g_print("\nregularize = %5.40f\n", priv->regularization_rate);
-    g_print("\nmethod = %d\n", priv->method);
-
-    g_print("\nNNNNNNN %p\n",priv->kernels);
-
     priv->kernels[METHOD_TIE] = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "tie_method", error);
-    priv->kernels[METHOD_CTF] = ufo_resources_get_kernel(resources, 
-            "phase_retrieval.cl", "ctf_method", error);
+    priv->kernels[METHOD_CTF] = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "ctf_method", error);
     priv->kernels[METHOD_CTFHALFSINE] = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "ctfhalfsine_method", error);
     priv->kernels[METHOD_QP] = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "qp_method", error);
     priv->kernels[METHOD_QPHALFSINE] = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "qphalfsine_method", error);
@@ -140,9 +125,23 @@ ufo_phase_retrieval_task_setup (UfoTask *task,
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext(priv->context));
 
-    for (int i = 0; i < N_METHODS; i++)
-        if (priv->kernels[i] != NULL)
+    for (int i = 0; i < N_METHODS; i++) {
+        if (priv->kernels[i] != NULL) {
             UFO_RESOURCES_CHECK_CLERR (clRetainKernel(priv->kernels[i]));
+        }
+    }
+
+    if (priv->sub_value_kernel != NULL) {
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->sub_value_kernel));
+    }
+
+    if (priv->mult_by_value_kernel != NULL) {
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->mult_by_value_kernel));
+    }
+
+    if (priv->get_real_kernel != NULL) {
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->get_real_kernel));
+    }
 }
 
 static void
@@ -158,7 +157,7 @@ ufo_phase_retrieval_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
 
     requisition->n_dims = 2;
-    requisition->dims[0] = input_requisition.dims[0];//////
+    requisition->dims[0] = input_requisition.dims[0];
     requisition->dims[1] = input_requisition.dims[1];
 
     if (priv->fft_plan == NULL) {
@@ -175,20 +174,27 @@ ufo_phase_retrieval_task_get_requisition (UfoTask *task,
     }
 }
 
-static void
-ufo_phase_retrieval_task_get_structure (UfoTask *task,
-                               guint *n_inputs,
-                               UfoInputParam **in_params,
-                               UfoTaskMode *mode)
+static guint
+ufo_filter_task_get_num_inputs (UfoTask *task)
 {
-    *mode = UFO_TASK_MODE_PROCESSOR;
-    *n_inputs = 1;
-    *in_params = g_new0 (UfoInputParam, 1);
-    (*in_params)[0].n_dims = 2;
+    return 1;
+}
+
+static guint
+ufo_filter_task_get_num_dimensions (UfoTask *task, guint input)
+{
+    g_return_val_if_fail (input == 0, 0);
+    return 2;
+}
+
+static UfoTaskMode
+ufo_filter_task_get_mode (UfoTask *task)
+{
+    return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
 static gboolean
-ufo_phase_retrieval_task_process (UfoGpuTask *task,
+ufo_phase_retrieval_task_process (UfoTask *task,
                          UfoBuffer **inputs,
                          UfoBuffer *output,
                          UfoRequisition *requisition)
@@ -353,6 +359,36 @@ ufo_phase_retrieval_task_finalize (GObject *object)
     priv = UFO_PHASE_RETRIEVAL_TASK_GET_PRIVATE (object);
 
     clFFT_DestroyPlan (priv->fft_plan);
+
+    if (priv->kernels) {
+        for (int i = 0; i < N_METHODS; i++) {
+            UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernels[i]));
+            priv->kernels[i] = NULL;
+        }
+    }
+
+    g_free(priv->kernels);
+
+    if (priv->mult_by_value_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->mult_by_value_kernel));
+        priv->mult_by_value_kernel = NULL;
+    }
+
+    if (priv->sub_value_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->sub_value_kernel));
+        priv->sub_value_kernel = NULL;
+    }
+
+    if (priv->get_real_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->get_real_kernel));
+        priv->sub_value_kernel = NULL;
+    }
+
+    if (priv->context) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
+        priv->context = NULL;
+    }
+
     
     G_OBJECT_CLASS (ufo_phase_retrieval_task_parent_class)->finalize (object);
 }
@@ -361,13 +397,10 @@ static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
     iface->setup = ufo_phase_retrieval_task_setup;
-    iface->get_structure = ufo_phase_retrieval_task_get_structure;
     iface->get_requisition = ufo_phase_retrieval_task_get_requisition;
-}
-
-static void
-ufo_gpu_task_interface_init (UfoGpuTaskIface *iface)
-{
+    iface->get_num_inputs = ufo_filter_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_filter_task_get_num_dimensions;
+    iface->get_mode = ufo_filter_task_get_mode;
     iface->process = ufo_phase_retrieval_task_process;
 }
 
