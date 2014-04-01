@@ -66,6 +66,7 @@ struct _UfoPhaseRetrievalTaskPrivate {
     cl_context context;
     clFFT_Plan fft_plan;
     clFFT_Dim3 fft_size;
+    UfoBuffer *fft_buffer;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -124,6 +125,15 @@ ufo_phase_retrieval_task_setup (UfoTask *task,
     priv->get_real_kernel = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "get_real", error);
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext(priv->context));
+
+    if (priv->fft_buffer == NULL) {
+        UfoRequisition requisition;
+        requisition.n_dims = 2;
+        requisition.dims[0] = 1;
+        requisition.dims[1] = 1;
+
+        priv->fft_buffer = ufo_buffer_new(&requisition, priv->context);
+    }
 
     for (int i = 0; i < N_METHODS; i++) {
         if (priv->kernels[i] != NULL) {
@@ -220,8 +230,8 @@ ufo_phase_retrieval_task_process (UfoTask *task,
     fft_requisition.n_dims = 2;
     fft_requisition.dims[0] = requisition->dims[0] * 2;
     fft_requisition.dims[1] = requisition->dims[1];
-    UfoBuffer *fft_buffer = ufo_buffer_new(&fft_requisition, priv->context);
-    fft_mem = ufo_buffer_get_device_array (fft_buffer, cmd_queue);
+    ufo_buffer_resize(priv->fft_buffer, &fft_requisition);
+    fft_mem = ufo_buffer_get_device_array (priv->fft_buffer, cmd_queue);
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 0, sizeof (gint), &priv->normalize));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 1, sizeof (gfloat), &priv->prefac));
@@ -389,6 +399,9 @@ ufo_phase_retrieval_task_finalize (GObject *object)
         priv->context = NULL;
     }
 
+    if (priv->fft_buffer) {
+        g_object_unref(priv->fft_buffer);
+    }
     
     G_OBJECT_CLASS (ufo_phase_retrieval_task_parent_class)->finalize (object);
 }
@@ -495,4 +508,5 @@ ufo_phase_retrieval_task_init(UfoPhaseRetrievalTask *self)
     priv->normalize = 1;
     priv->sub_value = 1.0f;
     priv->kernels = (cl_kernel *) g_malloc0(N_METHODS * sizeof(cl_kernel));
+    priv->fft_buffer = NULL;
 }
