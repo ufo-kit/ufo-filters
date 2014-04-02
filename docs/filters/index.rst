@@ -136,6 +136,47 @@ Forward projection
         simply pi divided by :gobj:prop:`num-projections`.
 
 
+Phase retrieval
+---------------
+
+.. gobj:class:: phase-retrieval
+
+    Computes correction of phase-shifted data.
+
+    .. gobj:prop:: method:string
+
+        Retrieval method which is one of ``tie``, ``ctf``, ``ctfhalfsin``,
+        ``qp``, ``qphalfsine`` or ``qp2``.
+
+    .. gobj:prop:: width:int
+
+        Filter width.
+
+    .. gobj:prop:: height:int
+
+        Filter height.
+
+    .. gobj:prop:: energy:float
+
+        Energy.
+
+    .. gobj:prop:: distance:float
+
+        Distance in meter.
+
+    .. gobj:prop:: pixel-size:float
+
+        Pixel size in meter.
+
+    .. gobj:prop:: regularization-rate:float
+
+        Regularization rate.
+
+    .. gobj:prop:: thresholding-rate:float
+
+        Threshold rate.
+
+
 Gaussian blur
 -------------
 

@@ -24,17 +24,8 @@
 #endif
 
 #include "clFFT.h"
-
 #include "ufo-phase-retrieval-task.h"
 
-#define M_PI 3.14159265358979323846
-
-/**
- * SECTION:ufo-phase-retrieval-task
- * @Short_description: Retruns phase-contrast data
- * @Title: Phase-retrieval
- *
- */
 
 typedef enum {
     METHOD_TIE,
@@ -111,7 +102,7 @@ ufo_phase_retrieval_task_setup (UfoTask *task,
     priv->context = ufo_resources_get_context(resources);
 
     lambda = 6.62606896e-34 * 299792458 / (priv->energy * 1.60217733e-16);
-    priv->prefac = 2 * M_PI * lambda * priv->distance / (priv->pixel_size * priv->pixel_size);
+    priv->prefac = 2 * G_PI * lambda * priv->distance / (priv->pixel_size * priv->pixel_size);
 
     priv->kernels[METHOD_TIE] = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "tie_method", error);
     priv->kernels[METHOD_CTF] = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "ctf_method", error);
