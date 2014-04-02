@@ -19,6 +19,7 @@
 
 #include <gmodule.h>
 #include <tiffio.h>
+#include <errno.h>
 
 #include "ufo-writer-task.h"
 
@@ -170,7 +171,19 @@ ufo_writer_task_setup (UfoTask *task,
         open_tiff_file (priv);
     }
     else {
+        gchar *dirname;
+
         priv->template = build_template (priv->format);
+        dirname = g_path_get_dirname (priv->template);
+
+        if (g_strcmp0 (dirname, ".")) {
+            if (g_mkdir_with_parents (dirname, 0755)) {
+                g_set_error (error, G_FILE_ERROR, g_file_error_from_errno (errno),
+                             "Could not create directory `%s'", dirname);
+            }
+        }
+
+        g_free (dirname);
     }
 }
 
