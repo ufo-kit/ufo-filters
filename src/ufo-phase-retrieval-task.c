@@ -221,7 +221,11 @@ ufo_phase_retrieval_task_process (UfoTask *task,
     fft_requisition.n_dims = 2;
     fft_requisition.dims[0] = requisition->dims[0] * 2;
     fft_requisition.dims[1] = requisition->dims[1];
-    ufo_buffer_resize(priv->fft_buffer, &fft_requisition);
+
+    if (ufo_buffer_cmp_dimensions (priv->fft_buffer, &fft_requisition)) {
+        ufo_buffer_resize (priv->fft_buffer, &fft_requisition);
+    }
+
     fft_mem = ufo_buffer_get_device_array (priv->fft_buffer, cmd_queue);
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 0, sizeof (gint), &priv->normalize));
