@@ -173,6 +173,9 @@ ufo_writer_task_setup (UfoTask *task,
     else {
         gchar *dirname;
 
+        if (priv->template)
+            g_free (priv->template);
+
         priv->template = build_template (priv->format);
         dirname = g_path_get_dirname (priv->template);
 
@@ -293,6 +296,9 @@ ufo_writer_task_finalize (GObject *object)
     UfoWriterTaskPrivate *priv;
 
     priv = UFO_WRITER_TASK_GET_PRIVATE (object);
+
+    if (priv->template)
+        g_free (priv->template);
 
     if (priv->single)
         TIFFClose (priv->tif);
