@@ -150,15 +150,15 @@ Phase retrieval
 
     .. gobj:prop:: width:int
 
-        Filter width.
+        Filter width (optional).
 
     .. gobj:prop:: height:int
 
-        Filter height.
+        Filter height (optional).
 
     .. gobj:prop:: energy:float
 
-        Energy.
+        Energy in keV.
 
     .. gobj:prop:: distance:float
 
@@ -170,11 +170,11 @@ Phase retrieval
 
     .. gobj:prop:: regularization-rate:float
 
-        Regularization rate.
+        Regularization rate in [2, 3].
 
     .. gobj:prop:: thresholding-rate:float
 
-        Threshold rate.
+        Threshold rate in [0.01, 0.1].
 
 
 Gaussian blur
