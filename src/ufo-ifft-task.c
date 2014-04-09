@@ -138,7 +138,7 @@ ufo_ifft_task_get_num_dimensions (UfoTask *task,
                                   guint input)
 {
     g_return_val_if_fail (input == 0, 0);
-    return UFO_IFFT_TASK_GET_PRIVATE (task)->fft_dimensions;
+    return UFO_IFFT_TASK_GET_PRIVATE (task)->fft_dimensions > 2 ? 3 : 2;
 }
 
 static UfoTaskMode
