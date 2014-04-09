@@ -83,13 +83,9 @@ ufo_generate_task_get_requisition (UfoTask *task,
 
     priv = UFO_GENERATE_TASK_GET_PRIVATE (task);
 
-    requisition->n_dims = 1;
+    requisition->n_dims = 2;
     requisition->dims[0] = priv->width;
-
-    if (priv->height > 1) {
-        requisition->n_dims += 1;
-        requisition->dims[1] = priv->height;
-    }
+    requisition->dims[1] = priv->height;
 
     if (priv->height > 2) {
         requisition->n_dims += 1;
