@@ -124,7 +124,7 @@ ufo_zeropadding_task_process (UfoTask *task,
     UfoProfiler *profiler;
     cl_command_queue cmd_queue;
     cl_mem in_mem, out_mem;
-    cl_int xdim;
+    cl_int xdim, offset;
 
     priv = UFO_ZEROPADDING_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
@@ -133,14 +133,16 @@ ufo_zeropadding_task_process (UfoTask *task,
     UfoRequisition input_requisition;
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
 
-    /* args */
+    xdim = (cl_int)input_requisition.dims[0];
+    offset = (priv->center_rot != -1) ? xdim - (xdim - (cl_int)priv->center_rot) * 2 : 0;
+
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
-    xdim = (cl_int)input_requisition.dims[0];
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->zeropadding_kernel, 0, sizeof (cl_mem), &in_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->zeropadding_kernel, 1, sizeof (cl_int), &xdim));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->zeropadding_kernel, 2, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->zeropadding_kernel, 1, sizeof (cl_int), &offset));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->zeropadding_kernel, 2, sizeof (cl_int), &xdim));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->zeropadding_kernel, 3, sizeof (cl_mem), &out_mem));
 
     /* execution */
     size_t working_dims[] = {requisition->dims[0]/2, requisition->dims[1]};
