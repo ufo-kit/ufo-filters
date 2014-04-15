@@ -169,16 +169,21 @@ Phase retrieval
         Pixel size in meter.
 
     .. gobj:prop:: regularization-rate:float
-        Regularization parameter is log10 of the constant to be added to the 
-        denominator to regularize the singularity at zero frequency: 1/sin(x) -> 1/(sin(x)+10^-RegPar).
+
+        Regularization parameter is log10 of the constant to be added to the
+        denominator to regularize the singularity at zero frequency: 1/sin(x) ->
+        1/(sin(x)+10^-RegPar).
         
         Typical values [2, 3].
 
     .. gobj:prop:: thresholding-rate:float
-        Parameter for Quasiparticle phase retrieval which defines the width of the 
-        rings to be cropped around the zero crossing of the CTF denominator in Fourier space.
+
+        Parameter for Quasiparticle phase retrieval which defines the width of
+        the rings to be cropped around the zero crossing of the CTF denominator
+        in Fourier space.
         
-        Typical values in [0.01, 0.1], 'qp' retrieval is rather independent of cropping width.
+        Typical values in [0.01, 0.1], ``qp`` retrieval is rather independent of
+        cropping width.
 
 
 Gaussian blur
