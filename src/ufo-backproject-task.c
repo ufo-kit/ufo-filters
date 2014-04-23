@@ -183,7 +183,7 @@ release_lut_mems (UfoBackprojectTaskPrivate *priv)
 
     if (priv->cos_lut) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->cos_lut));
-        priv->sin_lut = NULL;
+        priv->cos_lut = NULL;
     }
 }
 
