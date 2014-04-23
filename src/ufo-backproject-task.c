@@ -158,7 +158,7 @@ create_lut_buffer (UfoBackprojectTaskPrivate *priv,
     gsize size = n_entries * sizeof (gfloat);
     cl_mem mem = NULL;
 
-    *host_mem = g_malloc0 (size);
+    *host_mem = g_realloc (*host_mem, size);
 
     for (guint i = 0; i < n_entries; i++)
         (*host_mem)[i] = (gfloat) func (priv->angle_offset + i * priv->real_angle_step);
@@ -317,6 +317,10 @@ ufo_backproject_task_set_property (GObject *object,
             break;
         case PROP_ANGLE_OFFSET:
             priv->angle_offset = g_value_get_double (value);
+            priv->sin_lut = create_lut_buffer (priv, &priv->host_sin_lut,
+                                            priv->n_projections, sin);
+            priv->cos_lut = create_lut_buffer (priv, &priv->host_sin_lut,
+                                            priv->n_projections, cos);
             break;
         case PROP_MODE:
             if (!g_strcmp0 (g_value_get_string (value), "nearest"))
