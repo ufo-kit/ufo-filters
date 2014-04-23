@@ -48,6 +48,7 @@ struct _UfoBackprojectTaskPrivate {
     guint burst_projections;
     guint n_projections;
     Mode mode;
+    gboolean luts_changed;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -173,6 +174,20 @@ create_lut_buffer (UfoBackprojectTaskPrivate *priv,
 }
 
 static void
+release_lut_mems (UfoBackprojectTaskPrivate *priv)
+{
+    if (priv->sin_lut) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->sin_lut));
+        priv->sin_lut = NULL;
+    }
+
+    if (priv->cos_lut) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->cos_lut));
+        priv->sin_lut = NULL;
+    }
+}
+
+static void
 ufo_backproject_task_get_requisition (UfoTask *task,
                                       UfoBuffer **inputs,
                                       UfoRequisition *requisition)
@@ -204,6 +219,11 @@ ufo_backproject_task_get_requisition (UfoTask *task,
             priv->real_angle_step = G_PI / ((gdouble) in_req.dims[1]);
         else
             priv->real_angle_step = priv->angle_step;
+    }
+
+    if (priv->luts_changed) {
+        release_lut_mems (priv);
+        priv->luts_changed = FALSE;
     }
 
     if (priv->sin_lut == NULL) {
@@ -252,15 +272,7 @@ ufo_backproject_task_finalize (GObject *object)
 
     priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (object);
 
-    if (priv->sin_lut) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->sin_lut));
-        priv->sin_lut = NULL;
-    }
-
-    if (priv->cos_lut) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->cos_lut));
-        priv->sin_lut = NULL;
-    }
+    release_lut_mems (priv);
 
     g_free (priv->host_sin_lut);
     g_free (priv->host_cos_lut);
@@ -357,6 +369,7 @@ ufo_backproject_task_get_property (GObject *object,
             break;
         case PROP_ANGLE_OFFSET:
             g_value_set_double (value, priv->angle_offset);
+            priv->luts_changed = TRUE;
             break;
         case PROP_MODE:
             switch (priv->mode) {
@@ -456,4 +469,5 @@ ufo_backproject_task_init (UfoBackprojectTask *self)
     priv->host_sin_lut = NULL;
     priv->host_cos_lut = NULL;
     priv->mode = MODE_TEXTURE;
+    priv->luts_changed = TRUE;
 }
