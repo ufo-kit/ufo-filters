@@ -44,11 +44,11 @@ struct _UfoBackprojectTaskPrivate {
     gdouble angle_step;
     gdouble angle_offset;
     gdouble real_angle_step;
+    gboolean luts_changed;
     guint offset;
     guint burst_projections;
     guint n_projections;
     Mode mode;
-    gboolean luts_changed;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -329,10 +329,7 @@ ufo_backproject_task_set_property (GObject *object,
             break;
         case PROP_ANGLE_OFFSET:
             priv->angle_offset = g_value_get_double (value);
-            priv->sin_lut = create_lut_buffer (priv, &priv->host_sin_lut,
-                                            priv->n_projections, sin);
-            priv->cos_lut = create_lut_buffer (priv, &priv->host_sin_lut,
-                                            priv->n_projections, cos);
+            priv->luts_changed = TRUE;
             break;
         case PROP_MODE:
             if (!g_strcmp0 (g_value_get_string (value), "nearest"))
@@ -369,7 +366,6 @@ ufo_backproject_task_get_property (GObject *object,
             break;
         case PROP_ANGLE_OFFSET:
             g_value_set_double (value, priv->angle_offset);
-            priv->luts_changed = TRUE;
             break;
         case PROP_MODE:
             switch (priv->mode) {
