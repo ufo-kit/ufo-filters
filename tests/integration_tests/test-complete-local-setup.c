@@ -96,8 +96,8 @@ test_simple_invert (Fixture *fixture,
     ufo_graph_connect_nodes (graph, UFO_NODE (cl1), UFO_NODE (cl2), NULL);
     ufo_graph_connect_nodes (graph, UFO_NODE (cl2), UFO_NODE (writer), NULL);
 
-    UfoScheduler *sched = ufo_scheduler_new (NULL, NULL);
-    ufo_scheduler_run (sched, UFO_TASK_GRAPH (graph), NULL);
+    UfoBaseScheduler *sched = ufo_scheduler_new (NULL, NULL);
+    ufo_base_scheduler_run (sched, UFO_TASK_GRAPH (graph), NULL);
 
     // test that an output was generated
     g_assert (g_file_test (output_image, G_FILE_TEST_EXISTS));

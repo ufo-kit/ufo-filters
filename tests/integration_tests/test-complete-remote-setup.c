@@ -108,9 +108,9 @@ test_simple_invert (Fixture *fixture,
 
     gchar *remote = g_strdup ("tcp://127.0.0.1:5555");
     GList *remotes = g_list_append (NULL, remote);
-    UfoScheduler *sched = ufo_scheduler_new (NULL, remotes);
+    UfoBaseScheduler *sched = ufo_scheduler_new (NULL, remotes);
 
-    ufo_scheduler_run (sched, UFO_TASK_GRAPH (graph), NULL);
+    ufo_base_scheduler_run (sched, UFO_TASK_GRAPH (graph), NULL);
     g_free(remote);
 
     // test that an output was generated
