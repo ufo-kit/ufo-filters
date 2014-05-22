@@ -17,9 +17,11 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const sampler_t volumeSampler = CLK_NORMALIZED_COORDS_FALSE |
-                                CLK_ADDRESS_CLAMP |
-                                CLK_FILTER_LINEAR;
+constant sampler_t volumeSampler = CLK_NORMALIZED_COORDS_FALSE |
+                                   CLK_ADDRESS_CLAMP |
+                                   CLK_FILTER_LINEAR;
+
+#define PI 3.1415926535897932384626433832795028841971693993751058209749445923078164062f
 
 __kernel void
 backproject_nearest (global float *sinogram,
@@ -42,7 +44,7 @@ backproject_nearest (global float *sinogram,
         sum += sinogram[(int)(proj * width + h)];
     }
 
-    slice[idy * width + idx] = sum * 4.0 * M_PI;
+    slice[idy * width + idx] = sum * 4.0 * PI;
 }
 
 __kernel void
@@ -70,6 +72,6 @@ backproject_tex (read_only image2d_t sinogram,
         sum += (isnan (val) ? 0.0 : val);
     }
 
-    slice[idy * width + idx] = sum * 4.0 * M_PI;
+    slice[idy * width + idx] = sum * 4.0 * PI;
 }
 

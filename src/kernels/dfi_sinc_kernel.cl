@@ -17,8 +17,10 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-const sampler_t image_sampler_ktbl = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_LINEAR;
-const sampler_t image_sampler_data = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
+constant sampler_t image_sampler_ktbl = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_LINEAR;
+constant sampler_t image_sampler_data = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
+
+#define PI 3.1415926535897932384626433832795028841971693993751058209749445923078164062f
 
 typedef struct {
         float real;
@@ -75,7 +77,7 @@ __kernel void dfi_sinc_kernel(__read_only image2d_t input,
 
 	sign = (in_coord.y < 0.0) ? -1 : 1;
 
-	in_coord.y = (in_coord.y < 0.0f) ? in_coord.y+= M_PI : in_coord.y;
+	in_coord.y = (in_coord.y < 0.0f) ? in_coord.y+= PI : in_coord.y;
 	in_coord.y = (float) min(1.0f + in_coord.y/angle_step_rad, theta_max - 1);
 
 	in_coord.x = (float) min(radius, (float)raster_size2);

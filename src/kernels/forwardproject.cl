@@ -17,9 +17,9 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE |
-                          CLK_ADDRESS_CLAMP |
-                          CLK_FILTER_LINEAR;
+constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE |
+                             CLK_ADDRESS_CLAMP |
+                             CLK_FILTER_LINEAR;
 
 __kernel void
 forwardproject(__read_only image2d_t slice,
