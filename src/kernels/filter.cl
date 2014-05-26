@@ -17,13 +17,29 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-__kernel void
-filter (__global float *input,
-        __global float *output,
-        __global float *filter)
+kernel void
+filter (global float *input,
+        global float *output,
+        global float *filter)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
-    const int id = idy*get_global_size(0) + idx;
-    output[id] = input[id] * filter[idx];
+    const int index = idy*get_global_size(0) + idx;
+    output[index] = input[index] * filter[idx];
+}
+
+kernel void
+stripe_filter (global float *input,
+               global float *output)
+{
+    const int idx = get_global_id(0);
+    const int idy = get_global_id(1);
+    const int width = get_global_size(0);
+    const int height = get_global_size(1);
+    const int index = idy * get_global_size(0) + idx;
+
+    if (((idy < 1) || (idy >= height - 1)) && (idx > 0) && (idx < width - 1))
+        output[index] = 0.0f;
+    else
+        output[index] = input[index];
 }
