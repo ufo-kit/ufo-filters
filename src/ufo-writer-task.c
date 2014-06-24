@@ -28,6 +28,7 @@ struct _UfoWriterTaskPrivate {
     gchar *format;
     gchar *template;
     guint counter;
+    gboolean append;
     gsize width;
     gsize height;
 
@@ -47,6 +48,7 @@ enum {
     PROP_0,
     PROP_FORMAT,
     PROP_SINGLE_FILE,
+    PROP_APPEND,
     N_PROPERTIES
 };
 
@@ -117,6 +119,14 @@ build_filename (UfoWriterTaskPrivate *priv)
     return filename;
 }
 
+static void
+find_free_index (UfoWriterTaskPrivate *priv)
+{
+    while (g_file_test(build_filename(priv), G_FILE_TEST_EXISTS)) {
+        priv->counter++;
+    }
+}
+
 static gchar *
 build_template (const gchar *format)
 {
@@ -148,9 +158,10 @@ static void
 open_tiff_file (UfoWriterTaskPrivate *priv)
 {
     gchar *filename;
+    const gchar *mode = priv->append ? "a" : "w";
 
     filename = build_filename (priv);
-    priv->tif = TIFFOpen (filename, "w");
+    priv->tif = TIFFOpen (filename, mode);
     g_free (filename);
 }
 
@@ -184,6 +195,10 @@ ufo_writer_task_setup (UfoTask *task,
                 g_set_error (error, G_FILE_ERROR, g_file_error_from_errno (errno),
                              "Could not create directory `%s'", dirname);
             }
+        }
+
+        if (priv->append) {
+            find_free_index(priv);
         }
 
         g_free (dirname);
@@ -263,6 +278,9 @@ ufo_writer_task_set_property (GObject *object,
         case PROP_SINGLE_FILE:
             priv->single = g_value_get_boolean (value);
             break;
+        case PROP_APPEND:
+            priv->append = g_value_get_boolean (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -283,6 +301,9 @@ ufo_writer_task_get_property (GObject *object,
             break;
         case PROP_SINGLE_FILE:
             g_value_set_boolean (value, priv->single);
+            break;
+        case PROP_APPEND:
+            g_value_set_boolean (value, priv->append);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -343,6 +364,13 @@ ufo_writer_task_class_init (UfoWriterTaskClass *klass)
             FALSE,
             G_PARAM_READWRITE);
 
+    properties[PROP_APPEND] =
+        g_param_spec_boolean ("append",
+            "If true the data is appended, otherwise overwritten",
+            "If true the data is appended, otherwise overwritten",
+            FALSE,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -356,5 +384,6 @@ ufo_writer_task_init(UfoWriterTask *self)
     self->priv->format = g_strdup ("./output-%05i.tif");
     self->priv->template = NULL;
     self->priv->counter = 0;
+    self->priv->append = FALSE;
     self->priv->single = FALSE;
 }
