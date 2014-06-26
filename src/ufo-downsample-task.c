@@ -28,7 +28,8 @@
 
 struct _UfoDownsampleTaskPrivate {
     cl_kernel fast_kernel;
-    guint factor;
+    guint x_factor;
+    guint y_factor;
     guint target_width;
     guint target_height;
 };
@@ -44,6 +45,8 @@ G_DEFINE_TYPE_WITH_CODE (UfoDownsampleTask, ufo_downsample_task, UFO_TYPE_TASK_N
 enum {
     PROP_0,
     PROP_FACTOR,
+    PROP_X_FACTOR,
+    PROP_Y_FACTOR,
     N_PROPERTIES
 };
 
@@ -81,8 +84,8 @@ ufo_downsample_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
     requisition->n_dims = 2;
-    requisition->dims[0] = priv->target_width = in_req.dims[0] / priv->factor;
-    requisition->dims[1] = priv->target_height = in_req.dims[1] / priv->factor;
+    requisition->dims[0] = priv->target_width = in_req.dims[0] / priv->x_factor;
+    requisition->dims[1] = priv->target_height = in_req.dims[1] / priv->y_factor;
 }
 
 static guint
@@ -126,7 +129,8 @@ ufo_downsample_task_process (UfoTask *task,
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->fast_kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->fast_kernel, 1, sizeof (cl_mem), &out_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->fast_kernel, 2, sizeof (guint), &priv->factor));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->fast_kernel, 2, sizeof (guint), &priv->x_factor));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->fast_kernel, 3, sizeof (guint), &priv->y_factor));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->fast_kernel, 2, requisition->dims, NULL);
@@ -144,7 +148,14 @@ ufo_downsample_task_set_property (GObject *object,
 
     switch (property_id) {
         case PROP_FACTOR:
-            priv->factor = g_value_get_uint (value);
+            priv->x_factor = g_value_get_uint (value);
+            priv->y_factor = g_value_get_uint (value);
+            break;
+        case PROP_X_FACTOR:
+            priv->x_factor = g_value_get_uint (value);
+            break;
+        case PROP_Y_FACTOR:
+            priv->y_factor = g_value_get_uint (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -161,8 +172,11 @@ ufo_downsample_task_get_property (GObject *object,
     UfoDownsampleTaskPrivate *priv = UFO_DOWNSAMPLE_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_FACTOR:
-            g_value_set_uint (value, priv->factor);
+        case PROP_X_FACTOR:
+            g_value_set_uint (value, priv->x_factor);
+            break;
+        case PROP_Y_FACTOR:
+            g_value_set_uint (value, priv->y_factor);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -208,8 +222,22 @@ ufo_downsample_task_class_init (UfoDownsampleTaskClass *klass)
     properties[PROP_FACTOR] =
         g_param_spec_uint ("factor",
                            "Downsample factor",
-                           "Downsample factor, e.g. 2 reduces width and height by 2",
+                           "Downsample factor for both dimensions, e.g. 2 reduces width and height by 2",
                            2, 16, 2,
+                           G_PARAM_WRITABLE);
+
+    properties[PROP_X_FACTOR] =
+        g_param_spec_uint ("x-factor",
+                           "Downsample x-factor",
+                           "Downsample x-factor, e.g. 2 reduces width by 2",
+                           1, 16, 2,
+                           G_PARAM_READWRITE);
+
+    properties[PROP_Y_FACTOR] =
+        g_param_spec_uint ("y-factor",
+                           "Downsample y-factor",
+                           "Downsample y-factor, e.g. 2 reduces height by 2",
+                           1, 16, 2,
                            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -222,5 +250,6 @@ static void
 ufo_downsample_task_init(UfoDownsampleTask *self)
 {
     self->priv = UFO_DOWNSAMPLE_TASK_GET_PRIVATE(self);
-    self->priv->factor = 2;
+    self->priv->x_factor = 2;
+    self->priv->y_factor = 2;
 }
