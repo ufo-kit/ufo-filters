@@ -49,6 +49,8 @@ struct _UfoReaderTaskPrivate {
 
     guint roi_y;
     guint roi_height;
+    gint offset;
+    guint tail;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -70,6 +72,7 @@ enum {
     PROP_ROI_HEIGHT,
     PROP_TOTAL_HEIGHT,
     PROP_ENABLE_CONVERSION,
+    PROP_OFFSET,
     N_PROPERTIES
 };
 
@@ -181,9 +184,13 @@ ufo_reader_task_setup (UfoTask *task,
 
     ufo_task_node_get_partition (UFO_TASK_NODE (task), (guint*) &index, (guint*) &total);
     n_files = priv->count == -1 ? G_MAXINT : priv->count;
+    if (index == total - 1) {
+        /* If this node is the last make sure the remainder of the files is read */
+        priv->tail = n_files % total;
+    }
     partition = n_files / total;
-    priv->current_count = index * partition;
-    priv->count = (index + 1) * partition;
+    priv->current_count = index * partition + priv->offset;
+    priv->count = priv->count == -1 ? G_MAXINT : (index + 1) * partition;
     priv->current_filename = g_slist_nth (priv->filenames, (guint) priv->current_count);
 }
 
@@ -269,10 +276,12 @@ ufo_reader_task_get_requisition (UfoTask *task,
                                  UfoRequisition *requisition)
 {
     UfoReaderTaskPrivate *priv;
+    gint count;
 
     priv = UFO_READER_TASK_GET_PRIVATE (UFO_READER_TASK (task));
+    count = priv->count == G_MAXINT ? G_MAXINT : priv->count + priv->offset + priv->tail;
 
-    if ((priv->current_count < priv->count) && (priv->current_filename != NULL)) {
+    if ((priv->current_count < count) && (priv->current_filename != NULL)) {
         const gchar *name = (gchar *) priv->current_filename->data;
 
         if (is_tiff_file (name)) {
@@ -331,11 +340,13 @@ ufo_reader_task_generate (UfoTask *task,
 {
     UfoReaderTaskPrivate *priv;
     UfoProfiler *profiler;
+    gint count;
 
     priv = UFO_READER_TASK_GET_PRIVATE (UFO_READER_TASK (task));
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    count = priv->count == G_MAXINT ? G_MAXINT : priv->count + priv->offset + priv->tail;
 
-    if ((priv->current_count < priv->count) && (priv->current_filename != NULL)) {
+    if ((priv->current_count < count) && (priv->current_filename != NULL)) {
         gpointer data = ufo_buffer_get_host_array (output, NULL);
 
         ufo_profiler_start (profiler, UFO_PROFILER_TIMER_IO);
@@ -405,6 +416,9 @@ ufo_reader_task_set_property (GObject *object,
         case PROP_ENABLE_CONVERSION:
             priv->enable_conversion = g_value_get_boolean (value);
             break;
+        case PROP_OFFSET:
+            priv->offset = g_value_get_int (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -446,6 +460,9 @@ ufo_reader_task_get_property (GObject *object,
             break;
         case PROP_ENABLE_CONVERSION:
             g_value_set_boolean (value, priv->enable_conversion);
+            break;
+        case PROP_OFFSET:
+            g_value_set_int (value, priv->offset);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -553,6 +570,13 @@ ufo_reader_task_class_init(UfoReaderTaskClass *klass)
             TRUE,
             G_PARAM_READWRITE);
 
+    properties[PROP_OFFSET] =
+        g_param_spec_int("offset",
+            "Offset to the first read file",
+            "Offset to the first read file",
+            0, G_MAXINT, 0,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -576,4 +600,6 @@ ufo_reader_task_init(UfoReaderTask *self)
     priv->tiff = NULL;
     priv->edf = NULL;
     priv->enable_conversion = TRUE;
+    priv->offset = 0;
+    priv->tail = 0;
 }
