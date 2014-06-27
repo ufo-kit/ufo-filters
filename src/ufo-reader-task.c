@@ -68,6 +68,7 @@ enum {
     PROP_NORMALIZE,
     PROP_ROI_Y,
     PROP_ROI_HEIGHT,
+    PROP_TOTAL_HEIGHT,
     PROP_ENABLE_CONVERSION,
     N_PROPERTIES
 };
@@ -440,6 +441,9 @@ ufo_reader_task_get_property (GObject *object,
         case PROP_ROI_HEIGHT:
             g_value_set_uint (value, priv->roi_height);
             break;
+        case PROP_TOTAL_HEIGHT:
+            g_value_set_uint (value, priv->height);
+            break;
         case PROP_ENABLE_CONVERSION:
             g_value_set_boolean (value, priv->enable_conversion);
             break;
@@ -534,6 +538,13 @@ ufo_reader_task_class_init(UfoReaderTaskClass *klass)
             "Height of the region of interest to read",
             0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
+
+    properties[PROP_TOTAL_HEIGHT] =
+        g_param_spec_uint("total-height",
+            "Total height of an image",
+            "Total height of an image",
+            0, G_MAXUINT, 0,
+            G_PARAM_READABLE);
 
     properties[PROP_ENABLE_CONVERSION] =
         g_param_spec_boolean("enable-conversion",
