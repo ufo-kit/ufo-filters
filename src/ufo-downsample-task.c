@@ -86,6 +86,15 @@ ufo_downsample_task_get_requisition (UfoTask *task,
     requisition->n_dims = 2;
     requisition->dims[0] = priv->target_width = in_req.dims[0] / priv->x_factor;
     requisition->dims[1] = priv->target_height = in_req.dims[1] / priv->y_factor;
+
+    /* If the factors are too big we want at least one row/column in order */
+    /* not to have a buffer with 0 in any dimension */
+    if (requisition->dims[0] == 0) {
+        requisition->dims[0] = priv->target_width = 1;
+    }
+    if (requisition->dims[1] == 0) {
+        requisition->dims[1] = priv->target_height = 1;
+    }
 }
 
 static guint
