@@ -228,25 +228,32 @@ read_edf_metadata (UfoReaderTaskPrivate *priv)
 
 static gboolean
 read_edf_data (UfoReaderTaskPrivate *priv,
-               gpointer buffer)
+               gpointer buffer,
+               UfoRequisition *requisition)
 {
     gsize file_size;
     gsize num_bytes;
     gssize header_size;
+    /* Offset to the first row */
+    gssize offset;
+    /* size of the image cropped by ROI */
+    gsize size;
 
     fseek (priv->edf, 0L, SEEK_END);
     file_size = (gsize) ftell (priv->edf);
     header_size = (gssize) (file_size - priv->size);
-    fseek (priv->edf, header_size, SEEK_SET);
+    offset = requisition->dims[0] * priv->roi_y * priv->bps / 8;
+    size = requisition->dims[0] * requisition->dims[1] * priv->bps / 8;
+    fseek (priv->edf, header_size + offset, SEEK_SET);
 
-    num_bytes = fread (buffer, 1, priv->size, priv->edf);
+    num_bytes = fread (buffer, 1, size, priv->edf);
 
-    if (num_bytes != priv->size)
+    if (num_bytes != size)
         return FALSE;
 
     if ((G_BYTE_ORDER == G_LITTLE_ENDIAN) && priv->big_endian) {
         guint32 *data = (guint32 *) buffer;
-        guint n_pixels = priv->width * priv->height;
+        guint n_pixels = requisition->dims[0] * requisition->dims[1];
 
         for (guint i = 0; i < n_pixels; i++)
             data[i] = g_ntohl (data[i]);
@@ -338,7 +345,7 @@ ufo_reader_task_generate (UfoTask *task,
             priv->tiff = NULL;
         }
         else if (priv->edf != NULL) {
-            read_edf_data (priv, data);
+            read_edf_data (priv, data, requisition);
             fclose (priv->edf);
             priv->edf = NULL;
         }
