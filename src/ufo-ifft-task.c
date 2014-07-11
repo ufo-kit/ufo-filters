@@ -25,7 +25,12 @@
 #include <CL/cl.h>
 #endif
 
+#ifdef HAVE_AMD
+#include <clFFT.h>
+#else
 #include "clFFT.h"
+#endif
+
 #include "ufo-ifft-task.h"
 
 
@@ -36,10 +41,20 @@ struct _UfoIfftTaskPrivate {
         FFT_3D
     } fft_dimensions;
 
+    #ifdef HAVE_AMD
+    clfftPlanHandle fft_plan;
+    clfftSetupData fft_setup;
+    size_t fft_size[3];
+    #else
+    clFFT_Plan fft_plan;
+    clFFT_Dim3 fft_size;
+    #endif
+
     cl_context  context;
     cl_kernel   kernel;
-    clFFT_Plan  fft_plan;
+    cl_command_queue cmd_queue;
 
+    cl_int batch_size;
     gint crop_width;
 };
 
@@ -79,8 +94,9 @@ ufo_ifft_task_setup (UfoTask *task,
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
 
-    if (priv->kernel != NULL)
+    if (priv->kernel != NULL) {
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+    }
 }
 
 static void
@@ -88,42 +104,69 @@ ufo_ifft_task_get_requisition (UfoTask *task,
                                UfoBuffer **inputs,
                                UfoRequisition *requisition)
 {
+    UfoGpuNode *node;
     UfoIfftTaskPrivate *priv;
     UfoRequisition in_req;
-    clFFT_Dim3 fft_size;
-    clFFT_Dimension dimension;
-    cl_int cl_err = CL_SUCCESS;
+    guint32 x_dim, y_dim;
 
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     priv = UFO_IFFT_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &in_req);
+    priv->cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 
-    fft_size.x = (guint32) in_req.dims[0] / 2;
-    fft_size.y = 1;
-    fft_size.z = 1;
+    cl_int cl_err = CL_SUCCESS;
+
+    #ifdef HAVE_AMD
+    clfftDim dimension;
+    #else
+    clFFT_Dimension dimension;
+    #endif
+
+    x_dim = (guint32) in_req.dims[0] / 2;
 
     switch (priv->fft_dimensions) {
         case FFT_1D:
-            dimension = clFFT_1D;
+            dimension = HAVE_AMD ? CLFFT_1D : clFFT_1D;
             break;
         case FFT_2D:
-            dimension = clFFT_2D;
-            fft_size.y = (guint32) in_req.dims[1];
+            dimension = HAVE_AMD ? CLFFT_2D : clFFT_2D;
+            y_dim = (guint32) in_req.dims[1];
             break;
         case FFT_3D:
-            dimension = clFFT_3D;
+            dimension = HAVE_AMD ? CLFFT_3D : clFFT_3D;;
             break;
     }
 
+    #ifdef HAVE_AMD
+    priv->fft_size[0] = x_dim;
+    priv->fft_size[1] = y_dim;
+    #else
+    priv->fft_size.x = x_dim;
+    priv->fft_size.y = y_dim;
+    #endif
+
+    priv->batch_size = priv->fft_dimensions == FFT_1D ? (cl_int) in_req.dims[1] : 1;
+
     if (priv->fft_plan == NULL) {
+        #ifdef HAVE_AMD
+        cl_err = clfftCreateDefaultPlan (&(priv->fft_plan), priv->context, dimension, priv->fft_size);
+        cl_err = clfftSetPlanBatchSize (priv->fft_plan, priv->batch_size);
+        cl_err = clfftSetPlanPrecision (priv->fft_plan, CLFFT_SINGLE);
+        cl_err = clfftSetLayout (priv->fft_plan, CLFFT_COMPLEX_INTERLEAVED, CLFFT_COMPLEX_INTERLEAVED);
+        cl_err = clfftSetResultLocation (priv->fft_plan, CLFFT_INPLACE);
+        cl_err = clfftBakePlan (priv->fft_plan, 1, &(priv->cmd_queue), NULL, NULL);
+        #else
         priv->fft_plan = clFFT_CreatePlan (priv->context,
-                                           fft_size, dimension,
+                                           priv->fft_size, dimension,
                                            clFFT_InterleavedComplexFormat,
                                            &cl_err);
+        #endif
+
         UFO_RESOURCES_CHECK_CLERR (cl_err);
     }
 
     requisition->n_dims = 2;
-    requisition->dims[0] = priv->crop_width > 0 ? (gsize) priv->crop_width : fft_size.x;
+    requisition->dims[0] = priv->crop_width > 0 ? (gsize) priv->crop_width : x_dim;
     requisition->dims[1] = in_req.dims[1];
 }
 
@@ -163,35 +206,35 @@ ufo_ifft_task_process (UfoTask *task,
 {
     UfoIfftTaskPrivate *priv;
     UfoProfiler *profiler;
-    UfoGpuNode *node;
     UfoRequisition in_req;
-    cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
-    cl_int batch_size;
     cl_int width;
     gfloat scale;
     gsize global_work_size[2];
 
     priv = UFO_IFFT_TASK_GET_PRIVATE (task);
-    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-    cmd_queue = ufo_gpu_node_get_cmd_queue (node);
-    in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
-    out_mem = ufo_buffer_get_device_array (output, cmd_queue);
-    batch_size = priv->fft_dimensions == FFT_1D ? (cl_int) requisition->dims[1] : 1;
+    in_mem = ufo_buffer_get_device_array (inputs[0], priv->cmd_queue);
+    out_mem = ufo_buffer_get_device_array (output, priv->cmd_queue);
 
-    clFFT_ExecuteInterleaved_Ufo (cmd_queue,
-				  priv->fft_plan, batch_size, clFFT_Inverse,
-				  in_mem, in_mem,
-				  0, NULL, NULL, profiler);
-
-    clFinish (cmd_queue);
+    #ifdef HAVE_AMD
+    clfftEnqueueTransform (priv->fft_plan, 
+                           CLFFT_BACKWARD, 1, &(priv->cmd_queue),
+                           0, NULL, NULL, 
+                           &in_mem, &in_mem, NULL);
+    #else
+    clFFT_ExecuteInterleaved_Ufo (priv->cmd_queue,
+                                  priv->fft_plan, priv->batch_size, clFFT_Inverse,
+                                  in_mem, in_mem,
+                                  0, NULL, NULL, profiler);
+    #endif
 
     scale = 1.0f / ((gfloat) requisition->dims[0]);
 
-    if (priv->fft_dimensions == FFT_2D)
+    if (priv->fft_dimensions == FFT_2D) {
         scale /= (gfloat) requisition->dims[0];
+    }
 
     width = priv->crop_width > 0 ? priv->crop_width : (cl_int) requisition->dims[0];
     ufo_buffer_get_requisition (inputs[0], &in_req);
@@ -203,7 +246,7 @@ ufo_ifft_task_process (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_int), &width));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (gfloat), &scale));
 
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
+    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (priv->cmd_queue,
                                                        priv->kernel,
                                                        2, NULL, global_work_size, NULL,
                                                        0, NULL, NULL));
@@ -227,7 +270,12 @@ ufo_ifft_task_finalize (GObject *object)
         priv->context = NULL;
     }
 
+    #ifdef HAVE_AMD
+    clfftDestroyPlan (&(priv->fft_plan));
+    clfftTeardown ();
+    #else
     clFFT_DestroyPlan (priv->fft_plan);
+    #endif
 
     G_OBJECT_CLASS (ufo_ifft_task_parent_class)->finalize (object);
 }
@@ -326,7 +374,20 @@ ufo_ifft_task_init (UfoIfftTask *self)
     UfoIfftTaskPrivate *priv;
     self->priv = priv = UFO_IFFT_TASK_GET_PRIVATE (self);
     priv->crop_width = -1;
+    priv->batch_size = 1;
     priv->fft_dimensions = FFT_1D;
+
+    #ifdef HAVE_AMD
+    priv->fft_size[0] = 1;
+    priv->fft_size[1] = 1;
+    priv->fft_size[2] = 1;
+    priv->fft_setup = NULL;
+    #else
+    priv->fft_size.x = 1;
+    priv->fft_size.y = 1;
+    priv->fft_size.z = 1;
+    #endif
+
     priv->fft_plan = NULL;
     priv->kernel = NULL;
     priv->context = NULL;
