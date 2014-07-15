@@ -25,18 +25,13 @@
 #include <CL/cl.h>
 #endif
 
-#ifdef HAVE_FFTW3
-#include <fftw3.h>
-#endif
-
 #ifdef HAVE_AMD
 #include <clFFT.h>
 #else
-#include "clFFT.h"
+#include "oclFFT.h"
 #endif
 
 #include "ufo-fft-task.h"
-
 
 struct _UfoFftTaskPrivate {
     enum {
@@ -106,14 +101,17 @@ ufo_fft_task_setup (UfoTask *task,
                     GError **error)
 {
     UfoFftTaskPrivate *priv;
+    UfoGpuNode *node;
 
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
 
     if (priv->auto_zeropadding) {
         priv->kernel = ufo_resources_get_kernel (resources, "fft.cl", "fft_spread", error);
     }
 
     priv->context = ufo_resources_get_context (resources);
+    priv->cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
 
@@ -128,14 +126,11 @@ ufo_fft_task_get_requisition (UfoTask *task,
                               UfoRequisition *requisition)
 {
     UfoFftTaskPrivate *priv;
-    UfoGpuNode *node;
     UfoRequisition in_req;
     cl_int cl_err;
-    guint32 x_dim, y_dim;
+    guint32 x_dim = 1, y_dim = 1;
 
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
-    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
-    priv->cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
     x_dim = (priv->auto_zeropadding) ? pow2round ((guint32) in_req.dims[0]) : 
@@ -148,15 +143,30 @@ ufo_fft_task_get_requisition (UfoTask *task,
 
     switch (priv->fft_dimensions) {
         case FFT_1D:
-            dimension = HAVE_AMD ? CLFFT_1D : clFFT_1D;
+            #ifdef HAVE_AMD
+            dimension = CLFFT_1D;
+            #else 
+            dimension = clFFT_1D;
+            #endif
+
             break;
         case FFT_2D:
             y_dim = (priv->auto_zeropadding) ? pow2round ((guint32) in_req.dims[1]) :
-                                                          (guint) in_req.dims[1];
-            dimension = HAVE_AMD ? CLFFT_2D : clFFT_2D;
+                                                          (guint32) in_req.dims[1];
+            #ifdef HAVE_AMD
+            dimension = CLFFT_2D;
+            #else 
+            dimension = clFFT_2D;
+            #endif
+
             break;
         case FFT_3D:
-            dimension = HAVE_AMD ? CLFFT_3D : clFFT_3D;
+            #ifdef HAVE_AMD
+            dimension = CLFFT_3D;
+            #else 
+            dimension = clFFT_3D;
+            #endif
+
             break;
     }
 
@@ -168,10 +178,16 @@ ufo_fft_task_get_requisition (UfoTask *task,
     priv->fft_size.y = y_dim;
     #endif
 
+
     priv->batch_size = priv->fft_dimensions == FFT_1D ? (cl_int) in_req.dims[1] : 1;
 
+    #ifdef HAVE_AMD
+    if (priv->fft_plan == 0) {
+    #else
     if (priv->fft_plan == NULL) {
+    #endif
         #ifdef HAVE_AMD
+        cl_err = clfftSetup(&(priv->fft_setup));
         cl_err = clfftCreateDefaultPlan (&(priv->fft_plan), priv->context, dimension, priv->fft_size);
         cl_err = clfftSetPlanBatchSize (priv->fft_plan, priv->batch_size);
         cl_err = clfftSetPlanPrecision (priv->fft_plan, CLFFT_SINGLE);
@@ -230,7 +246,10 @@ ufo_fft_task_process (UfoTask *task,
 {
     UfoFftTaskPrivate *priv;
     UfoRequisition in_req;
+    #ifndef HAVE_AMD
     UfoProfiler *profiler;
+    #endif
+
     cl_mem in_mem;
     cl_mem out_mem;
     cl_event event;
@@ -239,7 +258,9 @@ ufo_fft_task_process (UfoTask *task,
     gsize global_work_size[2];
 
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
+    #ifndef HAVE_AMD
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    #endif
     in_mem = ufo_buffer_get_device_array (inputs[0], priv->cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, priv->cmd_queue);
 
@@ -302,7 +323,7 @@ ufo_fft_task_finalize (GObject *object)
 
     #ifdef HAVE_AMD
     clfftDestroyPlan (&(priv->fft_plan));
-    clfftTeardown ();
+    //clfftTeardown ();
     #else
     clFFT_DestroyPlan (priv->fft_plan);
     #endif
@@ -337,13 +358,25 @@ ufo_fft_task_set_property (GObject *object,
             priv->fft_dimensions = g_value_get_uint (value);
             break;
         case PROP_SIZE_X:
+            #ifdef HAVE_AMD
+            priv->fft_size[0] = g_value_get_uint (value);
+            #else
             priv->fft_size.x = g_value_get_uint (value);
+            #endif
             break;
         case PROP_SIZE_Y:
+            #ifdef HAVE_AMD
+            priv->fft_size[1] = g_value_get_uint (value);
+            #else
             priv->fft_size.y = g_value_get_uint (value);
+            #endif
             break;
         case PROP_SIZE_Z:
+            #ifdef HAVE_AMD
+            priv->fft_size[2] = g_value_get_uint (value);
+            #else
             priv->fft_size.z = g_value_get_uint (value);
+            #endif
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -367,13 +400,25 @@ ufo_fft_task_get_property (GObject *object,
             g_value_set_uint (value, priv->fft_dimensions);
             break;
         case PROP_SIZE_X:
+            #ifdef HAVE_AMD
+            g_value_set_uint (value, priv->fft_size[0]);
+            #else
             g_value_set_uint (value, priv->fft_size.x);
+            #endif
             break;
         case PROP_SIZE_Y:
+            #ifdef HAVE_AMD
+            g_value_set_uint (value, priv->fft_size[1]);
+            #else
             g_value_set_uint (value, priv->fft_size.y);
+            #endif
             break;
         case PROP_SIZE_Z:
+            #ifdef HAVE_AMD
+            g_value_set_uint (value, priv->fft_size[2]);
+            #else
             g_value_set_uint (value, priv->fft_size.z);
+            #endif
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -449,14 +494,15 @@ ufo_fft_task_init (UfoFftTask *self)
     priv->fft_size[0] = 1;
     priv->fft_size[1] = 1;
     priv->fft_size[2] = 1;
-    priv->fft_setup = NULL;
+    priv->fft_setup = (clfftSetupData){0,0,0,0};
+    priv->fft_plan = 0;
     #else
     priv->fft_size.x = 1;
     priv->fft_size.y = 1;
     priv->fft_size.z = 1;
+    priv->fft_plan = NULL;
     #endif
 
-    priv->fft_plan = NULL;
     priv->kernel = NULL;
     priv->auto_zeropadding = TRUE;
 }

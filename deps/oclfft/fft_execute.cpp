@@ -47,7 +47,7 @@
 
 
 #include "fft_internal.h"
-#include "clFFT.h"
+#include "oclFFT.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
