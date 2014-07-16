@@ -1,6 +1,9 @@
 /*
  * Copyright (C) 2011-2013 Karlsruhe Institute of Technology
  *
+ * The algorithmic part is designed by Julian Moosmann, Institute
+ * for Photon Science and Synchrotron Radiation.
+ *
  * This file is part of Ufo.
  *
  * This library is free software: you can redistribute it and/or
