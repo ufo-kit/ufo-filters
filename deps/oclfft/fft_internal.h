@@ -49,7 +49,7 @@
 #ifndef __CLFFT_INTERNAL_H
 #define __CLFFT_INTERNAL_H
 
-#include "clFFT.h"
+#include "oclFFT.h"
 #include <sstream>
 
 using namespace std;

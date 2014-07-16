@@ -47,6 +47,7 @@ endif()
 #}}}
 #{{{ Dependency checks
 find_package(TIFF)
+find_package(clFFT)
 
 pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(OPENCV opencv)
@@ -74,6 +75,13 @@ if (UFOART_FOUND)
     set(ufofilter_LIBS ${ufofilter_LIBS} ${UFOART_LIBRARIES})
     list(APPEND ufofilter_SRCS ufo-art-task.c)
 endif()
+
+if (CLFFT_FOUND)
+    include_directories(${CLFFT_INCLUDE_DIRS})
+    list(APPEND ufofilter_LIBS ${CLFFT_LIBRARIES})
+    set(HAVE_AMD ON)
+endif ()
+
 #}}}
 #{{{ Plugin targets
 include_directories(${CMAKE_CURRENT_BINARY_DIR}

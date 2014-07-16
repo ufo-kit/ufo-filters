@@ -23,7 +23,7 @@
 #include <CL/cl.h>
 #endif
 
-#include "clFFT.h"
+#include "oclFFT.h"
 #include "ufo-phase-retrieval-task.h"
 
 
