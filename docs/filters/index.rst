@@ -310,3 +310,12 @@ Buffering
     .. gobj:prop:: num-prealloc:int
 
         Number of pre-allocated buffers.
+
+
+Slicing
+-------
+
+.. gobj:class:: slice
+
+    Slices a three-dimensional input buffer to two-dimensional slices.
+
