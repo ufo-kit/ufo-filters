@@ -287,7 +287,8 @@ ufo_fft_task_process (UfoTask *task,
     #ifdef HAVE_AMD
     clfftEnqueueTransform (priv->fft_plan, 
                            CLFFT_FORWARD, 1, &(priv->cmd_queue),
-                           0, (priv->auto_zeropadding)? &event : NULL, NULL, 
+                           (priv->auto_zeropadding)? 1 : 0,
+		           (priv->auto_zeropadding)? &event : NULL, NULL, 
                            (priv->auto_zeropadding)? &out_mem : &in_mem, &out_mem, NULL);
     #else
     clFFT_ExecuteInterleaved_Ufo (priv->cmd_queue, priv->fft_plan,
