@@ -72,6 +72,7 @@ set(write_misc_SRCS
     writers/ufo-raw-writer.c)
 
 file(GLOB ufofilter_KERNELS "kernels/*.cl")
+file(GLOB ufofilter_KERNELS_HEADERS "kernels/*.h")
 #}}}
 #{{{ Variables
 set(ufofilter_LIBS
@@ -209,6 +210,12 @@ endforeach()
 foreach(_kernel ${ufofilter_KERNELS})
     install(FILES ${_kernel} DESTINATION ${UFO_KERNELDIR})
 endforeach()
+
+# copy kernels headers
+foreach(_kernel_header ${ufofilter_KERNELS_HEADERS})
+    install(FILES ${_kernel_header} DESTINATION ${UFO_FILTERS_KERNELDIR})
+endforeach()
+
 #}}}
 #{{{ Python tests
 find_program(NOSETESTSBIN nosetests)
