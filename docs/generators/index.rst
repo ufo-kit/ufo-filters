@@ -57,13 +57,17 @@ TIFF/EDF reader
 
         Glob-style pattern that describes the file path.
 
-    .. gobj:prop:: count:int
+    .. gobj:prop:: start:int
 
-        Number of files to read.
+        First index from where files are read.
 
-    .. gobj:prop:: nth:int
+    .. gobj:prop:: end:int
 
-        Read from nth file.
+        Last index of file that is *not* read.
+
+    .. gobj:prop:: step:int
+
+        Number of files to skip.
 
     .. gobj:prop:: blocking:boolean
 
@@ -80,6 +84,10 @@ TIFF/EDF reader
     .. gobj:prop:: height:int
 
         Height of the region that is read from the image.
+
+    .. gobj:prop:: enable-conversion:boolean
+
+        Automatic conversion of input data to float.
 
 
 Auxiliary generators
