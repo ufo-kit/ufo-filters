@@ -17,12 +17,18 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifdef __APPLE__
+#include <OpenCL/cl.h>
+#else
+#include <CL/cl.h>
+#endif
 #include <math.h>
 #include "ufo-flat-field-correction-task.h"
 
 
 struct _UfoFlatFieldCorrectionTaskPrivate {
     gboolean fix_nan_and_inf;
+    cl_kernel kernel;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -52,6 +58,13 @@ ufo_flat_field_correction_task_setup (UfoTask *task,
                                       UfoResources *resources,
                                       GError **error)
 {
+    UfoFlatFieldCorrectionTaskPrivate *priv;
+
+    priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (task);
+    priv->kernel = ufo_resources_get_kernel (resources, "ffc.cl", "flat_field_correct", error);
+
+    if (priv->kernel != NULL)
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
 }
 
 static void
@@ -78,7 +91,7 @@ ufo_flat_field_correction_task_get_num_dimensions (UfoTask *task, guint input)
 static UfoTaskMode
 ufo_flat_field_correction_task_get_mode (UfoTask *task)
 {
-    return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_CPU;
+    return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
 static gboolean
@@ -89,6 +102,31 @@ ufo_flat_field_correction_task_process (UfoTask *task,
 {
     UfoFlatFieldCorrectionTaskPrivate *priv;
     UfoProfiler *profiler;
+    UfoGpuNode *node;
+
+    cl_command_queue cmd_queue;
+    cl_mem proj_mem;
+    cl_mem dark_mem;
+    cl_mem flat_mem;
+    cl_mem out_mem;
+
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+    cmd_queue = ufo_gpu_node_get_cmd_queue (node);
+    proj_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
+    dark_mem = ufo_buffer_get_device_array (inputs[1], cmd_queue);
+    flat_mem = ufo_buffer_get_device_array (inputs[2], cmd_queue);
+    out_mem = ufo_buffer_get_device_array (output, cmd_queue);
+
+    priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (task);
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &proj_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_mem), &dark_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_mem), &flat_mem));
+
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
+
+#if 0
     gfloat *proj_data;
     gfloat *dark_data;
     gfloat *flat_data;
@@ -117,6 +155,7 @@ ufo_flat_field_correction_task_process (UfoTask *task,
     }
 
     ufo_profiler_stop (profiler, UFO_PROFILER_TIMER_CPU);
+#endif
 
     return TRUE;
 }
@@ -160,6 +199,15 @@ ufo_flat_field_correction_task_get_property (GObject *object,
 static void
 ufo_flat_field_correction_task_finalize (GObject *object)
 {
+    UfoFlatFieldCorrectionTaskPrivate *priv;
+
+    priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (object);
+
+    if (priv->kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
+        priv->kernel = NULL;
+    }
+
     G_OBJECT_CLASS (ufo_flat_field_correction_task_parent_class)->finalize (object);
 }
 
@@ -201,4 +249,5 @@ ufo_flat_field_correction_task_init(UfoFlatFieldCorrectionTask *self)
 {
     self->priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE(self);
     self->priv->fix_nan_and_inf = FALSE;
+    self->priv->kernel = NULL;
 }
