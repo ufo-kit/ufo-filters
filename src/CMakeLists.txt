@@ -23,7 +23,6 @@ set(ufofilter_SRCS
     ufo-phase-retrieval-task.c
     ufo-region-of-interest-task.c
     ufo-sino-generator-task.c
-    ufo-sino-correction-task.c
     ufo-slice-task.c
     ufo-stripe-filter-task.c
     ufo-swap-quadrants-task.c
