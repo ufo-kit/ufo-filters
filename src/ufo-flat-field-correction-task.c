@@ -28,6 +28,8 @@
 
 struct _UfoFlatFieldCorrectionTaskPrivate {
     gboolean fix_nan_and_inf;
+    gboolean absorptivity;
+    gboolean sinogram_input;
     cl_kernel kernel;
 };
 
@@ -42,6 +44,8 @@ G_DEFINE_TYPE_WITH_CODE (UfoFlatFieldCorrectionTask, ufo_flat_field_correction_t
 enum {
     PROP_0,
     PROP_FIX_NAN_AND_INF,
+    PROP_ABSORPTIVITY,
+    PROP_SINOGRAM_INPUT,
     N_PROPERTIES
 };
 
@@ -61,10 +65,11 @@ ufo_flat_field_correction_task_setup (UfoTask *task,
     UfoFlatFieldCorrectionTaskPrivate *priv;
 
     priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (task);
-    priv->kernel = ufo_resources_get_kernel (resources, "ffc.cl", "flat_field_correct", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "ffc.cl", "flat_correct", error);
 
-    if (priv->kernel != NULL)
+    if (priv->kernel) {
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+    }
 }
 
 static void
@@ -84,8 +89,17 @@ ufo_flat_field_correction_task_get_num_inputs (UfoTask *task)
 static guint
 ufo_flat_field_correction_task_get_num_dimensions (UfoTask *task, guint input)
 {
+    UfoFlatFieldCorrectionTaskPrivate *priv;
+
+    priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (task);
     g_return_val_if_fail (input <= 2, 0);
-    return 2;
+
+    /* A sinogram */
+    if (input == 0)
+        return 2;
+
+    /* A row of dark frame depend on the sinogram_input flag */
+    return priv->sinogram_input ? 1 : 2;
 }
 
 static UfoTaskMode
@@ -109,6 +123,7 @@ ufo_flat_field_correction_task_process (UfoTask *task,
     cl_mem dark_mem;
     cl_mem flat_mem;
     cl_mem out_mem;
+    gint absorptivity, sino_in, fix_nan_and_inf;
 
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
@@ -118,44 +133,20 @@ ufo_flat_field_correction_task_process (UfoTask *task,
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
 
     priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (task);
+    absorptivity = (gint) priv->absorptivity;
+    sino_in = (gint) priv->sinogram_input;
+    fix_nan_and_inf = (gint) priv->fix_nan_and_inf;
+
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &proj_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_mem), &dark_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_mem), &flat_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (cl_int), &sino_in));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 5, sizeof (cl_int), &absorptivity));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 6, sizeof (cl_int), &fix_nan_and_inf));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
-
-#if 0
-    gfloat *proj_data;
-    gfloat *dark_data;
-    gfloat *flat_data;
-    gfloat *out_data;
-    gfloat corrected_value;
-    gsize n_pixels;
-
-    priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (task);
-
-    proj_data = ufo_buffer_get_host_array (inputs[0], NULL);
-    dark_data = ufo_buffer_get_host_array (inputs[1], NULL);
-    flat_data = ufo_buffer_get_host_array (inputs[2], NULL);
-    out_data = ufo_buffer_get_host_array (output, NULL);
-    n_pixels = requisition->dims[0] * requisition->dims[1];
-    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-
-    ufo_profiler_start (profiler, UFO_PROFILER_TIMER_CPU);
-
-    /* Flat field correction */
-    for (gsize i = 0; i < n_pixels; i++) {
-        corrected_value = (proj_data[i] - dark_data[i]) / (flat_data[i] - dark_data[i]);
-        if (priv->fix_nan_and_inf && (isnan (out_data[i]) || isinf (out_data[i]))) {
-            corrected_value = 0.0;
-        }
-        out_data[i] = corrected_value;
-    }
-
-    ufo_profiler_stop (profiler, UFO_PROFILER_TIMER_CPU);
-#endif
 
     return TRUE;
 }
@@ -171,6 +162,12 @@ ufo_flat_field_correction_task_set_property (GObject *object,
     switch (property_id) {
         case PROP_FIX_NAN_AND_INF:
             priv->fix_nan_and_inf = g_value_get_boolean (value);
+            break;
+        case PROP_ABSORPTIVITY:
+            priv->absorptivity = g_value_get_boolean (value);
+            break;
+        case PROP_SINOGRAM_INPUT:
+            priv->sinogram_input = g_value_get_boolean (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -189,6 +186,12 @@ ufo_flat_field_correction_task_get_property (GObject *object,
     switch (property_id) {
         case PROP_FIX_NAN_AND_INF:
             g_value_set_boolean (value, priv->fix_nan_and_inf);
+            break;
+        case PROP_ABSORPTIVITY:
+            g_value_set_boolean (value, priv->absorptivity);
+            break;
+        case PROP_SINOGRAM_INPUT:
+            g_value_set_boolean (value, priv->sinogram_input);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -238,6 +241,20 @@ ufo_flat_field_correction_task_class_init (UfoFlatFieldCorrectionTaskClass *klas
                              FALSE,
                              G_PARAM_READWRITE);
 
+    properties[PROP_ABSORPTIVITY] =
+        g_param_spec_boolean ("absorption-correction",
+            "Absorption correction",
+            "Absorption correction",
+            FALSE,
+            G_PARAM_READWRITE);
+
+    properties[PROP_SINOGRAM_INPUT] =
+        g_param_spec_boolean ("sinogram-input",
+            "If sinogram-input is True we correct only one line (the sinogram), thus darks are flats are 1D",
+            "If sinogram-input is True we correct only one line (the sinogram), thus darks are flats are 1D",
+            FALSE,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -249,5 +266,7 @@ ufo_flat_field_correction_task_init(UfoFlatFieldCorrectionTask *self)
 {
     self->priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE(self);
     self->priv->fix_nan_and_inf = FALSE;
+    self->priv->absorptivity = FALSE;
+    self->priv->sinogram_input = FALSE;
     self->priv->kernel = NULL;
 }
