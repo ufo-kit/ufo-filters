@@ -17,15 +17,21 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <string.h>
-#include "ufo-region-of-interest-task.h"
+#ifdef __APPLE__
+#include <OpenCL/cl.h>
+#else
+#include <CL/cl.h>
+#endif
 
+#include "ufo-region-of-interest-task.h"
 
 struct _UfoRegionOfInterestTaskPrivate {
     guint x;
     guint y;
     guint width;
     guint height;
+
+    cl_command_queue cmd_queue;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -58,6 +64,13 @@ ufo_region_of_interest_task_setup (UfoTask *task,
                        UfoResources *resources,
                        GError **error)
 {
+    UfoRegionOfInterestTaskPrivate *priv;
+    UfoGpuNode *node;
+
+    priv = UFO_REGION_OF_INTEREST_TASK_GET_PRIVATE (task);
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+
+    priv->cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 }
 
 static void
@@ -90,7 +103,7 @@ ufo_region_of_interest_task_get_num_dimensions (UfoTask *task,
 static UfoTaskMode
 ufo_region_of_interest_task_get_mode (UfoTask *task)
 {
-    return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_CPU;
+    return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
 static gboolean
@@ -104,8 +117,8 @@ ufo_region_of_interest_task_process (UfoTask *task,
     guint x1, y1, x2, y2;
     guint rd_width, rd_height;
     guint in_width, in_height;
-    gfloat *in_data;
-    gfloat *out_data;
+    cl_mem in_data;
+    cl_mem out_data;
 
     priv = UFO_REGION_OF_INTEREST_TASK_GET_PRIVATE (task);
     x1 = priv->x;
@@ -127,25 +140,22 @@ ufo_region_of_interest_task_process (UfoTask *task,
     rd_width = x2 > in_width ? in_width - x1 : priv->width;
     rd_height = y2 > in_height ? in_height - y1 : priv->height;
 
-    in_data = ufo_buffer_get_host_array (inputs[0], NULL);
-    out_data = ufo_buffer_get_host_array (output, NULL);
+    in_data = ufo_buffer_get_device_array (inputs[0], priv->cmd_queue);
+    out_data = ufo_buffer_get_device_array (output, priv->cmd_queue);
 
-    /*
-     * Removing the for loop for "width aligned" regions gives a marginal
-     * speed-up of ~4 per cent.
-     */
-    if (rd_width == req.dims[0]) {
-        g_memmove (out_data,
-                   in_data + y1 * in_width, 
-                   rd_width * rd_height * sizeof (gfloat));
-    }
-    else {
-        for (guint y = 0; y < rd_height; y++) {
-            g_memmove (out_data + y*priv->width,
-                       in_data + (y + y1)*in_width + x1, 
-                       rd_width * sizeof(gfloat));
-        }
-    }
+    const size_t src_origin[3] = {x1 * sizeof(float), y1, 0};
+    const size_t dst_origin[3] = {0, 0, 0};
+    const size_t region[3] = {rd_width * sizeof(float), rd_height, 1}; 
+    
+    clEnqueueCopyBufferRect(priv->cmd_queue,
+                            in_data,
+                            out_data,
+                            src_origin,
+                            dst_origin,
+                            region,
+                            in_width * sizeof(float), 0,
+                            rd_width * sizeof(float), 0,
+                            0, NULL, NULL);
 
     return TRUE;
 }
