@@ -125,7 +125,6 @@ ufo_median_filter_task_process (UfoTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
-    gfloat value;
 
     size_t inner_size[2];
 
@@ -136,7 +135,6 @@ ufo_median_filter_task_process (UfoTask *task,
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-    value = 1.0f;
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->fill_kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->fill_kernel, 1, sizeof (cl_mem), &out_mem));
