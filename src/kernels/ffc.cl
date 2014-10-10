@@ -24,11 +24,13 @@ flat_correct (global float *corrected,
               global const float *flat,
               const int sinogram_input,
               const int absorptivity,
-              const int fix_abnormal)
+              const int fix_abnormal,
+              const float dark_scale)
 {
     const int gid = get_global_id(1) * get_global_size(0) + get_global_id(0);
     const int corr_idx = sinogram_input ? get_global_id(0) : gid;
-    float result = (data[gid] - dark[corr_idx]) / (flat[corr_idx] - dark[corr_idx]);
+    const float cdark = dark[corr_idx] * dark_scale;
+    float result = (data[gid] - cdark) / (flat[corr_idx] - cdark);
 
     if (fix_abnormal && (isnan (result) || isinf (result))) {
         result = 0.0;
