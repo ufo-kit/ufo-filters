@@ -214,27 +214,45 @@ read_edf_metadata (UfoReaderTaskPrivate *priv)
 
     tokens = g_strsplit(header, ";", 0);
     priv->big_endian = FALSE;
+    priv->bps = 32;
+    priv->spp = 1;
 
     for (guint i = 0; tokens[i] != NULL; i++) {
-        gchar **key_value = g_strsplit (tokens[i], "=", 0);
+        gchar **key_value;
+        gchar *key;
+        gchar *value;
 
-        if (g_strcmp0 (g_strstrip (key_value[0]), "Dim_1") == 0)
-            priv->width = (guint) atoi (key_value[1]);
-        else if (g_strcmp0 (g_strstrip (key_value[0]), "Dim_2") == 0)
-            priv->height = (guint) atoi (key_value[1]);
-        else if (g_strcmp0 (g_strstrip (key_value[0]), "Size") == 0)
-            priv->size = (guint) atoi (key_value[1]);
-        else if ((g_strcmp0 (g_strstrip (key_value[0]), "ByteOrder") == 0) &&
-                 (g_strcmp0 (g_strstrip (key_value[1]), "HighByteFirst") == 0))
+        key_value = g_strsplit (tokens[i], "=", 0);
+
+        if (key_value[0] == NULL || key_value[1] == NULL)
+            continue;
+
+        key = g_strstrip (key_value[0]);
+        value = g_strstrip (key_value[1]);
+
+        if (!g_strcmp0 (key, "Dim_1")) {
+            priv->width = (guint) atoi (value);
+        }
+        else if (!g_strcmp0 (key, "Dim_2")) {
+            priv->height = (guint) atoi (value);
+        }
+        else if (!g_strcmp0 (key, "Size")) {
+            priv->size = (guint) atoi (value);
+        }
+        else if (!g_strcmp0 (key, "DataType")) {
+            if (!g_strcmp0 (value, "UnsignedShort"))
+                priv->bps = 16;
+        }
+        else if (!g_strcmp0 (key, "ByteOrder") &&
+                 !g_strcmp0 (value, "HighByteFirst")) {
             priv->big_endian = TRUE;
+        }
 
         g_strfreev (key_value);
     }
 
     g_strfreev(tokens);
     g_free(header);
-    priv->bps = 32;
-    priv->spp = 1;
 }
 
 static gboolean
