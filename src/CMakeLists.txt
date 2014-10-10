@@ -52,8 +52,8 @@ find_package(clFFT)
 
 pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(OPENCV opencv)
-pkg_check_modules(UFOART ufoart>=0.1)
 pkg_check_modules(LIBTIFF4 libtiff-4>=4.0.0)
+pkg_check_modules(UFO_IR ufoir>=0.1)
 
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
 
@@ -78,10 +78,10 @@ if (UCA_INCLUDE_DIRS AND UCA_LIBRARIES)
     link_directories(${UCA_LIBRARY_DIRS})
 endif ()
 
-if (UFOART_FOUND)
-    include_directories(${UFOART_INCLUDE_DIRS})
-    set(ufofilter_LIBS ${ufofilter_LIBS} ${UFOART_LIBRARIES})
-    list(APPEND ufofilter_SRCS ufo-art-task.c)
+if (UFO_IR_FOUND)
+    include_directories(${UFO_IR_INCLUDE_DIRS})
+    set(ufofilter_LIBS ${ufofilter_LIBS} ${UFO_IR_LIBRARIES})
+    list(APPEND ufofilter_SRCS ufo-ir-task.c)
 endif()
 
 if (CLFFT_FOUND)
@@ -128,7 +128,7 @@ foreach(_src ${ufofilter_SRCS})
         target_link_libraries(${target} ${ufofilter_LIBS})
 
         list(APPEND all_targets ${target})
-        
+
         install(TARGETS ${target}
                 ARCHIVE DESTINATION ${UFO_FILTERS_PLUGINDIR}
                 LIBRARY DESTINATION ${UFO_FILTERS_PLUGINDIR})
@@ -143,7 +143,7 @@ endforeach()
 #{{{ Python tests
 find_program(NOSETESTSBIN nosetests)
 if (NOSETESTSBIN)
-    add_custom_target(test 
+    add_custom_target(test
         COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/../run_tests.py
         ${CMAKE_CURRENT_BINARY_DIR}
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../)
