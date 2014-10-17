@@ -139,6 +139,7 @@ read_filenames (UfoReaderTaskPrivate *priv)
     glob_t glob_vector;
     guint i;
     guint end;
+    guint num_globbed;
 
     if (!has_valid_extension (priv->path) && (g_strrstr (priv->path, "*") == NULL))
         pattern = g_build_filename (priv->path, "*", NULL);
@@ -146,9 +147,10 @@ read_filenames (UfoReaderTaskPrivate *priv)
         pattern = g_strdup (priv->path);
 
     glob (pattern, GLOB_MARK | GLOB_TILDE, NULL, &glob_vector);
-    end = priv->end == G_MAXUINT ? (guint) glob_vector.gl_pathc : priv->end;
+    num_globbed = (guint) glob_vector.gl_pathc;
+    end = priv->end == G_MAXUINT ? num_globbed : MIN(priv->end, num_globbed);
 
-    for (i = priv->start; i < end; i+=priv->step) {
+    for (i = priv->start; i < end; i += priv->step) {
         const gchar *filename = glob_vector.gl_pathv[i];
 
         if (has_valid_extension (filename))
@@ -185,7 +187,8 @@ ufo_reader_task_setup (UfoTask *task,
     }
 
     if (priv->filenames == NULL) {
-        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "Path does not match any files");
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                     "`%s' does not match any files", priv->path);
         return;
     }
 
