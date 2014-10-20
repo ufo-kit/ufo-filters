@@ -44,6 +44,7 @@ struct _UfoFilterTaskPrivate {
     cl_mem  filter_mem;
     gfloat  bw_cutoff;
     gfloat  bw_order;
+    gfloat  scale;
     SetupFunc setup;
 };
 
@@ -60,6 +61,7 @@ enum {
     PROP_FILTER,
     PROP_BW_CUTOFF,
     PROP_BW_ORDER,
+    PROP_SCALE,
     N_PROPERTIES
 };
 
@@ -137,7 +139,7 @@ compute_ramp_coefficients (UfoFilterTaskPrivate *priv,
     const gfloat scale = 0.25f / ((gfloat) width);
 
     for (guint k = 1; k < width / 4; k++) {
-        filter[2*k] = ((gfloat) k) * scale;
+        filter[2*k] = ((gfloat) k) * scale * priv->scale;
         filter[2*k + 1] = filter[2*k];
     }
 }
@@ -152,7 +154,7 @@ compute_butterworth_coefficients (UfoFilterTaskPrivate *priv,
 
     for (guint i = 0; i < n_samples; i++) {
         const gfloat u = ((gfloat) i) / ((gfloat) n_samples);
-        filter[2*i] = ((gfloat) i) * scale;
+        filter[2*i] = ((gfloat) i) * scale * priv->scale;
         filter[2*i] /= (1.0f + (gfloat) pow (u / priv->bw_cutoff, 2.0f * priv->bw_order));
         filter[2*i+1] = filter[2*i];
     }
@@ -273,6 +275,9 @@ ufo_filter_task_set_property (GObject *object,
         case PROP_BW_ORDER:
             priv->bw_order = g_value_get_float (value);
             break;
+        case PROP_SCALE:
+            priv->scale = g_value_get_float (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -299,6 +304,9 @@ ufo_filter_task_get_property (GObject *object,
             break;
         case PROP_BW_ORDER:
             g_value_set_float (value, priv->bw_order);
+            break;
+        case PROP_SCALE:
+            g_value_set_float (value, priv->scale);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -340,6 +348,13 @@ ufo_filter_task_class_init (UfoFilterTaskClass *klass)
             2.0f, 32.0f, 4.0f,
             G_PARAM_READWRITE);
 
+    properties[PROP_SCALE] =
+        g_param_spec_float ("scale",
+            "Every component is multiplied by scale",
+            "Every component is multiplied by scale",
+            -G_MAXFLOAT, G_MAXFLOAT, 1.0f,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -358,4 +373,5 @@ ufo_filter_task_init (UfoFilterTask *self)
     priv->setup = compute_ramp_coefficients;
     priv->bw_cutoff = 0.5f;
     priv->bw_order = 4.0f;
+    priv->scale = 1.0f;
 }
