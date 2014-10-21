@@ -108,27 +108,25 @@ ufo_opencl_task_setup (UfoTask *task,
 
     }
 
-    if (priv->filename == NULL && priv->source == NULL) {
+    if (priv->filename != NULL && priv->source != NULL) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                     "Neither ::filename nor ::source specified");
+                     "Cannot use ::filename and ::source at the same time");
         return;
     }
 
-    if (priv->source != NULL && priv->funcname != NULL) {
+    if (priv->source != NULL) {
         priv->kernel = ufo_resources_get_kernel_from_source (resources,
                                                              priv->source,
                                                              priv->funcname,
                                                              error);
     }
-    else if (priv->filename != NULL && priv->funcname != NULL) {
+    else {
+        const gchar *filename;
+
+        filename = priv->filename != NULL ? priv->filename : "default.cl";
+
         priv->kernel = ufo_resources_get_kernel (resources,
-                                                 priv->filename,
-                                                 priv->funcname,
-                                                 error);
-    }
-    else if (priv->funcname != NULL) {
-        priv->kernel = ufo_resources_get_kernel (resources,
-                                                 "default.cl",
+                                                 filename,
                                                  priv->funcname,
                                                  error);
     }
