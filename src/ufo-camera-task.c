@@ -131,7 +131,7 @@ ufo_camera_task_setup (UfoTask *task,
                   NULL);
 
     if (!is_recording && !priv->readout) {
-        g_message ("Start recording");
+        g_debug ("camera: start recording");
         uca_camera_start_recording (priv->camera, error);
     }
 
