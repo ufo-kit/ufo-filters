@@ -101,9 +101,16 @@ ufo_opencl_task_setup (UfoTask *task,
 
     priv = UFO_OPENCL_TASK_GET_PRIVATE (task);
 
-    if (priv->filename == NULL && priv->source == NULL && priv->funcname == NULL) {
+    if (priv->funcname == NULL) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                     "Neither property ::filename nor ::source nor ::kernel specified");
+                     "Must specify a ::kernel name to use for operation");
+        return;
+
+    }
+
+    if (priv->filename == NULL && priv->source == NULL) {
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                     "Neither ::filename nor ::source specified");
         return;
     }
 
