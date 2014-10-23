@@ -22,7 +22,6 @@
 #include "test-suite.h"
 
 typedef struct {
-    UfoConfig *config;
     UfoDaemon *daemon;
     gchar *tmpdir;
 } Fixture;
@@ -30,11 +29,9 @@ typedef struct {
 static void
 setup (Fixture *fixture, gconstpointer data)
 {
-    fixture->config = ufo_config_new ();
     gchar *addr = g_strdup ("tcp://127.0.0.1:5555");
-    fixture->config = ufo_config_new ();
 
-    fixture->daemon = ufo_daemon_new (fixture->config, addr);
+    fixture->daemon = ufo_daemon_new (addr);
     ufo_daemon_start (fixture->daemon);
 
     fixture->tmpdir = g_strdup ("ufotemp-XXXXXX");
@@ -56,7 +53,7 @@ test_simple_invert (Fixture *fixture,
                             gconstpointer unused)
 {
     //double-invert an image should equal original image
-    UfoPluginManager *mgr = ufo_plugin_manager_new (NULL);
+    UfoPluginManager *mgr = ufo_plugin_manager_new ();
 
     const gchar *input_image = "../data/sinogram-00000.tif";
     const gchar *output_image = g_strconcat (fixture->tmpdir, "/", "sinogram-00000-inverted.tif", NULL);
@@ -108,7 +105,7 @@ test_simple_invert (Fixture *fixture,
 
     gchar *remote = g_strdup ("tcp://127.0.0.1:5555");
     GList *remotes = g_list_append (NULL, remote);
-    UfoBaseScheduler *sched = ufo_scheduler_new (NULL, remotes);
+    UfoBaseScheduler *sched = ufo_scheduler_new ();
 
     ufo_base_scheduler_run (sched, UFO_TASK_GRAPH (graph), NULL);
     g_free(remote);

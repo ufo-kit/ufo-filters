@@ -22,14 +22,12 @@
 #include "test-suite.h"
 
 typedef struct {
-    UfoConfig *config;
     gchar *tmpdir;
 } Fixture;
 
 static void
 setup (Fixture *fixture, gconstpointer data)
 {
-    fixture->config = ufo_config_new ();
     fixture->tmpdir = g_strdup ("ufotemp-XXXXXX");
     g_mkdtemp (fixture->tmpdir);
 }
@@ -46,7 +44,7 @@ test_simple_invert (Fixture *fixture,
                             gconstpointer unused)
 {
     //double-invert an image should equal original image
-    UfoPluginManager *mgr = ufo_plugin_manager_new (NULL);
+    UfoPluginManager *mgr = ufo_plugin_manager_new ();
 
     const gchar *input_image = "../data/sinogram-00000.tif";
     const gchar *output_image = g_strconcat (fixture->tmpdir, "/", "sinogram-00000-inverted.tif", NULL);
@@ -96,7 +94,7 @@ test_simple_invert (Fixture *fixture,
     ufo_graph_connect_nodes (graph, UFO_NODE (cl1), UFO_NODE (cl2), NULL);
     ufo_graph_connect_nodes (graph, UFO_NODE (cl2), UFO_NODE (writer), NULL);
 
-    UfoBaseScheduler *sched = ufo_scheduler_new (NULL, NULL);
+    UfoBaseScheduler *sched = ufo_scheduler_new ();
     ufo_base_scheduler_run (sched, UFO_TASK_GRAPH (graph), NULL);
 
     // test that an output was generated
