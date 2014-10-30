@@ -71,6 +71,14 @@ Generic OpenCL
 Complex filters
 ===============
 
+Transposition
+-------------
+
+.. gobj:class:: transpose
+
+    Transpose images from (x, y) to (y, x).
+
+
 Sinogram transposition
 ----------------------
 
