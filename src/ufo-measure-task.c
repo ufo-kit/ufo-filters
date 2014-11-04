@@ -40,6 +40,7 @@ static const gchar *metrics[] = {"std", "min", "max"};
 struct _UfoMeasureTaskPrivate {
     Metric metric;
     gint axis;
+    gboolean pass_through;
 };
 
 enum {
@@ -63,6 +64,7 @@ enum {
     PROP_0,
     PROP_METRIC,
     PROP_AXIS,
+    PROP_PASS_THROUGH,
     N_PROPERTIES
 };
 
@@ -97,7 +99,14 @@ ufo_measure_task_get_requisition (UfoTask *task,
                                   UfoBuffer **inputs,
                                   UfoRequisition *requisition)
 {
-    requisition->n_dims = 0;
+    UfoMeasureTaskPrivate *priv;
+
+    priv = UFO_MEASURE_TASK_GET_PRIVATE (task);
+
+    if (priv->pass_through)
+        ufo_buffer_get_requisition (inputs[0], requisition);
+    else
+        requisition->n_dims = 0;
 }
 
 static guint
@@ -131,7 +140,7 @@ ufo_measure_task_process (UfoTask *task,
     UfoBuffer *result_buffer;
     gfloat *data;
     gfloat *result;
-    
+
     priv = UFO_MEASURE_TASK_GET_PRIVATE (task);
 
     ufo_buffer_get_requisition (inputs[0], &in_req);
@@ -167,6 +176,9 @@ ufo_measure_task_process (UfoTask *task,
     g_signal_emit (task, signals[RESULT], 0, result_buffer);
     g_object_unref (result_buffer);
 
+    if (priv->pass_through)
+        ufo_buffer_copy (inputs[0], output);
+
     return TRUE;
 }
 
@@ -177,7 +189,7 @@ ufo_measure_task_set_property (GObject *object,
                                GParamSpec *pspec)
 {
     UfoMeasureTaskPrivate *priv;
-    
+
     priv = UFO_MEASURE_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
@@ -192,6 +204,10 @@ ufo_measure_task_set_property (GObject *object,
                 if (metric != M_0)
                     priv->metric = metric;
             }
+            break;
+
+        case PROP_PASS_THROUGH:
+            priv->pass_through = g_value_get_boolean (value);
             break;
 
         default:
@@ -214,6 +230,9 @@ ufo_measure_task_get_property (GObject *object,
             break;
         case PROP_METRIC:
             g_value_set_string (value, metrics[priv->metric]);
+            break;
+        case PROP_PASS_THROUGH:
+            g_value_set_boolean (value, priv->pass_through);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -261,6 +280,12 @@ ufo_measure_task_class_init (UfoMeasureTaskClass *klass)
             -1, UFO_BUFFER_MAX_NDIMS, -1,
             G_PARAM_READWRITE);
 
+    properties[PROP_PASS_THROUGH] =
+        g_param_spec_boolean ("pass-through",
+            "Copy data to next output",
+            "Copy data to next output",
+            FALSE, G_PARAM_READWRITE);
+
     signals[RESULT] =
         g_signal_new ("result",
                       G_OBJECT_CLASS_TYPE (oclass),
@@ -281,4 +306,5 @@ ufo_measure_task_init(UfoMeasureTask *self)
     self->priv = UFO_MEASURE_TASK_GET_PRIVATE(self);
     self->priv->axis = -1;
     self->priv->metric = M_STD;
+    self->priv->pass_through = FALSE;
 }

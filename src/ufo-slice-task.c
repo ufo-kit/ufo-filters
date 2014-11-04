@@ -109,7 +109,6 @@ ufo_slice_task_process (UfoTask *task,
 
     /* Move data */
     ufo_buffer_copy (inputs[0], priv->copy);
-    /* ufo_buffer_get_requisition (inputs[0], &priv->requisition); */
 
     return TRUE;
 }
@@ -122,7 +121,6 @@ ufo_slice_task_generate (UfoTask *task,
     UfoSliceTaskPrivate *priv;
     gfloat *src;
     gfloat *dst;
-
 
     priv = UFO_SLICE_TASK_GET_PRIVATE (task);
 
