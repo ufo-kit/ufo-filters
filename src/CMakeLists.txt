@@ -26,6 +26,7 @@ set(ufofilter_SRCS
     ufo-region-of-interest-task.c
     ufo-sino-generator-task.c
     ufo-slice-task.c
+    ufo-stack-task.c
     ufo-stripe-filter-task.c
     ufo-transpose-task.c
     ufo-swap-quadrants-task.c

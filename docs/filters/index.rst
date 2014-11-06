@@ -327,3 +327,16 @@ Slicing
 
     Slices a three-dimensional input buffer to two-dimensional slices.
 
+
+Stacking
+--------
+
+.. gobj:class:: stack
+
+    Symmetrical to the slice filter, the stack filter stacks two-dimensional
+    input.
+
+    .. gobj:prop:: num-items:int
+
+        Number of items, i.e. the length of the third dimension.
+
