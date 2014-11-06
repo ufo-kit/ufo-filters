@@ -129,7 +129,6 @@ ufo_stack_task_generate (UfoTask *task,
     UfoStackTaskPrivate *priv;
 
     priv = UFO_STACK_TASK_GET_PRIVATE (task);
-    g_print ("%u %zu %zu %zu\n", requisition->n_dims, requisition->dims[0], requisition->dims[1], requisition->dims[2]);
 
     if (!priv->generated) {
         priv->generated = TRUE;
