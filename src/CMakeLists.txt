@@ -11,6 +11,7 @@ set(ufofilter_SRCS
     ufo-downsample-task.c
     ufo-filter-task.c
     ufo-flatten-task.c
+    ufo-flatten-inplace-task.c
     ufo-flat-field-correction-task.c
     ufo-fft-task.c
     ufo-forwardproject-task.c
