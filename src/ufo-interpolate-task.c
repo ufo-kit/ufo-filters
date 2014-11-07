@@ -105,12 +105,16 @@ ufo_interpolate_task_process (UfoTask *task,
 
     size = ufo_buffer_get_size (inputs[0]);
 
-    priv->x = g_malloc (size);
-    priv->y = g_malloc (size);
-    memcpy (priv->x, (gpointer) ufo_buffer_get_host_array (inputs[0], NULL), size);
-    memcpy (priv->y, (gpointer) ufo_buffer_get_host_array (inputs[1], NULL), size);
+    if (priv->x == NULL && priv->y == NULL) {
+        priv->x = g_malloc (size);
+        priv->y = g_malloc (size);
+        memcpy (priv->x, (gpointer) ufo_buffer_get_host_array (inputs[0], NULL), size);
+        memcpy (priv->y, (gpointer) ufo_buffer_get_host_array (inputs[1], NULL), size);
 
-    return TRUE;
+        return TRUE;
+    }
+
+    return FALSE;
 }
 
 static gboolean
