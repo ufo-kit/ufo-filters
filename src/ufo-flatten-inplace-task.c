@@ -51,7 +51,7 @@ enum {
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
-ufo_flatteninplace_task_new (void)
+ufo_flatten_inplace_task_new (void)
 {
     return UFO_NODE (g_object_new (UFO_TYPE_FLATTEN_INPLACE_TASK, NULL));
 }

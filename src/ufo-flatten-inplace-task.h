@@ -58,7 +58,7 @@ struct _UfoFlattenInplaceTaskClass {
     UfoTaskNodeClass parent_class;
 };
 
-UfoNode  *ufo_flatteninplace_task_new       (void);
+UfoNode  *ufo_flatten_inplace_task_new       (void);
 GType     ufo_flatten_inplace_task_get_type  (void);
 
 G_END_DECLS
