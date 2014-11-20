@@ -33,6 +33,8 @@
 
 #include "ufo-phase-retrieval-task.h"
 
+#define IS_POW_OF_2(x) !(x & (x - 1))
+
 typedef enum {
     METHOD_TIE,
     METHOD_CTF,
@@ -189,6 +191,11 @@ ufo_phase_retrieval_task_get_requisition (UfoTask *task,
     requisition->dims[0] = input_requisition.dims[0];
     requisition->dims[1] = input_requisition.dims[1];
 
+    if (!IS_POW_OF_2(requisition->dims[0]) || !IS_POW_OF_2(requisition->dims[1])) {
+        g_error("Please, perform zeropadding of your dataset along both directions (width, height) up to length of power of 2 (e.g. 256, 512, 1024, 2048, etc.)");
+        return;
+    }
+
     #ifdef HAVE_AMD
     if (priv->fft_plan == 0) {
         priv->fft_size[0] = input_requisition.dims[0];
@@ -255,7 +262,7 @@ ufo_phase_retrieval_task_process (UfoTask *task,
     out_mem = ufo_buffer_get_device_array (output, priv->cmd_queue);
     in_mem = ufo_buffer_get_device_array (inputs[0], priv->cmd_queue);
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-
+ 
     UfoRequisition fft_requisition;
     fft_requisition.n_dims = 2;
     fft_requisition.dims[0] = requisition->dims[0] * 2;
