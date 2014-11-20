@@ -249,8 +249,8 @@ read_edf_metadata (UfoReaderTaskPrivate *priv)
                 priv->bps = 16;
             }
             else if (!g_strcmp0 (value, "SignedInteger")) {
-                priv->depth = UFO_BUFFER_DEPTH_16S;
-                priv->bps = 16;
+                priv->depth = UFO_BUFFER_DEPTH_32S;
+                priv->bps = 32;
             }
             else {
                 g_warning ("Unsupported data type");
