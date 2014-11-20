@@ -42,6 +42,7 @@ struct _UfoReaderTaskPrivate {
     FILE *edf;
     TIFF *tiff;
     gboolean big_endian;
+    UfoBufferDepth depth;
     guint32 width;
     guint32 height;
     guint16 bps;
@@ -243,8 +244,17 @@ read_edf_metadata (UfoReaderTaskPrivate *priv)
             priv->size = (guint) atoi (value);
         }
         else if (!g_strcmp0 (key, "DataType")) {
-            if (!g_strcmp0 (value, "UnsignedShort"))
+            if (!g_strcmp0 (value, "UnsignedShort")) {
+                priv->depth = UFO_BUFFER_DEPTH_16U;
                 priv->bps = 16;
+            }
+            else if (!g_strcmp0 (value, "SignedInteger")) {
+                priv->depth = UFO_BUFFER_DEPTH_16S;
+                priv->bps = 16;
+            }
+            else {
+                g_warning ("Unsupported data type");
+            }
         }
         else if (!g_strcmp0 (key, "ByteOrder") &&
                  !g_strcmp0 (value, "HighByteFirst")) {
@@ -385,11 +395,8 @@ ufo_reader_task_generate (UfoTask *task,
         ufo_profiler_stop (profiler, UFO_PROFILER_TIMER_IO);
         ufo_profiler_start (profiler, UFO_PROFILER_TIMER_CPU);
 
-        if (priv->bps < 32 && priv->enable_conversion) {
-            UfoBufferDepth depth;
-
-            depth = priv->bps <= 8 ? UFO_BUFFER_DEPTH_8U : UFO_BUFFER_DEPTH_16U;
-            ufo_buffer_convert (output, depth);
+        if ((priv->depth != UFO_BUFFER_DEPTH_32F) && priv->enable_conversion) {
+            ufo_buffer_convert (output, priv->depth);
         }
 
         ufo_profiler_stop (profiler, UFO_PROFILER_TIMER_CPU);
@@ -621,4 +628,5 @@ ufo_reader_task_init(UfoReaderTask *self)
     priv->enable_conversion = TRUE;
     priv->start = 0;
     priv->end = G_MAXUINT;
+    priv->depth = UFO_BUFFER_DEPTH_32F;
 }
