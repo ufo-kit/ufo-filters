@@ -323,6 +323,9 @@ ufo_reader_task_get_requisition (UfoTask *task,
             TIFFGetField (priv->tiff, TIFFTAG_SAMPLESPERPIXEL, &priv->spp);
             TIFFGetField (priv->tiff, TIFFTAG_IMAGEWIDTH, &priv->width);
             TIFFGetField (priv->tiff, TIFFTAG_IMAGELENGTH, &priv->height);
+
+            if (priv->bps == 16)
+                priv->depth = UFO_BUFFER_DEPTH_16U;
         }
         else if (is_edf_file (name)) {
             priv->edf = fopen (name, "rb");
