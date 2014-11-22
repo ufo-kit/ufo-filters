@@ -36,6 +36,10 @@ G_DEFINE_TYPE_WITH_CODE (UfoTransposeTask, ufo_transpose_task, UFO_TYPE_TASK_NOD
 
 #define UFO_TRANSPOSE_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_TRANSPOSE_TASK, UfoTransposeTaskPrivate))
 
+struct _UfoTransposeTaskPrivate {
+    gboolean nothing;
+};
+
 UfoNode *
 ufo_transpose_task_new (void)
 {
@@ -164,6 +168,24 @@ ufo_transpose_task_process (UfoTask *task,
 }
 
 static void
+ufo_transpose_task_set_property (GObject *object,
+                                 guint property_id,
+                                 const GValue *value,
+                                 GParamSpec *pspec)
+{
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+}
+
+static void
+ufo_transpose_task_get_property (GObject *object,
+                                 guint property_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
+{
+    G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+}
+
+static void
 ufo_transpose_task_finalize (GObject *object)
 {
     G_OBJECT_CLASS (ufo_transpose_task_parent_class)->finalize (object);
@@ -185,7 +207,11 @@ ufo_transpose_task_class_init (UfoTransposeTaskClass *klass)
 {
     GObjectClass *oclass = G_OBJECT_CLASS (klass);
 
+    oclass->set_property = ufo_transpose_task_set_property;
+    oclass->get_property = ufo_transpose_task_get_property;
     oclass->finalize = ufo_transpose_task_finalize;
+
+    g_type_class_add_private (oclass, sizeof(UfoTransposeTaskPrivate));
 }
 
 static void
