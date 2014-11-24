@@ -101,7 +101,7 @@ ufo_ir_task_setup (UfoTask      *task,
                          error);
 }
 
-UfoNode *
+static UfoNode *
 ufo_ir_task_node_copy (UfoNode *node,
                        GError **error)
 {
@@ -356,7 +356,7 @@ ufo_ir_task_init(UfoIrTask *self)
 {
     UfoIrTaskPrivate *priv = NULL;
     self->priv = priv = UFO_IR_TASK_GET_PRIVATE(self);
-    priv->plugin_manager = ufo_plugin_manager_new (NULL);
+    priv->plugin_manager = ufo_plugin_manager_new ();
     priv->resources = NULL;
     priv->cmd_queue = NULL;
 
