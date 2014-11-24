@@ -36,6 +36,9 @@ struct _UfoBufferTaskPrivate {
     gsize current_element;
     gsize size;
     gsize current_size;
+    gsize dup_count;
+    gsize loop;
+    gsize dup_current;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -49,6 +52,8 @@ G_DEFINE_TYPE_WITH_CODE (UfoBufferTask, ufo_buffer_task, UFO_TYPE_TASK_NODE,
 enum {
     PROP_0,
     PROP_NUM_PREALLOC,
+    PROP_DUP_COUNT,
+    PROP_LOOP,
     N_PROPERTIES
 };
 
@@ -136,14 +141,29 @@ ufo_buffer_task_generate (UfoTask *task,
 
     priv = UFO_BUFFER_TASK_GET_PRIVATE (task);
 
-    if (priv->current_element == priv->n_elements)
+    if (priv->loop) {
+        if (priv->current_element == priv->n_elements) {
+            --priv->dup_count;
+            priv->current_element = 0;
+        }
+        if (!priv->dup_count)
+            return FALSE;
+    }
+    else if (priv->current_element == priv->n_elements)
         return FALSE;
 
     g_memmove (ufo_buffer_get_host_array (output, NULL),
                priv->data + priv->current_element * priv->size,
                priv->size);
 
-    priv->current_element++;
+    if (priv->loop)
+        priv->current_element++;
+    else if (priv->dup_count == priv->dup_current) {
+        priv->current_element++;
+        priv->dup_current = 1;
+    }
+    else
+        ++priv->dup_current;
     return TRUE;
 }
 
@@ -176,6 +196,12 @@ ufo_buffer_task_set_property (GObject *object,
         case PROP_NUM_PREALLOC:
             priv->n_prealloc = (guint) g_value_get_uint (value);
             break;
+        case PROP_DUP_COUNT:
+            priv->dup_count = (guint) g_value_get_uint (value);
+            break;
+        case PROP_LOOP:
+            priv->loop = (gboolean) g_value_get_boolean (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -195,6 +221,12 @@ ufo_buffer_task_get_property (GObject *object,
     switch (property_id) {
         case PROP_NUM_PREALLOC:
             g_value_set_uint (value, priv->n_prealloc);
+            break;
+        case PROP_DUP_COUNT:
+            g_value_set_uint (value, priv->dup_count);
+            break;
+        case PROP_LOOP:
+            g_value_set_boolean (value, priv->loop);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -229,6 +261,18 @@ ufo_buffer_task_class_init (UfoBufferTaskClass *klass)
                            "Number of pre-allocated \"pages\"",
                            1, 4096, 4,
                            G_PARAM_READWRITE);
+    properties[PROP_DUP_COUNT] =
+        g_param_spec_uint ("dup-count",
+                           "Number of times each image should be duplicated",
+                           "Number of times each image should be duplicated",
+                           1, 4096, 1,
+                           G_PARAM_READWRITE);
+    properties[PROP_LOOP] =
+        g_param_spec_boolean ("loop",
+                              "Duplicated the data in a loop manner dup-count times",
+                              "Duplicated the data in a loop manner dup-count times",
+                              0,
+                              G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
@@ -244,4 +288,7 @@ ufo_buffer_task_init(UfoBufferTask *self)
     self->priv->n_prealloc = 4;
     self->priv->n_elements = 0;
     self->priv->current_element = 0;
+    self->priv->dup_count = 1;
+    self->priv->loop = 0;
+    self->priv->dup_current = 1;
 }
