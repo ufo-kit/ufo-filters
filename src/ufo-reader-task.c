@@ -256,6 +256,11 @@ read_edf_metadata (UfoReaderTaskPrivate *priv)
                 priv->depth = UFO_BUFFER_DEPTH_32S;
                 priv->bps = 32;
             }
+            else if (!g_strcmp0 (value, "UnsignedLong")) {
+                /* UnsignedLong at ESRF has 32 bits */
+                priv->depth = UFO_BUFFER_DEPTH_32U;
+                priv->bps = 32;
+            }
             else {
                 g_warning ("Unsupported data type");
             }
