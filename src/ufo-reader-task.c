@@ -93,7 +93,7 @@ static gboolean
 read_tiff_data (UfoReaderTaskPrivate *priv, gpointer buffer, UfoRequisition *requisition)
 {
     const guint32 width = requisition->dims[0];
-    const guint32 height = priv->roi_height == 0 ? priv->height : MIN (priv->height, priv->roi_height);
+    const guint32 height = priv->roi_height == 0 ? priv->height : MIN (priv->height, priv->roi_y + priv->roi_height);
     tsize_t result;
     int offset = 0;
     int step = width;
@@ -289,7 +289,7 @@ read_edf_data (UfoReaderTaskPrivate *priv,
     gssize offset;
     /* size of the image width in bytes */
     gsize width;
-    const guint32 height = priv->roi_height == 0 ? priv->height : MIN (priv->height, priv->roi_height);
+    const guint32 height = priv->roi_height == 0 ? priv->height : MIN (priv->height, priv->roi_y + priv->roi_height);
 
     fseek (priv->edf, 0L, SEEK_END);
     file_size = (gsize) ftell (priv->edf);
@@ -355,8 +355,8 @@ ufo_reader_task_get_requisition (UfoTask *task,
         requisition->dims[1] = REGION_SIZE (0, priv->height, priv->roi_step);
     }
     else {
-        height = priv->height < priv->roi_height ? priv->height : priv->roi_height;
-        requisition->dims[1] = REGION_SIZE (priv->roi_y, height, priv->roi_step);
+        height = priv->height - priv->roi_y < priv->roi_height ? priv->height - priv->roi_y: priv->roi_height;
+        requisition->dims[1] = REGION_SIZE (priv->roi_y, priv->roi_y + height, priv->roi_step);
     }
 }
 
