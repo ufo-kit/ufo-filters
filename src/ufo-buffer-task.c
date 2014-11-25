@@ -29,13 +29,32 @@
  * output the stream again.
  */
 
+struct _UfoMetaData
+{
+    GValue *value;
+    char *name;
+};
+
+typedef struct _UfoMetaData UfoMetadata;
+
+struct _UfoArray
+{
+    guint nb_elt;
+    // Array of nb_elt
+    UfoMetadata data[1];
+};
+
+typedef struct _UfoArray UfoArray;
+
 struct _UfoBufferTaskPrivate {
     guchar *data;
+    UfoArray **metadata;
     guint n_prealloc;
     gsize n_elements;
     gsize current_element;
     gsize size;
     gsize current_size;
+    gsize meta_current_size;
     gsize dup_count;
     gsize loop;
     gsize dup_current;
@@ -104,6 +123,50 @@ ufo_buffer_task_get_mode (UfoTask *task)
     return UFO_TASK_MODE_REDUCTOR | UFO_TASK_MODE_CPU;
 }
 
+static void
+ufo_buffer_task_copy_metadata_out (UfoTask *task, UfoBuffer *output)
+{
+    UfoBufferTaskPrivate *priv;
+    UfoArray *meta;
+
+    priv = UFO_BUFFER_TASK_GET_PRIVATE (task);
+
+    meta = priv->metadata[priv->current_element];
+
+    for (unsigned i = 0; i < meta->nb_elt; ++i) {
+        ufo_buffer_set_metadata (output, meta->data[i].name, meta->data[i].value);
+    }
+}
+
+static void
+ufo_buffer_task_copy_metadata_in (UfoTask *task, UfoBuffer *input)
+{
+    UfoBufferTaskPrivate *priv;
+    UfoArray *meta;
+    unsigned idx = 0;
+    GValue *new;
+    GValue *value;
+    GList *names;
+    GList *it;
+
+    priv = UFO_BUFFER_TASK_GET_PRIVATE (task);
+
+    names = ufo_buffer_get_metadata_keys (input);
+    guint length = g_list_length (names);
+    meta = g_malloc0 (sizeof (UfoMetadata) * length + sizeof (UfoArray));
+    meta->nb_elt = length;
+    for (it = names; it; it = it->next) {
+        value = ufo_buffer_get_metadata (input, it->data);
+        new = g_malloc0 (sizeof (GValue));
+        g_value_init (new, G_VALUE_TYPE ((GValue *) value));
+        g_value_copy (value, new);
+        meta->data[idx].value = new;
+        meta->data[idx].name = g_strdup (it->data);
+        ++idx;
+    }
+    priv->metadata[priv->n_elements] = meta;
+}
+
 static gboolean
 ufo_buffer_task_process (UfoTask *task,
                          UfoBuffer **inputs,
@@ -118,15 +181,25 @@ ufo_buffer_task_process (UfoTask *task,
         priv->current_size = priv->n_prealloc * priv->size;
         priv->data = g_malloc0 (priv->current_size);
     }
+    if (priv->metadata == NULL) {
+        priv->meta_current_size = priv->n_prealloc * sizeof (UfoMetadata *);
+        priv->metadata = g_malloc0 (priv->current_size);
+    }
 
     if (priv->current_size <= priv->n_elements * priv->size) {
         priv->current_size *= 2;
         priv->data = g_realloc (priv->data, priv->current_size);
     }
+    if (priv->meta_current_size <= priv->n_elements * sizeof (UfoMetadata *)) {
+        priv->meta_current_size *= 2;
+        priv->metadata = g_realloc (priv->metadata, priv->meta_current_size);
+    }
 
     g_memmove (priv->data + priv->n_elements * priv->size,
                ufo_buffer_get_host_array (inputs[0], NULL),
                priv->size);
+
+    ufo_buffer_task_copy_metadata_in (task, inputs[0]);
 
     priv->n_elements++;
     return TRUE;
@@ -155,6 +228,7 @@ ufo_buffer_task_generate (UfoTask *task,
     g_memmove (ufo_buffer_get_host_array (output, NULL),
                priv->data + priv->current_element * priv->size,
                priv->size);
+    ufo_buffer_task_copy_metadata_out (task, output);
 
     if (priv->loop)
         priv->current_element++;
@@ -177,6 +251,21 @@ ufo_buffer_task_finalize (GObject *object)
     if (priv->data != NULL) {
         g_free (priv->data);
         priv->data = NULL;
+    }
+    if (priv->metadata) {
+        for (unsigned i = 0; i < priv->n_elements; ++i) {
+            UfoArray *metadata = priv->metadata[i];
+            for (unsigned j = 0; j < metadata->nb_elt; ++j) {
+                g_free (metadata->data[j].value);
+                metadata->data[j].value = NULL;
+                g_free (metadata->data[j].name);
+                metadata->data[j].name = NULL;
+            }
+            g_free (priv->metadata[i]);
+            priv->metadata[i] = NULL;
+        }
+        g_free (priv->metadata);
+        priv->metadata = NULL;
     }
 
     G_OBJECT_CLASS (ufo_buffer_task_parent_class)->finalize (object);
