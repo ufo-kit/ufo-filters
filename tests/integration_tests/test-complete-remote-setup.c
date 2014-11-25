@@ -29,10 +29,12 @@ typedef struct {
 static void
 setup (Fixture *fixture, gconstpointer data)
 {
+    GError *error = NULL;
     gchar *addr = g_strdup ("tcp://127.0.0.1:5555");
 
     fixture->daemon = ufo_daemon_new (addr);
-    ufo_daemon_start (fixture->daemon);
+    ufo_daemon_start (fixture->daemon, &error);
+    g_assert_no_error (error);
 
     fixture->tmpdir = g_strdup ("ufotemp-XXXXXX");
     g_mkdtemp (fixture->tmpdir);
@@ -41,7 +43,11 @@ setup (Fixture *fixture, gconstpointer data)
 static void
 teardown (Fixture *fixture, gconstpointer data)
 {
-    ufo_daemon_stop (fixture->daemon);
+    GError *error = NULL;
+
+    ufo_daemon_stop (fixture->daemon, &error);
+    g_assert_no_error (error);
+
     g_object_unref (fixture->daemon);
 
     g_rmdir (fixture->tmpdir);
@@ -104,7 +110,6 @@ test_simple_invert (Fixture *fixture,
     ufo_graph_connect_nodes (graph, UFO_NODE (cl2), UFO_NODE (writer), NULL);
 
     gchar *remote = g_strdup ("tcp://127.0.0.1:5555");
-    GList *remotes = g_list_append (NULL, remote);
     UfoBaseScheduler *sched = ufo_scheduler_new ();
 
     ufo_base_scheduler_run (sched, UFO_TASK_GRAPH (graph), NULL);
