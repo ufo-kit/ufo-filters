@@ -261,6 +261,10 @@ read_edf_metadata (UfoReaderTaskPrivate *priv)
                 priv->depth = UFO_BUFFER_DEPTH_32U;
                 priv->bps = 32;
             }
+            else if (!g_strcmp0 (value, "Float")) {
+                priv->bps = 32;
+                priv->depth = UFO_BUFFER_DEPTH_32F;
+            }
             else {
                 g_warning ("Unsupported data type");
             }
