@@ -74,31 +74,32 @@ ufo_ir_task_setup (UfoTask      *task,
     priv->cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     UFO_RESOURCES_CHECK_CLERR (clRetainCommandQueue (priv->cmd_queue));
 
-    UfoProfiler  *profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    UfoProfiler *profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
 
-    ufo_ir_geometry_setup  (priv->geometry, priv->resources, error);
     g_object_set (priv->projector,
                   "ufo-profiler", profiler,
                   "geometry", priv->geometry,
                   "command-queue", priv->cmd_queue, NULL);
 
-    ufo_processor_setup (UFO_PROCESSOR (priv->projector),
-                            priv->resources,
-                            error);
-
-    if (error && *error)
-      return;
-
     g_object_set (priv->method,
                   "projection-model", priv->projector,
                   "command-queue", priv->cmd_queue,
                   "ufo-profiler", profiler, NULL);
-    if (priv->prior) {
-      g_object_set (priv->method, "prior-knowledge", priv->prior, NULL);
-    }
-    ufo_processor_setup (UFO_PROCESSOR (priv->method),
-                         priv->resources,
-                         error);
+
+    if (priv->prior)
+        g_object_set (priv->method, "prior-knowledge", priv->prior, NULL);
+
+    ufo_ir_geometry_setup  (priv->geometry, priv->resources, error);
+
+    if (error && *error)
+      return;
+
+    ufo_processor_setup (UFO_PROCESSOR (priv->projector), priv->resources, error);
+
+    if (error && *error)
+      return;
+
+    ufo_processor_setup (UFO_PROCESSOR (priv->method), priv->resources, error);
 }
 
 static UfoNode *
@@ -151,15 +152,15 @@ ufo_ir_task_get_requisition (UfoTask        *task,
 
     GError *error = NULL;
     ufo_ir_geometry_configure (priv->geometry, &in_req, &error);
+
     if (error) {
-      g_error ("Error: %s", error->message);
-      g_error_free (error);
+        g_error ("Error: %s", error->message);
+        g_error_free (error);
     }
-    ufo_ir_geometry_get_volume_requisitions (priv->geometry,
-                                          requisition);
+
+    ufo_ir_geometry_get_volume_requisitions (priv->geometry, requisition);
     ufo_processor_configure (UFO_PROCESSOR (priv->projector));
 }
-
 
 static guint
 ufo_ir_task_get_num_inputs (UfoTask *task)
@@ -345,8 +346,7 @@ ufo_ir_task_class_init (UfoIrTaskClass *klass)
                              "Pointer to the instance of UfoPriorKnowledge.",
                              G_PARAM_READWRITE);
 
-      guint i;
-      for (i = PROP_0 + 1; i < N_PROPERTIES; i++)
+      for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
           g_object_class_install_property (gobject_class, i, properties[i]);
 
       g_type_class_add_private (gobject_class, sizeof(UfoIrTaskPrivate));
