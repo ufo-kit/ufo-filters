@@ -108,25 +108,29 @@ ufo_ir_task_node_copy (UfoNode *node,
     UfoNode *copy = UFO_NODE (ufo_ir_task_new());
     UfoIrTaskPrivate *priv = UFO_IR_TASK_GET_PRIVATE (node);
 
-    UfoIrMethod    *copy_method = ufo_copyable_copy (priv->method, NULL);
+    UfoIrMethod *copy_method = UFO_IR_METHOD (ufo_copyable_copy (priv->method, NULL));
+
     if (copy_method) {
         g_object_set (G_OBJECT (copy), "method", copy_method, NULL);
         g_object_unref (copy_method);
     }
 
-    UfoIrProjector *copy_projector =  ufo_copyable_copy (priv->projector, NULL);
+    UfoIrProjector *copy_projector = UFO_IR_PROJECTOR (ufo_copyable_copy (priv->projector, NULL));
+
     if (copy_projector) {
         g_object_set (G_OBJECT (copy), "projector", copy_projector, NULL);
         g_object_unref (copy_projector);
     }
 
-    UfoIrGeometry  *copy_geometry =  ufo_copyable_copy (priv->geometry, NULL);
+    UfoIrGeometry *copy_geometry = UFO_IR_GEOMETRY (ufo_copyable_copy (priv->geometry, NULL));
+
     if (copy_geometry) {
         g_object_set (G_OBJECT (copy), "geometry", copy_geometry, NULL);
         g_object_unref (copy_geometry);
     }
 
-    UfoIrPriorKnowledge  *copy_prior =  ufo_ir_prior_knowledge_copy (priv->prior);
+    UfoIrPriorKnowledge *copy_prior = ufo_ir_prior_knowledge_copy (priv->prior);
+
     if (copy_prior) {
         g_object_set (G_OBJECT (copy), "prior-knowledge", copy_prior, NULL);
         ufo_ir_prior_knowledge_unref (copy_prior);
@@ -186,8 +190,7 @@ ufo_ir_task_process (UfoTask        *task,
 {
     UfoIrTaskPrivate *priv = UFO_IR_TASK_GET_PRIVATE (task);
     ufo_op_set (output, 0, priv->resources, priv->cmd_queue);
-    gboolean res = ufo_method_process (UFO_METHOD (priv->method), inputs[0], output, NULL);
-    return TRUE;
+    return ufo_method_process (UFO_METHOD (priv->method), inputs[0], output, NULL);
 }
 
 static void
