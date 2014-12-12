@@ -274,7 +274,7 @@ read_edf_metadata (UfoReaderTaskPrivate *priv)
                 priv->depth = UFO_BUFFER_DEPTH_32U;
                 priv->bps = 32;
             }
-            else if (!g_strcmp0 (value, "Float")) {
+            else if (!g_strcmp0 (value, "Float") || !g_strcmp0 (value, "FloatValue")) {
                 priv->bps = 32;
                 priv->depth = UFO_BUFFER_DEPTH_32F;
             }
