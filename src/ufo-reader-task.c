@@ -303,21 +303,35 @@ read_edf_data (UfoReaderTaskPrivate *priv,
     /* Offset to the first row */
     gssize offset;
     /* size of the image width in bytes */
-    gsize width;
+    const gsize width = requisition->dims[0] * priv->bps / 8;
     const guint32 height = priv->roi_height == 0 ? priv->height : MIN (priv->height, priv->roi_y + priv->roi_height);
+    const guint num_rows = REGION_SIZE (priv->roi_y, height, priv->roi_step);
+    /* Last read row, +1 because it is actually read */
+    const guint last_row = priv->roi_y + priv->roi_step * (num_rows - 1) + 1;
+    /* Position after the last image row */
+    const gsize end_position = (priv->height - last_row) * width;
 
-    width = requisition->dims[0] * priv->bps / 8;
     offset = 0;
+    /* Go to the first desired row */
+    fseek (priv->edf, priv->roi_y * width, SEEK_CUR);
 
-    for (guint32 i = priv->roi_y; i < height; i += priv->roi_step) {
-        fseek (priv->edf, (priv->roi_step - 1) * width, SEEK_CUR);
+    for (guint32 i = 0; i < num_rows - 1; i++) {
         num_bytes = fread (((gchar *) buffer) + offset, 1, width, priv->edf);
 
         if (num_bytes != width)
             return FALSE;
 
         offset += width;
+        fseek (priv->edf, (priv->roi_step - 1) * width, SEEK_CUR);
     }
+    /* Read the last row without moving the file pointer so that the fseek to
+     * the image end works properly */
+    num_bytes = fread (((gchar *) buffer) + offset, 1, width, priv->edf);
+    if (num_bytes != width)
+        return FALSE;
+
+    /* Go to the image end to be in a consistent state for the next read */
+    fseek (priv->edf, end_position, SEEK_CUR);
 
     if ((G_BYTE_ORDER == G_LITTLE_ENDIAN) && priv->big_endian) {
         guint32 *data = (guint32 *) buffer;
