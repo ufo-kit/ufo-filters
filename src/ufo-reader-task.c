@@ -102,11 +102,28 @@ ufo_reader_task_new (void)
     return UFO_NODE (g_object_new (UFO_TYPE_READER_TASK, NULL));
 }
 
+static guint
+compute_height (UfoReaderTaskPrivate *priv)
+{
+    guint height, roi_y;
+
+    roi_y = priv->roi_y >= priv->height ? 0 : priv->roi_y;
+    if (!priv->roi_height) {
+        height = priv->height - roi_y;
+    }
+    else {
+        height = roi_y + priv->roi_height > priv->height ? priv->height - roi_y : priv->roi_height;
+    }
+
+    return height;
+}
+
 static gboolean
 read_tiff_data (UfoReaderTaskPrivate *priv, gpointer buffer, UfoRequisition *requisition)
 {
     const guint32 width = requisition->dims[0];
-    const guint32 height = priv->roi_height == 0 ? priv->height : MIN (priv->height, priv->roi_y + priv->roi_height);
+    const guint32 roi_y = priv->roi_y >= priv->height ? 0 : priv->roi_y;
+    const guint32 height = roi_y + compute_height (priv);
     tsize_t result;
     int offset = 0;
     int step = width;
@@ -118,7 +135,7 @@ read_tiff_data (UfoReaderTaskPrivate *priv, gpointer buffer, UfoRequisition *req
             step *= 4;
     }
 
-    for (guint32 i = priv->roi_y; i < height; i += priv->roi_step) {
+    for (guint32 i = roi_y; i < height; i += priv->roi_step) {
         result = TIFFReadScanline (priv->tiff, ((gchar *) buffer) + offset, i, 0);
 
         if (result == -1)
@@ -304,21 +321,22 @@ read_edf_data (UfoReaderTaskPrivate *priv,
     gssize offset;
     /* size of the image width in bytes */
     const gsize width = requisition->dims[0] * priv->bps / 8;
-    const guint32 height = priv->roi_height == 0 ? priv->height : MIN (priv->height, priv->roi_y + priv->roi_height);
-    const guint num_rows = REGION_SIZE (priv->roi_y, height, priv->roi_step);
+    const guint32 roi_y = priv->roi_y >= priv->height ? 0 : priv->roi_y;
+    const guint32 height = roi_y + compute_height (priv);
+    const guint num_rows = REGION_SIZE (roi_y, height, priv->roi_step);
     /* Last read row, +1 because it is actually read */
-    const guint last_row = priv->roi_y + priv->roi_step * (num_rows - 1) + 1;
+    const guint last_row = roi_y + priv->roi_step * (num_rows - 1) + 1;
     /* Position after the last image row */
     const gsize end_position = (priv->height - last_row) * width;
 
     offset = 0;
     /* Go to the first desired row */
-    fseek (priv->edf, priv->roi_y * width, SEEK_CUR);
+    fseek (priv->edf, roi_y * width, SEEK_CUR);
 
     if (priv->roi_step == 1) {
         /* Read the full ROI at once if no stepping is specified */
-        num_bytes = fread ((gchar *) buffer, 1, width * (height - priv->roi_y), priv->edf);
-        if (num_bytes != width * (height - priv->roi_y)) {
+        num_bytes = fread ((gchar *) buffer, 1, width * (height - roi_y), priv->edf);
+        if (num_bytes != width * (height - roi_y)) {
             return FALSE;
         }
     }
@@ -368,7 +386,7 @@ ufo_reader_task_get_requisition (UfoTask *task,
                                  UfoRequisition *requisition)
 {
     UfoReaderTaskPrivate *priv;
-    guint height;
+    guint height, roi_y;
 
     priv = UFO_READER_TASK_GET_PRIVATE (UFO_READER_TASK (task));
 
@@ -415,13 +433,9 @@ ufo_reader_task_get_requisition (UfoTask *task,
     requisition->n_dims = 2;
     requisition->dims[0] = priv->width;
 
-    if (priv->roi_height == 0 && priv->roi_y == 0) {
-        requisition->dims[1] = REGION_SIZE (0, priv->height, priv->roi_step);
-    }
-    else {
-        height = priv->height - priv->roi_y < priv->roi_height ? priv->height - priv->roi_y: priv->roi_height;
-        requisition->dims[1] = REGION_SIZE (priv->roi_y, priv->roi_y + height, priv->roi_step);
-    }
+    roi_y = priv->roi_y >= priv->height ? 0 : priv->roi_y;
+    height = compute_height (priv);
+    requisition->dims[1] = REGION_SIZE (roi_y, roi_y + height, priv->roi_step);
 }
 
 static guint
