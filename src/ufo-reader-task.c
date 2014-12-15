@@ -315,20 +315,29 @@ read_edf_data (UfoReaderTaskPrivate *priv,
     /* Go to the first desired row */
     fseek (priv->edf, priv->roi_y * width, SEEK_CUR);
 
-    for (guint32 i = 0; i < num_rows - 1; i++) {
-        num_bytes = fread (((gchar *) buffer) + offset, 1, width, priv->edf);
+    if (priv->roi_step == 1) {
+        /* Read the full ROI at once if no stepping is specified */
+        num_bytes = fread ((gchar *) buffer, 1, width * (height - priv->roi_y), priv->edf);
+        if (num_bytes != width * (height - priv->roi_y)) {
+            return FALSE;
+        }
+    }
+    else {
+        for (guint32 i = 0; i < num_rows - 1; i++) {
+            num_bytes = fread (((gchar *) buffer) + offset, 1, width, priv->edf);
 
+            if (num_bytes != width)
+                return FALSE;
+
+            offset += width;
+            fseek (priv->edf, (priv->roi_step - 1) * width, SEEK_CUR);
+        }
+        /* Read the last row without moving the file pointer so that the fseek to
+         * the image end works properly */
+        num_bytes = fread (((gchar *) buffer) + offset, 1, width, priv->edf);
         if (num_bytes != width)
             return FALSE;
-
-        offset += width;
-        fseek (priv->edf, (priv->roi_step - 1) * width, SEEK_CUR);
     }
-    /* Read the last row without moving the file pointer so that the fseek to
-     * the image end works properly */
-    num_bytes = fread (((gchar *) buffer) + offset, 1, width, priv->edf);
-    if (num_bytes != width)
-        return FALSE;
 
     /* Go to the image end to be in a consistent state for the next read */
     fseek (priv->edf, end_position, SEEK_CUR);
