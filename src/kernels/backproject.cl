@@ -68,7 +68,7 @@ backproject_tex (read_only image2d_t sinogram,
         /* float h = mad (by, sin_lut[proj], mad(bx, cos_lut[proj], axis_pos)); */
 
         float h = by * sin_lut[offset + proj] + bx * cos_lut[offset + proj] + axis_pos;
-        float val = read_imagef (sinogram, volumeSampler, (float2)(h, proj)).x;
+        float val = read_imagef (sinogram, volumeSampler, (float2)(h, proj + 0.5f)).x;
         sum += (isnan (val) ? 0.0 : val);
     }
 
