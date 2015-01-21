@@ -42,7 +42,6 @@ struct _UfoIrTaskPrivate {
     UfoIrMethod         *method;
     UfoIrGeometry       *geometry;
     UfoIrProjector      *projector;
-    UfoIrPriorKnowledge *prior;
 };
 
 enum {
@@ -50,7 +49,6 @@ enum {
     PROP_METHOD,
     PROP_GEOMETRY,
     PROP_PROJECTOR,
-    PROP_PRIOR_KNOWLEDGE,
     N_PROPERTIES
 };
 
@@ -85,9 +83,6 @@ ufo_ir_task_setup (UfoTask      *task,
                   "projection-model", priv->projector,
                   "command-queue", priv->cmd_queue,
                   "ufo-profiler", profiler, NULL);
-
-    if (priv->prior)
-        g_object_set (priv->method, "prior-knowledge", priv->prior, NULL);
 
     ufo_ir_geometry_setup  (priv->geometry, priv->resources, error);
 
@@ -128,13 +123,6 @@ ufo_ir_task_node_copy (UfoNode *node,
     if (copy_geometry) {
         g_object_set (G_OBJECT (copy), "geometry", copy_geometry, NULL);
         g_object_unref (copy_geometry);
-    }
-
-    UfoIrPriorKnowledge *copy_prior = ufo_ir_prior_knowledge_copy (priv->prior);
-
-    if (copy_prior) {
-        g_object_set (G_OBJECT (copy), "prior-knowledge", copy_prior, NULL);
-        ufo_ir_prior_knowledge_unref (copy_prior);
     }
 
     return copy;
@@ -212,9 +200,6 @@ ufo_task_set_json_object_property_real (UfoTask     *task,
     else if (g_strcmp0 (prop_name, "method") == 0) {
         obj = ufo_object_from_json (json_obj, priv->plugin_manager);
     }
-    else if (g_strcmp0 (prop_name, "prior-knowledge") == 0) {
-        obj = ufo_ir_prior_knowledge_from_json (json_obj, priv->plugin_manager);
-    }
 
     g_object_set (task, prop_name, obj, NULL);
 }
@@ -249,9 +234,6 @@ ufo_ir_task_set_property (GObject      *object,
         case PROP_PROJECTOR:
             priv->projector = g_object_ref (g_value_get_object (value));
             break;
-        case PROP_PRIOR_KNOWLEDGE:
-            priv->prior = g_hash_table_ref (g_value_get_boxed (value));
-            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -276,9 +258,6 @@ ufo_ir_task_get_property (GObject    *object,
         case PROP_PROJECTOR:
             g_value_set_object (value, priv->projector);
             break;
-        case PROP_PRIOR_KNOWLEDGE:
-            g_value_set_boxed (value, priv->prior);
-            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -294,11 +273,6 @@ ufo_ir_task_dispose (GObject *object)
     g_clear_object (&priv->method);
     g_clear_object (&priv->geometry);
     g_clear_object (&priv->projector);
-
-    if (priv->prior) {
-        g_hash_table_unref (priv->prior);
-        priv->prior = NULL;
-    }
 
     G_OBJECT_CLASS (ufo_ir_task_parent_class)->dispose (object);
 }
@@ -343,14 +317,7 @@ ufo_ir_task_class_init (UfoIrTaskClass *klass)
                              UFO_IR_TYPE_PROJECTOR,
                              G_PARAM_READWRITE);
 
-    properties[PROP_PRIOR_KNOWLEDGE] =
-        g_param_spec_boxed ("prior-knowledge",
-                            "Pointer to the instance of UfoPriorKnowledge.",
-                            "Pointer to the instance of UfoPriorKnowledge.",
-                            G_TYPE_HASH_TABLE,
-                            G_PARAM_READWRITE);
-
-      for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
+    for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
           g_object_class_install_property (gobject_class, i, properties[i]);
 
       g_type_class_add_private (gobject_class, sizeof(UfoIrTaskPrivate));
@@ -370,5 +337,4 @@ ufo_ir_task_init(UfoIrTask *self)
     priv->method = NULL;
     priv->geometry = NULL;
     priv->projector = NULL;
-    priv->prior = NULL;
 }
