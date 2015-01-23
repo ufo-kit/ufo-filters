@@ -36,6 +36,7 @@ set(ufofilter_SRCS
     ufo-subtract-task.c
     ufo-volume-render-task.c
     ufo-zeropadding-task.c
+    ufo-scalability-task.c
     )
 
 file(GLOB ufofilter_KERNELS "kernels/*.cl")
