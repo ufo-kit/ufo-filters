@@ -44,8 +44,6 @@ typedef struct _UfoTransposeTaskPrivate    UfoTransposeTaskPrivate;
 struct _UfoTransposeTask {
     /*< private >*/
     UfoTaskNode parent_instance;
-
-    UfoTransposeTaskPrivate *priv;
 };
 
 /**

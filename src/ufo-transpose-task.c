@@ -191,5 +191,4 @@ ufo_transpose_task_class_init (UfoTransposeTaskClass *klass)
 static void
 ufo_transpose_task_init(UfoTransposeTask *self)
 {
-    self->priv = UFO_TRANSPOSE_TASK_GET_PRIVATE(self);
 }
