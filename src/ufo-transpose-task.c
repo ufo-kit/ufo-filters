@@ -106,11 +106,11 @@ ufo_transpose_task_process (UfoTask *task,
 {
     gfloat *host_array;
     gfloat *transposed;
-    guint width = requisition->dims[0];
-    guint height = requisition->dims[1];
-    guint fast_width = width - width % 4;
-    guint fast_height = height - height % 4;
-    const guint block_size = 128;
+    gint width = (gint) requisition->dims[0];
+    gint height = (gint) requisition->dims[1];
+    gint fast_width = width - width % 4;
+    gint fast_height = height - height % 4;
+    const gint block_size = 128;
 
     host_array = ufo_buffer_get_host_array (inputs[0], NULL);
     transposed = ufo_buffer_get_host_array (output, NULL);
@@ -120,9 +120,9 @@ ufo_transpose_task_process (UfoTask *task,
      * block-based fashion and last, execute as many blocks as fit the image
      * dimensions reduced by modulo 4 outliers. */
     #pragma omp parallel for
-    for (guint j = 0; j < fast_height; j+=block_size) {
+    for (gint j = 0; j < fast_height; j += block_size) {
         guint block_j = j + block_size < fast_height ? j + block_size : fast_height;
-        for (guint i = 0; i < fast_width; i+=block_size) {
+        for (gint i = 0; i < fast_width; i += block_size) {
             guint block_i = i + block_size < fast_width ? i + block_size : fast_width;
             for (guint l = j; l < block_j; l+=4) {
                 for (guint k = i; k < block_i; k+=4) {
@@ -136,20 +136,20 @@ ufo_transpose_task_process (UfoTask *task,
      * in parallel to the previous one, otherwise the vector access and outlier
      * access might happen at the same time producing invalid results. */
     #pragma omp parallel for
-    for (guint j = 0; j < height; j++) {
+    for (gint j = 0; j < height; j++) {
         /* If we are in the height which was processed in a vectorized way treat
          * only the x outlier, otherwise the whole row has to be processed. */
         guint start_i = j < fast_height ? fast_width : 0;
-        for (guint i = start_i; i < width; i++) {
+        for (gint i = start_i; i < width; i++) {
             transposed[j * width + i] = host_array[i * height + j];
         }
     }
     #else
     /* Transpose in blocks */
     #pragma omp parallel for
-    for (guint j = 0; j < height; j+=block_size) {
+    for (gint j = 0; j < height; j += block_size) {
         guint block_j = j + block_size < height ? j + block_size : height;
-        for (guint i = 0; i < width; i+=block_size) {
+        for (gint i = 0; i < width; i += block_size) {
             guint block_i = i + block_size < width ? i + block_size : width;
             for (guint l = j; l < block_j; l++) {
                 for (guint k = i; k < block_i; k++) {
