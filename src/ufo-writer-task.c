@@ -23,6 +23,11 @@
 
 #include "ufo-writer-task.h"
 
+typedef enum {
+    BITS_8U = 8,
+    BITS_16U = 16,
+    BITS_32FP = 32,
+} BitDepth;
 
 struct _UfoWriterTaskPrivate {
     gchar *format;
@@ -31,6 +36,7 @@ struct _UfoWriterTaskPrivate {
     gboolean append;
     gsize width;
     gsize height;
+    BitDepth depth;
 
     gboolean single;
     TIFF *tif;
@@ -49,6 +55,7 @@ enum {
     PROP_FORMAT,
     PROP_SINGLE_FILE,
     PROP_APPEND,
+    PROP_BITS,
     N_PROPERTIES
 };
 
@@ -58,6 +65,44 @@ UfoNode *
 ufo_writer_task_new (void)
 {
     return UFO_NODE (g_object_new (UFO_TYPE_WRITER_TASK, NULL));
+}
+
+static void
+write_8bit_data (TIFF *tif, gfloat *data, gfloat min, gfloat max, guint width, guint height)
+{
+    guint8 *scanline;
+    const gfloat range = max - min;
+
+    TIFFSetField (tif, TIFFTAG_BITSPERSAMPLE, 8);
+    scanline = g_malloc (width);
+
+    for (guint y = 0; y < height; y++, data += width) {
+        for (guint i = 0; i < width; i++)
+            scanline[i] = (guint8) ((data[i] - min) / range * 255);
+
+        TIFFWriteScanline (tif, scanline, y, 0);
+    }
+
+    g_free (scanline);
+}
+
+static void
+write_16bit_data (TIFF *tif, gfloat *data, gfloat min, gfloat max, guint width, guint height)
+{
+    guint16 *scanline;
+    const gfloat range = max - min;
+
+    TIFFSetField (tif, TIFFTAG_BITSPERSAMPLE, 16);
+    scanline = g_malloc (width * 2);
+
+    for (guint y = 0; y < height; y++, data += width) {
+        for (guint i = 0; i < width; i++)
+            scanline[i] = (guint16) ((data[i] - min) / range * 65535);
+
+        TIFFWriteScanline (tif, scanline, y, 0);
+    }
+
+    g_free (scanline);
 }
 
 static gboolean
@@ -89,16 +134,34 @@ write_tiff_data (UfoWriterTaskPrivate *priv, UfoBuffer *buffer)
 
         TIFFSetField (priv->tif, TIFFTAG_IMAGEWIDTH, width);
         TIFFSetField (priv->tif, TIFFTAG_IMAGELENGTH, height);
-        TIFFSetField (priv->tif, TIFFTAG_BITSPERSAMPLE, 32);
-        TIFFSetField (priv->tif, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
         TIFFSetField (priv->tif, TIFFTAG_SAMPLESPERPIXEL, 1);
         TIFFSetField (priv->tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
         TIFFSetField (priv->tif, TIFFTAG_ROWSPERSTRIP, rows_per_strip);
         TIFFSetField (priv->tif, TIFFTAG_PAGENUMBER, i, n_pages);
+
         start = ((gfloat *) data) + i * width * height;
 
-        for (guint y = 0; y < height; y++, start += width)
-            TIFFWriteScanline (priv->tif, start, y, 0);
+        if (priv->depth == BITS_32FP) {
+            TIFFSetField (priv->tif, TIFFTAG_BITSPERSAMPLE, 32);
+            TIFFSetField (priv->tif, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
+
+            for (guint y = 0; y < height; y++, start += width)
+                TIFFWriteScanline (priv->tif, start, y, 0);
+
+        }
+        else {
+            gfloat min, max;
+
+            min = ufo_buffer_min (buffer, NULL);
+            max = ufo_buffer_max (buffer, NULL);
+
+            TIFFSetField (priv->tif, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_UINT);
+
+            if (priv->depth == BITS_8U)
+                write_8bit_data (priv->tif, start, min, max, width, height);
+            else
+                write_16bit_data (priv->tif, start, min, max, width, height);
+        }
 
         TIFFWriteDirectory (priv->tif);
     }
@@ -281,6 +344,20 @@ ufo_writer_task_set_property (GObject *object,
         case PROP_APPEND:
             priv->append = g_value_get_boolean (value);
             break;
+        case PROP_BITS:
+            {
+                guint val;
+
+                val = g_value_get_uint (value);
+
+                if (val != 8 && val != 16 && val != 32) {
+                    g_warning ("Writer::bits can only 8, 16 or 32");
+                    return;
+                }
+
+                priv->depth = val;
+            }
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -304,6 +381,9 @@ ufo_writer_task_get_property (GObject *object,
             break;
         case PROP_APPEND:
             g_value_set_boolean (value, priv->append);
+            break;
+        case PROP_BITS:
+            g_value_set_uint (value, priv->depth);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -371,6 +451,12 @@ ufo_writer_task_class_init (UfoWriterTaskClass *klass)
             FALSE,
             G_PARAM_READWRITE);
 
+    properties[PROP_BITS] =
+        g_param_spec_uint ("bits",
+                           "Number of bits per sample",
+                           "Number of bits per sample. Possible values in [8, 16, 32].",
+                           8, 32, 32, G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -386,4 +472,5 @@ ufo_writer_task_init(UfoWriterTask *self)
     self->priv->counter = 0;
     self->priv->append = FALSE;
     self->priv->single = FALSE;
+    self->priv->depth = 32;
 }
