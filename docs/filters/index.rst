@@ -247,6 +247,21 @@ Downsampling
         Fixed factor by which the input size is to be reduced.
 
 
+Slice mapping
+-------------
+
+.. gobj:class:: map-slice
+
+    Lays out input images on a quadratic grid. If the :gobj:prop:`number` of
+    input elements is not the square of some integer value, the next higher
+    number is chosen and the remaining data is blackened.
+
+    .. gobj:prop:: factor:int
+
+        Number of expected input elements. If more elements are sent to the
+        mapper, warnings are issued.
+
+
 Fast Fourier transform
 ----------------------
 
