@@ -16,7 +16,7 @@ __write_only image2d_t out)
     2 3 4 (s-1, t) (s, t) (s+1, t)
     5 6 (s, t-1) (s+1, t-1)
     */
-    for (long int i = 0; i < 100000; ++i) {
+    for (long int i = 0; i < 1; ++i) {
     float f[7];
     f[3] = read_imagef(in, nb_sampler, coord_r).s0;
     coord_r.y -= 1;

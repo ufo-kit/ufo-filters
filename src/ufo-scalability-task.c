@@ -23,6 +23,7 @@
 #include <CL/cl.h>
 #endif
 
+#include <sys/types.h>
 #include "ufo-scalability-task.h"
 #include <ufo/ufo.h>
 
@@ -119,6 +120,12 @@ ufo_scalability_task_process (UfoTask        *task,
                      UfoBuffer      *output,
                      UfoRequisition *requisition)
 {
+    //g_print ("\n Task %p  thread: %p", task, g_thread_self());
+    GTimer *process_time = g_timer_new();
+    GTimer *loop_time = g_timer_new ();
+
+    g_timer_start (process_time);
+
     UfoScalabilityTaskPrivate *priv = UFO_SCALABILITY_TASK_GET_PRIVATE (task);
     ufo_op_set (output, 0, priv->resources, priv->cmd_queue);
     UfoProfiler *profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
@@ -132,12 +139,48 @@ ufo_scalability_task_process (UfoTask        *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof(cl_mem), &d_input));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof(cl_mem), &d_output));
 
-    for (int i = 0 ; i < 1; ++i) {
-        ufo_profiler_call (profiler, priv->cmd_queue, priv->kernel, input_req.n_dims,
-                input_req.dims, NULL);
+    cl_ulong total_t = 0;
+    double sec_time = 0.0;
+    cl_ulong total_rt = 0;
+    double sec_rtime = 0.0;
+    g_timer_start (loop_time);
+    for (long i = 0 ; i < 500000; ++i) {
+        cl_event event = NULL;
+        //ufo_profiler_call (profiler, priv->cmd_queue, priv->kernel, input_req.n_dims,
+        //        input_req.dims, &event);
 
+        clEnqueueNDRangeKernel (priv->cmd_queue,
+                priv->kernel,
+            input_req.n_dims,
+                NULL,
+                input_req.dims,
+                NULL,
+                0,
+                NULL, NULL);
+
+        //clWaitForEvents(1, &event);
+
+        /*
+        cl_ulong t1=0, t2=0;
+        clGetEventProfilingInfo (event, CL_PROFILING_COMMAND_QUEUED, sizeof (cl_ulong), &t1, NULL);
+        clGetEventProfilingInfo (event, CL_PROFILING_COMMAND_START, sizeof (cl_ulong), &t2, NULL);
+        total_t += t2 - t1;
+        sec_time += ((double)(t2-t1)) / 1000000000;
+
+        clGetEventProfilingInfo (event, CL_PROFILING_COMMAND_START, sizeof (cl_ulong), &t1, NULL);
+        clGetEventProfilingInfo (event, CL_PROFILING_COMMAND_END, sizeof (cl_ulong), &t2, NULL);
+        total_rt += t2 - t1;
+        sec_rtime += ((double)(t2-t1)) / 1000000000;
+        */
+        clFinish(priv->cmd_queue);
     }
-    clFinish (priv->cmd_queue);
+    g_timer_stop (loop_time);
+    g_timer_stop (process_time);
+
+    gdouble process_t = g_timer_elapsed (process_time, NULL);
+    gdouble loop_t = g_timer_elapsed (loop_time, NULL);
+
+     g_print ("\n Task %p CMD_Q: %p  QUEUED-START: %f s. START-END: %f s. LOOP TIME: %f  PROCESS TIME: %f", task, priv->cmd_queue, sec_time, sec_rtime, loop_t, process_t); 
     return TRUE;
 }
 
