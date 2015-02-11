@@ -210,6 +210,38 @@ Gaussian blur
         Sigma of the kernel.
 
 
+Padding
+-------
+
+.. gobj:class:: pad
+
+    Pad an image to some extent with specific behavior for pixels falling
+    outside the original image.
+
+    .. gobj:prop:: x:int
+
+        Horizontal coordinate in the output image which will contain the first
+        input column.
+
+    .. gobj:prop:: y:int
+
+        Vertical coordinate in the output image which will contain the first
+        input row.
+
+    .. gobj:prop:: width:int
+
+        Width of the padded image.
+
+    .. gobj:prop:: height:int
+
+        Height of the padded image.
+
+    .. gobj:prop:: addressing-mode:string
+
+        Addressing mode specifies the behavior for pixels falling outside the
+        original image. See OpenCL sampler_t documentation for more information.
+
+
 Region of interest
 ------------------
 
