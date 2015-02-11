@@ -25,6 +25,7 @@ set(ufofilter_SRCS
     ufo-meta-balls-task.c
     ufo-null-task.c
     ufo-opencl-task.c
+    ufo-pad-task.c
     ufo-phase-retrieval-task.c
     ufo-polar-coordinates-task.c
     ufo-region-of-interest-task.c
