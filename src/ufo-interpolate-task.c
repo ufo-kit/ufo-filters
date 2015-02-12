@@ -138,7 +138,7 @@ ufo_interpolate_task_generate (UfoTask *task,
     x_mem = priv->x;
     y_mem = priv->y;
     out_mem = ufo_buffer_get_host_array (output, NULL);
-    alpha = (((gfloat) priv->number) - priv->current) / priv->number;
+    alpha = priv->number > 1 ? ((gfloat) priv->current) / (priv->number - 1) : 0;
     width = requisition->dims[0];
     height = requisition->dims[1];
 
@@ -146,7 +146,7 @@ ufo_interpolate_task_generate (UfoTask *task,
     for (gsize i = 0; i < width; i++) {
         for (gsize j = 0; j < height; j++) {
             gsize idx = j * width + i;
-            out_mem[idx] = alpha * x_mem[idx] + (1.0f - alpha) * y_mem[idx];
+            out_mem[idx] = (1.0f - alpha) * x_mem[idx] + alpha * y_mem[idx];
         }
     }
 
