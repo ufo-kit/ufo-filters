@@ -24,20 +24,20 @@
 #endif
 #include <math.h>
 
-#include "ufo-stripe-filter-task.h"
+#include "ufo-filter-stripes-task.h"
 
 
-struct _UfoStripeFilterTaskPrivate {
+struct _UfoFilterStripesTaskPrivate {
     cl_kernel kernel;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
-G_DEFINE_TYPE_WITH_CODE (UfoStripeFilterTask, ufo_stripe_filter_task, UFO_TYPE_TASK_NODE,
+G_DEFINE_TYPE_WITH_CODE (UfoFilterStripesTask, ufo_filter_stripes_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
                                                 ufo_task_interface_init))
 
-#define UFO_STRIPE_FILTER_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_STRIPE_FILTER_TASK, UfoStripeFilterTaskPrivate))
+#define UFO_FILTER_STRIPES_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FILTER_STRIPES_TASK, UfoFilterStripesTaskPrivate))
 
 enum {
     PROP_0,
@@ -45,25 +45,25 @@ enum {
 };
 
 UfoNode *
-ufo_stripefilter_task_new (void)
+ufo_filter_stripes_task_new (void)
 {
-    return UFO_NODE (g_object_new (UFO_TYPE_STRIPE_FILTER_TASK, NULL));
+    return UFO_NODE (g_object_new (UFO_TYPE_FILTER_STRIPES_TASK, NULL));
 }
 
 static gboolean
-ufo_stripe_filter_task_process (UfoTask *task,
+ufo_filter_stripes_task_process (UfoTask *task,
                          UfoBuffer **inputs,
                          UfoBuffer *output,
                          UfoRequisition *requisition)
 {
-    UfoStripeFilterTaskPrivate *priv;
+    UfoFilterStripesTaskPrivate *priv;
     UfoGpuNode *node;
     UfoProfiler *profiler;
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
 
-    priv = UFO_STRIPE_FILTER_TASK (task)->priv;
+    priv = UFO_FILTER_STRIPES_TASK (task)->priv;
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
@@ -79,22 +79,22 @@ ufo_stripe_filter_task_process (UfoTask *task,
 }
 
 static void
-ufo_stripe_filter_task_setup (UfoTask *task,
+ufo_filter_stripes_task_setup (UfoTask *task,
                        UfoResources *resources,
                        GError **error)
 {
-    UfoStripeFilterTaskPrivate *priv;
+    UfoFilterStripesTaskPrivate *priv;
 
-    priv = UFO_STRIPE_FILTER_TASK_GET_PRIVATE (task);
+    priv = UFO_FILTER_STRIPES_TASK_GET_PRIVATE (task);
 
-    priv->kernel = ufo_resources_get_kernel (resources, "filter.cl", "stripe_filter", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "filter.cl", "filter_stripes", error);
 
     if (priv->kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
 }
 
 static void
-ufo_stripe_filter_task_get_requisition (UfoTask *task,
+ufo_filter_stripes_task_get_requisition (UfoTask *task,
                                  UfoBuffer **inputs,
                                  UfoRequisition *requisition)
 {
@@ -102,13 +102,13 @@ ufo_stripe_filter_task_get_requisition (UfoTask *task,
 }
 
 static guint
-ufo_stripe_filter_task_get_num_inputs (UfoTask *task)
+ufo_filter_stripes_task_get_num_inputs (UfoTask *task)
 {
     return 1;
 }
 
 static guint
-ufo_stripe_filter_task_get_num_dimensions (UfoTask *task,
+ufo_filter_stripes_task_get_num_dimensions (UfoTask *task,
                                guint input)
 {
     g_return_val_if_fail (input == 0, 0);
@@ -116,51 +116,51 @@ ufo_stripe_filter_task_get_num_dimensions (UfoTask *task,
 }
 
 static UfoTaskMode
-ufo_stripe_filter_task_get_mode (UfoTask *task)
+ufo_filter_stripes_task_get_mode (UfoTask *task)
 {
     return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
 static void
-ufo_stripe_filter_task_finalize (GObject *object)
+ufo_filter_stripes_task_finalize (GObject *object)
 {
-    UfoStripeFilterTaskPrivate *priv;
+    UfoFilterStripesTaskPrivate *priv;
 
-    priv = UFO_STRIPE_FILTER_TASK_GET_PRIVATE (object);
+    priv = UFO_FILTER_STRIPES_TASK_GET_PRIVATE (object);
 
     if (priv->kernel) {
         clReleaseKernel (priv->kernel);
         priv->kernel = NULL;
     }
 
-    G_OBJECT_CLASS (ufo_stripe_filter_task_parent_class)->finalize (object);
+    G_OBJECT_CLASS (ufo_filter_stripes_task_parent_class)->finalize (object);
 }
 
 static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
-    iface->setup = ufo_stripe_filter_task_setup;
-    iface->get_requisition = ufo_stripe_filter_task_get_requisition;
-    iface->get_num_inputs = ufo_stripe_filter_task_get_num_inputs;
-    iface->get_num_dimensions = ufo_stripe_filter_task_get_num_dimensions;
-    iface->get_mode = ufo_stripe_filter_task_get_mode;
-    iface->process = ufo_stripe_filter_task_process;
+    iface->setup = ufo_filter_stripes_task_setup;
+    iface->get_requisition = ufo_filter_stripes_task_get_requisition;
+    iface->get_num_inputs = ufo_filter_stripes_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_filter_stripes_task_get_num_dimensions;
+    iface->get_mode = ufo_filter_stripes_task_get_mode;
+    iface->process = ufo_filter_stripes_task_process;
 }
 
 static void
-ufo_stripe_filter_task_class_init (UfoStripeFilterTaskClass *klass)
+ufo_filter_stripes_task_class_init (UfoFilterStripesTaskClass *klass)
 {
     GObjectClass *oclass;
 
     oclass = G_OBJECT_CLASS (klass);
-    oclass->finalize = ufo_stripe_filter_task_finalize;
-    g_type_class_add_private(klass, sizeof(UfoStripeFilterTaskPrivate));
+    oclass->finalize = ufo_filter_stripes_task_finalize;
+    g_type_class_add_private(klass, sizeof(UfoFilterStripesTaskPrivate));
 }
 
 static void
-ufo_stripe_filter_task_init (UfoStripeFilterTask *self)
+ufo_filter_stripes_task_init (UfoFilterStripesTask *self)
 {
-    UfoStripeFilterTaskPrivate *priv;
-    self->priv = priv = UFO_STRIPE_FILTER_TASK_GET_PRIVATE (self);
+    UfoFilterStripesTaskPrivate *priv;
+    self->priv = priv = UFO_FILTER_STRIPES_TASK_GET_PRIVATE (self);
     priv->kernel = NULL;
 }

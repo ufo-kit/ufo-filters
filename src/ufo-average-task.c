@@ -20,10 +20,10 @@
 #include <string.h>
 #include <gmodule.h>
 
-#include "ufo-averager-task.h"
+#include "ufo-average-task.h"
 
 
-struct _UfoAveragerTaskPrivate {
+struct _UfoAverageTaskPrivate {
     gfloat *averaged;
     gboolean is_data_averaged;
     guint counter;
@@ -40,34 +40,34 @@ static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
-G_DEFINE_TYPE_WITH_CODE (UfoAveragerTask, ufo_averager_task, UFO_TYPE_TASK_NODE,
+G_DEFINE_TYPE_WITH_CODE (UfoAverageTask, ufo_average_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
                                                 ufo_task_interface_init))
 
-#define UFO_AVERAGER_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_AVERAGER_TASK, UfoAveragerTaskPrivate))
+#define UFO_AVERAGE_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_AVERAGE_TASK, UfoAverageTaskPrivate))
 
 
 UfoNode *
-ufo_averager_task_new (void)
+ufo_average_task_new (void)
 {
-    return UFO_NODE (g_object_new (UFO_TYPE_AVERAGER_TASK, NULL));
+    return UFO_NODE (g_object_new (UFO_TYPE_AVERAGE_TASK, NULL));
 }
 
 static void
-ufo_averager_task_setup (UfoTask *task,
+ufo_average_task_setup (UfoTask *task,
                          UfoResources *resources,
                          GError **error)
 {
 }
 
 static void
-ufo_averager_task_get_requisition (UfoTask *task,
+ufo_average_task_get_requisition (UfoTask *task,
                                    UfoBuffer **inputs,
                                    UfoRequisition *requisition)
 {
-    UfoAveragerTaskPrivate *priv;
+    UfoAverageTaskPrivate *priv;
 
-    priv = UFO_AVERAGER_TASK_GET_PRIVATE (UFO_AVERAGER_TASK (task));
+    priv = UFO_AVERAGE_TASK_GET_PRIVATE (UFO_AVERAGE_TASK (task));
     ufo_buffer_get_requisition (inputs[0], requisition);
 
     if (priv->averaged == NULL) {
@@ -77,13 +77,13 @@ ufo_averager_task_get_requisition (UfoTask *task,
 }
 
 static guint
-ufo_averager_task_get_num_inputs (UfoTask *task)
+ufo_average_task_get_num_inputs (UfoTask *task)
 {
     return 1;
 }
 
 static guint
-ufo_averager_task_get_num_dimensions (UfoTask *task,
+ufo_average_task_get_num_dimensions (UfoTask *task,
                                guint input)
 {
     g_return_val_if_fail (input == 0, 0);
@@ -91,23 +91,23 @@ ufo_averager_task_get_num_dimensions (UfoTask *task,
 }
 
 static UfoTaskMode
-ufo_averager_task_get_mode (UfoTask *task)
+ufo_average_task_get_mode (UfoTask *task)
 {
     return UFO_TASK_MODE_REDUCTOR | UFO_TASK_MODE_CPU;
 }
 
 static gboolean
-ufo_averager_task_process (UfoTask *task,
+ufo_average_task_process (UfoTask *task,
                            UfoBuffer **inputs,
                            UfoBuffer *output,
                            UfoRequisition *requisition)
 {
-    UfoAveragerTaskPrivate *priv;
+    UfoAverageTaskPrivate *priv;
     gfloat *in_array;
     gfloat *out_array;
     gsize n_pixels;
 
-    priv = UFO_AVERAGER_TASK_GET_PRIVATE (UFO_AVERAGER_TASK (task));
+    priv = UFO_AVERAGE_TASK_GET_PRIVATE (UFO_AVERAGE_TASK (task));
     n_pixels = requisition->dims[0] * requisition->dims[1];
     in_array = ufo_buffer_get_host_array (inputs[0], NULL);
     out_array = ufo_buffer_get_host_array (output, NULL);
@@ -120,15 +120,15 @@ ufo_averager_task_process (UfoTask *task,
 }
 
 static gboolean
-ufo_averager_task_generate (UfoTask *task,
+ufo_average_task_generate (UfoTask *task,
                             UfoBuffer *output,
                             UfoRequisition *requisition)
 {
-    UfoAveragerTaskPrivate *priv;
+    UfoAverageTaskPrivate *priv;
     gfloat *out_array;
     gsize n_pixels;
 
-    priv = UFO_AVERAGER_TASK_GET_PRIVATE (UFO_AVERAGER_TASK (task));
+    priv = UFO_AVERAGE_TASK_GET_PRIVATE (UFO_AVERAGE_TASK (task));
 
     if (priv->n_generate == 0)
         return FALSE;
@@ -152,21 +152,21 @@ ufo_averager_task_generate (UfoTask *task,
 static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
-    iface->setup = ufo_averager_task_setup;
-    iface->get_num_inputs = ufo_averager_task_get_num_inputs;
-    iface->get_num_dimensions = ufo_averager_task_get_num_dimensions;
-    iface->get_mode = ufo_averager_task_get_mode;
-    iface->get_requisition = ufo_averager_task_get_requisition;
-    iface->process = ufo_averager_task_process;
-    iface->generate = ufo_averager_task_generate;
+    iface->setup = ufo_average_task_setup;
+    iface->get_num_inputs = ufo_average_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_average_task_get_num_dimensions;
+    iface->get_mode = ufo_average_task_get_mode;
+    iface->get_requisition = ufo_average_task_get_requisition;
+    iface->process = ufo_average_task_process;
+    iface->generate = ufo_average_task_generate;
 }
 
 static void
-ufo_averager_task_finalize (GObject *object)
+ufo_average_task_finalize (GObject *object)
 {
-    UfoAveragerTaskPrivate *priv;
+    UfoAverageTaskPrivate *priv;
 
-    priv = UFO_AVERAGER_TASK_GET_PRIVATE (object);
+    priv = UFO_AVERAGE_TASK_GET_PRIVATE (object);
 
     if (priv->averaged != NULL) {
         g_free (priv->averaged);
@@ -175,12 +175,12 @@ ufo_averager_task_finalize (GObject *object)
 }
 
 static void
-ufo_averager_task_set_property (GObject *object,
+ufo_average_task_set_property (GObject *object,
                                 guint property_id,
                                 const GValue *value,
                                 GParamSpec *pspec)
 {
-    UfoAveragerTaskPrivate *priv = UFO_AVERAGER_TASK_GET_PRIVATE (object);
+    UfoAverageTaskPrivate *priv = UFO_AVERAGE_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_NUM_GENERATE:
@@ -193,12 +193,12 @@ ufo_averager_task_set_property (GObject *object,
 }
 
 static void
-ufo_averager_task_get_property (GObject *object,
+ufo_average_task_get_property (GObject *object,
                                 guint property_id,
                                 GValue *value,
                                 GParamSpec *pspec)
 {
-    UfoAveragerTaskPrivate *priv = UFO_AVERAGER_TASK_GET_PRIVATE (object);
+    UfoAverageTaskPrivate *priv = UFO_AVERAGE_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_NUM_GENERATE:
@@ -211,15 +211,15 @@ ufo_averager_task_get_property (GObject *object,
 }
 
 static void
-ufo_averager_task_class_init (UfoAveragerTaskClass *klass)
+ufo_average_task_class_init (UfoAverageTaskClass *klass)
 {
     GObjectClass *oclass;
 
     oclass = G_OBJECT_CLASS (klass);
 
-    oclass->finalize = ufo_averager_task_finalize;
-    oclass->set_property = ufo_averager_task_set_property;
-    oclass->get_property = ufo_averager_task_get_property;
+    oclass->finalize = ufo_average_task_finalize;
+    oclass->set_property = ufo_average_task_set_property;
+    oclass->get_property = ufo_average_task_get_property;
 
     properties[PROP_NUM_GENERATE] =
         g_param_spec_uint ("num-generate",
@@ -231,13 +231,13 @@ ufo_averager_task_class_init (UfoAveragerTaskClass *klass)
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
-    g_type_class_add_private (G_OBJECT_CLASS (klass), sizeof(UfoAveragerTaskPrivate));
+    g_type_class_add_private (G_OBJECT_CLASS (klass), sizeof(UfoAverageTaskPrivate));
 }
 
 static void
-ufo_averager_task_init(UfoAveragerTask *self)
+ufo_average_task_init(UfoAverageTask *self)
 {
-    self->priv = UFO_AVERAGER_TASK_GET_PRIVATE(self);
+    self->priv = UFO_AVERAGE_TASK_GET_PRIVATE(self);
     self->priv->counter = 0;
     self->priv->averaged = NULL;
     self->priv->n_generate = 1;

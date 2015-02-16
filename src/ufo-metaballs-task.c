@@ -23,10 +23,10 @@
 #include <CL/cl.h>
 #endif
 
-#include "ufo-meta-balls-task.h"
+#include "ufo-metaballs-task.h"
 
 
-struct _UfoMetaBallsTaskPrivate {
+struct _UfoMetaballsTaskPrivate {
     cl_context  context;
     cl_kernel   kernel;
     cl_mem      positions_mem;
@@ -51,11 +51,11 @@ struct _UfoMetaBallsTaskPrivate {
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
-G_DEFINE_TYPE_WITH_CODE (UfoMetaBallsTask, ufo_meta_balls_task, UFO_TYPE_TASK_NODE,
+G_DEFINE_TYPE_WITH_CODE (UfoMetaballsTask, ufo_metaballs_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
                                                 ufo_task_interface_init))
 
-#define UFO_META_BALLS_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_META_BALLS_TASK, UfoMetaBallsTaskPrivate))
+#define UFO_METABALLS_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_METABALLS_TASK, UfoMetaballsTaskPrivate))
 
 enum {
     PROP_0,
@@ -71,23 +71,23 @@ enum {
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
-ufo_meta_balls_task_new (void)
+ufo_metaballs_task_new (void)
 {
-    return UFO_NODE (g_object_new (UFO_TYPE_META_BALLS_TASK, NULL));
+    return UFO_NODE (g_object_new (UFO_TYPE_METABALLS_TASK, NULL));
 }
 
 static void
-ufo_meta_balls_task_setup (UfoTask *task,
+ufo_metaballs_task_setup (UfoTask *task,
                            UfoResources *resources,
                            GError **error)
 {
-    UfoMetaBallsTaskPrivate *priv;
+    UfoMetaballsTaskPrivate *priv;
     gfloat f_width;
     gfloat f_height;
     gsize size;
     cl_int err = CL_SUCCESS;
 
-    priv = UFO_META_BALLS_TASK_GET_PRIVATE (task);
+    priv = UFO_METABALLS_TASK_GET_PRIVATE (task);
     priv->context = ufo_resources_get_context (resources);
 
     priv->kernel = ufo_resources_get_kernel (resources,
@@ -138,48 +138,48 @@ ufo_meta_balls_task_setup (UfoTask *task,
 }
 
 static void
-ufo_meta_balls_task_get_requisition (UfoTask *task,
+ufo_metaballs_task_get_requisition (UfoTask *task,
                                      UfoBuffer **inputs,
                                      UfoRequisition *requisition)
 {
-    UfoMetaBallsTaskPrivate *priv;
+    UfoMetaballsTaskPrivate *priv;
 
-    priv = UFO_META_BALLS_TASK_GET_PRIVATE (task);
+    priv = UFO_METABALLS_TASK_GET_PRIVATE (task);
     requisition->n_dims = 2;
     requisition->dims[0] = priv->width;
     requisition->dims[1] = priv->height;
 }
 
 static guint
-ufo_meta_balls_task_get_num_inputs (UfoTask *task)
+ufo_metaballs_task_get_num_inputs (UfoTask *task)
 {
     return 0;
 }
 
 static guint
-ufo_meta_balls_task_get_num_dimensions (UfoTask *task,
+ufo_metaballs_task_get_num_dimensions (UfoTask *task,
                                guint input)
 {
     return 0;
 }
 
 static UfoTaskMode
-ufo_meta_balls_task_get_mode (UfoTask *task)
+ufo_metaballs_task_get_mode (UfoTask *task)
 {
     return UFO_TASK_MODE_GENERATOR | UFO_TASK_MODE_GPU;
 }
 
 static gboolean
-ufo_meta_balls_task_generate (UfoTask *task,
+ufo_metaballs_task_generate (UfoTask *task,
                               UfoBuffer *output,
                               UfoRequisition *requisition)
 {
-    UfoMetaBallsTaskPrivate *priv;
+    UfoMetaballsTaskPrivate *priv;
     UfoGpuNode *node;
     cl_command_queue cmd_queue;
     cl_mem out_mem;
     
-    priv = UFO_META_BALLS_TASK_GET_PRIVATE (task);
+    priv = UFO_METABALLS_TASK_GET_PRIVATE (task);
 
     if (!priv->run_infinitely && (priv->current_iteration++) >= priv->num_iterations)
         return FALSE;
@@ -228,12 +228,12 @@ ufo_meta_balls_task_generate (UfoTask *task,
 }
 
 static void
-ufo_meta_balls_task_set_property (GObject *object,
+ufo_metaballs_task_set_property (GObject *object,
                                   guint property_id,
                                   const GValue *value,
                                   GParamSpec *pspec)
 {
-    UfoMetaBallsTaskPrivate *priv = UFO_META_BALLS_TASK_GET_PRIVATE (object);
+    UfoMetaballsTaskPrivate *priv = UFO_METABALLS_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_WIDTH:
@@ -261,12 +261,12 @@ ufo_meta_balls_task_set_property (GObject *object,
 }
 
 static void
-ufo_meta_balls_task_get_property (GObject *object,
+ufo_metaballs_task_get_property (GObject *object,
                                   guint property_id,
                                   GValue *value,
                                   GParamSpec *pspec)
 {
-    UfoMetaBallsTaskPrivate *priv = UFO_META_BALLS_TASK_GET_PRIVATE (object);
+    UfoMetaballsTaskPrivate *priv = UFO_METABALLS_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_WIDTH:
@@ -294,11 +294,11 @@ ufo_meta_balls_task_get_property (GObject *object,
 }
 
 static void
-ufo_meta_balls_task_finalize (GObject *object)
+ufo_metaballs_task_finalize (GObject *object)
 {
-    UfoMetaBallsTaskPrivate *priv;
+    UfoMetaballsTaskPrivate *priv;
 
-    priv = UFO_META_BALLS_TASK_GET_PRIVATE (object);
+    priv = UFO_METABALLS_TASK_GET_PRIVATE (object);
 
     if (priv->kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
@@ -325,28 +325,28 @@ ufo_meta_balls_task_finalize (GObject *object)
     g_free (priv->velocities);
     g_timer_destroy (priv->timer);
 
-    G_OBJECT_CLASS (ufo_meta_balls_task_parent_class)->finalize (object);
+    G_OBJECT_CLASS (ufo_metaballs_task_parent_class)->finalize (object);
 }
 
 static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
-    iface->setup = ufo_meta_balls_task_setup;
-    iface->get_num_inputs = ufo_meta_balls_task_get_num_inputs;
-    iface->get_num_dimensions = ufo_meta_balls_task_get_num_dimensions;
-    iface->get_mode = ufo_meta_balls_task_get_mode;
-    iface->get_requisition = ufo_meta_balls_task_get_requisition;
-    iface->generate = ufo_meta_balls_task_generate;
+    iface->setup = ufo_metaballs_task_setup;
+    iface->get_num_inputs = ufo_metaballs_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_metaballs_task_get_num_dimensions;
+    iface->get_mode = ufo_metaballs_task_get_mode;
+    iface->get_requisition = ufo_metaballs_task_get_requisition;
+    iface->generate = ufo_metaballs_task_generate;
 }
 
 static void
-ufo_meta_balls_task_class_init (UfoMetaBallsTaskClass *klass)
+ufo_metaballs_task_class_init (UfoMetaballsTaskClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-    gobject_class->set_property = ufo_meta_balls_task_set_property;
-    gobject_class->get_property = ufo_meta_balls_task_get_property;
-    gobject_class->finalize = ufo_meta_balls_task_finalize;
+    gobject_class->set_property = ufo_metaballs_task_set_property;
+    gobject_class->get_property = ufo_metaballs_task_get_property;
+    gobject_class->finalize = ufo_metaballs_task_finalize;
 
     properties[PROP_WIDTH] =
         g_param_spec_uint("width",
@@ -393,15 +393,15 @@ ufo_meta_balls_task_class_init (UfoMetaBallsTaskClass *klass)
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
-    g_type_class_add_private (gobject_class, sizeof(UfoMetaBallsTaskPrivate));
+    g_type_class_add_private (gobject_class, sizeof(UfoMetaballsTaskPrivate));
 }
 
 static void
-ufo_meta_balls_task_init(UfoMetaBallsTask *self)
+ufo_metaballs_task_init(UfoMetaballsTask *self)
 {
-    UfoMetaBallsTaskPrivate *priv;
+    UfoMetaballsTaskPrivate *priv;
 
-    self->priv = priv = UFO_META_BALLS_TASK_GET_PRIVATE(self);
+    self->priv = priv = UFO_METABALLS_TASK_GET_PRIVATE(self);
     priv->width = 512;
     priv->height = 512;
     priv->num_balls = 1;

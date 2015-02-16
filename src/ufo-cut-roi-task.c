@@ -23,9 +23,9 @@
 #include <CL/cl.h>
 #endif
 
-#include "ufo-region-of-interest-task.h"
+#include "ufo-cut-roi-task.h"
 
-struct _UfoRegionOfInterestTaskPrivate {
+struct _UfoCutRoiTaskPrivate {
     guint x;
     guint y;
     guint width;
@@ -36,11 +36,11 @@ struct _UfoRegionOfInterestTaskPrivate {
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
-G_DEFINE_TYPE_WITH_CODE (UfoRegionOfInterestTask, ufo_region_of_interest_task, UFO_TYPE_TASK_NODE,
+G_DEFINE_TYPE_WITH_CODE (UfoCutRoiTask, ufo_cut_roi_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
                                                 ufo_task_interface_init))
 
-#define UFO_REGION_OF_INTEREST_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_REGION_OF_INTEREST_TASK, UfoRegionOfInterestTaskPrivate))
+#define UFO_CUT_ROI_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_CUT_ROI_TASK, UfoCutRoiTaskPrivate))
 
 enum {
     PROP_0,
@@ -54,46 +54,46 @@ enum {
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
-ufo_region_of_interest_task_new (void)
+ufo_cut_roi_task_new (void)
 {
-    return UFO_NODE (g_object_new (UFO_TYPE_REGION_OF_INTEREST_TASK, NULL));
+    return UFO_NODE (g_object_new (UFO_TYPE_CUT_ROI_TASK, NULL));
 }
 
 static void
-ufo_region_of_interest_task_setup (UfoTask *task,
+ufo_cut_roi_task_setup (UfoTask *task,
                        UfoResources *resources,
                        GError **error)
 {
-    UfoRegionOfInterestTaskPrivate *priv;
+    UfoCutRoiTaskPrivate *priv;
     UfoGpuNode *node;
 
-    priv = UFO_REGION_OF_INTEREST_TASK_GET_PRIVATE (task);
+    priv = UFO_CUT_ROI_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
 
     priv->cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 }
 
 static void
-ufo_region_of_interest_task_get_requisition (UfoTask *task,
+ufo_cut_roi_task_get_requisition (UfoTask *task,
                                              UfoBuffer **inputs,
                                              UfoRequisition *requisition)
 {
-    UfoRegionOfInterestTaskPrivate *priv;
+    UfoCutRoiTaskPrivate *priv;
 
-    priv = UFO_REGION_OF_INTEREST_TASK_GET_PRIVATE (task);
+    priv = UFO_CUT_ROI_TASK_GET_PRIVATE (task);
     requisition->n_dims = 2;
     requisition->dims[0] = priv->width;
     requisition->dims[1] = priv->height;
 }
 
 static guint
-ufo_region_of_interest_task_get_num_inputs (UfoTask *task)
+ufo_cut_roi_task_get_num_inputs (UfoTask *task)
 {
     return 1;
 }
 
 static guint
-ufo_region_of_interest_task_get_num_dimensions (UfoTask *task,
+ufo_cut_roi_task_get_num_dimensions (UfoTask *task,
                                guint input)
 {
     g_return_val_if_fail (input == 0, 0);
@@ -101,18 +101,18 @@ ufo_region_of_interest_task_get_num_dimensions (UfoTask *task,
 }
 
 static UfoTaskMode
-ufo_region_of_interest_task_get_mode (UfoTask *task)
+ufo_cut_roi_task_get_mode (UfoTask *task)
 {
     return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
 static gboolean
-ufo_region_of_interest_task_process (UfoTask *task,
+ufo_cut_roi_task_process (UfoTask *task,
                                      UfoBuffer **inputs,
                                      UfoBuffer *output,
                                      UfoRequisition *requisition)
 {
-    UfoRegionOfInterestTaskPrivate *priv;
+    UfoCutRoiTaskPrivate *priv;
     UfoRequisition req;
     guint x1, y1, x2, y2;
     guint rd_width, rd_height;
@@ -120,7 +120,7 @@ ufo_region_of_interest_task_process (UfoTask *task,
     cl_mem in_data;
     cl_mem out_data;
 
-    priv = UFO_REGION_OF_INTEREST_TASK_GET_PRIVATE (task);
+    priv = UFO_CUT_ROI_TASK_GET_PRIVATE (task);
     x1 = priv->x;
     y1 = priv->y;
     x2 = x1 + priv->width;
@@ -161,12 +161,12 @@ ufo_region_of_interest_task_process (UfoTask *task,
 }
 
 static void
-ufo_region_of_interest_task_set_property (GObject *object,
+ufo_cut_roi_task_set_property (GObject *object,
                                           guint property_id,
                                           const GValue *value,
                                           GParamSpec *pspec)
 {
-    UfoRegionOfInterestTaskPrivate *priv = UFO_REGION_OF_INTEREST_TASK_GET_PRIVATE (object);
+    UfoCutRoiTaskPrivate *priv = UFO_CUT_ROI_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_X:
@@ -188,12 +188,12 @@ ufo_region_of_interest_task_set_property (GObject *object,
 }
 
 static void
-ufo_region_of_interest_task_get_property (GObject *object,
+ufo_cut_roi_task_get_property (GObject *object,
                                           guint property_id,
                                           GValue *value,
                                           GParamSpec *pspec)
 {
-    UfoRegionOfInterestTaskPrivate *priv = UFO_REGION_OF_INTEREST_TASK_GET_PRIVATE (object);
+    UfoCutRoiTaskPrivate *priv = UFO_CUT_ROI_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_X:
@@ -215,30 +215,30 @@ ufo_region_of_interest_task_get_property (GObject *object,
 }
 
 static void
-ufo_region_of_interest_task_finalize (GObject *object)
+ufo_cut_roi_task_finalize (GObject *object)
 {
-    G_OBJECT_CLASS (ufo_region_of_interest_task_parent_class)->finalize (object);
+    G_OBJECT_CLASS (ufo_cut_roi_task_parent_class)->finalize (object);
 }
 
 static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
-    iface->setup = ufo_region_of_interest_task_setup;
-    iface->get_num_inputs = ufo_region_of_interest_task_get_num_inputs;
-    iface->get_num_dimensions = ufo_region_of_interest_task_get_num_dimensions;
-    iface->get_mode = ufo_region_of_interest_task_get_mode;
-    iface->get_requisition = ufo_region_of_interest_task_get_requisition;
-    iface->process = ufo_region_of_interest_task_process;
+    iface->setup = ufo_cut_roi_task_setup;
+    iface->get_num_inputs = ufo_cut_roi_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_cut_roi_task_get_num_dimensions;
+    iface->get_mode = ufo_cut_roi_task_get_mode;
+    iface->get_requisition = ufo_cut_roi_task_get_requisition;
+    iface->process = ufo_cut_roi_task_process;
 }
 
 static void
-ufo_region_of_interest_task_class_init (UfoRegionOfInterestTaskClass *klass)
+ufo_cut_roi_task_class_init (UfoCutRoiTaskClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-    gobject_class->set_property = ufo_region_of_interest_task_set_property;
-    gobject_class->get_property = ufo_region_of_interest_task_get_property;
-    gobject_class->finalize = ufo_region_of_interest_task_finalize;
+    gobject_class->set_property = ufo_cut_roi_task_set_property;
+    gobject_class->get_property = ufo_cut_roi_task_get_property;
+    gobject_class->finalize = ufo_cut_roi_task_finalize;
 
     properties[PROP_X] = 
         g_param_spec_uint("x",
@@ -271,13 +271,13 @@ ufo_region_of_interest_task_class_init (UfoRegionOfInterestTaskClass *klass)
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
-    g_type_class_add_private (gobject_class, sizeof(UfoRegionOfInterestTaskPrivate));
+    g_type_class_add_private (gobject_class, sizeof(UfoCutRoiTaskPrivate));
 }
 
 static void
-ufo_region_of_interest_task_init(UfoRegionOfInterestTask *self)
+ufo_cut_roi_task_init(UfoCutRoiTask *self)
 {
-    self->priv = UFO_REGION_OF_INTEREST_TASK_GET_PRIVATE(self);
+    self->priv = UFO_CUT_ROI_TASK_GET_PRIVATE(self);
     self->priv->x = 0;
     self->priv->y = 0;
     self->priv->width = 256;

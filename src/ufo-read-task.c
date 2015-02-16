@@ -23,7 +23,7 @@
 #include <tiffio.h>
 #include <glob.h>
 
-#include "ufo-reader-task.h"
+#include "ufo-read-task.h"
 
 #define REGION_SIZE(start, stop, step) (((stop) - (start) - 1) / (step) + 1)
 
@@ -33,7 +33,7 @@ typedef enum {
     TYPE_EDF,
 } FileType;
 
-struct _UfoReaderTaskPrivate {
+struct _UfoReadTaskPrivate {
     gchar *path;
     guint count;
     guint current_count;
@@ -72,11 +72,11 @@ struct _UfoReaderTaskPrivate {
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
-G_DEFINE_TYPE_WITH_CODE (UfoReaderTask, ufo_reader_task, UFO_TYPE_TASK_NODE,
+G_DEFINE_TYPE_WITH_CODE (UfoReadTask, ufo_read_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
                                                 ufo_task_interface_init))
 
-#define UFO_READER_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_READER_TASK, UfoReaderTaskPrivate))
+#define UFO_READ_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_READ_TASK, UfoReadTaskPrivate))
 
 enum {
     PROP_0,
@@ -97,13 +97,13 @@ enum {
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
-ufo_reader_task_new (void)
+ufo_read_task_new (void)
 {
-    return UFO_NODE (g_object_new (UFO_TYPE_READER_TASK, NULL));
+    return UFO_NODE (g_object_new (UFO_TYPE_READ_TASK, NULL));
 }
 
 static guint
-compute_height (UfoReaderTaskPrivate *priv)
+compute_height (UfoReadTaskPrivate *priv)
 {
     guint height, roi_y;
 
@@ -119,7 +119,7 @@ compute_height (UfoReaderTaskPrivate *priv)
 }
 
 static gboolean
-read_tiff_data (UfoReaderTaskPrivate *priv, gpointer buffer, UfoRequisition *requisition)
+read_tiff_data (UfoReadTaskPrivate *priv, gpointer buffer, UfoRequisition *requisition)
 {
     const guint32 width = requisition->dims[0];
     const guint32 roi_y = priv->roi_y >= priv->height ? 0 : priv->roi_y;
@@ -167,7 +167,7 @@ has_valid_extension (const gchar *filename)
 }
 
 static GSList *
-read_filenames (UfoReaderTaskPrivate *priv)
+read_filenames (UfoReadTaskPrivate *priv)
 {
     GSList *result = NULL;
     gchar *pattern;
@@ -200,18 +200,18 @@ read_filenames (UfoReaderTaskPrivate *priv)
 }
 
 static void
-ufo_reader_task_setup (UfoTask *task,
+ufo_read_task_setup (UfoTask *task,
                        UfoResources *resources,
                        GError **error)
 {
-    UfoReaderTask *node;
-    UfoReaderTaskPrivate *priv;
+    UfoReadTask *node;
+    UfoReadTaskPrivate *priv;
     guint n_files;
     guint partition;
     guint index;
     guint total;
 
-    node = UFO_READER_TASK (task);
+    node = UFO_READ_TASK (task);
     priv = node->priv;
 
     priv->filenames = read_filenames (priv);
@@ -236,7 +236,7 @@ ufo_reader_task_setup (UfoTask *task,
 }
 
 static void
-read_edf_metadata (UfoReaderTaskPrivate *priv)
+read_edf_metadata (UfoReadTaskPrivate *priv)
 {
     gchar *header = g_malloc (1024);
     gchar **tokens;
@@ -312,7 +312,7 @@ read_edf_metadata (UfoReaderTaskPrivate *priv)
 }
 
 static gboolean
-read_edf_data (UfoReaderTaskPrivate *priv,
+read_edf_data (UfoReadTaskPrivate *priv,
                gpointer buffer,
                UfoRequisition *requisition)
 {
@@ -372,7 +372,7 @@ read_edf_data (UfoReaderTaskPrivate *priv,
 }
 
 static gboolean
-open_next_file (UfoReaderTaskPrivate *priv)
+open_next_file (UfoReadTaskPrivate *priv)
 {
     if (priv->opened_type == TYPE_EDF)
         return ftell (priv->edf) >= priv->edf_file_size;
@@ -381,14 +381,14 @@ open_next_file (UfoReaderTaskPrivate *priv)
 }
 
 static void
-ufo_reader_task_get_requisition (UfoTask *task,
+ufo_read_task_get_requisition (UfoTask *task,
                                  UfoBuffer **inputs,
                                  UfoRequisition *requisition)
 {
-    UfoReaderTaskPrivate *priv;
+    UfoReadTaskPrivate *priv;
     guint height, roi_y;
 
-    priv = UFO_READER_TASK_GET_PRIVATE (UFO_READER_TASK (task));
+    priv = UFO_READ_TASK_GET_PRIVATE (UFO_READ_TASK (task));
 
     if (open_next_file (priv)) {
         if ((priv->current_count < priv->count) && (priv->current_filename != NULL)) {
@@ -439,33 +439,33 @@ ufo_reader_task_get_requisition (UfoTask *task,
 }
 
 static guint
-ufo_reader_task_get_num_inputs (UfoTask *task)
+ufo_read_task_get_num_inputs (UfoTask *task)
 {
     return 0;
 }
 
 static guint
-ufo_reader_task_get_num_dimensions (UfoTask *task,
+ufo_read_task_get_num_dimensions (UfoTask *task,
                                guint input)
 {
     return 0;
 }
 
 static UfoTaskMode
-ufo_reader_task_get_mode (UfoTask *task)
+ufo_read_task_get_mode (UfoTask *task)
 {
     return UFO_TASK_MODE_GENERATOR | UFO_TASK_MODE_CPU;
 }
 
 static gboolean
-ufo_reader_task_generate (UfoTask *task,
+ufo_read_task_generate (UfoTask *task,
                           UfoBuffer *output,
                           UfoRequisition *requisition)
 {
-    UfoReaderTaskPrivate *priv;
+    UfoReadTaskPrivate *priv;
     UfoProfiler *profiler;
 
-    priv = UFO_READER_TASK_GET_PRIVATE (UFO_READER_TASK (task));
+    priv = UFO_READ_TASK_GET_PRIVATE (UFO_READ_TASK (task));
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
 
     if (priv->current_count < priv->count) {
@@ -519,12 +519,12 @@ ufo_reader_task_generate (UfoTask *task,
 }
 
 static void
-ufo_reader_task_set_property (GObject *object,
+ufo_read_task_set_property (GObject *object,
                               guint property_id,
                               const GValue *value,
                               GParamSpec *pspec)
 {
-    UfoReaderTaskPrivate *priv = UFO_READER_TASK_GET_PRIVATE (object);
+    UfoReadTaskPrivate *priv = UFO_READ_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_PATH:
@@ -565,12 +565,12 @@ ufo_reader_task_set_property (GObject *object,
 }
 
 static void
-ufo_reader_task_get_property (GObject *object,
+ufo_read_task_get_property (GObject *object,
                               guint property_id,
                               GValue *value,
                               GParamSpec *pspec)
 {
-    UfoReaderTaskPrivate *priv = UFO_READER_TASK_GET_PRIVATE (object);
+    UfoReadTaskPrivate *priv = UFO_READ_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_PATH:
@@ -613,9 +613,9 @@ ufo_reader_task_get_property (GObject *object,
 }
 
 static void
-ufo_reader_task_finalize (GObject *object)
+ufo_read_task_finalize (GObject *object)
 {
-    UfoReaderTaskPrivate *priv = UFO_READER_TASK_GET_PRIVATE (object);
+    UfoReadTaskPrivate *priv = UFO_READ_TASK_GET_PRIVATE (object);
 
     g_free (priv->path);
     priv->path = NULL;
@@ -632,28 +632,28 @@ ufo_reader_task_finalize (GObject *object)
         priv->filenames = NULL;
     }
 
-    G_OBJECT_CLASS (ufo_reader_task_parent_class)->finalize (object);
+    G_OBJECT_CLASS (ufo_read_task_parent_class)->finalize (object);
 }
 
 static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
-    iface->setup = ufo_reader_task_setup;
-    iface->get_num_inputs = ufo_reader_task_get_num_inputs;
-    iface->get_num_dimensions = ufo_reader_task_get_num_dimensions;
-    iface->get_mode = ufo_reader_task_get_mode;
-    iface->get_requisition = ufo_reader_task_get_requisition;
-    iface->generate = ufo_reader_task_generate;
+    iface->setup = ufo_read_task_setup;
+    iface->get_num_inputs = ufo_read_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_read_task_get_num_dimensions;
+    iface->get_mode = ufo_read_task_get_mode;
+    iface->get_requisition = ufo_read_task_get_requisition;
+    iface->generate = ufo_read_task_generate;
 }
 
 static void
-ufo_reader_task_class_init(UfoReaderTaskClass *klass)
+ufo_read_task_class_init(UfoReadTaskClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-    gobject_class->set_property = ufo_reader_task_set_property;
-    gobject_class->get_property = ufo_reader_task_get_property;
-    gobject_class->finalize = ufo_reader_task_finalize;
+    gobject_class->set_property = ufo_read_task_set_property;
+    gobject_class->get_property = ufo_read_task_get_property;
+    gobject_class->finalize = ufo_read_task_finalize;
 
     properties[PROP_PATH] =
         g_param_spec_string("path",
@@ -671,7 +671,7 @@ ufo_reader_task_class_init(UfoReaderTaskClass *klass)
 
     properties[PROP_BLOCKING] =
         g_param_spec_boolean("blocking",
-        "Block reader",
+        "Block read",
         "Block until all files are read.",
         FALSE,
         G_PARAM_READWRITE);
@@ -735,15 +735,15 @@ ufo_reader_task_class_init(UfoReaderTaskClass *klass)
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
-    g_type_class_add_private (gobject_class, sizeof(UfoReaderTaskPrivate));
+    g_type_class_add_private (gobject_class, sizeof(UfoReadTaskPrivate));
 }
 
 static void
-ufo_reader_task_init(UfoReaderTask *self)
+ufo_read_task_init(UfoReadTask *self)
 {
-    UfoReaderTaskPrivate *priv = NULL;
+    UfoReadTaskPrivate *priv = NULL;
 
-    self->priv = priv = UFO_READER_TASK_GET_PRIVATE (self);
+    self->priv = priv = UFO_READ_TASK_GET_PRIVATE (self);
     priv->path = g_strdup ("*.tif");
     priv->step = 1;
     priv->blocking = FALSE;

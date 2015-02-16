@@ -23,16 +23,10 @@
 #include <CL/cl.h>
 #endif
 
-#include "ufo-generate-task.h"
+#include "ufo-dummy-data-task.h"
 
-/**
- * SECTION:ufo-generate-task
- * @Short_description: Write TIFF files
- * @Title: generate
- *
- */
 
-struct _UfoGenerateTaskPrivate {
+struct _UfoDummyDataTaskPrivate {
     guint width;
     guint height;
     guint depth;
@@ -43,11 +37,11 @@ struct _UfoGenerateTaskPrivate {
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
-G_DEFINE_TYPE_WITH_CODE (UfoGenerateTask, ufo_generate_task, UFO_TYPE_TASK_NODE,
+G_DEFINE_TYPE_WITH_CODE (UfoDummyDataTask, ufo_dummy_data_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
                                                 ufo_task_interface_init))
 
-#define UFO_GENERATE_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_GENERATE_TASK, UfoGenerateTaskPrivate))
+#define UFO_DUMMY_DATA_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_DUMMY_DATA_TASK, UfoDummyDataTaskPrivate))
 
 enum {
     PROP_0,
@@ -62,26 +56,26 @@ enum {
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
-ufo_generate_task_new (void)
+ufo_dummy_data_task_new (void)
 {
-    return UFO_NODE (g_object_new (UFO_TYPE_GENERATE_TASK, NULL));
+    return UFO_NODE (g_object_new (UFO_TYPE_DUMMY_DATA_TASK, NULL));
 }
 
 static void
-ufo_generate_task_setup (UfoTask *task,
+ufo_dummy_data_task_setup (UfoTask *task,
                          UfoResources *resources,
                          GError **error)
 {
 }
 
 static void
-ufo_generate_task_get_requisition (UfoTask *task,
+ufo_dummy_data_task_get_requisition (UfoTask *task,
                                    UfoBuffer **inputs,
                                    UfoRequisition *requisition)
 {
-    UfoGenerateTaskPrivate *priv;
+    UfoDummyDataTaskPrivate *priv;
 
-    priv = UFO_GENERATE_TASK_GET_PRIVATE (task);
+    priv = UFO_DUMMY_DATA_TASK_GET_PRIVATE (task);
 
     requisition->n_dims = 2;
     requisition->dims[0] = priv->width;
@@ -94,32 +88,32 @@ ufo_generate_task_get_requisition (UfoTask *task,
 }
 
 static guint
-ufo_generate_task_get_num_inputs (UfoTask *task)
+ufo_dummy_data_task_get_num_inputs (UfoTask *task)
 {
     return 0;
 }
 
 static guint
-ufo_generate_task_get_num_dimensions (UfoTask *task,
+ufo_dummy_data_task_get_num_dimensions (UfoTask *task,
                                guint input)
 {
     return 0;
 }
 
 static UfoTaskMode
-ufo_generate_task_get_mode (UfoTask *task)
+ufo_dummy_data_task_get_mode (UfoTask *task)
 {
     return UFO_TASK_MODE_GENERATOR | UFO_TASK_MODE_CPU;
 }
 
 static gboolean
-ufo_generate_task_generate (UfoTask *task,
+ufo_dummy_data_task_generate (UfoTask *task,
                             UfoBuffer *output,
                             UfoRequisition *requisition)
 {
-    UfoGenerateTaskPrivate *priv;
+    UfoDummyDataTaskPrivate *priv;
 
-    priv = UFO_GENERATE_TASK_GET_PRIVATE (task);
+    priv = UFO_DUMMY_DATA_TASK_GET_PRIVATE (task);
 
     if (priv->current == priv->number)
         return FALSE;
@@ -140,12 +134,12 @@ ufo_generate_task_generate (UfoTask *task,
 }
 
 static void
-ufo_generate_task_set_property (GObject *object,
+ufo_dummy_data_task_set_property (GObject *object,
                                 guint property_id,
                                 const GValue *value,
                                 GParamSpec *pspec)
 {
-    UfoGenerateTaskPrivate *priv = UFO_GENERATE_TASK_GET_PRIVATE (object);
+    UfoDummyDataTaskPrivate *priv = UFO_DUMMY_DATA_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_WIDTH:
@@ -179,12 +173,12 @@ ufo_generate_task_set_property (GObject *object,
 }
 
 static void
-ufo_generate_task_get_property (GObject *object,
+ufo_dummy_data_task_get_property (GObject *object,
                                 guint property_id,
                                 GValue *value,
                                 GParamSpec *pspec)
 {
-    UfoGenerateTaskPrivate *priv = UFO_GENERATE_TASK_GET_PRIVATE (object);
+    UfoDummyDataTaskPrivate *priv = UFO_DUMMY_DATA_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_WIDTH:
@@ -209,30 +203,30 @@ ufo_generate_task_get_property (GObject *object,
 }
 
 static void
-ufo_generate_task_finalize (GObject *object)
+ufo_dummy_data_task_finalize (GObject *object)
 {
-    G_OBJECT_CLASS (ufo_generate_task_parent_class)->finalize (object);
+    G_OBJECT_CLASS (ufo_dummy_data_task_parent_class)->finalize (object);
 }
 
 static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
-    iface->setup = ufo_generate_task_setup;
-    iface->get_num_inputs = ufo_generate_task_get_num_inputs;
-    iface->get_num_dimensions = ufo_generate_task_get_num_dimensions;
-    iface->get_mode = ufo_generate_task_get_mode;
-    iface->get_requisition = ufo_generate_task_get_requisition;
-    iface->generate = ufo_generate_task_generate;
+    iface->setup = ufo_dummy_data_task_setup;
+    iface->get_num_inputs = ufo_dummy_data_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_dummy_data_task_get_num_dimensions;
+    iface->get_mode = ufo_dummy_data_task_get_mode;
+    iface->get_requisition = ufo_dummy_data_task_get_requisition;
+    iface->generate = ufo_dummy_data_task_generate;
 }
 
 static void
-ufo_generate_task_class_init (UfoGenerateTaskClass *klass)
+ufo_dummy_data_task_class_init (UfoDummyDataTaskClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-    gobject_class->set_property = ufo_generate_task_set_property;
-    gobject_class->get_property = ufo_generate_task_get_property;
-    gobject_class->finalize = ufo_generate_task_finalize;
+    gobject_class->set_property = ufo_dummy_data_task_set_property;
+    gobject_class->get_property = ufo_dummy_data_task_get_property;
+    gobject_class->finalize = ufo_dummy_data_task_finalize;
 
     properties[PROP_WIDTH] =
         g_param_spec_uint ("width",
@@ -272,13 +266,13 @@ ufo_generate_task_class_init (UfoGenerateTaskClass *klass)
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
-    g_type_class_add_private (gobject_class, sizeof(UfoGenerateTaskPrivate));
+    g_type_class_add_private (gobject_class, sizeof(UfoDummyDataTaskPrivate));
 }
 
 static void
-ufo_generate_task_init(UfoGenerateTask *self)
+ufo_dummy_data_task_init(UfoDummyDataTask *self)
 {
-    self->priv = UFO_GENERATE_TASK_GET_PRIVATE(self);
+    self->priv = UFO_DUMMY_DATA_TASK_GET_PRIVATE(self);
     self->priv->width = 1;
     self->priv->height = 1;
     self->priv->depth = 1;

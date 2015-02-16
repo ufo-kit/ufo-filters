@@ -21,7 +21,7 @@
 #include <tiffio.h>
 #include <errno.h>
 
-#include "ufo-writer-task.h"
+#include "ufo-write-task.h"
 
 typedef enum {
     BITS_8U = 8,
@@ -29,7 +29,7 @@ typedef enum {
     BITS_32FP = 32,
 } BitDepth;
 
-struct _UfoWriterTaskPrivate {
+struct _UfoWriteTaskPrivate {
     gchar *format;
     gchar *template;
     guint counter;
@@ -44,11 +44,11 @@ struct _UfoWriterTaskPrivate {
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
-G_DEFINE_TYPE_WITH_CODE (UfoWriterTask, ufo_writer_task, UFO_TYPE_TASK_NODE,
+G_DEFINE_TYPE_WITH_CODE (UfoWriteTask, ufo_write_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
                                                 ufo_task_interface_init))
 
-#define UFO_WRITER_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_WRITER_TASK, UfoWriterTaskPrivate))
+#define UFO_WRITE_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_WRITE_TASK, UfoWriteTaskPrivate))
 
 enum {
     PROP_0,
@@ -62,9 +62,9 @@ enum {
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
-ufo_writer_task_new (void)
+ufo_write_task_new (void)
 {
-    return UFO_NODE (g_object_new (UFO_TYPE_WRITER_TASK, NULL));
+    return UFO_NODE (g_object_new (UFO_TYPE_WRITE_TASK, NULL));
 }
 
 static void
@@ -106,7 +106,7 @@ write_16bit_data (TIFF *tif, gfloat *data, gfloat min, gfloat max, guint width, 
 }
 
 static gboolean
-write_tiff_data (UfoWriterTaskPrivate *priv, UfoBuffer *buffer)
+write_tiff_data (UfoWriteTaskPrivate *priv, UfoBuffer *buffer)
 {
     UfoRequisition requisition;
     guint32 rows_per_strip;
@@ -170,7 +170,7 @@ write_tiff_data (UfoWriterTaskPrivate *priv, UfoBuffer *buffer)
 }
 
 static gchar *
-build_filename (UfoWriterTaskPrivate *priv)
+build_filename (UfoWriteTaskPrivate *priv)
 {
     gchar *filename;
 
@@ -183,7 +183,7 @@ build_filename (UfoWriterTaskPrivate *priv)
 }
 
 static void
-find_free_index (UfoWriterTaskPrivate *priv)
+find_free_index (UfoWriteTaskPrivate *priv)
 {
     while (g_file_test(build_filename(priv), G_FILE_TEST_EXISTS)) {
         priv->counter++;
@@ -218,7 +218,7 @@ build_template (const gchar *format)
 }
 
 static void
-open_tiff_file (UfoWriterTaskPrivate *priv)
+open_tiff_file (UfoWriteTaskPrivate *priv)
 {
     gchar *filename;
     const gchar *mode = priv->append ? "a" : "w";
@@ -229,15 +229,15 @@ open_tiff_file (UfoWriterTaskPrivate *priv)
 }
 
 static void
-ufo_writer_task_setup (UfoTask *task,
+ufo_write_task_setup (UfoTask *task,
                        UfoResources *resources,
                        GError **error)
 {
-    UfoWriterTaskPrivate *priv;
+    UfoWriteTaskPrivate *priv;
     guint index;
     guint total;
 
-    priv = UFO_WRITER_TASK_GET_PRIVATE (task);
+    priv = UFO_WRITE_TASK_GET_PRIVATE (task);
     ufo_task_node_get_partition (UFO_TASK_NODE (task), &index, &total);
     priv->counter = index * 1000;
 
@@ -269,7 +269,7 @@ ufo_writer_task_setup (UfoTask *task,
 }
 
 static void
-ufo_writer_task_get_requisition (UfoTask *task,
+ufo_write_task_get_requisition (UfoTask *task,
                                  UfoBuffer **inputs,
                                  UfoRequisition *requisition)
 {
@@ -277,13 +277,13 @@ ufo_writer_task_get_requisition (UfoTask *task,
 }
 
 static guint
-ufo_writer_task_get_num_inputs (UfoTask *task)
+ufo_write_task_get_num_inputs (UfoTask *task)
 {
     return 1;
 }
 
 static guint
-ufo_writer_task_get_num_dimensions (UfoTask *task,
+ufo_write_task_get_num_dimensions (UfoTask *task,
                                guint input)
 {
     g_return_val_if_fail (input == 0, 0);
@@ -291,21 +291,21 @@ ufo_writer_task_get_num_dimensions (UfoTask *task,
 }
 
 static UfoTaskMode
-ufo_writer_task_get_mode (UfoTask *task)
+ufo_write_task_get_mode (UfoTask *task)
 {
     return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_CPU;
 }
 
 static gboolean
-ufo_writer_task_process (UfoTask *task,
+ufo_write_task_process (UfoTask *task,
                          UfoBuffer **inputs,
                          UfoBuffer *output,
                          UfoRequisition *requisition)
 {
-    UfoWriterTaskPrivate *priv;
+    UfoWriteTaskPrivate *priv;
     UfoProfiler *profiler;
 
-    priv = UFO_WRITER_TASK_GET_PRIVATE (UFO_WRITER_TASK (task));
+    priv = UFO_WRITE_TASK_GET_PRIVATE (UFO_WRITE_TASK (task));
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
 
     ufo_profiler_start (profiler, UFO_PROFILER_TIMER_IO);
@@ -326,12 +326,12 @@ ufo_writer_task_process (UfoTask *task,
 }
 
 static void
-ufo_writer_task_set_property (GObject *object,
+ufo_write_task_set_property (GObject *object,
                               guint property_id,
                               const GValue *value,
                               GParamSpec *pspec)
 {
-    UfoWriterTaskPrivate *priv = UFO_WRITER_TASK_GET_PRIVATE (object);
+    UfoWriteTaskPrivate *priv = UFO_WRITE_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_FORMAT:
@@ -351,7 +351,7 @@ ufo_writer_task_set_property (GObject *object,
                 val = g_value_get_uint (value);
 
                 if (val != 8 && val != 16 && val != 32) {
-                    g_warning ("Writer::bits can only 8, 16 or 32");
+                    g_warning ("Write::bits can only 8, 16 or 32");
                     return;
                 }
 
@@ -365,12 +365,12 @@ ufo_writer_task_set_property (GObject *object,
 }
 
 static void
-ufo_writer_task_get_property (GObject *object,
+ufo_write_task_get_property (GObject *object,
                               guint property_id,
                               GValue *value,
                               GParamSpec *pspec)
 {
-    UfoWriterTaskPrivate *priv = UFO_WRITER_TASK_GET_PRIVATE (object);
+    UfoWriteTaskPrivate *priv = UFO_WRITE_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_FORMAT:
@@ -392,11 +392,11 @@ ufo_writer_task_get_property (GObject *object,
 }
 
 static void
-ufo_writer_task_finalize (GObject *object)
+ufo_write_task_finalize (GObject *object)
 {
-    UfoWriterTaskPrivate *priv;
+    UfoWriteTaskPrivate *priv;
 
-    priv = UFO_WRITER_TASK_GET_PRIVATE (object);
+    priv = UFO_WRITE_TASK_GET_PRIVATE (object);
 
     if (priv->template)
         g_free (priv->template);
@@ -407,28 +407,28 @@ ufo_writer_task_finalize (GObject *object)
     g_free (priv->format);
     priv->format= NULL;
 
-    G_OBJECT_CLASS (ufo_writer_task_parent_class)->finalize (object);
+    G_OBJECT_CLASS (ufo_write_task_parent_class)->finalize (object);
 }
 
 static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
-    iface->setup = ufo_writer_task_setup;
-    iface->get_num_inputs = ufo_writer_task_get_num_inputs;
-    iface->get_num_dimensions = ufo_writer_task_get_num_dimensions;
-    iface->get_mode = ufo_writer_task_get_mode;
-    iface->get_requisition = ufo_writer_task_get_requisition;
-    iface->process = ufo_writer_task_process;
+    iface->setup = ufo_write_task_setup;
+    iface->get_num_inputs = ufo_write_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_write_task_get_num_dimensions;
+    iface->get_mode = ufo_write_task_get_mode;
+    iface->get_requisition = ufo_write_task_get_requisition;
+    iface->process = ufo_write_task_process;
 }
 
 static void
-ufo_writer_task_class_init (UfoWriterTaskClass *klass)
+ufo_write_task_class_init (UfoWriteTaskClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-    gobject_class->set_property = ufo_writer_task_set_property;
-    gobject_class->get_property = ufo_writer_task_get_property;
-    gobject_class->finalize = ufo_writer_task_finalize;
+    gobject_class->set_property = ufo_write_task_set_property;
+    gobject_class->get_property = ufo_write_task_get_property;
+    gobject_class->finalize = ufo_write_task_finalize;
 
     properties[PROP_FORMAT] =
         g_param_spec_string ("filename",
@@ -460,13 +460,13 @@ ufo_writer_task_class_init (UfoWriterTaskClass *klass)
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
-    g_type_class_add_private (gobject_class, sizeof(UfoWriterTaskPrivate));
+    g_type_class_add_private (gobject_class, sizeof(UfoWriteTaskPrivate));
 }
 
 static void
-ufo_writer_task_init(UfoWriterTask *self)
+ufo_write_task_init(UfoWriteTask *self)
 {
-    self->priv = UFO_WRITER_TASK_GET_PRIVATE(self);
+    self->priv = UFO_WRITE_TASK_GET_PRIVATE(self);
     self->priv->format = g_strdup ("./output-%05i.tif");
     self->priv->template = NULL;
     self->priv->counter = 0;

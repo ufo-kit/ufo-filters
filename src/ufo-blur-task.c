@@ -23,18 +23,10 @@
 #include <CL/cl.h>
 #endif
 #include <math.h>
-#include "ufo-gaussian-blur-task.h"
+#include "ufo-blur-task.h"
 
-/**
- * SECTION:ufo-gaussian-blur-task
- * @Short_description: Blur input data with gaussian kernel
- * @Title: gaussian-blur
- *
- * Blur input data according to #UfoGaussianBlurTask:size and
- * #UfoGaussianBlurTask:sigma.
- */
 
-struct _UfoGaussianBlurTaskPrivate {
+struct _UfoBlurTaskPrivate {
     guint       size;
     gfloat      sigma;
     cl_context  context;
@@ -46,11 +38,11 @@ struct _UfoGaussianBlurTaskPrivate {
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
-G_DEFINE_TYPE_WITH_CODE (UfoGaussianBlurTask, ufo_gaussian_blur_task, UFO_TYPE_TASK_NODE,
+G_DEFINE_TYPE_WITH_CODE (UfoBlurTask, ufo_blur_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
                                                 ufo_task_interface_init))
 
-#define UFO_GAUSSIAN_BLUR_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_GAUSSIAN_BLUR_TASK, UfoGaussianBlurTaskPrivate))
+#define UFO_BLUR_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_BLUR_TASK, UfoBlurTaskPrivate))
 
 enum {
     PROP_0,
@@ -62,19 +54,19 @@ enum {
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
-ufo_gaussian_blur_task_new (void)
+ufo_blur_task_new (void)
 {
-    return UFO_NODE (g_object_new (UFO_TYPE_GAUSSIAN_BLUR_TASK, NULL));
+    return UFO_NODE (g_object_new (UFO_TYPE_BLUR_TASK, NULL));
 }
 
 static void
-ufo_gaussian_blur_task_setup (UfoTask *task,
+ufo_blur_task_setup (UfoTask *task,
                               UfoResources *resources,
                               GError **error)
 {
-    UfoGaussianBlurTaskPrivate *priv;
+    UfoBlurTaskPrivate *priv;
 
-    priv = UFO_GAUSSIAN_BLUR_TASK_GET_PRIVATE (task);
+    priv = UFO_BLUR_TASK_GET_PRIVATE (task);
 
     priv->h_kernel = ufo_resources_get_kernel (resources, "gaussian.cl", "h_gaussian", error);
 
@@ -94,13 +86,13 @@ ufo_gaussian_blur_task_setup (UfoTask *task,
 }
 
 static void
-ufo_gaussian_blur_task_get_requisition (UfoTask *task,
+ufo_blur_task_get_requisition (UfoTask *task,
                                         UfoBuffer **inputs,
                                         UfoRequisition *requisition)
 {
-    UfoGaussianBlurTaskPrivate *priv;
+    UfoBlurTaskPrivate *priv;
 
-    priv = UFO_GAUSSIAN_BLUR_TASK_GET_PRIVATE (task);
+    priv = UFO_BLUR_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], requisition);
 
     if (priv->weights_mem == NULL) {
@@ -153,13 +145,13 @@ ufo_gaussian_blur_task_get_requisition (UfoTask *task,
 }
 
 static guint
-ufo_gaussian_blur_task_get_num_inputs (UfoTask *task)
+ufo_blur_task_get_num_inputs (UfoTask *task)
 {
     return 1;
 }
 
 static guint
-ufo_gaussian_blur_task_get_num_dimensions (UfoTask *task,
+ufo_blur_task_get_num_dimensions (UfoTask *task,
                                guint input)
 {
     g_return_val_if_fail (input == 0, 0);
@@ -167,24 +159,24 @@ ufo_gaussian_blur_task_get_num_dimensions (UfoTask *task,
 }
 
 static UfoTaskMode
-ufo_gaussian_blur_task_get_mode (UfoTask *task)
+ufo_blur_task_get_mode (UfoTask *task)
 {
     return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
 static gboolean
-ufo_gaussian_blur_task_process (UfoTask *task,
+ufo_blur_task_process (UfoTask *task,
                                 UfoBuffer **inputs,
                                 UfoBuffer *output,
                                 UfoRequisition *requisition)
 {
-    UfoGaussianBlurTaskPrivate *priv;
+    UfoBlurTaskPrivate *priv;
     UfoGpuNode *node;
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
 
-    priv = UFO_GAUSSIAN_BLUR_TASK_GET_PRIVATE (task);
+    priv = UFO_BLUR_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 
@@ -209,12 +201,12 @@ ufo_gaussian_blur_task_process (UfoTask *task,
 }
 
 static void
-ufo_gaussian_blur_task_set_property (GObject *object,
+ufo_blur_task_set_property (GObject *object,
                                      guint property_id,
                                      const GValue *value,
                                      GParamSpec *pspec)
 {
-    UfoGaussianBlurTaskPrivate *priv = UFO_GAUSSIAN_BLUR_TASK_GET_PRIVATE (object);
+    UfoBlurTaskPrivate *priv = UFO_BLUR_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_SIZE:
@@ -230,12 +222,12 @@ ufo_gaussian_blur_task_set_property (GObject *object,
 }
 
 static void
-ufo_gaussian_blur_task_get_property (GObject *object,
+ufo_blur_task_get_property (GObject *object,
                                      guint property_id,
                                      GValue *value,
                                      GParamSpec *pspec)
 {
-    UfoGaussianBlurTaskPrivate *priv = UFO_GAUSSIAN_BLUR_TASK_GET_PRIVATE (object);
+    UfoBlurTaskPrivate *priv = UFO_BLUR_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_SIZE:
@@ -251,11 +243,11 @@ ufo_gaussian_blur_task_get_property (GObject *object,
 }
 
 static void
-ufo_gaussian_blur_task_finalize (GObject *object)
+ufo_blur_task_finalize (GObject *object)
 {
-    UfoGaussianBlurTaskPrivate *priv;
+    UfoBlurTaskPrivate *priv;
 
-    priv = UFO_GAUSSIAN_BLUR_TASK_GET_PRIVATE (object);
+    priv = UFO_BLUR_TASK_GET_PRIVATE (object);
 
     if (priv->h_kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->h_kernel));
@@ -272,28 +264,28 @@ ufo_gaussian_blur_task_finalize (GObject *object)
         priv->context = NULL;
     }
 
-    G_OBJECT_CLASS (ufo_gaussian_blur_task_parent_class)->finalize (object);
+    G_OBJECT_CLASS (ufo_blur_task_parent_class)->finalize (object);
 }
 
 static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
-    iface->setup = ufo_gaussian_blur_task_setup;
-    iface->get_num_inputs = ufo_gaussian_blur_task_get_num_inputs;
-    iface->get_num_dimensions = ufo_gaussian_blur_task_get_num_dimensions;
-    iface->get_mode = ufo_gaussian_blur_task_get_mode;
-    iface->get_requisition = ufo_gaussian_blur_task_get_requisition;
-    iface->process = ufo_gaussian_blur_task_process;
+    iface->setup = ufo_blur_task_setup;
+    iface->get_num_inputs = ufo_blur_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_blur_task_get_num_dimensions;
+    iface->get_mode = ufo_blur_task_get_mode;
+    iface->get_requisition = ufo_blur_task_get_requisition;
+    iface->process = ufo_blur_task_process;
 }
 
 static void
-ufo_gaussian_blur_task_class_init (UfoGaussianBlurTaskClass *klass)
+ufo_blur_task_class_init (UfoBlurTaskClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-    gobject_class->set_property = ufo_gaussian_blur_task_set_property;
-    gobject_class->get_property = ufo_gaussian_blur_task_get_property;
-    gobject_class->finalize = ufo_gaussian_blur_task_finalize;
+    gobject_class->set_property = ufo_blur_task_set_property;
+    gobject_class->get_property = ufo_blur_task_get_property;
+    gobject_class->finalize = ufo_blur_task_finalize;
 
     properties[PROP_SIZE] =
         g_param_spec_uint("size",
@@ -312,13 +304,13 @@ ufo_gaussian_blur_task_class_init (UfoGaussianBlurTaskClass *klass)
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
-    g_type_class_add_private (gobject_class, sizeof(UfoGaussianBlurTaskPrivate));
+    g_type_class_add_private (gobject_class, sizeof(UfoBlurTaskPrivate));
 }
 
 static void
-ufo_gaussian_blur_task_init(UfoGaussianBlurTask *self)
+ufo_blur_task_init(UfoBlurTask *self)
 {
-    self->priv = UFO_GAUSSIAN_BLUR_TASK_GET_PRIVATE(self);
+    self->priv = UFO_BLUR_TASK_GET_PRIVATE(self);
 
     self->priv->size = 5;
     self->priv->sigma = 1.0f;

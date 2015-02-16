@@ -23,10 +23,10 @@
 #include <CL/cl.h>
 #endif
 #include <math.h>
-#include "ufo-flat-field-correction-task.h"
+#include "ufo-flat-field-correct-task.h"
 
 
-struct _UfoFlatFieldCorrectionTaskPrivate {
+struct _UfoFlatFieldCorrectTaskPrivate {
     gboolean fix_nan_and_inf;
     gboolean absorptivity;
     gboolean sinogram_input;
@@ -36,11 +36,11 @@ struct _UfoFlatFieldCorrectionTaskPrivate {
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
-G_DEFINE_TYPE_WITH_CODE (UfoFlatFieldCorrectionTask, ufo_flat_field_correction_task, UFO_TYPE_TASK_NODE,
+G_DEFINE_TYPE_WITH_CODE (UfoFlatFieldCorrectTask, ufo_flat_field_correct_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
                                                 ufo_task_interface_init))
 
-#define UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FLAT_FIELD_CORRECTION_TASK, UfoFlatFieldCorrectionTaskPrivate))
+#define UFO_FLAT_FIELD_CORRECT_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_FLAT_FIELD_CORRECT_TASK, UfoFlatFieldCorrectTaskPrivate))
 
 enum {
     PROP_0,
@@ -54,19 +54,19 @@ enum {
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
-ufo_flat_field_correction_task_new (void)
+ufo_flat_field_correct_task_new (void)
 {
-    return UFO_NODE (g_object_new (UFO_TYPE_FLAT_FIELD_CORRECTION_TASK, NULL));
+    return UFO_NODE (g_object_new (UFO_TYPE_FLAT_FIELD_CORRECT_TASK, NULL));
 }
 
 static void
-ufo_flat_field_correction_task_setup (UfoTask *task,
+ufo_flat_field_correct_task_setup (UfoTask *task,
                                       UfoResources *resources,
                                       GError **error)
 {
-    UfoFlatFieldCorrectionTaskPrivate *priv;
+    UfoFlatFieldCorrectTaskPrivate *priv;
 
-    priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (task);
+    priv = UFO_FLAT_FIELD_CORRECT_TASK_GET_PRIVATE (task);
     priv->kernel = ufo_resources_get_kernel (resources, "ffc.cl", "flat_correct", error);
 
     if (priv->kernel) {
@@ -75,7 +75,7 @@ ufo_flat_field_correction_task_setup (UfoTask *task,
 }
 
 static void
-ufo_flat_field_correction_task_get_requisition (UfoTask *task,
+ufo_flat_field_correct_task_get_requisition (UfoTask *task,
                                                 UfoBuffer **inputs,
                                                 UfoRequisition *requisition)
 {
@@ -83,17 +83,17 @@ ufo_flat_field_correction_task_get_requisition (UfoTask *task,
 }
 
 static guint
-ufo_flat_field_correction_task_get_num_inputs (UfoTask *task)
+ufo_flat_field_correct_task_get_num_inputs (UfoTask *task)
 {
     return 3;
 }
 
 static guint
-ufo_flat_field_correction_task_get_num_dimensions (UfoTask *task, guint input)
+ufo_flat_field_correct_task_get_num_dimensions (UfoTask *task, guint input)
 {
-    UfoFlatFieldCorrectionTaskPrivate *priv;
+    UfoFlatFieldCorrectTaskPrivate *priv;
 
-    priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (task);
+    priv = UFO_FLAT_FIELD_CORRECT_TASK_GET_PRIVATE (task);
     g_return_val_if_fail (input <= 2, 0);
 
     /* A sinogram */
@@ -105,18 +105,18 @@ ufo_flat_field_correction_task_get_num_dimensions (UfoTask *task, guint input)
 }
 
 static UfoTaskMode
-ufo_flat_field_correction_task_get_mode (UfoTask *task)
+ufo_flat_field_correct_task_get_mode (UfoTask *task)
 {
     return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
 static gboolean
-ufo_flat_field_correction_task_process (UfoTask *task,
+ufo_flat_field_correct_task_process (UfoTask *task,
                                         UfoBuffer **inputs,
                                         UfoBuffer *output,
                                         UfoRequisition *requisition)
 {
-    UfoFlatFieldCorrectionTaskPrivate *priv;
+    UfoFlatFieldCorrectTaskPrivate *priv;
     UfoProfiler *profiler;
     UfoGpuNode *node;
 
@@ -134,7 +134,7 @@ ufo_flat_field_correction_task_process (UfoTask *task,
     flat_mem = ufo_buffer_get_device_array (inputs[2], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
 
-    priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (task);
+    priv = UFO_FLAT_FIELD_CORRECT_TASK_GET_PRIVATE (task);
     absorptivity = (gint) priv->absorptivity;
     sino_in = (gint) priv->sinogram_input;
     fix_nan_and_inf = (gint) priv->fix_nan_and_inf;
@@ -155,12 +155,12 @@ ufo_flat_field_correction_task_process (UfoTask *task,
 }
 
 static void
-ufo_flat_field_correction_task_set_property (GObject *object,
+ufo_flat_field_correct_task_set_property (GObject *object,
                                              guint property_id,
                                              const GValue *value,
                                              GParamSpec *pspec)
 {
-    UfoFlatFieldCorrectionTaskPrivate *priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (object);
+    UfoFlatFieldCorrectTaskPrivate *priv = UFO_FLAT_FIELD_CORRECT_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_FIX_NAN_AND_INF:
@@ -182,12 +182,12 @@ ufo_flat_field_correction_task_set_property (GObject *object,
 }
 
 static void
-ufo_flat_field_correction_task_get_property (GObject *object,
+ufo_flat_field_correct_task_get_property (GObject *object,
                                              guint property_id,
                                              GValue *value,
                                              GParamSpec *pspec)
 {
-    UfoFlatFieldCorrectionTaskPrivate *priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (object);
+    UfoFlatFieldCorrectTaskPrivate *priv = UFO_FLAT_FIELD_CORRECT_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_FIX_NAN_AND_INF:
@@ -209,39 +209,39 @@ ufo_flat_field_correction_task_get_property (GObject *object,
 }
 
 static void
-ufo_flat_field_correction_task_finalize (GObject *object)
+ufo_flat_field_correct_task_finalize (GObject *object)
 {
-    UfoFlatFieldCorrectionTaskPrivate *priv;
+    UfoFlatFieldCorrectTaskPrivate *priv;
 
-    priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE (object);
+    priv = UFO_FLAT_FIELD_CORRECT_TASK_GET_PRIVATE (object);
 
     if (priv->kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
         priv->kernel = NULL;
     }
 
-    G_OBJECT_CLASS (ufo_flat_field_correction_task_parent_class)->finalize (object);
+    G_OBJECT_CLASS (ufo_flat_field_correct_task_parent_class)->finalize (object);
 }
 
 static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
-    iface->setup = ufo_flat_field_correction_task_setup;
-    iface->get_num_inputs = ufo_flat_field_correction_task_get_num_inputs;
-    iface->get_num_dimensions = ufo_flat_field_correction_task_get_num_dimensions;
-    iface->get_mode = ufo_flat_field_correction_task_get_mode;
-    iface->get_requisition = ufo_flat_field_correction_task_get_requisition;
-    iface->process = ufo_flat_field_correction_task_process;
+    iface->setup = ufo_flat_field_correct_task_setup;
+    iface->get_num_inputs = ufo_flat_field_correct_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_flat_field_correct_task_get_num_dimensions;
+    iface->get_mode = ufo_flat_field_correct_task_get_mode;
+    iface->get_requisition = ufo_flat_field_correct_task_get_requisition;
+    iface->process = ufo_flat_field_correct_task_process;
 }
 
 static void
-ufo_flat_field_correction_task_class_init (UfoFlatFieldCorrectionTaskClass *klass)
+ufo_flat_field_correct_task_class_init (UfoFlatFieldCorrectTaskClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-    gobject_class->set_property = ufo_flat_field_correction_task_set_property;
-    gobject_class->get_property = ufo_flat_field_correction_task_get_property;
-    gobject_class->finalize = ufo_flat_field_correction_task_finalize;
+    gobject_class->set_property = ufo_flat_field_correct_task_set_property;
+    gobject_class->get_property = ufo_flat_field_correct_task_get_property;
+    gobject_class->finalize = ufo_flat_field_correct_task_finalize;
 
     properties[PROP_FIX_NAN_AND_INF] =
         g_param_spec_boolean("fix-nan-and-inf",
@@ -251,9 +251,9 @@ ufo_flat_field_correction_task_class_init (UfoFlatFieldCorrectionTaskClass *klas
                              G_PARAM_READWRITE);
 
     properties[PROP_ABSORPTIVITY] =
-        g_param_spec_boolean ("absorption-correction",
-            "Absorption correction",
-            "Absorption correction",
+        g_param_spec_boolean ("absorption-correct",
+            "Absorption correct",
+            "Absorption correct",
             FALSE,
             G_PARAM_READWRITE);
 
@@ -266,21 +266,21 @@ ufo_flat_field_correction_task_class_init (UfoFlatFieldCorrectionTaskClass *klas
 
     properties[PROP_DARK_SCALE] =
         g_param_spec_float ("dark-scale",
-            "Scale the dark field prior to the flat field correction",
-            "Scale the dark field prior to the flat field correction",
+            "Scale the dark field prior to the flat field correct",
+            "Scale the dark field prior to the flat field correct",
             -G_MAXFLOAT, G_MAXFLOAT, 1.0f,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
-    g_type_class_add_private (gobject_class, sizeof(UfoFlatFieldCorrectionTaskPrivate));
+    g_type_class_add_private (gobject_class, sizeof(UfoFlatFieldCorrectTaskPrivate));
 }
 
 static void
-ufo_flat_field_correction_task_init(UfoFlatFieldCorrectionTask *self)
+ufo_flat_field_correct_task_init(UfoFlatFieldCorrectTask *self)
 {
-    self->priv = UFO_FLAT_FIELD_CORRECTION_TASK_GET_PRIVATE(self);
+    self->priv = UFO_FLAT_FIELD_CORRECT_TASK_GET_PRIVATE(self);
     self->priv->fix_nan_and_inf = FALSE;
     self->priv->absorptivity = FALSE;
     self->priv->sinogram_input = FALSE;

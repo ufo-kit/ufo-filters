@@ -31,7 +31,7 @@
 #include "oclFFT.h"
 #endif
 
-#include "ufo-phase-retrieval-task.h"
+#include "ufo-retrieve-phase-task.h"
 
 #define IS_POW_OF_2(x) !(x & (x - 1))
 
@@ -45,7 +45,7 @@ typedef enum {
     N_METHODS
 } Method;
 
-struct _UfoPhaseRetrievalTaskPrivate {
+struct _UfoRetrievePhaseTaskPrivate {
     Method method;
     guint width;
     guint height;
@@ -78,11 +78,11 @@ struct _UfoPhaseRetrievalTaskPrivate {
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
-G_DEFINE_TYPE_WITH_CODE (UfoPhaseRetrievalTask, ufo_phase_retrieval_task, UFO_TYPE_TASK_NODE,
+G_DEFINE_TYPE_WITH_CODE (UfoRetrievePhaseTask, ufo_retrieve_phase_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
                                                 ufo_task_interface_init))
 
-#define UFO_PHASE_RETRIEVAL_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_PHASE_RETRIEVAL_TASK, UfoPhaseRetrievalTaskPrivate))
+#define UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_RETRIEVE_PHASE_TASK, UfoRetrievePhaseTaskPrivate))
 
 
 enum {
@@ -101,21 +101,21 @@ enum {
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
-ufo_phase_retrieval_task_new (void)
+ufo_retrieve_phase_task_new (void)
 {
-    return UFO_NODE (g_object_new (UFO_TYPE_PHASE_RETRIEVAL_TASK, NULL));
+    return UFO_NODE (g_object_new (UFO_TYPE_RETRIEVE_PHASE_TASK, NULL));
 }
 
 static void
-ufo_phase_retrieval_task_setup (UfoTask *task,
+ufo_retrieve_phase_task_setup (UfoTask *task,
                                 UfoResources *resources,
                                 GError **error)
 {
-    UfoPhaseRetrievalTaskPrivate *priv;
+    UfoRetrievePhaseTaskPrivate *priv;
     UfoGpuNode *node;
     gfloat lambda;
 
-    priv = UFO_PHASE_RETRIEVAL_TASK_GET_PRIVATE (task);
+    priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
 
     priv->context = ufo_resources_get_context (resources);
@@ -176,15 +176,15 @@ ufo_phase_retrieval_task_setup (UfoTask *task,
 }
 
 static void
-ufo_phase_retrieval_task_get_requisition (UfoTask *task,
+ufo_retrieve_phase_task_get_requisition (UfoTask *task,
                                  UfoBuffer **inputs,
                                  UfoRequisition *requisition)
 {
-    UfoPhaseRetrievalTaskPrivate *priv;
+    UfoRetrievePhaseTaskPrivate *priv;
     UfoRequisition input_requisition;
     cl_int cl_err;
 
-    priv = UFO_PHASE_RETRIEVAL_TASK_GET_PRIVATE (task);
+    priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
 
     requisition->n_dims = 2;
@@ -247,18 +247,18 @@ ufo_filter_task_get_mode (UfoTask *task)
 }
 
 static gboolean
-ufo_phase_retrieval_task_process (UfoTask *task,
+ufo_retrieve_phase_task_process (UfoTask *task,
                          UfoBuffer **inputs,
                          UfoBuffer *output,
                          UfoRequisition *requisition)
 {
-    UfoPhaseRetrievalTaskPrivate *priv;
+    UfoRetrievePhaseTaskPrivate *priv;
     UfoProfiler *profiler;
 
     cl_mem in_mem, out_mem, fft_mem, filter_mem;
     cl_kernel method_kernel;
 
-    priv = UFO_PHASE_RETRIEVAL_TASK_GET_PRIVATE (task);
+    priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (task);
     out_mem = ufo_buffer_get_device_array (output, priv->cmd_queue);
     in_mem = ufo_buffer_get_device_array (inputs[0], priv->cmd_queue);
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
@@ -322,12 +322,12 @@ ufo_phase_retrieval_task_process (UfoTask *task,
 }
 
 static void
-ufo_phase_retrieval_task_get_property (GObject *object,
+ufo_retrieve_phase_task_get_property (GObject *object,
                               guint property_id,
                               GValue *value,
                               GParamSpec *pspec)
 {
-    UfoPhaseRetrievalTaskPrivate *priv = UFO_PHASE_RETRIEVAL_TASK_GET_PRIVATE (object);
+    UfoRetrievePhaseTaskPrivate *priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_METHOD:
@@ -372,12 +372,12 @@ ufo_phase_retrieval_task_get_property (GObject *object,
 }
 
 static void
-ufo_phase_retrieval_task_set_property (GObject *object,
+ufo_retrieve_phase_task_set_property (GObject *object,
                               guint property_id,
                               const GValue *value,
                               GParamSpec *pspec)
 {
-    UfoPhaseRetrievalTaskPrivate *priv = UFO_PHASE_RETRIEVAL_TASK_GET_PRIVATE (object);
+    UfoRetrievePhaseTaskPrivate *priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_METHOD:
@@ -423,11 +423,11 @@ ufo_phase_retrieval_task_set_property (GObject *object,
 }
 
 static void
-ufo_phase_retrieval_task_finalize (GObject *object)
+ufo_retrieve_phase_task_finalize (GObject *object)
 {
-    UfoPhaseRetrievalTaskPrivate *priv;
+    UfoRetrievePhaseTaskPrivate *priv;
 
-    priv = UFO_PHASE_RETRIEVAL_TASK_GET_PRIVATE (object);
+    priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (object);
 
     #ifdef HAVE_AMD
     clfftDestroyPlan (&(priv->fft_plan));
@@ -473,28 +473,28 @@ ufo_phase_retrieval_task_finalize (GObject *object)
         g_object_unref(priv->filter_buffer);
     }
     
-    G_OBJECT_CLASS (ufo_phase_retrieval_task_parent_class)->finalize (object);
+    G_OBJECT_CLASS (ufo_retrieve_phase_task_parent_class)->finalize (object);
 }
 
 static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
-    iface->setup = ufo_phase_retrieval_task_setup;
-    iface->get_requisition = ufo_phase_retrieval_task_get_requisition;
+    iface->setup = ufo_retrieve_phase_task_setup;
+    iface->get_requisition = ufo_retrieve_phase_task_get_requisition;
     iface->get_num_inputs = ufo_filter_task_get_num_inputs;
     iface->get_num_dimensions = ufo_filter_task_get_num_dimensions;
     iface->get_mode = ufo_filter_task_get_mode;
-    iface->process = ufo_phase_retrieval_task_process;
+    iface->process = ufo_retrieve_phase_task_process;
 }
 
 static void
-ufo_phase_retrieval_task_class_init (UfoPhaseRetrievalTaskClass *klass)
+ufo_retrieve_phase_task_class_init (UfoRetrievePhaseTaskClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-    gobject_class->set_property = ufo_phase_retrieval_task_set_property;
-    gobject_class->get_property = ufo_phase_retrieval_task_get_property;
-    gobject_class->finalize = ufo_phase_retrieval_task_finalize;
+    gobject_class->set_property = ufo_retrieve_phase_task_set_property;
+    gobject_class->get_property = ufo_retrieve_phase_task_get_property;
+    gobject_class->finalize = ufo_retrieve_phase_task_finalize;
 
     properties[PROP_METHOD] =
         g_param_spec_string ("method",
@@ -555,14 +555,14 @@ ufo_phase_retrieval_task_class_init (UfoPhaseRetrievalTaskClass *klass)
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
-    g_type_class_add_private (gobject_class, sizeof(UfoPhaseRetrievalTaskPrivate));
+    g_type_class_add_private (gobject_class, sizeof(UfoRetrievePhaseTaskPrivate));
 }
 
 static void
-ufo_phase_retrieval_task_init(UfoPhaseRetrievalTask *self)
+ufo_retrieve_phase_task_init(UfoRetrievePhaseTask *self)
 {
-    UfoPhaseRetrievalTaskPrivate *priv;
-    self->priv = priv = UFO_PHASE_RETRIEVAL_TASK_GET_PRIVATE(self);
+    UfoRetrievePhaseTaskPrivate *priv;
+    self->priv = priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE(self);
     #ifdef HAVE_AMD
     priv->fft_size[0] = 1;
     priv->fft_size[1] = 1;
