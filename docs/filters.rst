@@ -10,7 +10,7 @@ Point-based filters
 Averaging
 ---------
 
-.. gobj:class:: averager
+.. gobj:class:: average
 
     Read in full data stream and generate an averaged output.
 
@@ -22,7 +22,7 @@ Averaging
 Flat-field correction
 ---------------------
 
-.. gobj:class:: flat-field-correction
+.. gobj:class:: flat-field-correct
 
     Computes the flat field correction using three data streams:
 
@@ -82,7 +82,7 @@ Transposition
 Sinogram transposition
 ----------------------
 
-.. gobj:class:: sino-generator
+.. gobj:class:: transpose-projections
 
     Read a stream of two-dimensional projections and output a stream of
     transposed sinograms. :gobj:prop:`num-projections` *must* be set to the
@@ -147,7 +147,7 @@ Forward projection
 Phase retrieval
 ---------------
 
-.. gobj:class:: phase-retrieval
+.. gobj:class:: retrieve-phase
 
     Computes correction of phase-shifted data.
 
@@ -197,7 +197,7 @@ Phase retrieval
 Gaussian blur
 -------------
 
-.. gobj:class:: gaussian-blur
+.. gobj:class:: blur
 
     Blur image with a gaussian kernel.
 
@@ -245,7 +245,7 @@ Padding
 Region of interest
 ------------------
 
-.. gobj:class:: region-of-interest
+.. gobj:class:: cut-roi
 
     Cut out a region of interest from two-dimensional input. If the ROI is
     (partially) outside the input, only accessible data will be copied.

@@ -11,7 +11,7 @@ Data writers
 TIFF writer
 -----------
 
-.. gobj:class:: writer
+.. gobj:class:: write
 
     Writes input data as TIFF files to the file system.
 

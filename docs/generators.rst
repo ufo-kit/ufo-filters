@@ -46,7 +46,7 @@ UcaCamera reader
 TIFF/EDF reader
 ---------------
 
-.. gobj:class:: reader
+.. gobj:class:: read
 
     The reader loads single files from disk and provides them as a stream The
     nominal resolution can be decreased by specifying the :gobj:prop:`y`
@@ -126,7 +126,7 @@ Metaballs
 Empty data
 ----------
 
-.. gobj:class:: generate
+.. gobj:class:: dummy-data
 
     Only asks for image data sized :gobj:prop:`width` times :gobj:prop:`height`
     times :gobj:prop:`depth` and forwards :gobj:prop:`number` of them to the
