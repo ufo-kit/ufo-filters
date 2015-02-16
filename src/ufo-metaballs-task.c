@@ -363,14 +363,14 @@ ufo_metaballs_task_class_init (UfoMetaballsTaskClass *klass)
                 G_PARAM_READWRITE);
 
     properties[PROP_NUM_BALLS] =
-        g_param_spec_uint("num-balls",
+        g_param_spec_uint("number-balls",
                 "Number of meta balls",
                 "Number of meta balls",
                 1, 256, 1,
                 G_PARAM_READWRITE);
 
     properties[PROP_NUM_ITERATIONS] =
-        g_param_spec_uint("num-iterations",
+        g_param_spec_uint("number",
                 "Number of iterations",
                 "Number of iterations",
                 1, G_MAXUINT, 1,

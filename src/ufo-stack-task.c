@@ -203,7 +203,7 @@ ufo_stack_task_class_init (UfoStackTaskClass *klass)
     oclass->finalize = ufo_stack_task_finalize;
 
     properties[PROP_NUM_ITEMS] =
-        g_param_spec_uint ("num-items",
+        g_param_spec_uint ("number",
             "Number of expected items",
             "Number of expected items",
             1, G_MAXUINT, 1,

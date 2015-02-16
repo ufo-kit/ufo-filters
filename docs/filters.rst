@@ -14,7 +14,7 @@ Averaging
 
     Read in full data stream and generate an averaged output.
 
-    .. gobj:prop:: num-generate:int
+    .. gobj:prop:: number:int
 
         Number of averaged images to output. By default one image is generated.
 
@@ -63,7 +63,7 @@ Generic OpenCL
 
         Name of the kernel that this filter is associated with.
 
-    .. gobj:prop:: num-dims:int
+    .. gobj:prop:: dimensions:int
 
         Number of dimensions the kernel works on. Must be in [1, 3].
 
@@ -88,7 +88,7 @@ Sinogram transposition
     transposed sinograms. :gobj:prop:`num-projections` *must* be set to the
     number of incoming projections to allocate enough memory.
 
-    .. gobj:prop:: num-projections:int
+    .. gobj:prop:: number:int
 
         Number of projections.
 
@@ -134,7 +134,7 @@ Forward projection
 
     Computes the forward projection of slices into sinograms.
 
-    .. gobj:prop:: num-projections:int
+    .. gobj:prop:: number:int
 
         Number of final 1D projections, that means height of the sinogram.
 
@@ -362,7 +362,7 @@ Buffering
     Buffers items internally until data stream has finished. After that all
     buffered elements are forwarded to the next task.
 
-    .. gobj:prop:: num-prealloc:int
+    .. gobj:prop:: number:int
 
         Number of pre-allocated buffers.
 
@@ -383,7 +383,7 @@ Stacking
     Symmetrical to the slice filter, the stack filter stacks two-dimensional
     input.
 
-    .. gobj:prop:: num-items:int
+    .. gobj:prop:: number:int
 
         Number of items, i.e. the length of the third dimension.
 

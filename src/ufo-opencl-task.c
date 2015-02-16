@@ -329,11 +329,11 @@ ufo_opencl_task_class_init (UfoOpenCLTaskClass *klass)
             G_PARAM_READWRITE);
 
     properties[PROP_NUM_DIMS] = 
-        g_param_spec_uint ("num-dims",
-                           "Number of dimensions",
-                           "Number of dimensions that the kernel works on",
-                           1, 3, 2,
-                           G_PARAM_READWRITE);
+        g_param_spec_uint ("dimensions",
+            "Number of dimensions",
+            "Number of dimensions that the kernel works on",
+            1, 3, 2,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

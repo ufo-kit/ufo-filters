@@ -222,7 +222,7 @@ ufo_average_task_class_init (UfoAverageTaskClass *klass)
     oclass->get_property = ufo_average_task_get_property;
 
     properties[PROP_NUM_GENERATE] =
-        g_param_spec_uint ("num-generate",
+        g_param_spec_uint ("number",
                            "Number of averaged images to generate",
                            "Number of averaged images to generate",
                            1, G_MAXUINT, 1,

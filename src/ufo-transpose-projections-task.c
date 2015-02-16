@@ -251,7 +251,7 @@ ufo_transpose_projections_task_class_init (UfoTransposeProjectionsTaskClass *kla
     oclass->get_property = ufo_transpose_projections_task_get_property;
 
     properties[PROP_NUM_PROJECTIONS] = 
-        g_param_spec_uint ("num-projections",
+        g_param_spec_uint ("number",
                            "Number of projections",
                            "Number of projections",
                            1, G_MAXUINT, 1,

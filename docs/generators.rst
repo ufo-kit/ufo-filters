@@ -26,7 +26,7 @@ UcaCamera reader
 
         Name of the camera that is used.
 
-    .. gobj:prop:: count:int
+    .. gobj:prop:: number:int
 
         Number of frames that are recorded.
 
@@ -109,11 +109,11 @@ Metaballs
 
         Height of output data stream.
 
-    .. gobj:prop:: num-balls:int
+    .. gobj:prop:: number-balls:int
 
         Number of meta balls.
 
-    .. gobj:prop:: num-iterations:int
+    .. gobj:prop:: number:int
 
         Length of data stream.
 
