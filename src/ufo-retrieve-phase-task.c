@@ -124,16 +124,16 @@ ufo_retrieve_phase_task_setup (UfoTask *task,
     lambda = 6.62606896e-34 * 299792458 / (priv->energy * 1.60217733e-16);
     priv->prefac = 2 * G_PI * lambda * priv->distance / (priv->pixel_size * priv->pixel_size);
 
-    priv->kernels[METHOD_TIE] = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "tie_method", error);
-    priv->kernels[METHOD_CTF] = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "ctf_method", error);
-    priv->kernels[METHOD_CTFHALFSINE] = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "ctfhalfsine_method", error);
-    priv->kernels[METHOD_QP] = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "qp_method", error);
-    priv->kernels[METHOD_QPHALFSINE] = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "qphalfsine_method", error);
-    priv->kernels[METHOD_QP2] = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "qp2_method", error);
+    priv->kernels[METHOD_TIE] = ufo_resources_get_kernel(resources, "phase-retrieval.cl", "tie_method", error);
+    priv->kernels[METHOD_CTF] = ufo_resources_get_kernel(resources, "phase-retrieval.cl", "ctf_method", error);
+    priv->kernels[METHOD_CTFHALFSINE] = ufo_resources_get_kernel(resources, "phase-retrieval.cl", "ctfhalfsine_method", error);
+    priv->kernels[METHOD_QP] = ufo_resources_get_kernel(resources, "phase-retrieval.cl", "qp_method", error);
+    priv->kernels[METHOD_QPHALFSINE] = ufo_resources_get_kernel(resources, "phase-retrieval.cl", "qphalfsine_method", error);
+    priv->kernels[METHOD_QP2] = ufo_resources_get_kernel(resources, "phase-retrieval.cl", "qp2_method", error);
 
-    priv->sub_value_kernel = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "subtract_value", error);
-    priv->mult_by_value_kernel = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "mult_by_value", error);
-    priv->get_real_kernel = ufo_resources_get_kernel(resources, "phase_retrieval.cl", "get_real", error);
+    priv->sub_value_kernel = ufo_resources_get_kernel(resources, "phase-retrieval.cl", "subtract_value", error);
+    priv->mult_by_value_kernel = ufo_resources_get_kernel(resources, "phase-retrieval.cl", "mult_by_value", error);
+    priv->get_real_kernel = ufo_resources_get_kernel(resources, "phase-retrieval.cl", "get_real", error);
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext(priv->context));
 

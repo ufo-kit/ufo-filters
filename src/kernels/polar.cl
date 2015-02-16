@@ -27,9 +27,10 @@
  * the input. Global indices in this kernel represent polar space
  * (x - distance, y - angular index).
  */
-kernel void populate_polar_space (read_only image2d_t input,
-                                  global float *output,
-                                  sampler_t sampler)
+kernel void
+populate_polar_space (read_only image2d_t input,
+                      global float *output,
+                      sampler_t sampler)
 {
     int2 id = (int2) (get_global_id (0), get_global_id (1));
     float angle = (2.0 * id.y / get_global_size (1) - 1.0) * M_PI;
@@ -48,9 +49,10 @@ kernel void populate_polar_space (read_only image2d_t input,
  * Populate cartesian space by converting the coordinates to polar and fetching data from
  * the input. Global indices in this kernel represent cartesian space.
  */
-kernel void populate_cartesian_space (read_only image2d_t input,
-                                      global float *output,
-                                      sampler_t sampler)
+kernel void
+populate_cartesian_space (read_only image2d_t input,
+                          global float *output,
+                          sampler_t sampler)
 {
     int2 id = (int2) (get_global_id (0), get_global_id (1));
     int2 shape = (int2) (get_global_size (0), get_global_size (1));

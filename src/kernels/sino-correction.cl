@@ -21,7 +21,7 @@ float flat_correct_point(float data, float dark, float flat) {
     return (data - dark) / (flat - dark);
 }
 
-__kernel void
+kernel void
 flat_correct(global float *sinogram,
              global float *corrected,
              global const float *dark,
@@ -37,7 +37,7 @@ flat_correct(global float *sinogram,
             flat_correct_point(sinogram[idy * width + idx], dark[idx], flat[idx]);
 }
 
-__kernel void
+kernel void
 absorptivity(global float *sinogram,
              global float *corrected,
              global const float *dark,

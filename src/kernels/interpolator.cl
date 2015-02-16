@@ -17,10 +17,10 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-__kernel void
-interpolate (__global float *a,
-             __global float *b,
-             __global float *output,
+kernel void
+interpolate (global float *a,
+             global float *b,
+             global float *output,
              int current,
              int total)
 {

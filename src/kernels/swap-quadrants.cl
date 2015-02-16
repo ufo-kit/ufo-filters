@@ -22,7 +22,8 @@ typedef struct {
         float imag;
 } clFFT_Complex;
 
-__kernel void swap_quadrants_kernel_real(__global float *input, __global float *output)
+kernel void
+swap_quadrants_kernel_real(global float *input, global float *output)
 {
 	const uint global_x_size = get_global_size(0);
 
@@ -42,7 +43,8 @@ __kernel void swap_quadrants_kernel_real(__global float *input, __global float *
 	}
 }
 
-__kernel void swap_quadrants_kernel_complex(__global clFFT_Complex *input, __global clFFT_Complex *output)
+kernel void
+swap_quadrants_kernel_complex(global clFFT_Complex *input, global clFFT_Complex *output)
 {
 	const uint global_x_size = get_global_size(0);
 

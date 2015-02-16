@@ -17,10 +17,10 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-__kernel void
-c_add (__global float *in1,
-       __global float *in2,
-       __global float *out)
+kernel void
+c_add (global float *in1,
+       global float *in2,
+       global float *out)
 {
     int idx = get_global_id(1) * 2 * get_global_size(0) + 2 * get_global_id(0);
 
@@ -28,10 +28,10 @@ c_add (__global float *in1,
     out[idx+1] = in1[idx+1] + in2[idx+1];
 }
 
-__kernel void
-c_mul (__global float *in1,
-       __global float *in2,
-       __global float *out)
+kernel void
+c_mul (global float *in1,
+       global float *in2,
+       global float *out)
 {
     int idx = get_global_id(1) * 2 * get_global_size(0) + 2 * get_global_id(0);
     const float a = in1[idx];
@@ -43,10 +43,10 @@ c_mul (__global float *in1,
     out[idx+1] = b*c + a*d;
 }
 
-__kernel void
-c_div (__global float *in1,
-       __global float *in2,
-       __global float *out)
+kernel void
+c_div (global float *in1,
+       global float *in2,
+       global float *out)
 {
     int idx = get_global_id(1) * 2 * get_global_size(0) + 2 * get_global_id(0);
     const float a = in1[idx];
@@ -62,8 +62,8 @@ c_div (__global float *in1,
     out[idx+1] = (b*c - a*d) / divisor;
 }
 
-__kernel void
-c_conj (__global float *data)
+kernel void
+c_conj (global float *data)
 {
     int idx = get_global_id(1) * 2 * get_global_size(0) + 2 * get_global_id(0);
     data[idx+1] = -data[idx+1];

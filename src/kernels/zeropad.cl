@@ -22,7 +22,8 @@ typedef struct {
         float imag;
 } clFFT_Complex;
 
-__kernel void zeropadding_kernel(__global float *input, int offset, int input_width, __global clFFT_Complex *output)
+kernel void
+zeropadding_kernel(global float *input, int offset, int input_width, global clFFT_Complex *output)
 {
     const uint sino_width = input_width - offset;
 	const uint out_size = get_global_size(0);

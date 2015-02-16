@@ -23,7 +23,7 @@ constant sampler_t volumeSampler = CLK_NORMALIZED_COORDS_FALSE |
 
 #define PI 3.1415926535897932384626433832795028841971693993751058209749445923078164062f
 
-__kernel void
+kernel void
 backproject_nearest (global float *sinogram,
                      global float *slice,
                      constant float *sin_lut,
@@ -47,7 +47,7 @@ backproject_nearest (global float *sinogram,
     slice[idy * width + idx] = sum * 4.0 * PI;
 }
 
-__kernel void
+kernel void
 backproject_tex (read_only image2d_t sinogram,
                  global float *slice,
                  constant float *sin_lut,

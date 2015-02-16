@@ -26,7 +26,7 @@
 /* Compute the distance of two neighbourhood vectors _starting_ from index i
    and j and edge length radius */
 float
-dist (__global float *input,
+dist (global float *input,
       int i,
       int j,
       int radius,
@@ -47,9 +47,9 @@ dist (__global float *input,
     return dist / wsize;
 }
 
-__kernel void
-nlm(__global float *input,
-    __global float *output)
+kernel void
+nlm(global float *input,
+    global float *output)
 {
     const int x = get_global_id(0);
     const int y = get_global_id(1);

@@ -17,10 +17,10 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-__kernel void
-h_gaussian (__global float *input,
-            __global float *output,
-            __constant float *weights,
+kernel void
+h_gaussian (global float *input,
+            global float *output,
+            constant float *weights,
             int half_num_weights)
 {
     const int x = get_global_id(0);
@@ -38,10 +38,10 @@ h_gaussian (__global float *input,
     output[y * width + x] = sum;
 }
 
-__kernel void
-v_gaussian (__global float *input,
-            __global float *output,
-            __constant float *weights,
+kernel void
+v_gaussian (global float *input,
+            global float *output,
+            constant float *weights,
             int half_num_weights)
 {
     const int x = get_global_id(0);

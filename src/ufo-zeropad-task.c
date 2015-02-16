@@ -74,7 +74,7 @@ ufo_zeropad_task_setup (UfoTask *task,
 {
     UfoZeropadTaskPrivate *priv = UFO_ZEROPAD_TASK_GET_PRIVATE (task);
     priv->resources = resources;
-    priv->zeropad_kernel = ufo_resources_get_kernel(resources, "zeropad_kernel.cl", "zeropad_kernel", error);
+    priv->zeropad_kernel = ufo_resources_get_kernel(resources, "zeropad.cl", "zeropad_kernel", error);
 }
 
 static void

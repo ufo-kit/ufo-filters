@@ -158,8 +158,8 @@ ufo_dfi_sinc_task_setup (UfoTask *task,
     priv->resources = g_object_ref(resources);
 
     //create kernel
-    priv->dfi_sinc_kernel = ufo_resources_get_kernel(resources, "dfi_sinc_kernel.cl", "dfi_sinc_kernel", error);
-    priv->clear_kernel = ufo_resources_get_kernel(resources, "dfi_sinc_kernel.cl", "clear_kernel", error);
+    priv->dfi_sinc_kernel = ufo_resources_get_kernel(resources, "dfi.cl", "dfi_sinc_kernel", error);
+    priv->clear_kernel = ufo_resources_get_kernel(resources, "dfi.cl", "clear_kernel", error);
 
     //calculate and setup kernel lookup table to buffer
     gfloat *tmp_ktbl = ufo_dfi_sinc_task_get_ktbl(priv->number_presampled_values);

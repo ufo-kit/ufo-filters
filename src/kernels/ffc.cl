@@ -17,7 +17,7 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-__kernel void
+kernel void
 flat_correct (global float *corrected,
               global float *data,
               global const float *dark,

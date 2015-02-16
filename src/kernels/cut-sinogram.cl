@@ -17,7 +17,8 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-__kernel void cut_sinogram_kernel(__global float *input, int offset, __global float *output)
+kernel void
+cut_sinogram (global float *input, int offset, global float *output)
 {
 	const uint global_x_size = get_global_size(0);
 
