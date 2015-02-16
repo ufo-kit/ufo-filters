@@ -23,6 +23,7 @@
 #include <stdlib.h>
 
 #include "ufo-ring-pattern-task.h"
+#include "ufo-priv.h"
 
 
 struct _UfoRingPatternTaskPrivate {
