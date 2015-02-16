@@ -21,6 +21,7 @@ Reference
     generators/index
     filters/index
     sinks/index
+    piv
 
 
 Additional notes

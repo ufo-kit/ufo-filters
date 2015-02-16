@@ -7,28 +7,43 @@ set(ufofilter_SRCS
     ufo-buffer-task.c
     ufo-cut-sinogram-task.c
     ufo-center-of-rotation-task.c
+    ufo-concatenate-result-task.c
+    ufo-contrast-task.c
     ufo-dfi-sinc-task.c
+    ufo-denoise-task.c
     ufo-downsample-task.c
+    ufo-dump-ring-task.c
+    ufo-duplicate-task.c
     ufo-filter-task.c
     ufo-flatten-task.c
     ufo-flatten-inplace-task.c
     ufo-flat-field-correction-task.c
     ufo-fft-task.c
+    ufo-fftmult-task.c
+    ufo-filter-particle-task.c
     ufo-forwardproject-task.c
     ufo-gaussian-blur-task.c
     ufo-generate-task.c
+    ufo-get-dup-circ-task.c
     ufo-ifft-task.c
     ufo-interpolate-task.c
     ufo-sharpness-measure-task.c
     ufo-map-slice-task.c
     ufo-median-filter-task.c
     ufo-meta-balls-task.c
+    ufo-multi-search-task.c
     ufo-null-task.c
     ufo-opencl-task.c
+    ufo-ordfilt-task.c
     ufo-pad-task.c
     ufo-phase-retrieval-task.c
     ufo-polar-coordinates-task.c
     ufo-region-of-interest-task.c
+    ufo-reduce-task.c
+    ufo-remove-circle-task.c
+    ufo-ring-pattern-task.c
+    ufo-ringwriter-task.c
+    ufo-replicate-task.c
     ufo-sino-generator-task.c
     ufo-slice-task.c
     ufo-stack-task.c
@@ -39,6 +54,8 @@ set(ufofilter_SRCS
     ufo-volume-render-task.c
     ufo-zeropadding-task.c
     )
+
+set(ufoaux_SRCS ufo-priv.c)
 
 file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}
@@ -135,9 +152,9 @@ foreach(_src ${ufofilter_SRCS})
 
         # build single shared library per filter
         if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-            add_library(${target} MODULE ${_src} ${${_misc}})
+            add_library(${target} MODULE ${ufoaux_SRCS} ${_src} ${${_misc}})
         else()
-            add_library(${target} SHARED ${_src} ${${_misc}})
+            add_library(${target} SHARED ${ufoaux_SRCS} ${_src} ${${_misc}})
         endif()
 
         target_link_libraries(${target} ${ufofilter_LIBS})
