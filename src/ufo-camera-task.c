@@ -345,7 +345,7 @@ ufo_camera_task_class_init(UfoCameraTaskClass *klass)
             G_PARAM_READWRITE);
 
     properties[PROP_COUNT] =
-        g_param_spec_uint("count",
+        g_param_spec_uint("number",
             "Number of frames to record",
             "Number of frames to record",
             0, G_MAXUINT, 0,

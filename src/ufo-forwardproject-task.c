@@ -227,7 +227,7 @@ ufo_forwardproject_task_class_init (UfoForwardprojectTaskClass *klass)
                            G_PARAM_READWRITE);
 
     properties[PROP_NUM_PROJECTIONS] =
-        g_param_spec_uint("num-projections",
+        g_param_spec_uint("number",
                           "Number of projections",
                           "Number of projections",
                           1, 8192, 256,

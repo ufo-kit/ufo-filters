@@ -21,12 +21,6 @@
 #endif
 #include "ufo-transpose-task.h"
 
-/**
- * SECTION:ufo-transpose-task
- * @Short_description: Transpose images
- * @Title: transpose
- *
- */
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 

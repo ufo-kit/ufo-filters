@@ -18,9 +18,9 @@ Reference
 .. toctree::
     :maxdepth: 2
 
-    generators/index
-    filters/index
-    sinks/index
+    generators
+    filters
+    sinks
     piv
 
 

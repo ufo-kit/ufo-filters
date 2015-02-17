@@ -17,9 +17,9 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-__kernel void
-fft_spread (__global float *out,
-            __global float *in,
+kernel void
+fft_spread (global float *out,
+            global float *in,
             const int width,
             const int height)
 {
@@ -39,9 +39,9 @@ fft_spread (__global float *out,
     }
 }
 
-__kernel void
-fft_pack (__global float *in,
-          __global float *out,
+kernel void
+fft_pack (global float *in,
+          global float *out,
           const int width,
           const float scale)
 {
@@ -53,8 +53,8 @@ fft_pack (__global float *in,
         out[idy*width + idx] = in[idy*dpitch + 2*idx] * scale;
 }
 
-__kernel void
-fft_normalize (__global float *data)
+kernel void
+fft_normalize (global float *data)
 {
     const int idx = get_global_id(0);
     const int dim_fft = get_global_size(0);

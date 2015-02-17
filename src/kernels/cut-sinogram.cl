@@ -16,15 +16,14 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
-
+ 
 kernel void
-interpolate (global float *a,
-             global float *b,
-             global float *output,
-             int current,
-             int total)
+cut_sinogram (global float *input, int offset, global float *output)
 {
-    const int index = get_global_id(1)*get_global_size(0) + get_global_id(0);
-    float fraction = (float) current / (float) (total - 1);
-    output[index] = (1.0 - fraction) * a[index] + fraction*b[index];
+	const uint global_x_size = get_global_size(0);
+
+	int g_idx = get_global_id(0);
+	int g_idy = get_global_id(1);
+
+	output[g_idy * global_x_size + g_idx] = input[g_idy * (global_x_size + offset) + g_idx + offset];
 }

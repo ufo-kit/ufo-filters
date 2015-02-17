@@ -69,8 +69,8 @@ ufo_swap_quadrants_task_setup (UfoTask *task,
 {
     UfoSwapQuadrantsTaskPrivate *priv = UFO_SWAP_QUADRANTS_TASK_GET_PRIVATE (task);
     priv->resources = resources;
-    priv->swap_quadrants_kernel_real = ufo_resources_get_kernel(resources, "swap_quadrants_kernel.cl", "swap_quadrants_kernel_real", error);
-    priv->swap_quadrants_kernel_complex = ufo_resources_get_kernel(resources, "swap_quadrants_kernel.cl", "swap_quadrants_kernel_complex", error);
+    priv->swap_quadrants_kernel_real = ufo_resources_get_kernel(resources, "swap-quadrants.cl", "swap_quadrants_kernel_real", error);
+    priv->swap_quadrants_kernel_complex = ufo_resources_get_kernel(resources, "swap-quadrants.cl", "swap_quadrants_kernel_complex", error);
 }
 
 static void

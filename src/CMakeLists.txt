@@ -2,57 +2,57 @@ cmake_minimum_required(VERSION 2.6)
 
 #{{{ Sources
 set(ufofilter_SRCS
-    ufo-averager-task.c
+    ufo-average-task.c
     ufo-backproject-task.c
+    ufo-blur-task.c
     ufo-buffer-task.c
     ufo-cut-sinogram-task.c
+    ufo-cut-roi-task.c
     ufo-center-of-rotation-task.c
     ufo-concatenate-result-task.c
     ufo-contrast-task.c
     ufo-dfi-sinc-task.c
     ufo-denoise-task.c
     ufo-downsample-task.c
+    ufo-dummy-data-task.c
     ufo-dump-ring-task.c
     ufo-duplicate-task.c
     ufo-filter-task.c
     ufo-flatten-task.c
     ufo-flatten-inplace-task.c
-    ufo-flat-field-correction-task.c
+    ufo-flat-field-correct-task.c
     ufo-fft-task.c
     ufo-fftmult-task.c
     ufo-filter-particle-task.c
+    ufo-filter-stripes-task.c
     ufo-forwardproject-task.c
-    ufo-gaussian-blur-task.c
-    ufo-generate-task.c
     ufo-get-dup-circ-task.c
     ufo-ifft-task.c
     ufo-interpolate-task.c
-    ufo-sharpness-measure-task.c
     ufo-map-slice-task.c
+    ufo-measure-sharpness-task.c
     ufo-median-filter-task.c
-    ufo-meta-balls-task.c
+    ufo-metaballs-task.c
     ufo-multi-search-task.c
     ufo-null-task.c
     ufo-opencl-task.c
     ufo-ordfilt-task.c
     ufo-pad-task.c
-    ufo-phase-retrieval-task.c
     ufo-polar-coordinates-task.c
-    ufo-region-of-interest-task.c
     ufo-reduce-task.c
     ufo-remove-circle-task.c
+    ufo-retrieve-phase-task.c
     ufo-ring-pattern-task.c
     ufo-ringwriter-task.c
     ufo-replicate-task.c
-    ufo-sino-generator-task.c
     ufo-slice-task.c
     ufo-stack-task.c
-    ufo-stripe-filter-task.c
     ufo-transpose-task.c
+    ufo-transpose-projections-task.c
     ufo-swap-quadrants-task.c
     ufo-subtract-task.c
     ufo-volume-render-task.c
-    ufo-zeropadding-task.c
+    ufo-zeropad-task.c
     )
 
 set(ufoaux_SRCS ufo-priv.c)
@@ -84,14 +84,14 @@ pkg_check_modules(UFO_IR ufoir>=0.1)
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
 
 if (TIFF_FOUND)
-    list(APPEND ufofilter_SRCS ufo-reader-task.c)
-    list(APPEND ufofilter_SRCS ufo-writer-task.c)
+    list(APPEND ufofilter_SRCS ufo-read-task.c)
+    list(APPEND ufofilter_SRCS ufo-write-task.c)
     list(APPEND ufofilter_LIBS ${TIFF_LIBRARIES})
     include_directories(${TIFF_INCLUDE_DIRS})
     link_directories(${TIFF_LIBRARY_DIRS})
 elseif (LIBTIFF4_INCLUDE_DIRS AND LIBTIFF4_LIBRARIES)
-    list(APPEND ufofilter_SRCS ufo-reader-task.c)
-    list(APPEND ufofilter_SRCS ufo-writer-task.c)
+    list(APPEND ufofilter_SRCS ufo-read-task.c)
+    list(APPEND ufofilter_SRCS ufo-write-task.c)
     list(APPEND ufofilter_LIBS ${LIBTIFF4_LIBRARIES})
     include_directories(${LIBTIFF4_INCLUDE_DIRS})
     link_directories(${LIBTIFF4_LIBRARY_DIRS})

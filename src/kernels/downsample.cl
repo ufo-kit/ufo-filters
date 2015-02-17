@@ -1,6 +1,6 @@
-__kernel void
-downsample_fast(__global float *input,
-                __global float *output,
+kernel void
+downsample_fast(global float *input,
+                global float *output,
                 unsigned int x_factor,
                 unsigned int y_factor)
 {

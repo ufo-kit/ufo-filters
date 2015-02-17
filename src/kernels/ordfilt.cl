@@ -3,10 +3,10 @@
 
 /* For each pixel, sorts neighboring elements, picks the low_threshold and
  * high_threshold pixel, computes a value, and stores it in the dst image */
-__kernel void
+kernel void
 bitonic_ordfilt (global const float *src, global float *dst, int num_elements,
                  int arrayLength, float low_threshold, float high_threshold,
-                 __local float *s_key, unsigned idx_offset)
+                 local float *s_key, unsigned idx_offset)
 {
     // ascendent order
     unsigned dir = 1;

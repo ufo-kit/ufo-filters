@@ -21,9 +21,9 @@ constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE |
                              CLK_ADDRESS_CLAMP |
                              CLK_FILTER_LINEAR;
 
-__kernel void
-forwardproject(__read_only image2d_t slice,
-               __global float *sinogram,
+kernel void
+forwardproject(read_only image2d_t slice,
+               global float *sinogram,
                float angle_step)
 {
     const int idx = get_global_id(0);

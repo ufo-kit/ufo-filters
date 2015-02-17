@@ -19,9 +19,9 @@
 
 
 /* Naive implementation */
-__kernel void
-histogram (__global float *input,
-           __global float *output,
+kernel void
+histogram (global float *input,
+           global float *output,
            unsigned int input_size,
            float min_range,
            float max_range)
@@ -41,10 +41,10 @@ histogram (__global float *input,
     output[bin] = ((float) sum) / input_size;
 }
 
-__kernel void
-threshold (__global float *input,
-           __global float *histogram,
-           __global float *output)
+kernel void
+threshold (global float *input,
+           global float *histogram,
+           global float *output)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);

@@ -27,16 +27,6 @@
 #include <math.h>
 #include "ufo-cut-sinogram-task.h"
 
-/**
- * SECTION:ufo-cut_sinogram-task
- * @Short_description: Crop sinogram using the shifted center of rotation
- * @Title: cut-sinogram
- *
- * Crop sinogram using the shifted center of
- * rotation ( #UfoCutSinogramTask:center-of-rotation ) to obtain the
- * center of rotation in the center sinogram.
- *
- */
 
 struct _UfoCutSinogramTaskPrivate {
     UfoResources *resources;
@@ -73,7 +63,7 @@ ufo_cut_sinogram_task_setup (UfoTask *task,
 {
     UfoCutSinogramTaskPrivate *priv = UFO_CUT_SINOGRAM_TASK_GET_PRIVATE (task);
     priv->resources = resources;
-    priv->cut_sinogram_kernel = ufo_resources_get_kernel(resources, "cut_sinogram_kernel.cl", "cut_sinogram_kernel", error);
+    priv->cut_sinogram_kernel = ufo_resources_get_kernel(resources, "cut-sinogram.cl", "cut_sinogram", error);
 }
 
 static void

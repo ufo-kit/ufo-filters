@@ -17,10 +17,10 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-__kernel void
-draw_metaballs (__global float *output,
-                __global float2 *positions,
-                __constant float *sizes,
+kernel void
+draw_metaballs (global float *output,
+                global float2 *positions,
+                constant float *sizes,
                 uint num_balls)
 {
     const int idx = get_global_id(0);
