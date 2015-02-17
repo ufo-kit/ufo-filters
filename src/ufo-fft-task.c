@@ -57,6 +57,12 @@ struct _UfoFftTaskPrivate {
     gboolean auto_zeropadding;
 };
 
+#ifdef HAVE_AMD
+#define clFFT_1D CLFFT_1D
+#define clFFT_2D CLFFT_2D
+#define clFFT_3D CLFFT_3D
+#endif
+
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (UfoFftTask, ufo_fft_task, UFO_TYPE_TASK_NODE,
@@ -135,40 +141,26 @@ ufo_fft_task_get_requisition (UfoTask *task,
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
-    x_dim = (priv->auto_zeropadding) ? pow2round ((guint32) in_req.dims[0]) : 
-                                                  (guint) in_req.dims[0]/2;
+    x_dim = (priv->auto_zeropadding) ? pow2round ((guint32) in_req.dims[0]) : (guint) in_req.dims[0] / 2;
+
     #ifdef HAVE_AMD
-    clfftDim dimension;                                              
+    clfftDim dimension;
     #else
     clFFT_Dimension dimension;
     #endif
 
     switch (priv->fft_dimensions) {
         case FFT_1D:
-            #ifdef HAVE_AMD
-            dimension = CLFFT_1D;
-            #else 
             dimension = clFFT_1D;
-            #endif
-
             break;
+
         case FFT_2D:
-            y_dim = (priv->auto_zeropadding) ? pow2round ((guint32) in_req.dims[1]) :
-                                                          (guint32) in_req.dims[1];
-            #ifdef HAVE_AMD
-            dimension = CLFFT_2D;
-            #else 
+            y_dim = (priv->auto_zeropadding) ? pow2round ((guint32) in_req.dims[1]) : (guint32) in_req.dims[1];
             dimension = clFFT_2D;
-            #endif
-
             break;
-        case FFT_3D:
-            #ifdef HAVE_AMD
-            dimension = CLFFT_3D;
-            #else 
-            dimension = clFFT_3D;
-            #endif
 
+        case FFT_3D:
+            dimension = clFFT_3D;
             break;
     }
 
@@ -181,7 +173,6 @@ ufo_fft_task_get_requisition (UfoTask *task,
     priv->fft_size.x = x_dim;
     priv->fft_size.y = y_dim;
     #endif
-
 
     priv->batch_size = priv->fft_dimensions == FFT_1D ? (cl_int) in_req.dims[1] : 1;
 
@@ -293,16 +284,16 @@ ufo_fft_task_process (UfoTask *task,
     }
 
     #ifdef HAVE_AMD
-    clfftEnqueueTransform (priv->fft_plan, 
+    clfftEnqueueTransform (priv->fft_plan,
                            CLFFT_FORWARD, 1, &(priv->cmd_queue),
                            (priv->auto_zeropadding)? 1 : 0,
-			    (priv->auto_zeropadding)? &event : NULL, NULL, 
+                           (priv->auto_zeropadding)? &event : NULL, NULL,
                            (priv->auto_zeropadding)? &out_mem : &in_mem, &out_mem, NULL);
     #else
     clFFT_ExecuteInterleaved_Ufo (priv->cmd_queue, priv->fft_plan,
                                   priv->batch_size, clFFT_Forward,
-                                  (priv->auto_zeropadding)? out_mem : in_mem, out_mem, 
-                                  (priv->auto_zeropadding)? 1 : 0, 
+                                  (priv->auto_zeropadding)? out_mem : in_mem, out_mem,
+                                  (priv->auto_zeropadding)? 1 : 0,
                                   (priv->auto_zeropadding)? &event : NULL, NULL, profiler);
     #endif
 
@@ -440,7 +431,7 @@ ufo_fft_task_class_init (UfoFftTaskClass *klass)
 {
     GObjectClass *oclass;
     UfoNodeClass *node_class;
-    
+
     oclass = G_OBJECT_CLASS (klass);
     node_class = UFO_NODE_CLASS (klass);
 

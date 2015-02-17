@@ -57,6 +57,12 @@ struct _UfoIfftTaskPrivate {
     gint crop_width;
 };
 
+#ifdef HAVE_AMD
+#define clFFT_1D CLFFT_1D
+#define clFFT_2D CLFFT_2D
+#define clFFT_3D CLFFT_3D
+#endif
+
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (UfoIfftTask, ufo_ifft_task, UFO_TYPE_TASK_NODE,
@@ -127,29 +133,16 @@ ufo_ifft_task_get_requisition (UfoTask *task,
 
     switch (priv->fft_dimensions) {
         case FFT_1D:
-            #ifdef HAVE_AMD
-            dimension = CLFFT_1D;
-            #else 
             dimension = clFFT_1D;
-            #endif
-
             break;
-        case FFT_2D:
-            #ifdef HAVE_AMD
-            dimension = CLFFT_2D;
-            #else 
-            dimension = clFFT_2D;
-            #endif
 
+        case FFT_2D:
+            dimension = clFFT_2D;
             y_dim = (guint32) in_req.dims[1];
             break;
-        case FFT_3D:
-            #ifdef HAVE_AMD
-            dimension = CLFFT_3D;
-            #else 
-            dimension = clFFT_3D;
-            #endif
 
+        case FFT_3D:
+            dimension = clFFT_3D;
             break;
     }
 
@@ -252,9 +245,9 @@ ufo_ifft_task_process (UfoTask *task,
     out_mem = ufo_buffer_get_device_array (output, priv->cmd_queue);
 
     #ifdef HAVE_AMD
-    clfftEnqueueTransform (priv->fft_plan, 
+    clfftEnqueueTransform (priv->fft_plan,
                            CLFFT_BACKWARD, 1, &(priv->cmd_queue),
-                           0, NULL, NULL, 
+                           0, NULL, NULL,
                            &in_mem, &in_mem, NULL);
     #else
     clFFT_ExecuteInterleaved_Ufo (priv->cmd_queue,
@@ -373,7 +366,7 @@ ufo_ifft_task_class_init (UfoIfftTaskClass *klass)
 {
     GObjectClass *oclass;
     UfoNodeClass *node_class;
-    
+
     oclass = G_OBJECT_CLASS (klass);
     node_class = UFO_NODE_CLASS (klass);
 
