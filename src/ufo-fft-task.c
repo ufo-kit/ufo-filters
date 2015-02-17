@@ -128,7 +128,9 @@ ufo_fft_task_get_requisition (UfoTask *task,
     UfoFftTaskPrivate *priv;
     UfoRequisition in_req;
     cl_int cl_err;
-    guint32 x_dim = 1, y_dim = 1;
+    guint32 x_dim = 1;
+    guint32 y_dim = 1;
+    gboolean changed = FALSE;
 
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &in_req);
@@ -171,9 +173,11 @@ ufo_fft_task_get_requisition (UfoTask *task,
     }
 
     #ifdef HAVE_AMD
+    changed = priv->fft_size[0] != x_dim || priv->fft_size[1] != y_dim;
     priv->fft_size[0] = x_dim;
     priv->fft_size[1] = y_dim;
     #else
+    changed = priv->fft_size.x != x_dim || priv->fft_size.y != y_dim;
     priv->fft_size.x = x_dim;
     priv->fft_size.y = y_dim;
     #endif
@@ -182,11 +186,12 @@ ufo_fft_task_get_requisition (UfoTask *task,
     priv->batch_size = priv->fft_dimensions == FFT_1D ? (cl_int) in_req.dims[1] : 1;
 
     #ifdef HAVE_AMD
-    if (priv->fft_plan == 0) {
-    #else
-    if (priv->fft_plan == NULL) {
-    #endif
-        #ifdef HAVE_AMD
+    if (priv->fft_plan == 0 || changed) {
+        if (priv->fft_plan != 0) {
+            clfftDestroyPlan (&(priv->fft_plan));
+            priv->fft_plan = 0;
+        }
+
         cl_err = clfftSetup(&(priv->fft_setup));
         cl_err = clfftCreateDefaultPlan (&(priv->fft_plan), priv->context, dimension, priv->fft_size);
         cl_err = clfftSetPlanBatchSize (priv->fft_plan, priv->batch_size);
@@ -194,16 +199,19 @@ ufo_fft_task_get_requisition (UfoTask *task,
         cl_err = clfftSetLayout (priv->fft_plan, CLFFT_COMPLEX_INTERLEAVED, CLFFT_COMPLEX_INTERLEAVED);
         cl_err = clfftSetResultLocation (priv->fft_plan, (priv->auto_zeropadding)? CLFFT_INPLACE : CLFFT_OUTOFPLACE);
         cl_err = clfftBakePlan (priv->fft_plan, 1, &(priv->cmd_queue), NULL, NULL);
-        #else
-        priv->fft_plan = clFFT_CreatePlan (priv->context,
-                                           priv->fft_size,
-                                           dimension,
-                                           clFFT_InterleavedComplexFormat, 
-                                           &cl_err);
-        #endif
-
         UFO_RESOURCES_CHECK_CLERR (cl_err);
     }
+    #else
+    if (priv->fft_plan == NULL || changed) {
+        if (priv->fft_plan != NULL) {
+            clFFT_DestroyPlan (priv->fft_plan);
+            priv->fft_plan = NULL;
+        }
+
+        priv->fft_plan = clFFT_CreatePlan (priv->context, priv->fft_size, dimension, clFFT_InterleavedComplexFormat, &cl_err);
+        UFO_RESOURCES_CHECK_CLERR (cl_err);
+    }
+    #endif
 
     requisition->n_dims = 2;
     requisition->dims[0] = 2 * x_dim;
