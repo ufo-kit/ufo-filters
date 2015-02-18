@@ -32,7 +32,16 @@ endif ()
 #{{{ Common dependencies
 find_package(OpenCL REQUIRED)
 find_package(PkgConfig REQUIRED)
+
 pkg_check_modules(UFO ufo>=${PKG_UFO_CORE_MIN_REQUIRED} REQUIRED)
+
+execute_process(COMMAND pkg-config --variable=plugindir ufo
+                OUTPUT_VARIABLE UFO_FILTERS_PLUGINDIR
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+execute_process(COMMAND pkg-config --variable=kerneldir ufo
+                OUTPUT_VARIABLE UFO_FILTERS_KERNELDIR
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps/oclfft)
 
