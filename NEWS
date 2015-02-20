@@ -1,3 +1,37 @@
+Version 0.7.0
+=============
+
+This release breaks badly with all previous version because we renamed several
+filters and properties to clean up inconsistencies.
+
+Major changes include:
+
+- Integration tests have been moved to core
+- writer: allow 8 and 16 bit uint output
+- reader: support Multi EDF files
+- reader: add y-step parameter
+- reader: from:to:step selection of files
+- flatfieldcorrection: add "dark-scale" property
+
+New filters:
+
+- Import uPIV related filters by Alexandre Lewkowicz
+- Add pad to add zero padding
+- Add slice mapper to arrange input as a single grid
+- Add inplace flatten task for sum, min and max
+- Add interpolation task to interpolate between two streams
+- Add flatten task based on median sort
+- Add stack task to create a volume from 2D series
+- Add transpose task to rotate data
+- Add measure task to measure image metrics
+- Add PolarCoordinates task
+- Integration of UfoIR algebraic reconstruction tasks
+- Add median noise filter
+- Add slice task to cut volumes into 2D data stream
+- Add stripe removal task
+- Add phase retrieval filter
+
+
 Version 0.6.0
 =============
 
