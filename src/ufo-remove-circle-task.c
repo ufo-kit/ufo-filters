@@ -233,17 +233,17 @@ ufo_remove_circle_task_process (UfoTask *task,
                                 UfoBuffer *output,
                                 UfoRequisition *requisition)
 {
-    UfoBuffer* dup = ufo_buffer_dup(inputs[0]);
-    ufo_buffer_copy(inputs[0], dup);
-    URCS *coord = (URCS *) ufo_buffer_get_host_array(dup, NULL);
-    URCS *out_coord = (URCS *) ufo_buffer_get_host_array(output, NULL);
+    UfoBuffer* duplicate = ufo_buffer_dup (inputs[0]);
+    ufo_buffer_copy (inputs[0], duplicate);
+    URCS *coord = (URCS *) ufo_buffer_get_host_array (duplicate, NULL);
+    URCS *out_coord = (URCS *) ufo_buffer_get_host_array (output, NULL);
     UfoRemoveCircleTaskPrivate *priv = UFO_REMOVE_CIRCLE_TASK_GET_PRIVATE(task);
-    remove_inner_circle(coord, out_coord);
+    remove_inner_circle (coord, out_coord);
 
-    ufo_buffer_copy(output, dup);
-    remove_circle(priv, coord, out_coord);
+    ufo_buffer_copy (output, duplicate);
+    remove_circle (priv, coord, out_coord);
 
-    g_object_unref(dup);
+    g_object_unref (duplicate);
     return TRUE;
 }
 
