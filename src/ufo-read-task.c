@@ -40,7 +40,6 @@ struct _UfoReadTaskPrivate {
     guint step;
     guint start;
     guint end;
-    gboolean blocking;
     gboolean normalize;
     gboolean more_pages;
     GSList *filenames;
@@ -81,7 +80,6 @@ G_DEFINE_TYPE_WITH_CODE (UfoReadTask, ufo_read_task, UFO_TYPE_TASK_NODE,
 enum {
     PROP_0,
     PROP_PATH,
-    PROP_BLOCKING,
     PROP_START,
     PROP_END,
     PROP_STEP,
@@ -534,9 +532,6 @@ ufo_read_task_set_property (GObject *object,
         case PROP_STEP:
             priv->step = g_value_get_uint (value);
             break;
-        case PROP_BLOCKING:
-            priv->blocking = g_value_get_boolean (value);
-            break;
         case PROP_NORMALIZE:
             priv->normalize = g_value_get_boolean (value);
             break;
@@ -578,9 +573,6 @@ ufo_read_task_get_property (GObject *object,
             break;
         case PROP_STEP:
             g_value_set_uint (value, priv->step);
-            break;
-        case PROP_BLOCKING:
-            g_value_set_boolean (value, priv->blocking);
             break;
         case PROP_NORMALIZE:
             g_value_set_boolean (value, priv->normalize);
@@ -669,13 +661,6 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
         1, G_MAXUINT, 1,
         G_PARAM_READWRITE);
 
-    properties[PROP_BLOCKING] =
-        g_param_spec_boolean("blocking",
-        "Block read",
-        "Block until all files are read.",
-        FALSE,
-        G_PARAM_READWRITE);
-
     properties[PROP_NORMALIZE] =
         g_param_spec_boolean("normalize",
         "Normalize values",
@@ -746,7 +731,6 @@ ufo_read_task_init(UfoReadTask *self)
     self->priv = priv = UFO_READ_TASK_GET_PRIVATE (self);
     priv->path = g_strdup ("*.tif");
     priv->step = 1;
-    priv->blocking = FALSE;
     priv->normalize = FALSE;
     priv->more_pages = FALSE;
     priv->roi_y = 0;
