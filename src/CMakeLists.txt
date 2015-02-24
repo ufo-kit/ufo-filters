@@ -39,6 +39,7 @@ set(ufofilter_SRCS
     ufo-ordfilt-task.c
     ufo-pad-task.c
     ufo-polar-coordinates-task.c
+    ufo-read-task.c
     ufo-reduce-task.c
     ufo-remove-circle-task.c
     ufo-retrieve-phase-task.c
@@ -55,7 +56,12 @@ set(ufofilter_SRCS
     ufo-zeropad-task.c
     )
 
-set(ufoaux_SRCS ufo-priv.c)
+set(ufoaux_SRCS
+    ufo-priv.c)
+
+set(read_misc_SRCS
+    readers/ufo-reader.c
+    readers/ufo-edf-reader.c)
 
 file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}
@@ -84,17 +90,19 @@ pkg_check_modules(UFO_IR ufoir>=0.1)
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
 
 if (TIFF_FOUND)
-    list(APPEND ufofilter_SRCS ufo-read-task.c)
+    list(APPEND read_misc_SRCS readers/ufo-tiff-reader.c)
     list(APPEND ufofilter_SRCS ufo-write-task.c)
     list(APPEND ufofilter_LIBS ${TIFF_LIBRARIES})
     include_directories(${TIFF_INCLUDE_DIRS})
     link_directories(${TIFF_LIBRARY_DIRS})
+    set(HAVE_TIFF True)
 elseif (LIBTIFF4_INCLUDE_DIRS AND LIBTIFF4_LIBRARIES)
-    list(APPEND ufofilter_SRCS ufo-read-task.c)
+    list(APPEND read_misc_SRCS readers/ufo-tiff-reader.c)
     list(APPEND ufofilter_SRCS ufo-write-task.c)
     list(APPEND ufofilter_LIBS ${LIBTIFF4_LIBRARIES})
     include_directories(${LIBTIFF4_INCLUDE_DIRS})
     link_directories(${LIBTIFF4_LIBRARY_DIRS})
+    set(HAVE_TIFF True)
 endif ()
 
 if (UCA_INCLUDE_DIRS AND UCA_LIBRARIES)

@@ -1,0 +1,279 @@
+/*
+ * Copyright (C) 2011-2013 Karlsruhe Institute of Technology
+ *
+ * This file is part of Ufo.
+ *
+ * This library is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation, either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "readers/ufo-reader.h"
+#include "readers/ufo-edf-reader.h"
+
+
+struct _UfoEdfReaderPrivate {
+    FILE *fp;
+    gssize size;
+    gsize height;
+    guint bytes_per_sample;
+    gboolean big_endian;
+};
+
+static void ufo_reader_interface_init (UfoReaderIface *iface);
+
+G_DEFINE_TYPE_WITH_CODE (UfoEdfReader, ufo_edf_reader, G_TYPE_OBJECT,
+                         G_IMPLEMENT_INTERFACE (UFO_TYPE_READER,
+                                                ufo_reader_interface_init))
+
+#define UFO_EDF_READER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_EDF_READER, UfoEdfReaderPrivate))
+
+UfoEdfReader *
+ufo_edf_reader_new (void)
+{
+    UfoEdfReader *reader = g_object_new (UFO_TYPE_EDF_READER, NULL);
+    return reader;
+}
+
+static void
+ufo_edf_reader_open (UfoReader *reader,
+                     const gchar *filename)
+{
+    UfoEdfReaderPrivate *priv;
+    
+    priv = UFO_EDF_READER_GET_PRIVATE (reader);
+    priv->fp = fopen (filename, "rb");
+
+    fseek (priv->fp, 0L, SEEK_END);
+    priv->size = (gsize) ftell (priv->fp);
+    fseek (priv->fp, 0L, SEEK_SET);
+}
+
+static void
+ufo_edf_reader_close (UfoReader *reader)
+{
+    UfoEdfReaderPrivate *priv;
+    
+    priv = UFO_EDF_READER_GET_PRIVATE (reader);
+    g_assert (priv->fp != NULL);
+    fclose (priv->fp);
+    priv->fp = NULL;
+    priv->size = 0;
+}
+
+static gboolean
+ufo_edf_reader_data_available (UfoReader *reader)
+{
+    UfoEdfReaderPrivate *priv;
+    
+    priv = UFO_EDF_READER_GET_PRIVATE (reader);
+    return priv->fp != NULL && ftell (priv->fp) < priv->size;
+}
+
+static void
+ufo_edf_reader_read (UfoReader *reader,
+                     UfoBuffer *buffer,
+                     UfoRequisition *requisition,
+                     guint roi_y,
+                     guint roi_height,
+                     guint roi_step)
+{
+    UfoEdfReaderPrivate *priv;
+    gsize num_bytes;
+    gsize num_read;
+    gssize offset;
+    gchar *data;
+
+    priv = UFO_EDF_READER_GET_PRIVATE (reader);
+    data = (gchar *) ufo_buffer_get_host_array (buffer, NULL);
+
+    /* size of the image width in bytes */
+    const gsize width = requisition->dims[0] * priv->bytes_per_sample;
+    const guint num_rows = requisition->dims[1];
+    const gsize end_position = ftell (priv->fp) + priv->height * width;
+
+    offset = 0;
+
+    /* Go to the first desired row */
+    fseek (priv->fp, roi_y * width, SEEK_CUR);
+
+    if (roi_step == 1) {
+        /* Read the full ROI at once if no stepping is specified */
+        num_bytes = width * roi_height;
+        num_read = fread (data, 1, num_bytes, priv->fp);
+
+        if (num_bytes != num_bytes)
+            return;
+    }
+    else {
+        for (guint i = 0; i < num_rows - 1; i++) {
+            num_read = fread (data + offset, 1, width, priv->fp);
+
+            if (num_read != width)
+                return;
+
+            offset += width;
+            fseek (priv->fp, (roi_step - 1) * width, SEEK_CUR);
+        }
+
+        /* Read the last row without moving the file pointer so that the fseek to
+         * the image end works properly */
+        num_read = fread (data + offset, 1, width, priv->fp);
+
+        if (num_read != width)
+            return;
+    }
+
+    /* Go to the image end to be in a consistent state for the next read */
+    fseek (priv->fp, end_position, SEEK_SET);
+
+    if ((G_BYTE_ORDER == G_LITTLE_ENDIAN) && priv->big_endian) {
+        guint32 *conv = (guint32 *) buffer;
+        guint n_pixels = requisition->dims[0] * requisition->dims[1];
+
+        for (guint i = 0; i < n_pixels; i++)
+            conv[i] = g_ntohl (conv[i]);
+    }
+}
+
+static void
+ufo_edf_reader_get_depth (const gchar *value, UfoBufferDepth *depth, guint *bytes)
+{
+    struct {
+        const gchar *name;
+        UfoBufferDepth depth;
+        guint bytes;
+    }
+    map[] = {
+        {"UnsignedShort",   UFO_BUFFER_DEPTH_16U, 2},
+        {"SignedInteger",   UFO_BUFFER_DEPTH_32S, 4},
+        {"UnsignedLong",    UFO_BUFFER_DEPTH_32U, 4},
+        {"Float",           UFO_BUFFER_DEPTH_32F, 4},
+        {"FloatValue",      UFO_BUFFER_DEPTH_32F, 4},
+        {NULL}
+    };
+
+    for (guint i = 0; map[i].name != NULL; i++) {
+        if (!g_strcmp0 (value, map[i].name)) {
+            *depth = map[i].depth;
+            *bytes = map[i].bytes;
+            return;
+        }
+    }
+
+    g_warning ("Unsupported data type");
+    *depth = UFO_BUFFER_DEPTH_8U;
+    *bytes = 1;
+}
+
+static void
+ufo_edf_reader_get_meta (UfoReader *reader,
+                         gsize *width,
+                         gsize *height,
+                         UfoBufferDepth *bitdepth)
+{
+    UfoEdfReaderPrivate *priv;
+    gchar **tokens;
+    gchar *header = g_malloc (1024);
+
+    priv = UFO_EDF_READER_GET_PRIVATE (reader);
+
+    if (fread (header, 1, 1024, priv->fp) != 1024) {
+        g_free (header);
+        fclose (priv->fp);
+        priv->fp = NULL;
+        return;
+    }
+
+    tokens = g_strsplit (header, ";", 0);
+    priv->big_endian = FALSE;
+
+    for (guint i = 0; tokens[i] != NULL; i++) {
+        gchar **key_value;
+        gchar *key;
+        gchar *value;
+
+        key_value = g_strsplit (tokens[i], "=", 0);
+
+        if (key_value[0] == NULL || key_value[1] == NULL)
+            continue;
+
+        key = g_strstrip (key_value[0]);
+        value = g_strstrip (key_value[1]);
+
+        if (!g_strcmp0 (key, "Dim_1")) {
+            *width = (guint) atoi (value);
+        }
+        else if (!g_strcmp0 (key, "Dim_2")) {
+            *height = priv->height = atoi (value);
+        }
+        else if (!g_strcmp0 (key, "DataType")) {
+            ufo_edf_reader_get_depth (value, bitdepth, &priv->bytes_per_sample);
+        }
+        else if (!g_strcmp0 (key, "ByteOrder") &&
+                 !g_strcmp0 (value, "HighByteFirst")) {
+            priv->big_endian = TRUE;
+        }
+
+        g_strfreev (key_value);
+    }
+
+    g_strfreev (tokens);
+    g_free (header);
+}
+
+static void
+ufo_edf_reader_finalize (GObject *object)
+{
+    UfoEdfReaderPrivate *priv;
+    
+    priv = UFO_EDF_READER_GET_PRIVATE (object);
+
+    if (priv->fp != NULL) {
+        fclose (priv->fp);
+        priv->fp = NULL;
+    }
+
+    G_OBJECT_CLASS (ufo_edf_reader_parent_class)->finalize (object);
+}
+
+static void
+ufo_reader_interface_init (UfoReaderIface *iface)
+{
+    iface->open = ufo_edf_reader_open;
+    iface->close = ufo_edf_reader_close;
+    iface->read = ufo_edf_reader_read;
+    iface->get_meta = ufo_edf_reader_get_meta;
+    iface->data_available = ufo_edf_reader_data_available;
+}
+
+static void
+ufo_edf_reader_class_init (UfoEdfReaderClass *klass)
+{
+    GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+
+    gobject_class->finalize = ufo_edf_reader_finalize;
+
+    g_type_class_add_private (gobject_class, sizeof (UfoEdfReaderPrivate));
+}
+
+static void
+ufo_edf_reader_init (UfoEdfReader *self)
+{
+    UfoEdfReaderPrivate *priv = NULL;
+
+    self->priv = priv = UFO_EDF_READER_GET_PRIVATE (self);
+    priv->fp = NULL;
+}
