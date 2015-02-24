@@ -33,6 +33,7 @@ set(ufofilter_SRCS
     ufo-measure-sharpness-task.c
     ufo-median-filter-task.c
     ufo-metaballs-task.c
+    ufo-monitor-task.c
     ufo-multi-search-task.c
     ufo-null-task.c
     ufo-opencl-task.c

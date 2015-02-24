@@ -367,6 +367,15 @@ Buffering
         Number of pre-allocated buffers.
 
 
+Monitoring
+----------
+
+.. gobj:class:: monitor
+
+    Inspects a data stream and prints size, location and associated metadata
+    keys on stdout.
+
+
 Slicing
 -------
 
