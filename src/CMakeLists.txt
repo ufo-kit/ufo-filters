@@ -80,6 +80,7 @@ endif()
 #{{{ Dependency checks
 find_package(TIFF)
 find_package(clFFT)
+find_package(HDF5)
 
 pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(OPENCV opencv)
@@ -103,6 +104,14 @@ elseif (LIBTIFF4_INCLUDE_DIRS AND LIBTIFF4_LIBRARIES)
     include_directories(${LIBTIFF4_INCLUDE_DIRS})
     link_directories(${LIBTIFF4_LIBRARY_DIRS})
     set(HAVE_TIFF True)
+endif ()
+
+if (HDF5_FOUND)
+    list(APPEND read_misc_SRCS readers/ufo-hdf5-reader.c)
+    list(APPEND ufofilter_LIBS ${HDF5_LIBRARIES})
+    include_directories(${HDF5_INCLUDE_DIRS})
+    link_directories(${HDF5_LIBRARY_DIRS})
+    set(HAVE_HDF5 True)
 endif ()
 
 if (UCA_INCLUDE_DIRS AND UCA_LIBRARIES)
