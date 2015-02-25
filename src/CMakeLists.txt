@@ -54,6 +54,7 @@ set(ufofilter_SRCS
     ufo-swap-quadrants-task.c
     ufo-subtract-task.c
     ufo-volume-render-task.c
+    ufo-write-task.c
     ufo-zeropad-task.c
     )
 
@@ -63,6 +64,9 @@ set(ufoaux_SRCS
 set(read_misc_SRCS
     readers/ufo-reader.c
     readers/ufo-edf-reader.c)
+
+set(write_misc_SRCS
+    writers/ufo-writer.c)
 
 file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}
@@ -93,14 +97,14 @@ set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
 
 if (TIFF_FOUND)
     list(APPEND read_misc_SRCS readers/ufo-tiff-reader.c)
-    list(APPEND ufofilter_SRCS ufo-write-task.c)
+    list(APPEND write_misc_SRCS writers/ufo-tiff-writer.c)
     list(APPEND ufofilter_LIBS ${TIFF_LIBRARIES})
     include_directories(${TIFF_INCLUDE_DIRS})
     link_directories(${TIFF_LIBRARY_DIRS})
     set(HAVE_TIFF True)
 elseif (LIBTIFF4_INCLUDE_DIRS AND LIBTIFF4_LIBRARIES)
     list(APPEND read_misc_SRCS readers/ufo-tiff-reader.c)
-    list(APPEND ufofilter_SRCS ufo-write-task.c)
+    list(APPEND write_misc_SRCS writers/ufo-tiff-writer.c)
     list(APPEND ufofilter_LIBS ${LIBTIFF4_LIBRARIES})
     include_directories(${LIBTIFF4_INCLUDE_DIRS})
     link_directories(${LIBTIFF4_LIBRARY_DIRS})
