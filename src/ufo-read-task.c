@@ -40,7 +40,7 @@ struct _UfoReadTaskPrivate {
     guint    current;
     guint    step;
     guint    start;
-    guint    end;
+    guint    number;
     gboolean done;
 
     UfoBufferDepth  depth;
@@ -70,7 +70,7 @@ enum {
     PROP_0,
     PROP_PATH,
     PROP_START,
-    PROP_END,
+    PROP_NUMBER,
     PROP_STEP,
     PROP_ROI_Y,
     PROP_ROI_HEIGHT,
@@ -132,12 +132,6 @@ ufo_read_task_setup (UfoTask *task,
     UfoReadTaskPrivate *priv;
 
     priv = UFO_READ_TASK_GET_PRIVATE (task);
-
-    if (priv->end <= priv->start) {
-        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                     "End must be less than start");
-        return;
-    }
 
     priv->filenames = read_filenames (priv->path);
 
@@ -251,7 +245,7 @@ ufo_read_task_generate (UfoTask *task,
 
     priv = UFO_READ_TASK_GET_PRIVATE (UFO_READ_TASK (task));
 
-    if (priv->current == priv->end || priv->done)
+    if (priv->current == priv->number || priv->done)
         return FALSE;
 
     ufo_reader_read (priv->reader, output, requisition, priv->roi_y, priv->roi_height, priv->roi_step);
@@ -294,8 +288,8 @@ ufo_read_task_set_property (GObject *object,
         case PROP_START:
             priv->start = g_value_get_uint (value);
             break;
-        case PROP_END:
-            priv->end = g_value_get_uint (value);
+        case PROP_NUMBER:
+            priv->number = g_value_get_uint (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -333,8 +327,8 @@ ufo_read_task_get_property (GObject *object,
         case PROP_START:
             g_value_set_uint (value, priv->start);
             break;
-        case PROP_END:
-            g_value_set_uint (value, priv->end);
+        case PROP_NUMBER:
+            g_value_set_uint (value, priv->number);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -444,11 +438,11 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
             0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
-    properties[PROP_END] =
-        g_param_spec_uint("end",
-            "The files will be read until \"end\" - 1 index",
-            "The files will be read until \"end\" - 1 index",
-            1, G_MAXUINT, G_MAXUINT,
+    properties[PROP_NUMBER] =
+        g_param_spec_uint("number",
+            "Number of files that will be read at most",
+            "Number of files that will be read at most",
+            0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -470,7 +464,7 @@ ufo_read_task_init(UfoReadTask *self)
     priv->roi_step = 1;
     priv->convert = TRUE;
     priv->start = 0;
-    priv->end = G_MAXUINT;
+    priv->number = G_MAXUINT;
     priv->depth = UFO_BUFFER_DEPTH_32F;
 
     priv->edf_reader = ufo_edf_reader_new ();
