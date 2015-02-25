@@ -66,7 +66,8 @@ set(read_misc_SRCS
     readers/ufo-edf-reader.c)
 
 set(write_misc_SRCS
-    writers/ufo-writer.c)
+    writers/ufo-writer.c
+    writers/ufo-raw-writer.c)
 
 file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}

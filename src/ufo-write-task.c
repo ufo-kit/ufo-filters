@@ -23,6 +23,7 @@
 #include "config.h"
 #include "ufo-write-task.h"
 #include "writers/ufo-writer.h"
+#include "writers/ufo-raw-writer.h"
 
 #ifdef HAVE_TIFF
 #include "writers/ufo-tiff-writer.h"
@@ -39,7 +40,8 @@ struct _UfoWriteTaskPrivate {
     gboolean multi_file;
     gboolean opened;
 
-    UfoWriter *writer;
+    UfoWriter     *writer;
+    UfoRawWriter  *raw_writer;
 
 #ifdef HAVE_TIFF
     UfoTiffWriter *tiff_writer;
@@ -115,16 +117,19 @@ ufo_write_task_setup (UfoTask *task,
 
     priv->multi_file = num_fmt_specifiers == 0;
 
+    if (g_str_has_suffix (basename, ".raw")) {
+        priv->writer = UFO_WRITER (priv->raw_writer);
+    }
 #ifdef HAVE_TIFF
-    if (g_str_has_suffix (basename, ".tiff") || g_str_has_suffix (basename, ".tif")) {
+    else if (g_str_has_suffix (basename, ".tiff") || g_str_has_suffix (basename, ".tif")) {
         priv->writer = UFO_WRITER (priv->tiff_writer);
     }
+#endif
     else {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
                      "`%s' does not have a valid file extension", basename);
         return;
     }
-#endif
 
     if (!g_file_test (dirname, G_FILE_TEST_EXISTS)) {
         g_debug ("write: `%s' does not exist. Attempt to create it.", dirname);
@@ -302,6 +307,8 @@ ufo_write_task_dispose (GObject *object)
 
     priv = UFO_WRITE_TASK_GET_PRIVATE (object);
 
+    g_object_unref (priv->raw_writer);
+
 #ifdef HAVE_TIFF
     if (priv->tiff_writer)
         g_object_unref (priv->tiff_writer);
@@ -380,9 +387,12 @@ ufo_write_task_init(UfoWriteTask *self)
     self->priv->depth = UFO_BUFFER_DEPTH_32F;
     self->priv->writer = NULL;
     self->priv->opened = FALSE;
+    self->priv->raw_writer = ufo_raw_writer_new ();
 
 #ifdef HAVE_TIFF
     self->priv->tiff_writer = ufo_tiff_writer_new ();
     self->priv->filename = g_strdup ("./output-%05i.tif");
+#else
+    self->priv->filename = g_strdup ("./output-%05i.raw");
 #endif
 }
