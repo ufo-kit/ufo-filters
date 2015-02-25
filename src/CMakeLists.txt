@@ -114,6 +114,7 @@ endif ()
 
 if (HDF5_FOUND)
     list(APPEND read_misc_SRCS readers/ufo-hdf5-reader.c)
+    list(APPEND write_misc_SRCS writers/ufo-hdf5-writer.c)
     list(APPEND ufofilter_LIBS ${HDF5_LIBRARIES})
     include_directories(${HDF5_INCLUDE_DIRS})
     link_directories(${HDF5_LIBRARY_DIRS})
