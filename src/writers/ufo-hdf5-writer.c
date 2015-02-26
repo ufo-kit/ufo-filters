@@ -73,20 +73,27 @@ ufo_hdf5_writer_close (UfoWriter *writer)
 }
 
 static hid_t
-make_groups (hid_t file_id, const gchar *group_path)
+make_groups (hid_t file_id, const gchar *dataset)
 {
+    gchar *group_path;
     gchar **elements;
     hid_t group_id;
     hid_t new_group_id;
 
     group_id = file_id;
+    group_path = g_path_get_dirname (dataset);
     elements = g_strsplit (group_path, "/", 0);
 
     for (guint i = 0; elements[i] != NULL; i++) {
         if (!g_strcmp0 (elements[i], ""))
             continue;
 
-        new_group_id = H5Gcreate (group_id, elements[i], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        if (H5Lexists (group_id, elements[i], H5P_DEFAULT)) {
+            new_group_id = H5Gopen (group_id, elements[i], H5P_DEFAULT);
+        }
+        else {
+            new_group_id = H5Gcreate (group_id, elements[i], H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+        }
 
         if (group_id != file_id)
             H5Gclose (group_id);
@@ -94,8 +101,41 @@ make_groups (hid_t file_id, const gchar *group_path)
         group_id = new_group_id;
     }
 
+    g_free (group_path);
     g_strfreev (elements);
     return group_id;
+}
+
+static gboolean
+dataset_exists (hid_t file_id, const gchar *dataset)
+{
+    gchar **elements;
+    gboolean found = TRUE;
+    GString *path_to_check;
+
+    elements = g_strsplit (dataset, "/", 0);
+    path_to_check = g_string_new (NULL);
+
+    for (guint i = 0; elements[i] != NULL; i++) {
+        /* We have to check each and every path element to see if a dataset
+         * exists ... */
+        if (!g_strcmp0 (elements[i], ""))
+            continue;
+
+        if (path_to_check->len > 0)
+            g_string_append_c (path_to_check, '/');
+
+        g_string_append (path_to_check, elements[i]);
+
+        if (!H5Lexists (file_id, path_to_check->str, H5P_DEFAULT)) {
+            found = FALSE;
+            break;
+        }
+    }
+
+    g_string_free (path_to_check, TRUE);
+    g_strfreev (elements);
+    return found;
 }
 
 static void
@@ -116,23 +156,15 @@ ufo_hdf5_writer_write (UfoWriter *writer,
     hsize_t src_dims[2] = { requisition->dims[0], requisition->dims[1] };
 
     if (priv->current == 0) {
-        /*
-         * HDF5 API ... yeah, this throws nasty warnings if it cannot find the
-         * data set, yet checking for existence of a data set is itself a
-         * horrendous adventure.
-         */
-        priv->dataset_id = H5Dopen (priv->file_id, priv->dataset, H5P_DEFAULT);
-
-        if (priv->dataset_id < 0) {
+        if (dataset_exists (priv->file_id, priv->dataset)) {
+            priv->dataset_id = H5Dopen (priv->file_id, priv->dataset, H5P_DEFAULT);
+        }
+        else {
             hid_t group_id;
             hid_t dcpl;
             hsize_t max_dims[3] = { H5S_UNLIMITED, requisition->dims[1], requisition->dims[0] };
-            gchar *group_path;
 
-            group_path = g_path_get_dirname (priv->dataset);
-            group_id = make_groups (priv->file_id, group_path);
-
-            g_free (group_path);
+            group_id = make_groups (priv->file_id, priv->dataset);
 
             dst_dataspace_id = H5Screate_simple (3, dims, max_dims);
             dcpl = H5Pcreate (H5P_DATASET_CREATE);
@@ -165,6 +197,7 @@ ufo_hdf5_writer_finalize (GObject *object)
     UfoHdf5WriterPrivate *priv;
 
     priv = UFO_HDF5_WRITER_GET_PRIVATE (object);
+    g_free (priv->dataset);
 
     G_OBJECT_CLASS (ufo_hdf5_writer_parent_class)->finalize (object);
 }
