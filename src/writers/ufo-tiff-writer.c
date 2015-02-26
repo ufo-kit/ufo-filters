@@ -66,95 +66,15 @@ ufo_tiff_writer_close (UfoWriter *writer)
 }
 
 static void
-get_min_max (gfloat *data, UfoRequisition *requisition, gfloat *min, gfloat *max)
-{
-    gsize n_elements = requisition->dims[0] * requisition->dims[1];
-    gfloat cmax = -G_MAXFLOAT;
-    gfloat cmin = G_MAXFLOAT;
-
-    for (gsize i = 0; i < n_elements; i++) {
-        if (data[i] < cmin)
-            cmin = data[i];
-
-        if (data[i] > cmax)
-            cmax = data[i];
-    }
-
-    *max = cmax;
-    *min = cmin;
-}
-
-static void
-write_float_data (TIFF *tiff, gfloat *data, UfoRequisition *requisition)
-{
-    TIFFSetField (tiff, TIFFTAG_BITSPERSAMPLE, 32);
-    TIFFSetField (tiff, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
-
-    for (guint y = 0; y < requisition->dims[1]; y++, data += requisition->dims[0])
-        TIFFWriteScanline (tiff, data, y, 0);
-}
-
-static void
-write_8bit_data (TIFF *tiff, gfloat *data, UfoRequisition *requisition)
-{
-    guint8 *scanline;
-    guint width, height;
-    gfloat max, min;
-    gfloat range;
-    
-    get_min_max (data, requisition, &min, &max);
-    range = max - min;
-    width = requisition->dims[0];
-    height = requisition->dims[1];
-
-    TIFFSetField (tiff, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_UINT);
-    TIFFSetField (tiff, TIFFTAG_BITSPERSAMPLE, 8);
-
-    scanline = g_malloc (requisition->dims[0]);
-
-    for (guint y = 0; y < height; y++, data += width) {
-        for (guint i = 0; i < width; i++)
-            scanline[i] = (guint8) ((data[i] - min) / range * 255);
-
-        TIFFWriteScanline (tiff, scanline, y, 0);
-    }
-
-    g_free (scanline);
-}
-
-static void
-write_16bit_data (TIFF *tiff, gfloat *data, UfoRequisition *requisition) 
-{
-    guint16 *scanline;
-    guint width, height;
-    gfloat max, min;
-    gfloat range;
-    
-    get_min_max (data, requisition, &min, &max);
-    range = max - min;
-    width = requisition->dims[0];
-    height = requisition->dims[1];
-
-    TIFFSetField (tiff, TIFFTAG_BITSPERSAMPLE, 16);
-    scanline = g_malloc (width * 2);
-
-    for (guint y = 0; y < height; y++, data += width) {
-        for (guint i = 0; i < width; i++)
-            scanline[i] = (guint16) ((data[i] - min) / range * 65535);
-
-        TIFFWriteScanline (tiff, scanline, y, 0);
-    }
-
-    g_free (scanline);
-}
-
-static void
 ufo_tiff_writer_write (UfoWriter *writer,
                        gpointer data,
                        UfoRequisition *requisition,
                        UfoBufferDepth depth)
 {
     UfoTiffWriterPrivate *priv;
+    guint bits_per_sample;
+    gsize stride;
+    gchar *buff;
 
     priv = UFO_TIFF_WRITER_GET_PRIVATE (writer);
     g_assert (priv->tiff != NULL);
@@ -174,17 +94,27 @@ ufo_tiff_writer_write (UfoWriter *writer,
 
     switch (depth) {
         case UFO_BUFFER_DEPTH_8U:
-            write_8bit_data (priv->tiff, data, requisition);
+            TIFFSetField (priv->tiff, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_UINT);
+            bits_per_sample = 8;
             break;
         case UFO_BUFFER_DEPTH_16U:
         case UFO_BUFFER_DEPTH_16S:
-            write_16bit_data (priv->tiff, data, requisition);
-            break;
-        case UFO_BUFFER_DEPTH_32F:
-            write_float_data (priv->tiff, data, requisition);
+            TIFFSetField (priv->tiff, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_UINT);
+            bits_per_sample = 16;
             break;
         default:
-            g_warning ("write:tiff: 32 bit signed and unsigned not supported");
+            TIFFSetField (priv->tiff, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
+            bits_per_sample = 32;
+    }
+
+    TIFFSetField (priv->tiff, TIFFTAG_BITSPERSAMPLE, bits_per_sample);
+    ufo_writer_convert_inplace (data, requisition, depth);
+    stride = requisition->dims[0] * bits_per_sample / 8;
+    buff = (gchar *) data;
+
+    for (guint y = 0; y < requisition->dims[1]; y++) {
+        TIFFWriteScanline (priv->tiff, buff, y, 0);
+        buff += stride;
     }
 
     TIFFWriteDirectory (priv->tiff);

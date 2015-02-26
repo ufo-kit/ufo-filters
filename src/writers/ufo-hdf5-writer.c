@@ -138,6 +138,21 @@ dataset_exists (hid_t file_id, const gchar *dataset)
     return found;
 }
 
+static hid_t
+buffer_depth_to_hdf5_type (UfoBufferDepth depth)
+{
+    switch (depth) {
+        case UFO_BUFFER_DEPTH_8U:
+            return H5T_NATIVE_UINT8;
+        case UFO_BUFFER_DEPTH_16U:
+            return H5T_NATIVE_UINT16;
+        case UFO_BUFFER_DEPTH_16S:
+            return H5T_NATIVE_INT16;
+        default:
+            return H5T_NATIVE_FLOAT;
+    }
+}
+
 static void
 ufo_hdf5_writer_write (UfoWriter *writer,
                        gpointer data,
@@ -147,6 +162,7 @@ ufo_hdf5_writer_write (UfoWriter *writer,
     UfoHdf5WriterPrivate *priv;
     hid_t dst_dataspace_id;
     hid_t src_dataspace_id;
+    hid_t mem_type;
 
     priv = UFO_HDF5_WRITER_GET_PRIVATE (writer);
 
@@ -154,6 +170,7 @@ ufo_hdf5_writer_write (UfoWriter *writer,
     hsize_t count[3] = { 1, requisition->dims[1], requisition->dims[0] };
     hsize_t dims[3] = { priv->current + 1, requisition->dims[1], requisition->dims[0] };
     hsize_t src_dims[2] = { requisition->dims[0], requisition->dims[1] };
+    mem_type = buffer_depth_to_hdf5_type (depth);
 
     if (priv->current == 0) {
         if (dataset_exists (priv->file_id, priv->dataset)) {
@@ -169,7 +186,7 @@ ufo_hdf5_writer_write (UfoWriter *writer,
             dst_dataspace_id = H5Screate_simple (3, dims, max_dims);
             dcpl = H5Pcreate (H5P_DATASET_CREATE);
             H5Pset_chunk (dcpl, 3, dims);
-            priv->dataset_id = H5Dcreate (group_id, priv->dataset, H5T_NATIVE_FLOAT, dst_dataspace_id,
+            priv->dataset_id = H5Dcreate (group_id, priv->dataset, mem_type, dst_dataspace_id,
                                           H5P_DEFAULT, dcpl, H5P_DEFAULT);
 
             H5Pclose (dcpl);
@@ -180,11 +197,13 @@ ufo_hdf5_writer_write (UfoWriter *writer,
         H5Dset_extent (priv->dataset_id, dims);
     }
 
+    ufo_writer_convert_inplace (data, requisition, depth);
+
     dst_dataspace_id = H5Dget_space (priv->dataset_id);
     src_dataspace_id = H5Screate_simple (2, src_dims, NULL);
 
     H5Sselect_hyperslab (dst_dataspace_id, H5S_SELECT_SET, offset, NULL, count, NULL);
-    H5Dwrite (priv->dataset_id, H5T_NATIVE_FLOAT, src_dataspace_id, dst_dataspace_id, H5P_DEFAULT, data);
+    H5Dwrite (priv->dataset_id, mem_type, src_dataspace_id, dst_dataspace_id, H5P_DEFAULT, data);
 
     H5Sclose (src_dataspace_id);
     H5Sclose (dst_dataspace_id);

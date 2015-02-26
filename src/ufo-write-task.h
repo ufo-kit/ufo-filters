@@ -58,8 +58,8 @@ struct _UfoWriteTaskClass {
     UfoTaskNodeClass parent_class;
 };
 
-UfoNode  *ufo_write_task_new       (void);
-GType     ufo_write_task_get_type  (void);
+UfoNode  *ufo_write_task_new             (void);
+GType     ufo_write_task_get_type        (void);
 
 G_END_DECLS
 

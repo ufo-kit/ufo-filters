@@ -54,6 +54,10 @@ void ufo_writer_write (UfoWriter      *writer,
                        gpointer        data,
                        UfoRequisition *requisition,
                        UfoBufferDepth  depth);
+void ufo_writer_convert_inplace
+                      (gpointer        data,
+                       UfoRequisition *requisition,
+                       UfoBufferDepth  depth);
 
 GType  ufo_writer_get_type        (void);
 

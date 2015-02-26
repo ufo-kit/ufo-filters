@@ -63,6 +63,20 @@ ufo_raw_writer_close (UfoWriter *writer)
     priv->fp = NULL;
 }
 
+static gsize
+bytes_per_pixel (UfoBufferDepth depth)
+{
+    switch (depth) {
+        case UFO_BUFFER_DEPTH_8U:
+            return 1;
+        case UFO_BUFFER_DEPTH_16U:
+        case UFO_BUFFER_DEPTH_16S:
+            return 2;
+        default:
+            return 4;
+    }
+}
+
 static void
 ufo_raw_writer_write (UfoWriter *writer,
                       gpointer data,
@@ -70,9 +84,11 @@ ufo_raw_writer_write (UfoWriter *writer,
                       UfoBufferDepth depth)
 {
     UfoRawWriterPrivate *priv;
-    gsize size = sizeof (gfloat);
+    gsize size = bytes_per_pixel (depth);
 
     priv = UFO_RAW_WRITER_GET_PRIVATE (writer);
+
+    ufo_writer_convert_inplace (data, requisition, depth);
 
     for (guint i = 0; i < requisition->n_dims; i++)
         size *= requisition->dims[i];
