@@ -41,6 +41,30 @@ Flat-field correction
         If *TRUE*, replace all resulting NANs and INFs with zeros.
 
 
+Arithmetic expressions
+----------------------
+
+.. gobj:class:: calculate
+
+    Calculate an arithmetic expression. You have access to the value stored in
+    the input buffer via the *v* letter in :gobj:prop:`expression` and to the
+    index of *v* via letter *x*. Please be aware that *v* is a floating point
+    number while *x* is an integer. This is useful if you have multidimensional
+    data and want to address only one dimension. Let's say the input is two
+    dimensional, 256 pixels wide and you want to fill the x-coordinate with *x*
+    for all respective y-coordinates (a gradient in x-direction). Then you can
+    write *expression="x % 256"*. Another example is the *sinc* function which
+    you would calculate as *expression="sin(v) / x"* for 1D input.
+    For more complex math or other operations please consider using
+    :ref:`opencl <generic-opencl-ref>`.
+
+    .. gobj:prop:: expression
+
+        Arithmetic expression with math functions supported by OpenCL.
+
+
+.. _generic-opencl-ref:
+
 Generic OpenCL
 --------------
 
