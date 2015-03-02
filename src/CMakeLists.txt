@@ -6,6 +6,7 @@ set(ufofilter_SRCS
     ufo-backproject-task.c
     ufo-blur-task.c
     ufo-buffer-task.c
+    ufo-calculate-task.c
     ufo-cut-sinogram-task.c
     ufo-cut-roi-task.c
     ufo-center-of-rotation-task.c
