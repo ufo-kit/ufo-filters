@@ -32,7 +32,7 @@
 #include "readers/ufo-tiff-reader.h"
 #endif
 
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
 #include "readers/ufo-hdf5-reader.h"
 #endif
 
@@ -61,7 +61,7 @@ struct _UfoReadTaskPrivate {
     UfoTiffReader   *tiff_reader;
 #endif
 
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
     UfoHdf5Reader   *hdf5_reader;
     gchar           *dataset;
 #endif
@@ -85,7 +85,7 @@ enum {
     PROP_ROI_HEIGHT,
     PROP_ROI_STEP,
     PROP_CONVERT,
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
     PROP_DATASET,
 #endif
     N_PROPERTIES
@@ -127,7 +127,7 @@ read_filenames (const gchar *path)
             result = g_list_append (result, g_strdup (filename));
 #endif
 
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
         if (g_str_has_suffix (filename, ".h5"))
             result = g_list_append (result, g_strdup (filename));
 #endif
@@ -171,7 +171,7 @@ get_reader (UfoReadTaskPrivate *priv, const gchar *filename)
         return UFO_READER (priv->tiff_reader);
 #endif
 
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
     if (g_str_has_suffix (filename, ".h5")) {
         if (priv->hdf5_reader == NULL) {
             g_error ("read: property ::dataset not specified");
@@ -318,7 +318,7 @@ ufo_read_task_set_property (GObject *object,
         case PROP_NUMBER:
             priv->number = g_value_get_uint (value);
             break;
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
         case PROP_DATASET:
             g_free (priv->dataset);
             priv->dataset = g_value_dup_string (value);
@@ -368,7 +368,7 @@ ufo_read_task_get_property (GObject *object,
         case PROP_NUMBER:
             g_value_set_uint (value, priv->number);
             break;
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
         case PROP_DATASET:
             g_value_set_string (value, priv->dataset);
             break;
@@ -392,7 +392,7 @@ ufo_read_task_dispose (GObject *object)
     g_object_unref (priv->tiff_reader);
 #endif
 
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
     if (priv->hdf5_reader != NULL)
         g_object_unref (priv->hdf5_reader);
 #endif
@@ -413,7 +413,7 @@ ufo_read_task_finalize (GObject *object)
         priv->filenames = NULL;
     }
 
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
     g_free (priv->dataset);
 #endif
 
@@ -497,7 +497,7 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
             0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
     properties[PROP_DATASET] =
         g_param_spec_string("dataset",
             "Path to an HDF5 dataset",
@@ -534,7 +534,7 @@ ufo_read_task_init(UfoReadTask *self)
     priv->tiff_reader = ufo_tiff_reader_new ();
 #endif
 
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
     priv->hdf5_reader = NULL;
 #endif
 

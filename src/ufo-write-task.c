@@ -29,7 +29,7 @@
 #include "writers/ufo-tiff-writer.h"
 #endif
 
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
 #include "writers/ufo-hdf5-writer.h"
 #endif
 
@@ -51,7 +51,7 @@ struct _UfoWriteTaskPrivate {
     UfoTiffWriter *tiff_writer;
 #endif
 
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
     UfoHdf5Writer *hdf5_writer;
     gchar           *dataset;
 #endif
@@ -70,7 +70,7 @@ enum {
     PROP_FILENAME,
     PROP_APPEND,
     PROP_BITS,
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
     PROP_DATASET,
 #endif
     N_PROPERTIES
@@ -137,7 +137,7 @@ ufo_write_task_setup (UfoTask *task,
         priv->writer = UFO_WRITER (priv->tiff_writer);
     }
 #endif
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
     else if (g_str_has_suffix (basename, ".h5")) {
         priv->writer = UFO_WRITER (priv->hdf5_writer);
     }
@@ -280,7 +280,7 @@ ufo_write_task_set_property (GObject *object,
                     priv->depth = UFO_BUFFER_DEPTH_32F;
             }
             break;
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
         case PROP_DATASET:
             g_free (priv->dataset);
             priv->dataset = g_value_dup_string (value);
@@ -322,7 +322,7 @@ ufo_write_task_get_property (GObject *object,
             if (priv->depth == UFO_BUFFER_DEPTH_32F)
                 g_value_set_uint (value, 32);
             break;
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
         case PROP_DATASET:
             g_value_set_string (value, priv->dataset);
             break;
@@ -347,7 +347,7 @@ ufo_write_task_dispose (GObject *object)
         g_object_unref (priv->tiff_writer);
 #endif
 
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
     if (priv->hdf5_writer != NULL)
         g_object_unref (priv->hdf5_writer);
 #endif
@@ -365,7 +365,7 @@ ufo_write_task_finalize (GObject *object)
     g_free (priv->filename);
     priv->filename= NULL;
 
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
     g_free (priv->dataset);
 #endif
 
@@ -413,7 +413,7 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
                            "Number of bits per sample. Possible values in [8, 16, 32].",
                            8, 32, 32, G_PARAM_READWRITE);
 
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
     properties[PROP_DATASET] =
         g_param_spec_string("dataset",
             "Path to an HDF5 dataset",
@@ -447,7 +447,7 @@ ufo_write_task_init(UfoWriteTask *self)
     self->priv->filename = g_strdup ("./output-%05i.raw");
 #endif
 
-#ifdef HAVE_HDF5
+#ifdef WITH_HDF5
     self->priv->hdf5_writer = NULL;
 #endif
 }

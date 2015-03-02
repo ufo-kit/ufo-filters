@@ -119,7 +119,7 @@ if (HDF5_FOUND)
     list(APPEND ufofilter_LIBS ${HDF5_LIBRARIES})
     include_directories(${HDF5_INCLUDE_DIRS})
     link_directories(${HDF5_LIBRARY_DIRS})
-    set(HAVE_HDF5 True)
+    option(WITH_HDF5 "Use HDF5" ON)
 endif ()
 
 if (UCA_INCLUDE_DIRS AND UCA_LIBRARIES)
