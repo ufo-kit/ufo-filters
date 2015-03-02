@@ -139,6 +139,11 @@ ufo_write_task_setup (UfoTask *task,
 #endif
 #ifdef WITH_HDF5
     else if (g_str_has_suffix (basename, ".h5")) {
+        if (priv->hdf5_writer == NULL) {
+            g_error ("write: property ::dataset not specified");
+            return;
+        }
+
         priv->writer = UFO_WRITER (priv->hdf5_writer);
     }
 #endif
@@ -449,5 +454,6 @@ ufo_write_task_init(UfoWriteTask *self)
 
 #ifdef WITH_HDF5
     self->priv->hdf5_writer = NULL;
+    self->priv->dataset = NULL;
 #endif
 }
