@@ -160,6 +160,7 @@ ufo_read_task_setup (UfoTask *task,
 
     priv->filenames = g_list_sort (priv->filenames, (GCompareFunc) g_strcmp0);
     priv->current_element = g_list_nth (priv->filenames, priv->start);
+    priv->current = 0;
 }
 
 static UfoReader *
