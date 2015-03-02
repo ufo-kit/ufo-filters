@@ -87,7 +87,7 @@ endif()
 #{{{ Dependency checks
 find_package(TIFF)
 find_package(clFFT)
-find_package(HDF5)
+find_package(HDF5 1.8)
 
 pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(OPENCV opencv)
