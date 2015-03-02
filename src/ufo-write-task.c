@@ -18,28 +18,43 @@
  */
 
 #include <gmodule.h>
-#include <tiffio.h>
 #include <errno.h>
 
+#include "config.h"
 #include "ufo-write-task.h"
+#include "writers/ufo-writer.h"
+#include "writers/ufo-raw-writer.h"
 
-typedef enum {
-    BITS_8U = 8,
-    BITS_16U = 16,
-    BITS_32FP = 32,
-} BitDepth;
+#ifdef HAVE_TIFF
+#include "writers/ufo-tiff-writer.h"
+#endif
+
+#ifdef HAVE_HDF5
+#include "writers/ufo-hdf5-writer.h"
+#endif
 
 struct _UfoWriteTaskPrivate {
-    gchar *format;
-    gchar *template;
+    gchar *filename;
     guint counter;
     gboolean append;
     gsize width;
     gsize height;
-    BitDepth depth;
+    UfoBufferDepth depth;
 
-    gboolean single;
-    TIFF *tif;
+    gboolean multi_file;
+    gboolean opened;
+
+    UfoWriter     *writer;
+    UfoRawWriter  *raw_writer;
+
+#ifdef HAVE_TIFF
+    UfoTiffWriter *tiff_writer;
+#endif
+
+#ifdef HAVE_HDF5
+    UfoHdf5Writer *hdf5_writer;
+    gchar           *dataset;
+#endif
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -52,10 +67,12 @@ G_DEFINE_TYPE_WITH_CODE (UfoWriteTask, ufo_write_task, UFO_TYPE_TASK_NODE,
 
 enum {
     PROP_0,
-    PROP_FORMAT,
-    PROP_SINGLE_FILE,
+    PROP_FILENAME,
     PROP_APPEND,
     PROP_BITS,
+#ifdef HAVE_HDF5
+    PROP_DATASET,
+#endif
     N_PROPERTIES
 };
 
@@ -67,211 +84,103 @@ ufo_write_task_new (void)
     return UFO_NODE (g_object_new (UFO_TYPE_WRITE_TASK, NULL));
 }
 
-static void
-write_8bit_data (TIFF *tif, gfloat *data, gfloat min, gfloat max, guint width, guint height)
-{
-    guint8 *scanline;
-    const gfloat range = max - min;
-
-    TIFFSetField (tif, TIFFTAG_BITSPERSAMPLE, 8);
-    scanline = g_malloc (width);
-
-    for (guint y = 0; y < height; y++, data += width) {
-        for (guint i = 0; i < width; i++)
-            scanline[i] = (guint8) ((data[i] - min) / range * 255);
-
-        TIFFWriteScanline (tif, scanline, y, 0);
-    }
-
-    g_free (scanline);
-}
-
-static void
-write_16bit_data (TIFF *tif, gfloat *data, gfloat min, gfloat max, guint width, guint height)
-{
-    guint16 *scanline;
-    const gfloat range = max - min;
-
-    TIFFSetField (tif, TIFFTAG_BITSPERSAMPLE, 16);
-    scanline = g_malloc (width * 2);
-
-    for (guint y = 0; y < height; y++, data += width) {
-        for (guint i = 0; i < width; i++)
-            scanline[i] = (guint16) ((data[i] - min) / range * 65535);
-
-        TIFFWriteScanline (tif, scanline, y, 0);
-    }
-
-    g_free (scanline);
-}
-
-static gboolean
-write_tiff_data (UfoWriteTaskPrivate *priv, UfoBuffer *buffer)
-{
-    UfoRequisition requisition;
-    guint32 rows_per_strip;
-    gboolean success = TRUE;
-    gpointer data;
-    guint n_pages;
-    guint width, height;
-
-    ufo_buffer_get_requisition (buffer, &requisition);
-
-    /* With a 3-dimensional input buffer, we create z-depth TIFF pages. */
-    n_pages = requisition.n_dims == 3 ? (guint) requisition.dims[2] : 1;
-
-    width = (guint) requisition.dims[0];
-    height = (guint) requisition.dims[1];
-    data = ufo_buffer_get_host_array (buffer, NULL);
-
-    rows_per_strip = TIFFDefaultStripSize (priv->tif, (guint32) - 1);
-
-    if (n_pages > 1)
-        TIFFSetField (priv->tif, TIFFTAG_SUBFILETYPE, FILETYPE_PAGE);
-
-    for (guint i = 0; i < n_pages; i++) {
-        gfloat *start;
-
-        TIFFSetField (priv->tif, TIFFTAG_IMAGEWIDTH, width);
-        TIFFSetField (priv->tif, TIFFTAG_IMAGELENGTH, height);
-        TIFFSetField (priv->tif, TIFFTAG_SAMPLESPERPIXEL, 1);
-        TIFFSetField (priv->tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-        TIFFSetField (priv->tif, TIFFTAG_ROWSPERSTRIP, rows_per_strip);
-        TIFFSetField (priv->tif, TIFFTAG_PAGENUMBER, i, n_pages);
-
-        start = ((gfloat *) data) + i * width * height;
-
-        if (priv->depth == BITS_32FP) {
-            TIFFSetField (priv->tif, TIFFTAG_BITSPERSAMPLE, 32);
-            TIFFSetField (priv->tif, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
-
-            for (guint y = 0; y < height; y++, start += width)
-                TIFFWriteScanline (priv->tif, start, y, 0);
-
-        }
-        else {
-            gfloat min, max;
-
-            min = ufo_buffer_min (buffer, NULL);
-            max = ufo_buffer_max (buffer, NULL);
-
-            TIFFSetField (priv->tif, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_UINT);
-
-            if (priv->depth == BITS_8U)
-                write_8bit_data (priv->tif, start, min, max, width, height);
-            else
-                write_16bit_data (priv->tif, start, min, max, width, height);
-        }
-
-        TIFFWriteDirectory (priv->tif);
-    }
-
-    return success;
-}
-
 static gchar *
-build_filename (UfoWriteTaskPrivate *priv)
+get_current_filename (UfoWriteTaskPrivate *priv)
 {
-    gchar *filename;
+    if (priv->multi_file)
+        return g_strdup (priv->filename);
 
-    if (priv->single)
-        filename = g_strdup (priv->format);
-    else
-        filename = g_strdup_printf (priv->template, priv->counter);
-
-    return filename;
+    return g_strdup_printf (priv->filename, priv->counter);
 }
 
-static void
-find_free_index (UfoWriteTaskPrivate *priv)
+static guint
+count_format_specifiers (const gchar *filename)
 {
-    while (g_file_test(build_filename(priv), G_FILE_TEST_EXISTS)) {
-        priv->counter++;
-    }
-}
+    guint count = 0;
 
-static gchar *
-build_template (const gchar *format)
-{
-    gchar *template;
-    gchar *percent;
+    do {
+        if (*filename == '%')
+            count++;
+    } while (*(filename++));
 
-    template = g_strdup (format);
-    percent = g_strstr_len (template, -1, "%");
-
-    if (percent != NULL) {
-        percent++;
-
-        while (*percent) {
-            if (*percent == '%')
-                *percent = '_';
-            percent++;
-        }
-    }
-    else {
-        g_warning ("Specifier %%i not found. Appending it.");
-        g_free (template);
-        template = g_strconcat (format, "%i", NULL);
-    }
-
-    return template;
-}
-
-static void
-open_tiff_file (UfoWriteTaskPrivate *priv)
-{
-    gchar *filename;
-    const gchar *mode = priv->append ? "a" : "w";
-
-    filename = build_filename (priv);
-    priv->tif = TIFFOpen (filename, mode);
-    g_free (filename);
+    return count;
 }
 
 static void
 ufo_write_task_setup (UfoTask *task,
-                       UfoResources *resources,
-                       GError **error)
+                      UfoResources *resources,
+                      GError **error)
 {
     UfoWriteTaskPrivate *priv;
-    guint index;
-    guint total;
+    gchar *basename;
+    gchar *dirname;
+    guint num_fmt_specifiers;
 
     priv = UFO_WRITE_TASK_GET_PRIVATE (task);
-    ufo_task_node_get_partition (UFO_TASK_NODE (task), &index, &total);
-    priv->counter = index * 1000;
+    num_fmt_specifiers = count_format_specifiers (priv->filename);
+    basename = g_path_get_basename (priv->filename);
+    dirname = g_path_get_dirname (priv->filename);
 
-    if (priv->single) {
-        open_tiff_file (priv);
+    if (num_fmt_specifiers > 1) {
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                     "`%s' has too many format specifiers", dirname);
+        return;
     }
+
+    priv->multi_file = num_fmt_specifiers == 0;
+
+    if (g_str_has_suffix (basename, ".raw")) {
+        priv->writer = UFO_WRITER (priv->raw_writer);
+    }
+#ifdef HAVE_TIFF
+    else if (g_str_has_suffix (basename, ".tiff") || g_str_has_suffix (basename, ".tif")) {
+        priv->writer = UFO_WRITER (priv->tiff_writer);
+    }
+#endif
+#ifdef HAVE_HDF5
+    else if (g_str_has_suffix (basename, ".h5")) {
+        priv->writer = UFO_WRITER (priv->hdf5_writer);
+    }
+#endif
     else {
-        gchar *dirname;
-
-        if (priv->template)
-            g_free (priv->template);
-
-        priv->template = build_template (priv->format);
-        dirname = g_path_get_dirname (priv->template);
-
-        if (g_strcmp0 (dirname, ".")) {
-            if (g_mkdir_with_parents (dirname, 0755)) {
-                g_set_error (error, G_FILE_ERROR, g_file_error_from_errno (errno),
-                             "Could not create directory `%s'", dirname);
-            }
-        }
-
-        if (priv->append) {
-            find_free_index(priv);
-        }
-
-        g_free (dirname);
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                     "`%s' does not have a valid file extension", basename);
+        return;
     }
+
+    if (!g_file_test (dirname, G_FILE_TEST_EXISTS)) {
+        g_debug ("write: `%s' does not exist. Attempt to create it.", dirname);
+
+        if (g_mkdir_with_parents (dirname, 0755)) {
+            g_set_error (error, G_FILE_ERROR, g_file_error_from_errno (errno),
+                         "Could not create `%s'.", dirname);
+            return;
+        }
+    }
+
+    priv->counter = 0;
+
+    if (priv->append && !priv->multi_file) {
+        gboolean exists = TRUE;
+
+        while (exists) {
+            gchar *filename = get_current_filename (priv);
+            exists = g_file_test (filename, G_FILE_TEST_EXISTS);
+            g_free (filename);
+
+            if (exists)
+                priv->counter++;
+        }
+    }
+
+    g_free (dirname);
+    g_free (basename);
 }
 
 static void
 ufo_write_task_get_requisition (UfoTask *task,
-                                 UfoBuffer **inputs,
-                                 UfoRequisition *requisition)
+                                UfoBuffer **inputs,
+                                UfoRequisition *requisition)
 {
     requisition->n_dims = 0;
 }
@@ -298,66 +207,90 @@ ufo_write_task_get_mode (UfoTask *task)
 
 static gboolean
 ufo_write_task_process (UfoTask *task,
-                         UfoBuffer **inputs,
-                         UfoBuffer *output,
-                         UfoRequisition *requisition)
+                        UfoBuffer **inputs,
+                        UfoBuffer *output,
+                        UfoRequisition *requisition)
 {
     UfoWriteTaskPrivate *priv;
-    UfoProfiler *profiler;
+    UfoRequisition in_req;
+    guint8 *data;
+    guint num_frames;
+    gsize offset;
 
     priv = UFO_WRITE_TASK_GET_PRIVATE (UFO_WRITE_TASK (task));
-    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    data = (guint8 *) ufo_buffer_get_host_array (inputs[0], NULL);
+    ufo_buffer_get_requisition (inputs[0], &in_req);
 
-    ufo_profiler_start (profiler, UFO_PROFILER_TIMER_IO);
+    num_frames = in_req.n_dims == 3 ? in_req.dims[2] : 1;
+    offset = ufo_buffer_get_size (inputs[0]) / num_frames;
 
-    if (!priv->single)
-        open_tiff_file (priv);
+    for (guint i = 0; i < num_frames; i++) {
+        if (!priv->multi_file || !priv->opened) {
+            gchar *filename = get_current_filename (priv);
+            ufo_writer_open (priv->writer, filename);
+            g_free (filename);
+            priv->opened = TRUE;
+        }
 
-    if (!write_tiff_data (priv, inputs[0]))
-        return FALSE;
+        ufo_writer_write (priv->writer, data + i * offset, &in_req, priv->depth);
 
-    if (!priv->single)
-        TIFFClose (priv->tif);
+        if (!priv->multi_file) {
+            ufo_writer_close (priv->writer);
+            priv->opened = FALSE;
+        }
 
-    ufo_profiler_stop (profiler, UFO_PROFILER_TIMER_IO);
+        priv->counter++;
+    }
 
-    priv->counter++;
     return TRUE;
 }
 
 static void
 ufo_write_task_set_property (GObject *object,
-                              guint property_id,
-                              const GValue *value,
-                              GParamSpec *pspec)
+                             guint property_id,
+                             const GValue *value,
+                             GParamSpec *pspec)
 {
     UfoWriteTaskPrivate *priv = UFO_WRITE_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_FORMAT:
-            g_free (priv->format);
-            priv->format = g_value_dup_string (value);
-            break;
-        case PROP_SINGLE_FILE:
-            priv->single = g_value_get_boolean (value);
+        case PROP_FILENAME:
+            g_free (priv->filename);
+            priv->filename = g_value_dup_string (value);
             break;
         case PROP_APPEND:
             priv->append = g_value_get_boolean (value);
             break;
         case PROP_BITS:
             {
-                guint val;
-
-                val = g_value_get_uint (value);
+                guint val = g_value_get_uint (value);
 
                 if (val != 8 && val != 16 && val != 32) {
                     g_warning ("Write::bits can only 8, 16 or 32");
                     return;
                 }
 
-                priv->depth = val;
+                if (val == 8)
+                    priv->depth = UFO_BUFFER_DEPTH_8U;
+
+                if (val == 16)
+                    priv->depth = UFO_BUFFER_DEPTH_16U;
+
+                if (val == 32)
+                    priv->depth = UFO_BUFFER_DEPTH_32F;
             }
             break;
+#ifdef HAVE_HDF5
+        case PROP_DATASET:
+            g_free (priv->dataset);
+            priv->dataset = g_value_dup_string (value);
+
+            if (priv->hdf5_writer != NULL)
+                g_object_unref (priv->hdf5_writer);
+
+            priv->hdf5_writer = ufo_hdf5_writer_new (priv->dataset);
+            break;
+#endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -366,29 +299,60 @@ ufo_write_task_set_property (GObject *object,
 
 static void
 ufo_write_task_get_property (GObject *object,
-                              guint property_id,
-                              GValue *value,
-                              GParamSpec *pspec)
+                             guint property_id,
+                             GValue *value,
+                             GParamSpec *pspec)
 {
     UfoWriteTaskPrivate *priv = UFO_WRITE_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_FORMAT:
-            g_value_set_string (value, priv->format);
-            break;
-        case PROP_SINGLE_FILE:
-            g_value_set_boolean (value, priv->single);
+        case PROP_FILENAME:
+            g_value_set_string (value, priv->filename);
             break;
         case PROP_APPEND:
             g_value_set_boolean (value, priv->append);
             break;
         case PROP_BITS:
-            g_value_set_uint (value, priv->depth);
+            if (priv->depth == UFO_BUFFER_DEPTH_8U)
+                g_value_set_uint (value, 8);
+
+            if (priv->depth == UFO_BUFFER_DEPTH_16U)
+                g_value_set_uint (value, 16);
+
+            if (priv->depth == UFO_BUFFER_DEPTH_32F)
+                g_value_set_uint (value, 32);
             break;
+#ifdef HAVE_HDF5
+        case PROP_DATASET:
+            g_value_set_string (value, priv->dataset);
+            break;
+#endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
     }
+}
+
+static void
+ufo_write_task_dispose (GObject *object)
+{
+    UfoWriteTaskPrivate *priv;
+
+    priv = UFO_WRITE_TASK_GET_PRIVATE (object);
+
+    g_object_unref (priv->raw_writer);
+
+#ifdef HAVE_TIFF
+    if (priv->tiff_writer)
+        g_object_unref (priv->tiff_writer);
+#endif
+
+#ifdef HAVE_HDF5
+    if (priv->hdf5_writer != NULL)
+        g_object_unref (priv->hdf5_writer);
+#endif
+
+    G_OBJECT_CLASS (ufo_write_task_parent_class)->dispose (object);
 }
 
 static void
@@ -398,14 +362,12 @@ ufo_write_task_finalize (GObject *object)
 
     priv = UFO_WRITE_TASK_GET_PRIVATE (object);
 
-    if (priv->template)
-        g_free (priv->template);
+    g_free (priv->filename);
+    priv->filename= NULL;
 
-    if (priv->single)
-        TIFFClose (priv->tif);
-
-    g_free (priv->format);
-    priv->format= NULL;
+#ifdef HAVE_HDF5
+    g_free (priv->dataset);
+#endif
 
     G_OBJECT_CLASS (ufo_write_task_parent_class)->finalize (object);
 }
@@ -428,20 +390,14 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
 
     gobject_class->set_property = ufo_write_task_set_property;
     gobject_class->get_property = ufo_write_task_get_property;
+    gobject_class->dispose = ufo_write_task_dispose;
     gobject_class->finalize = ufo_write_task_finalize;
 
-    properties[PROP_FORMAT] =
+    properties[PROP_FILENAME] =
         g_param_spec_string ("filename",
-            "Filename format string",
-            "Format string of the path and filename. If multiple files are written it must contain a '%i' specifier denoting the current count",
+            "Filename filename string",
+            "filename string of the path and filename. If multiple files are written it must contain a '%i' specifier denoting the current count",
             "./output-%05i.tif",
-            G_PARAM_READWRITE);
-
-    properties[PROP_SINGLE_FILE] =
-        g_param_spec_boolean ("single-file",
-            "Whether to write a single file or a sequence of files",
-            "Whether to write a single file or a sequence of files",
-            FALSE,
             G_PARAM_READWRITE);
 
     properties[PROP_APPEND] =
@@ -457,6 +413,15 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
                            "Number of bits per sample. Possible values in [8, 16, 32].",
                            8, 32, 32, G_PARAM_READWRITE);
 
+#ifdef HAVE_HDF5
+    properties[PROP_DATASET] =
+        g_param_spec_string("dataset",
+            "Path to an HDF5 dataset",
+            "Path to an HDF5 dataset",
+            "",
+            G_PARAM_READWRITE);
+#endif
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -467,10 +432,22 @@ static void
 ufo_write_task_init(UfoWriteTask *self)
 {
     self->priv = UFO_WRITE_TASK_GET_PRIVATE(self);
-    self->priv->format = g_strdup ("./output-%05i.tif");
-    self->priv->template = NULL;
     self->priv->counter = 0;
     self->priv->append = FALSE;
-    self->priv->single = FALSE;
-    self->priv->depth = 32;
+    self->priv->multi_file = FALSE;
+    self->priv->depth = UFO_BUFFER_DEPTH_32F;
+    self->priv->writer = NULL;
+    self->priv->opened = FALSE;
+    self->priv->raw_writer = ufo_raw_writer_new ();
+
+#ifdef HAVE_TIFF
+    self->priv->tiff_writer = ufo_tiff_writer_new ();
+    self->priv->filename = g_strdup ("./output-%05i.tif");
+#else
+    self->priv->filename = g_strdup ("./output-%05i.raw");
+#endif
+
+#ifdef HAVE_HDF5
+    self->priv->hdf5_writer = NULL;
+#endif
 }

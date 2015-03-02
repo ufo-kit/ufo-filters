@@ -33,12 +33,14 @@ set(ufofilter_SRCS
     ufo-measure-sharpness-task.c
     ufo-median-filter-task.c
     ufo-metaballs-task.c
+    ufo-monitor-task.c
     ufo-multi-search-task.c
     ufo-null-task.c
     ufo-opencl-task.c
     ufo-ordfilt-task.c
     ufo-pad-task.c
     ufo-polar-coordinates-task.c
+    ufo-read-task.c
     ufo-reduce-task.c
     ufo-remove-circle-task.c
     ufo-retrieve-phase-task.c
@@ -52,10 +54,20 @@ set(ufofilter_SRCS
     ufo-swap-quadrants-task.c
     ufo-subtract-task.c
     ufo-volume-render-task.c
+    ufo-write-task.c
     ufo-zeropad-task.c
     )
 
-set(ufoaux_SRCS ufo-priv.c)
+set(ufoaux_SRCS
+    ufo-priv.c)
+
+set(read_misc_SRCS
+    readers/ufo-reader.c
+    readers/ufo-edf-reader.c)
+
+set(write_misc_SRCS
+    writers/ufo-writer.c
+    writers/ufo-raw-writer.c)
 
 file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}
@@ -74,6 +86,7 @@ endif()
 #{{{ Dependency checks
 find_package(TIFF)
 find_package(clFFT)
+find_package(HDF5)
 
 pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(OPENCV opencv)
@@ -84,17 +97,28 @@ pkg_check_modules(UFO_IR ufoir>=0.1)
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
 
 if (TIFF_FOUND)
-    list(APPEND ufofilter_SRCS ufo-read-task.c)
-    list(APPEND ufofilter_SRCS ufo-write-task.c)
+    list(APPEND read_misc_SRCS readers/ufo-tiff-reader.c)
+    list(APPEND write_misc_SRCS writers/ufo-tiff-writer.c)
     list(APPEND ufofilter_LIBS ${TIFF_LIBRARIES})
     include_directories(${TIFF_INCLUDE_DIRS})
     link_directories(${TIFF_LIBRARY_DIRS})
+    set(HAVE_TIFF True)
 elseif (LIBTIFF4_INCLUDE_DIRS AND LIBTIFF4_LIBRARIES)
-    list(APPEND ufofilter_SRCS ufo-read-task.c)
-    list(APPEND ufofilter_SRCS ufo-write-task.c)
+    list(APPEND read_misc_SRCS readers/ufo-tiff-reader.c)
+    list(APPEND write_misc_SRCS writers/ufo-tiff-writer.c)
     list(APPEND ufofilter_LIBS ${LIBTIFF4_LIBRARIES})
     include_directories(${LIBTIFF4_INCLUDE_DIRS})
     link_directories(${LIBTIFF4_LIBRARY_DIRS})
+    set(HAVE_TIFF True)
+endif ()
+
+if (HDF5_FOUND)
+    list(APPEND read_misc_SRCS readers/ufo-hdf5-reader.c)
+    list(APPEND write_misc_SRCS writers/ufo-hdf5-writer.c)
+    list(APPEND ufofilter_LIBS ${HDF5_LIBRARIES})
+    include_directories(${HDF5_INCLUDE_DIRS})
+    link_directories(${HDF5_LIBRARY_DIRS})
+    set(HAVE_HDF5 True)
 endif ()
 
 if (UCA_INCLUDE_DIRS AND UCA_LIBRARIES)

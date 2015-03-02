@@ -1,2 +1,4 @@
 #cmakedefine HAVE_OCLFFT
 #cmakedefine HAVE_AMD
+#cmakedefine HAVE_TIFF
+#cmakedefine HAVE_HDF5
