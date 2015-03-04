@@ -181,6 +181,12 @@ ufo_downsample_task_get_property (GObject *object,
     UfoDownsampleTaskPrivate *priv = UFO_DOWNSAMPLE_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
+        case PROP_FACTOR:
+            if (priv->x_factor != priv->y_factor)
+                g_warning ("downsample: no common factor");
+            else
+                g_value_set_uint (value, priv->x_factor);
+            break;
         case PROP_X_FACTOR:
             g_value_set_uint (value, priv->x_factor);
             break;
@@ -233,7 +239,7 @@ ufo_downsample_task_class_init (UfoDownsampleTaskClass *klass)
                            "Downsample factor",
                            "Downsample factor for both dimensions, e.g. 2 reduces width and height by 2",
                            2, 16, 2,
-                           G_PARAM_WRITABLE);
+                           G_PARAM_READWRITE);
 
     properties[PROP_X_FACTOR] =
         g_param_spec_uint ("x-factor",
