@@ -95,6 +95,20 @@ Generic OpenCL
 Complex filters
 ===============
 
+Edge detection
+--------------
+
+.. gobj:class:: detect-edge
+
+    Detect edges by computing the power gradient image using different edge
+    filters.
+
+    .. gobj:prop:: type:string
+
+        Edge filter (or operator) which is one of ``sobel``, ``laplace`` and
+        ``prewitt``. By default, the ``sobel`` operator is used.
+
+
 Transposition
 -------------
 

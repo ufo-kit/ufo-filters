@@ -14,6 +14,7 @@ set(ufofilter_SRCS
     ufo-contrast-task.c
     ufo-dfi-sinc-task.c
     ufo-denoise-task.c
+    ufo-detect-edge-task.c
     ufo-downsample-task.c
     ufo-dummy-data-task.c
     ufo-dump-ring-task.c
