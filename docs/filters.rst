@@ -326,7 +326,7 @@ Slice mapping
     input elements is not the square of some integer value, the next higher
     number is chosen and the remaining data is blackened.
 
-    .. gobj:prop:: factor:int
+    .. gobj:prop:: number:int
 
         Number of expected input elements. If more elements are sent to the
         mapper, warnings are issued.
