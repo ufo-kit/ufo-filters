@@ -17,7 +17,7 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <hdf5.h>
+#include "common/hdf5.h"
 #include "readers/ufo-reader.h"
 #include "readers/ufo-hdf5-reader.h"
 
