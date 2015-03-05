@@ -5,7 +5,7 @@ before_script:
   - sudo add-apt-repository ppa:valmar-lp/crystfel-releases -y
   - sudo apt-get update -qq -y
   - sudo apt-get install opencl-headers ocl-icd-opencl-dev libjson-glib-dev libzmq3-dev autoconf-archive
-  - sudo apt-get install libtiff4-dev
+  - sudo apt-get install libtiff4-dev libhdf5-dev libjpeg-dev libgsl0-dev
 
   # build ufo-core first
   - mkdir core
