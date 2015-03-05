@@ -89,6 +89,7 @@ endif()
 find_package(TIFF)
 find_package(clFFT)
 find_package(HDF5 1.8)
+find_package(JPEG)
 
 pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(OPENCV opencv)
@@ -113,6 +114,15 @@ elseif (LIBTIFF4_INCLUDE_DIRS AND LIBTIFF4_LIBRARIES)
     link_directories(${LIBTIFF4_LIBRARY_DIRS})
     set(HAVE_TIFF True)
 endif ()
+
+if (JPEG_FOUND)
+    list(APPEND write_misc_SRCS writers/ufo-jpeg-writer.c)
+    list(APPEND ufofilter_LIBS ${JPEG_LIBRARIES})
+    include_directories(${JPEG_INCLUDE_DIRS})
+    link_directories(${JPEG_LIBRARY_DIRS})
+    set(HAVE_JPEG True)
+endif ()
+
 
 if (HDF5_FOUND)
     list(APPEND read_misc_SRCS readers/ufo-hdf5-reader.c)
