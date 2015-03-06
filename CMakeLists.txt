@@ -16,10 +16,10 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/common/cmake")
 
 #{{{ Variables and Options
 include(ConfigurePaths)
+include(PkgConfigVars)
+
 configure_paths(UFO_FILTERS)
 
-set(UFO_FILTERS_PLUGINDIR "${UFO_FILTERS_LIBDIR}/ufo")
-set(UFO_FILTERS_KERNELDIR "${UFO_FILTERS_DATADIR}/ufo")
 set(PKG_UFO_CORE_MIN_REQUIRED "0.6")
 
 option(WITH_PROFILING "Enable profiling" OFF)
@@ -35,13 +35,8 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(UFO ufo>=${PKG_UFO_CORE_MIN_REQUIRED} REQUIRED)
 
-execute_process(COMMAND pkg-config --variable=plugindir ufo
-                OUTPUT_VARIABLE UFO_FILTERS_PLUGINDIR
-                OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-execute_process(COMMAND pkg-config --variable=kerneldir ufo
-                OUTPUT_VARIABLE UFO_FILTERS_KERNELDIR
-                OUTPUT_STRIP_TRAILING_WHITESPACE)
+pkg_check_variable(ufo plugindir)
+pkg_check_variable(ufo kerneldir)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps/oclfft)
 

@@ -200,14 +200,14 @@ foreach(_src ${ufofilter_SRCS})
         list(APPEND all_targets ${target})
 
         install(TARGETS ${target}
-                ARCHIVE DESTINATION ${UFO_FILTERS_PLUGINDIR}
-                LIBRARY DESTINATION ${UFO_FILTERS_PLUGINDIR})
+                ARCHIVE DESTINATION ${UFO_PLUGINDIR}
+                LIBRARY DESTINATION ${UFO_PLUGINDIR})
     endif()
 endforeach()
 
 # copy kernels
 foreach(_kernel ${ufofilter_KERNELS})
-    install(FILES ${_kernel} DESTINATION ${UFO_FILTERS_KERNELDIR})
+    install(FILES ${_kernel} DESTINATION ${UFO_KERNELDIR})
 endforeach()
 #}}}
 #{{{ Python tests
