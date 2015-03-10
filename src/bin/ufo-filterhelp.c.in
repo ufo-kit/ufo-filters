@@ -1,0 +1,73 @@
+/*
+ * Copyright (C) 2015 Karlsruhe Institute of Technology
+ *
+ * This file is part of ufo-filters.
+ *
+ * ufo-filters is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, either
+ * version 3 of the License, or (at your option) any later version.
+ *
+ * ufo-filters is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public
+ * License along with runjson.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include <stdlib.h>
+#include <ufo/ufo.h>
+
+const gchar *filter_names = "@FILTER_LIST@";
+
+int
+main(int argc, char* argv[])
+{
+    GOptionContext *context;
+    GError *error = NULL;
+
+    static gboolean filters = FALSE;
+
+    static GOptionEntry entries[] = {
+        { "list-filters", 'l', 0, G_OPTION_ARG_NONE, &filters, "list all available filters", NULL },
+        { NULL }
+    };
+
+#if !(GLIB_CHECK_VERSION (2, 36, 0))
+    g_type_init ();
+#endif
+
+    context = g_option_context_new (NULL);
+    g_option_context_add_main_entries (context, entries, NULL);
+
+    if (!g_option_context_parse (context, &argc, &argv, &error)) {
+        g_print ("Error parsing options: %s\n", error->message);
+        return 1;
+    }
+    
+    if (argc == 1) {
+        if (filters) {
+            gchar **names = g_strsplit (filter_names, ";", -1);
+            if (!names) {
+                g_print ("No available filters could be found.\n");
+            }
+            else {
+                g_print ("The following tasks are available:\n");
+                guint i = 0; 
+                while (names[i]) {
+                    g_print ("%s\n", names[i]);
+                    i++;
+                }
+            }
+            g_strfreev (names);
+        }
+        else
+            g_print ("%s", g_option_context_get_help (context, TRUE, NULL));
+        
+        return 0;
+    }
+
+    return 0;
+}
