@@ -27,6 +27,7 @@ main(int argc, char* argv[])
 {
     GOptionContext *context;
     GError *error = NULL;
+    UfoPluginManager *pm;
 
     static gboolean filters = FALSE;
 
@@ -39,35 +40,79 @@ main(int argc, char* argv[])
     g_type_init ();
 #endif
 
-    context = g_option_context_new (NULL);
+    context = g_option_context_new ("TASK [TASK ...]");
+    g_option_context_set_summary (context, "Provides information about installed UFO filters and tasks");
     g_option_context_add_main_entries (context, entries, NULL);
 
     if (!g_option_context_parse (context, &argc, &argv, &error)) {
         g_print ("Error parsing options: %s\n", error->message);
         return 1;
     }
-    
-    if (argc == 1) {
-        if (filters) {
-            gchar **names = g_strsplit (filter_names, ";", -1);
-            if (!names) {
-                g_print ("No available filters could be found.\n");
-            }
-            else {
-                g_print ("The following tasks are available:\n");
-                guint i = 0; 
-                while (names[i]) {
-                    g_print ("%s\n", names[i]);
-                    i++;
-                }
-            }
-            g_strfreev (names);
+
+    if (filters) {
+        gchar **names = g_strsplit (filter_names, ";", -1);
+        if (!names) {
+            g_print ("No available filters could be found.\n");
         }
-        else
-            g_print ("%s", g_option_context_get_help (context, TRUE, NULL));
-        
+        else {
+            g_print ("The following filters and tasks are available:\n");
+            guint i = 0;
+            while (names[i]) {
+                g_print ("%s\n", names[i]);
+                i++;
+            }
+        }
+        g_strfreev (names);
         return 0;
     }
 
+    if (argc == 1) {
+        g_print ("%s", g_option_context_get_help (context, TRUE, NULL));
+        return 0;
+    }
+
+    pm = ufo_plugin_manager_new ();
+
+    for (gint i = 1; i < argc; i++) {
+        UfoTaskNode *node = ufo_plugin_manager_get_task (pm, argv[i], &error);
+
+        if (node) {
+            GObjectClass *node_class = G_OBJECT_GET_CLASS (node);
+
+            guint num_props = 0;
+            GParamSpec **pspecs = g_object_class_list_properties (node_class, &num_props);
+
+            if (pspecs) {
+                g_print ("#\n");
+                g_print ("# Filter '%s' exposes the following properties\n", argv[i]);
+                g_print ("#\n");
+                for (guint j = 0; j < num_props; j++) {
+                    g_print ("-- %s\n", pspecs[j]->name);
+                    g_print ("Type: %s\n", g_type_name (pspecs[j]->value_type));
+                    g_print ("Info: %s\n", g_param_spec_get_nick (pspecs[j]));
+                    g_print ("Description: %s\n", g_param_spec_get_blurb (pspecs[j]));
+                    g_print ("\n");
+                }
+            }
+
+            g_free (pspecs);
+            g_object_unref (node);
+        }
+        else {
+            g_print ("@\n");
+            if (error) {
+                g_print ("@ Warning: Could not find '%s' filter: %s\n", argv[i], error->message);
+                g_clear_error (&error);
+                error = NULL;
+            }
+            else {
+                g_print ("@ Warning: Could not find '%s' filter: An unknown error occured", argv[i]);
+            }
+            g_print ("@\n");
+        }
+    }
+
+    g_object_unref (pm);
+    g_option_context_free (context);
     return 0;
 }
