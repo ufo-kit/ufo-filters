@@ -231,16 +231,13 @@ int getMaxKernelWorkGroupSize(cl_fft_plan *plan, unsigned int *max_wg_size, unsi
 clFFT_Plan
 clFFT_CreatePlan(cl_context context, clFFT_Dim3 n, clFFT_Dimension dim, clFFT_DataFormat dataFormat, cl_int *error_code )
 {
-	int i;
 	cl_int err;
 	int isPow2 = 1;
 	cl_fft_plan *plan = NULL;
 	ostringstream kString;
 	int num_devices;
-	int gpu_found = 0;
 	cl_device_id devices[16];
 	size_t ret_size;
-	cl_device_type device_type;
 	
     if(!context)
 		ERR_MACRO(CL_INVALID_VALUE);
@@ -303,15 +300,15 @@ patch_kernel_source:
         char devicename[200];
         size_t log_size;
 
-        err = clGetProgramBuildInfo(plan->program, devices[i], CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
+        err = clGetProgramBuildInfo(plan->program, devices[0], CL_PROGRAM_BUILD_LOG, 0, NULL, &log_size);
         ERR_MACRO(err);
 
         build_log = (char *) malloc(log_size + 1);
 
-        err = clGetProgramBuildInfo(plan->program, devices[i], CL_PROGRAM_BUILD_LOG, log_size, build_log, NULL);
+        err = clGetProgramBuildInfo(plan->program, devices[0], CL_PROGRAM_BUILD_LOG, log_size, build_log, NULL);
         ERR_MACRO(err);
 
-        err = clGetDeviceInfo(devices[i], CL_DEVICE_NAME, sizeof(devicename), devicename, NULL);
+        err = clGetDeviceInfo(devices[0], CL_DEVICE_NAME, sizeof(devicename), devicename, NULL);
         ERR_MACRO(err);
 
         fprintf(stdout, "FFT program build log on device %s\n", devicename);
