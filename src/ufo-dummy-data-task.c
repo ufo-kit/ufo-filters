@@ -66,6 +66,10 @@ ufo_dummy_data_task_setup (UfoTask *task,
                          UfoResources *resources,
                          GError **error)
 {
+    UfoDummyDataTaskPrivate *priv;
+
+    priv = UFO_DUMMY_DATA_TASK_GET_PRIVATE (task);
+    priv->current = 0;
 }
 
 static void
