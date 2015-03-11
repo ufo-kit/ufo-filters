@@ -87,6 +87,8 @@ main(int argc, char* argv[])
                 g_print ("# Filter '%s' exposes the following properties\n", argv[i]);
                 g_print ("#\n");
                 for (guint j = 0; j < num_props; j++) {
+                    if (0 == g_strcmp0 (pspecs[j]->name, "num-processed"))
+                        continue;
                     g_print ("-- %s\n", pspecs[j]->name);
                     g_print ("Type: %s\n", g_type_name (pspecs[j]->value_type));
                     g_print ("Info: %s\n", g_param_spec_get_nick (pspecs[j]));
