@@ -97,7 +97,7 @@ ufo_tiff_reader_read (UfoReader *reader,
     data = (gchar *) ufo_buffer_get_host_array (buffer, NULL);
     offset = 0;
 
-    for (guint i = roi_y; i < roi_height; i += roi_step) {
+    for (guint i = roi_y; i < roi_y + roi_height; i += roi_step) {
         result = TIFFReadScanline (priv->tiff, data + offset, i, 0);
 
         if (result == -1) {
