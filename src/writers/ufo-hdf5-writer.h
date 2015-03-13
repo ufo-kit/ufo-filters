@@ -46,7 +46,7 @@ struct _UfoHdf5WriterClass {
     GObjectClass parent_class;
 };
 
-UfoHdf5Writer  *ufo_hdf5_writer_new       (const gchar *dataset);
+UfoHdf5Writer  *ufo_hdf5_writer_new       (void);
 GType           ufo_hdf5_writer_get_type  (void);
 
 G_END_DECLS

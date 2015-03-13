@@ -38,33 +38,62 @@ G_DEFINE_TYPE_WITH_CODE (UfoHdf5Writer, ufo_hdf5_writer, G_TYPE_OBJECT,
 #define UFO_HDF5_WRITER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_HDF5_WRITER, UfoHdf5WriterPrivate))
 
 UfoHdf5Writer *
-ufo_hdf5_writer_new (const gchar *dataset)
+ufo_hdf5_writer_new (void)
 {
-    UfoHdf5Writer *writer = g_object_new (UFO_TYPE_HDF5_WRITER, NULL);
-    writer->priv->dataset = g_strdup (dataset);
-    return writer;
+    return g_object_new (UFO_TYPE_HDF5_WRITER, NULL);
 }
 
 static gboolean
 ufo_hdf5_writer_can_open (UfoWriter *writer,
                           const gchar *filename)
 {
-    return g_str_has_suffix (filename, ".h5");
+    gchar *delimiter;
+
+    delimiter = g_strrstr (filename, ":");
+
+    if (delimiter == NULL)
+        return FALSE;
+
+    /* delimiter is not preceeded by three characters */
+    if (delimiter < filename + 3)
+        return FALSE;
+
+    if (!g_str_has_prefix (delimiter - 3, ".h5"))
+        return FALSE;
+
+    /* no dataset after delimiter */
+    if ((delimiter[1] == '\0') || (delimiter[2] == '\0'))
+        return FALSE;
+
+    return TRUE;
 }
 
 static void
 ufo_hdf5_writer_open (UfoWriter *writer,
-                     const gchar *filename)
+                      const gchar *filename)
 {
     UfoHdf5WriterPrivate *priv;
+    gchar *h5_filename;
+    gchar **components;
 
     priv = UFO_HDF5_WRITER_GET_PRIVATE (writer);
+    components = g_strsplit (filename, ":", 2);
 
-    if (g_file_test (filename, G_FILE_TEST_EXISTS))
-        priv->file_id = H5Fopen (filename, H5F_ACC_RDWR, H5P_DEFAULT);
+    if (components[1] == NULL) {
+        g_warning ("hdf5: must specify dataset name after color");
+        return;
+    }
+
+    g_free (priv->dataset);
+    h5_filename = components[0];
+    priv->dataset = g_strdup (components[1]);
+
+    if (g_file_test (h5_filename, G_FILE_TEST_EXISTS))
+        priv->file_id = H5Fopen (h5_filename, H5F_ACC_RDWR, H5P_DEFAULT);
     else
-        priv->file_id = H5Fcreate (filename, H5F_ACC_EXCL, H5P_DEFAULT, H5P_DEFAULT);
+        priv->file_id = H5Fcreate (h5_filename, H5F_ACC_EXCL, H5P_DEFAULT, H5P_DEFAULT);
 
+    g_strfreev (components);
     priv->current = 0;
 }
 

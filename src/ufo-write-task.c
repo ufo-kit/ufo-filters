@@ -62,7 +62,6 @@ struct _UfoWriteTaskPrivate {
 
 #ifdef WITH_HDF5
     UfoHdf5Writer *hdf5_writer;
-    gchar         *dataset;
 #endif
 };
 
@@ -81,9 +80,6 @@ enum {
     PROP_BITS,
 #ifdef HAVE_JPEG
     PROP_QUALITY,
-#endif
-#ifdef WITH_HDF5
-    PROP_DATASET,
 #endif
     N_PROPERTIES
 };
@@ -124,13 +120,11 @@ ufo_write_task_setup (UfoTask *task,
                       GError **error)
 {
     UfoWriteTaskPrivate *priv;
-    gchar *basename;
     gchar *dirname;
     guint num_fmt_specifiers;
 
     priv = UFO_WRITE_TASK_GET_PRIVATE (task);
     num_fmt_specifiers = count_format_specifiers (priv->filename);
-    basename = g_path_get_basename (priv->filename);
     dirname = g_path_get_dirname (priv->filename);
 
     if (num_fmt_specifiers > 1) {
@@ -141,27 +135,27 @@ ufo_write_task_setup (UfoTask *task,
 
     priv->multi_file = num_fmt_specifiers == 0;
 
-    if (ufo_writer_can_open (UFO_WRITER (priv->raw_writer), basename)) {
+    if (ufo_writer_can_open (UFO_WRITER (priv->raw_writer), priv->filename)) {
         priv->writer = UFO_WRITER (priv->raw_writer);
     }
 #ifdef HAVE_TIFF
-    else if (ufo_writer_can_open (UFO_WRITER (priv->tiff_writer), basename)) {
+    else if (ufo_writer_can_open (UFO_WRITER (priv->tiff_writer), priv->filename)) {
         priv->writer = UFO_WRITER (priv->tiff_writer);
     }
 #endif
 #ifdef WITH_HDF5
-    else if (priv->hdf5_writer && ufo_writer_can_open (UFO_WRITER (priv->hdf5_writer), basename)) {
+    else if (ufo_writer_can_open (UFO_WRITER (priv->hdf5_writer), priv->filename)) {
         priv->writer = UFO_WRITER (priv->hdf5_writer);
     }
 #endif
 #ifdef HAVE_JPEG
-    else if (ufo_writer_can_open (UFO_WRITER (priv->jpeg_writer), basename)) {
+    else if (ufo_writer_can_open (UFO_WRITER (priv->jpeg_writer), priv->filename)) {
         priv->writer = UFO_WRITER (priv->jpeg_writer);
     }
 #endif
     else {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                     "`%s' does not have a valid file extension", basename);
+                     "`%s' does not have a valid file extension", priv->filename);
         return;
     }
 
@@ -191,7 +185,6 @@ ufo_write_task_setup (UfoTask *task,
     }
 
     g_free (dirname);
-    g_free (basename);
 }
 
 static void
@@ -303,17 +296,6 @@ ufo_write_task_set_property (GObject *object,
             ufo_jpeg_writer_set_quality (priv->jpeg_writer, priv->quality);
             break;
 #endif
-#ifdef WITH_HDF5
-        case PROP_DATASET:
-            g_free (priv->dataset);
-            priv->dataset = g_value_dup_string (value);
-
-            if (priv->hdf5_writer != NULL)
-                g_object_unref (priv->hdf5_writer);
-
-            priv->hdf5_writer = ufo_hdf5_writer_new (priv->dataset);
-            break;
-#endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -348,11 +330,6 @@ ufo_write_task_get_property (GObject *object,
 #ifdef HAVE_JPEG
         case PROP_QUALITY:
             g_value_set_uint (value, priv->quality);
-            break;
-#endif
-#ifdef WITH_HDF5
-        case PROP_DATASET:
-            g_value_set_string (value, priv->dataset);
             break;
 #endif
         default:
@@ -397,10 +374,6 @@ ufo_write_task_finalize (GObject *object)
 
     g_free (priv->filename);
     priv->filename= NULL;
-
-#ifdef WITH_HDF5
-    g_free (priv->dataset);
-#endif
 
     G_OBJECT_CLASS (ufo_write_task_parent_class)->finalize (object);
 }
@@ -454,15 +427,6 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
                            0, 100, 95, G_PARAM_READWRITE);
 #endif
 
-#ifdef WITH_HDF5
-    properties[PROP_DATASET] =
-        g_param_spec_string("dataset",
-            "Path to an HDF5 dataset",
-            "Path to an HDF5 dataset",
-            "",
-            G_PARAM_READWRITE);
-#endif
-
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -494,7 +458,6 @@ ufo_write_task_init(UfoWriteTask *self)
 #endif
 
 #ifdef WITH_HDF5
-    self->priv->hdf5_writer = NULL;
-    self->priv->dataset = NULL;
+    self->priv->hdf5_writer = ufo_hdf5_writer_new ();
 #endif
 }
