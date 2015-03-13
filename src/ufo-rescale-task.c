@@ -32,8 +32,6 @@ struct _UfoRescaleTaskPrivate {
     cl_filter_mode filter_mode;
     gfloat x_factor;
     gfloat y_factor;
-    guint target_width;
-    guint target_height;
     cl_sampler sampler;
 };
 
@@ -99,16 +97,16 @@ ufo_rescale_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
     requisition->n_dims = 2;
-    requisition->dims[0] = priv->target_width = (gint) (in_req.dims[0] * priv->x_factor);
-    requisition->dims[1] = priv->target_height = (gint) (in_req.dims[1] * priv->y_factor);
+    requisition->dims[0] = (gint) (in_req.dims[0] * priv->x_factor);
+    requisition->dims[1] = (gint) (in_req.dims[1] * priv->y_factor);
 
     /* If the factors are too big we want at least one row/column in order */
     /* not to have a buffer with 0 in any dimension */
     if (requisition->dims[0] == 0) {
-        requisition->dims[0] = priv->target_width = 1;
+        requisition->dims[0] = 1;
     }
     if (requisition->dims[1] == 0) {
-        requisition->dims[1] = priv->target_height = 1;
+        requisition->dims[1] = 1;
     }
 }
 
