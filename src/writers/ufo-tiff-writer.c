@@ -43,6 +43,13 @@ ufo_tiff_writer_new (void)
     return writer;
 }
 
+static gboolean
+ufo_tiff_writer_can_open (UfoWriter *writer,
+                          const gchar *filename)
+{
+    return g_str_has_suffix (filename, ".tif") || g_str_has_suffix (filename, ".tif");
+}
+
 static void
 ufo_tiff_writer_open (UfoWriter *writer,
                       const gchar *filename)
@@ -137,6 +144,7 @@ ufo_tiff_writer_finalize (GObject *object)
 static void
 ufo_writer_interface_init (UfoWriterIface *iface)
 {
+    iface->can_open = ufo_tiff_writer_can_open;
     iface->open = ufo_tiff_writer_open;
     iface->close = ufo_tiff_writer_close;
     iface->write = ufo_tiff_writer_write;

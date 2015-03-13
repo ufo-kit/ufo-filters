@@ -23,6 +23,12 @@ typedef UfoWriterIface UfoWriterInterface;
 
 G_DEFINE_INTERFACE (UfoWriter, ufo_writer, 0)
 
+gboolean
+ufo_writer_can_open (UfoWriter *writer,
+                     const gchar *filename)
+{
+    return UFO_WRITER_GET_IFACE (writer)->can_open (writer, filename);
+}
 
 void
 ufo_writer_open (UfoWriter *writer,

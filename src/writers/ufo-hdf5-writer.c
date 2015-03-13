@@ -45,6 +45,13 @@ ufo_hdf5_writer_new (const gchar *dataset)
     return writer;
 }
 
+static gboolean
+ufo_hdf5_writer_can_open (UfoWriter *writer,
+                          const gchar *filename)
+{
+    return g_str_has_suffix (filename, ".h5");
+}
+
 static void
 ufo_hdf5_writer_open (UfoWriter *writer,
                      const gchar *filename)
@@ -223,6 +230,7 @@ ufo_hdf5_writer_finalize (GObject *object)
 static void
 ufo_writer_interface_init (UfoWriterIface *iface)
 {
+    iface->can_open = ufo_hdf5_writer_can_open;
     iface->open = ufo_hdf5_writer_open;
     iface->close = ufo_hdf5_writer_close;
     iface->write = ufo_hdf5_writer_write;

@@ -141,26 +141,21 @@ ufo_write_task_setup (UfoTask *task,
 
     priv->multi_file = num_fmt_specifiers == 0;
 
-    if (g_str_has_suffix (basename, ".raw")) {
+    if (ufo_writer_can_open (UFO_WRITER (priv->raw_writer), basename)) {
         priv->writer = UFO_WRITER (priv->raw_writer);
     }
 #ifdef HAVE_TIFF
-    else if (g_str_has_suffix (basename, ".tiff") || g_str_has_suffix (basename, ".tif")) {
+    else if (ufo_writer_can_open (UFO_WRITER (priv->tiff_writer), basename)) {
         priv->writer = UFO_WRITER (priv->tiff_writer);
     }
 #endif
 #ifdef WITH_HDF5
-    else if (g_str_has_suffix (basename, ".h5")) {
-        if (priv->hdf5_writer == NULL) {
-            g_error ("write: property ::dataset not specified");
-            return;
-        }
-
+    else if (priv->hdf5_writer && ufo_writer_can_open (UFO_WRITER (priv->hdf5_writer), basename)) {
         priv->writer = UFO_WRITER (priv->hdf5_writer);
     }
 #endif
 #ifdef HAVE_JPEG
-    else if (g_str_has_suffix (basename, ".jpg") || g_str_has_suffix (basename, ".jpeg")) {
+    else if (ufo_writer_can_open (UFO_WRITER (priv->jpeg_writer), basename)) {
         priv->writer = UFO_WRITER (priv->jpeg_writer);
     }
 #endif

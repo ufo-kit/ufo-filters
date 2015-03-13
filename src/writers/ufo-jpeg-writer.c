@@ -53,6 +53,13 @@ ufo_jpeg_writer_set_quality (UfoJpegWriter *writer, gint quality)
     writer->priv->quality = quality;
 }
 
+static gboolean
+ufo_jpeg_writer_can_open (UfoWriter *writer,
+                          const gchar *filename)
+{
+    return g_str_has_suffix (filename, ".jpg") || g_str_has_suffix (filename, ".jpeg");
+}
+
 static void
 ufo_jpeg_writer_open (UfoWriter *writer,
                       const gchar *filename)
@@ -128,6 +135,7 @@ ufo_jpeg_writer_finalize (GObject *object)
 static void
 ufo_writer_interface_init (UfoWriterIface *iface)
 {
+    iface->can_open = ufo_jpeg_writer_can_open;
     iface->open = ufo_jpeg_writer_open;
     iface->close = ufo_jpeg_writer_close;
     iface->write = ufo_jpeg_writer_write;

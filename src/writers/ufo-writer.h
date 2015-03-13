@@ -38,26 +38,30 @@ struct _UfoWriterIface {
     /*< private >*/
     GTypeInterface parent_iface;
 
-    void (*open)     (UfoWriter      *writer,
-                      const gchar    *filename);
-    void (*close)    (UfoWriter      *writer);
-    void (*write)    (UfoWriter      *writer,
-                      gpointer        data,
-                      UfoRequisition *requisition,
-                      UfoBufferDepth  depth);
+    gboolean (*can_open) (UfoWriter     *writer,
+                          const gchar   *filename);
+    void     (*open)     (UfoWriter      *writer,
+                          const gchar    *filename);
+    void     (*close)    (UfoWriter      *writer);
+    void     (*write)    (UfoWriter      *writer,
+                          gpointer        data,
+                          UfoRequisition *requisition,
+                          UfoBufferDepth  depth);
 };
 
-void ufo_writer_open  (UfoWriter      *writer,
-                       const gchar    *filename);
-void ufo_writer_close (UfoWriter      *writer);
-void ufo_writer_write (UfoWriter      *writer,
-                       gpointer        data,
-                       UfoRequisition *requisition,
-                       UfoBufferDepth  depth);
-void ufo_writer_convert_inplace
-                      (gpointer        data,
-                       UfoRequisition *requisition,
-                       UfoBufferDepth  depth);
+gboolean ufo_writer_can_open (UfoWriter      *writer,
+                              const gchar    *filename);
+void     ufo_writer_open     (UfoWriter      *writer,
+                              const gchar    *filename);
+void     ufo_writer_close    (UfoWriter      *writer);
+void     ufo_writer_write    (UfoWriter      *writer,
+                              gpointer        data,
+                              UfoRequisition *requisition,
+                              UfoBufferDepth  depth);
+void     ufo_writer_convert_inplace
+                             (gpointer        data,
+                              UfoRequisition *requisition,
+                              UfoBufferDepth  depth);
 
 GType  ufo_writer_get_type        (void);
 
