@@ -44,6 +44,7 @@ set(ufofilter_SRCS
     ufo-polar-coordinates-task.c
     ufo-read-task.c
     ufo-reduce-task.c
+    ufo-refeed-task.c
     ufo-remove-circle-task.c
     ufo-retrieve-phase-task.c
     ufo-ring-pattern-task.c
