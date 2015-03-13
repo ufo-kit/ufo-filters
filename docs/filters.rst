@@ -305,16 +305,20 @@ Region of interest
         Height of the region of interest.
 
 
-Downsampling
-------------
+Rescaling
+---------
 
-.. gobj:class:: downsample
+.. gobj:class:: rescale
 
-    Reduce the size of the input data by a fixed :gobj:prop:`factor`.
+    Change the size of the input data by a fixed :gobj:prop:`factor`.
 
     .. gobj:prop:: factor:int
 
         Fixed factor by which the input size is to be reduced.
+
+    .. gobj:prop:: interpolation:string
+
+        Interpolation method used for rescaling.
 
 
 Slice mapping
