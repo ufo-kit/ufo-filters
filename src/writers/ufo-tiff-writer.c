@@ -47,7 +47,7 @@ static gboolean
 ufo_tiff_writer_can_open (UfoWriter *writer,
                           const gchar *filename)
 {
-    return g_str_has_suffix (filename, ".tif") || g_str_has_suffix (filename, ".tif");
+    return g_str_has_suffix (filename, ".tif") || g_str_has_suffix (filename, ".tiff");
 }
 
 static void
