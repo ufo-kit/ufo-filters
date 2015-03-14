@@ -145,7 +145,18 @@ ufo_write_task_setup (UfoTask *task,
 #endif
 #ifdef WITH_HDF5
     else if (ufo_writer_can_open (UFO_WRITER (priv->hdf5_writer), priv->filename)) {
+        gchar **components;
+
         priv->writer = UFO_WRITER (priv->hdf5_writer);
+
+        /*
+         * dirname will be wrong because we use path separators for the dataset.
+         * So, lets' find it out manually.
+         */
+        g_free (dirname);
+        components = g_strsplit (priv->filename, ":", 2);
+        dirname = g_path_get_dirname (components[0]);
+        g_strfreev (components);
     }
 #endif
 #ifdef HAVE_JPEG
