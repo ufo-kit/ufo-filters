@@ -170,6 +170,8 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in
                ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
+SET(FILTER_LIST "")
+
 foreach(_src ${ufofilter_SRCS})
     # find plugin suffix
     string(REGEX REPLACE "ufo-([^ \\.]+)-task.*" "\\1" task "${_src}")
@@ -183,6 +185,8 @@ foreach(_src ${ufofilter_SRCS})
     option(${target_option} "Build filter ${task}" ON)
 
     if (${target_option})
+        LIST(APPEND FILTER_LIST ${task}) 
+        
         set(_misc "${_misc}_misc_SRCS")
 
         string(REPLACE "-" "" _targetname ${task})
@@ -204,6 +208,11 @@ foreach(_src ${ufofilter_SRCS})
                 LIBRARY DESTINATION ${UFO_PLUGINDIR})
     endif()
 endforeach()
+
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/bin/ufo-filterhelp.c.in ufo-filterhelp.c)
+add_executable(ufo-filterhelp ufo-filterhelp.c)
+target_link_libraries(ufo-filterhelp ${ufofilter_LIBS})
+install(TARGETS ufo-filterhelp RUNTIME DESTINATION ${UFO_FILTERS_BINDIR})
 
 # copy kernels
 foreach(_kernel ${ufofilter_KERNELS})
