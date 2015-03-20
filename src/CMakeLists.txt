@@ -179,30 +179,25 @@ foreach(_src ${ufofilter_SRCS})
     string(TOUPPER ${_misc} _misc_upper)
 
     # create an option name and add this to disable filters
-    set(target_option "ENABLE_${_misc_upper}")
-    option(${target_option} "Build filter ${task}" ON)
+    set(_misc "${_misc}_misc_SRCS")
 
-    if (${target_option})
-        set(_misc "${_misc}_misc_SRCS")
+    string(REPLACE "-" "" _targetname ${task})
+    set(target "ufofilter${_targetname}")
 
-        string(REPLACE "-" "" _targetname ${task})
-        set(target "ufofilter${_targetname}")
-
-        # build single shared library per filter
-        if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-            add_library(${target} MODULE ${ufoaux_SRCS} ${_src} ${${_misc}})
-        else()
-            add_library(${target} SHARED ${ufoaux_SRCS} ${_src} ${${_misc}})
-        endif()
-
-        target_link_libraries(${target} ${ufofilter_LIBS})
-
-        list(APPEND all_targets ${target})
-
-        install(TARGETS ${target}
-                ARCHIVE DESTINATION ${UFO_PLUGINDIR}
-                LIBRARY DESTINATION ${UFO_PLUGINDIR})
+    # build single shared library per filter
+    if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+        add_library(${target} MODULE ${ufoaux_SRCS} ${_src} ${${_misc}})
+    else()
+        add_library(${target} SHARED ${ufoaux_SRCS} ${_src} ${${_misc}})
     endif()
+
+    target_link_libraries(${target} ${ufofilter_LIBS})
+
+    list(APPEND all_targets ${target})
+
+    install(TARGETS ${target}
+            ARCHIVE DESTINATION ${UFO_PLUGINDIR}
+            LIBRARY DESTINATION ${UFO_PLUGINDIR})
 endforeach()
 
 # copy kernels
