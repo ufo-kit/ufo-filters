@@ -17,7 +17,12 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <gmodule.h>
+#ifdef __APPLE__
+#include <OpenCL/cl.h>
+#else
+#include <CL/cl.h>
+#endif
+
 #include "ufo-null-task.h"
 
 
@@ -31,11 +36,13 @@ G_DEFINE_TYPE_WITH_CODE (UfoNullTask, ufo_null_task, UFO_TYPE_TASK_NODE,
 
 struct _UfoNullTaskPrivate {
     gboolean force_download;
+    gboolean finish;
 };
 
 enum {
     PROP_0,
     PROP_FORCE_DOWNLOAD,
+    PROP_FINISH,
     N_PROPERTIES
 };
 
@@ -79,7 +86,7 @@ ufo_null_task_get_num_dimensions (UfoTask *task,
 static UfoTaskMode
 ufo_null_task_get_mode (UfoTask *task)
 {
-    return UFO_TASK_MODE_SINK | UFO_TASK_MODE_CPU;
+    return UFO_TASK_MODE_SINK | UFO_TASK_MODE_GPU;
 }
 
 static gboolean
@@ -97,6 +104,13 @@ ufo_null_task_process (UfoTask *task,
 
         host_array = ufo_buffer_get_host_array (inputs[0], NULL);
         host_array[0] = 0.0;
+    }
+
+    if (priv->finish) {
+        UfoGpuNode *gpu;
+
+        gpu = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+        UFO_RESOURCES_CHECK_CLERR (clFinish (ufo_gpu_node_get_cmd_queue (gpu)));
     }
 
     return TRUE;
@@ -126,6 +140,10 @@ ufo_null_task_set_property (GObject *object,
             priv->force_download = g_value_get_boolean (value);
             break;
 
+        case PROP_FINISH:
+            priv->finish = g_value_get_boolean (value);
+            break;
+
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -143,6 +161,10 @@ ufo_null_task_get_property (GObject *object,
     switch (property_id) {
         case PROP_FORCE_DOWNLOAD:
             g_value_set_boolean (value, priv->force_download);
+            break;
+
+        case PROP_FINISH:
+            g_value_set_boolean (value, priv->finish);
             break;
 
         default:
@@ -166,6 +188,12 @@ ufo_null_task_class_init (UfoNullTaskClass *klass)
                               "Force data to be transferred from device to host",
                               FALSE, G_PARAM_READWRITE);
 
+    properties[PROP_FINISH] =
+        g_param_spec_boolean ("finish",
+                              "Call finish on the associated command queue",
+                              "Call finish on the associated command queue",
+                              FALSE, G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -179,4 +207,5 @@ ufo_null_task_init(UfoNullTask *self)
 
     self->priv = priv = UFO_NULL_TASK_GET_PRIVATE (self);
     priv->force_download = FALSE;
+    priv->finish = FALSE;
 }
