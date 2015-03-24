@@ -23,7 +23,6 @@
 
 
 struct _UfoHdf5ReaderPrivate {
-    gchar *dataset;
     hid_t file_id;
     hid_t dataset_id;
     hid_t src_dataspace_id;
@@ -42,18 +41,16 @@ G_DEFINE_TYPE_WITH_CODE (UfoHdf5Reader, ufo_hdf5_reader, G_TYPE_OBJECT,
 #define UFO_HDF5_READER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_HDF5_READER, UfoHdf5ReaderPrivate))
 
 UfoHdf5Reader *
-ufo_hdf5_reader_new (const gchar *dataset)
+ufo_hdf5_reader_new (void)
 {
-    UfoHdf5Reader *reader = g_object_new (UFO_TYPE_HDF5_READER, NULL);
-    reader->priv->dataset = g_strdup (dataset);
-    return reader;
+    return g_object_new (UFO_TYPE_HDF5_READER, NULL);
 }
 
 static gboolean
 ufo_hdf5_reader_can_open (UfoReader *reader,
                           const gchar *filename)
 {
-    return g_str_has_suffix (filename, ".h5");
+    return ufo_hdf5_can_open (filename);
 }
 
 static void
@@ -61,11 +58,23 @@ ufo_hdf5_reader_open (UfoReader *reader,
                       const gchar *filename)
 {
     UfoHdf5ReaderPrivate *priv;
+    gchar *h5_filename;
+    gchar *h5_dataset;
+    gchar **components;
 
     priv = UFO_HDF5_READER_GET_PRIVATE (reader);
+    components = g_strsplit (filename, ":", 2);
 
-    priv->file_id = H5Fopen (filename, H5F_ACC_RDONLY, H5P_DEFAULT);
-    priv->dataset_id = H5Dopen (priv->file_id, priv->dataset, H5P_DEFAULT);
+    if (components[1] == NULL) {
+        g_warning ("hdf5: must specify dataset name after color");
+        return;
+    }
+
+    h5_filename = components[0];
+    h5_dataset = components[1];
+
+    priv->file_id = H5Fopen (h5_filename, H5F_ACC_RDONLY, H5P_DEFAULT);
+    priv->dataset_id = H5Dopen (priv->file_id, h5_dataset, H5P_DEFAULT);
     priv->src_dataspace_id = H5Dget_space (priv->dataset_id);
     priv->n_dims = H5Sget_simple_extent_ndims (priv->src_dataspace_id);
 
@@ -75,6 +84,7 @@ ufo_hdf5_reader_open (UfoReader *reader,
     H5Sget_simple_extent_dims (priv->src_dataspace_id, priv->dims, NULL);
 
     priv->current = 0;
+    g_strfreev (components);
 }
 
 static void
@@ -145,16 +155,6 @@ ufo_hdf5_reader_get_meta (UfoReader *reader,
 }
 
 static void
-ufo_hdf5_reader_finalize (GObject *object)
-{
-    UfoHdf5ReaderPrivate *priv;
-
-    priv = UFO_HDF5_READER_GET_PRIVATE (object);
-    g_free (priv->dataset);
-    G_OBJECT_CLASS (ufo_hdf5_reader_parent_class)->finalize (object);
-}
-
-static void
 ufo_reader_interface_init (UfoReaderIface *iface)
 {
     iface->can_open = ufo_hdf5_reader_can_open;
@@ -168,18 +168,11 @@ ufo_reader_interface_init (UfoReaderIface *iface)
 static void
 ufo_hdf5_reader_class_init(UfoHdf5ReaderClass *klass)
 {
-    GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
-
-    gobject_class->finalize = ufo_hdf5_reader_finalize;
-
-    g_type_class_add_private (gobject_class, sizeof (UfoHdf5ReaderPrivate));
+    g_type_class_add_private (G_OBJECT_CLASS (klass), sizeof (UfoHdf5ReaderPrivate));
 }
 
 static void
 ufo_hdf5_reader_init (UfoHdf5Reader *self)
 {
-    UfoHdf5ReaderPrivate *priv = NULL;
-
-    self->priv = priv = UFO_HDF5_READER_GET_PRIVATE (self);
-    priv->dataset = NULL;
+    self->priv = UFO_HDF5_READER_GET_PRIVATE (self);
 }

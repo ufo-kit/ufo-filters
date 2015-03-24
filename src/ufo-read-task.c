@@ -63,7 +63,6 @@ struct _UfoReadTaskPrivate {
 
 #ifdef WITH_HDF5
     UfoHdf5Reader   *hdf5_reader;
-    gchar           *dataset;
 #endif
 };
 
@@ -85,9 +84,6 @@ enum {
     PROP_ROI_HEIGHT,
     PROP_ROI_STEP,
     PROP_CONVERT,
-#ifdef WITH_HDF5
-    PROP_DATASET,
-#endif
     N_PROPERTIES
 };
 
@@ -108,6 +104,11 @@ read_filenames (UfoReadTaskPrivate *priv)
 
     result = NULL;
 
+#ifdef WITH_HDF5
+    if (ufo_reader_can_open (UFO_READER (priv->hdf5_reader), priv->path))
+        return g_list_append (NULL, g_strdup (priv->path));
+#endif
+
     if (g_file_test (priv->path, G_FILE_TEST_IS_REGULAR)) {
         /* This is a single file without any asterisks */
         pattern = g_strdup (priv->path);
@@ -124,11 +125,6 @@ read_filenames (UfoReadTaskPrivate *priv)
 
 #ifdef HAVE_TIFF
         if (ufo_reader_can_open (UFO_READER (priv->tiff_reader), filename))
-            result = g_list_append (result, g_strdup (filename));
-#endif
-
-#ifdef WITH_HDF5
-        if (priv->hdf5_reader && ufo_reader_can_open (UFO_READER (priv->hdf5_reader), filename))
             result = g_list_append (result, g_strdup (filename));
 #endif
 
@@ -172,14 +168,8 @@ get_reader (UfoReadTaskPrivate *priv, const gchar *filename)
 #endif
 
 #ifdef WITH_HDF5
-    if (ufo_reader_can_open (UFO_READER (priv->hdf5_reader), filename)) {
-        if (priv->hdf5_reader == NULL) {
-            g_error ("read: property ::dataset not specified");
-            return NULL;
-        }
-
+    if (ufo_reader_can_open (UFO_READER (priv->hdf5_reader), filename))
         return UFO_READER (priv->hdf5_reader);
-    }
 #endif
 
     if (ufo_reader_can_open (UFO_READER (priv->edf_reader), filename))
@@ -318,17 +308,6 @@ ufo_read_task_set_property (GObject *object,
         case PROP_NUMBER:
             priv->number = g_value_get_uint (value);
             break;
-#ifdef WITH_HDF5
-        case PROP_DATASET:
-            g_free (priv->dataset);
-            priv->dataset = g_value_dup_string (value);
-
-            if (priv->hdf5_reader != NULL)
-                g_object_unref (priv->hdf5_reader);
-
-            priv->hdf5_reader = ufo_hdf5_reader_new (priv->dataset);
-            break;
-#endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -368,11 +347,6 @@ ufo_read_task_get_property (GObject *object,
         case PROP_NUMBER:
             g_value_set_uint (value, priv->number);
             break;
-#ifdef WITH_HDF5
-        case PROP_DATASET:
-            g_value_set_string (value, priv->dataset);
-            break;
-#endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -393,8 +367,7 @@ ufo_read_task_dispose (GObject *object)
 #endif
 
 #ifdef WITH_HDF5
-    if (priv->hdf5_reader != NULL)
-        g_object_unref (priv->hdf5_reader);
+    g_object_unref (priv->hdf5_reader);
 #endif
 }
 
@@ -412,10 +385,6 @@ ufo_read_task_finalize (GObject *object)
         g_list_free_full (priv->filenames, (GDestroyNotify) g_free);
         priv->filenames = NULL;
     }
-
-#ifdef WITH_HDF5
-    g_free (priv->dataset);
-#endif
 
     G_OBJECT_CLASS (ufo_read_task_parent_class)->finalize (object);
 }
@@ -497,15 +466,6 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
             0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
-#ifdef WITH_HDF5
-    properties[PROP_DATASET] =
-        g_param_spec_string("dataset",
-            "Path to an HDF5 dataset",
-            "Path to an HDF5 dataset",
-            "",
-            G_PARAM_READWRITE);
-#endif
-
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -535,7 +495,7 @@ ufo_read_task_init(UfoReadTask *self)
 #endif
 
 #ifdef WITH_HDF5
-    priv->hdf5_reader = NULL;
+    priv->hdf5_reader = ufo_hdf5_reader_new ();
 #endif
 
     priv->reader = NULL;

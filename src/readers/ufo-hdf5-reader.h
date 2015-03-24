@@ -46,7 +46,7 @@ struct _UfoHdf5ReaderClass {
     GObjectClass parent_class;
 };
 
-UfoHdf5Reader  *ufo_hdf5_reader_new       (const gchar *dataset);
+UfoHdf5Reader  *ufo_hdf5_reader_new       (void);
 GType           ufo_hdf5_reader_get_type  (void);
 
 G_END_DECLS
