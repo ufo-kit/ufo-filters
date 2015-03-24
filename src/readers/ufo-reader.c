@@ -24,6 +24,13 @@ typedef UfoReaderIface UfoReaderInterface;
 G_DEFINE_INTERFACE (UfoReader, ufo_reader, 0)
 
 
+gboolean
+ufo_reader_can_open (UfoReader *reader,
+                     const gchar *filename)
+{
+    return UFO_READER_GET_IFACE (reader)->can_open (reader, filename);
+}
+
 void
 ufo_reader_open (UfoReader *reader,
                  const gchar *filename)

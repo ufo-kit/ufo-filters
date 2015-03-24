@@ -100,7 +100,7 @@ ufo_read_task_new (void)
 }
 
 static GList *
-read_filenames (const gchar *path)
+read_filenames (UfoReadTaskPrivate *priv)
 {
     GList *result;
     gchar *pattern;
@@ -108,13 +108,13 @@ read_filenames (const gchar *path)
 
     result = NULL;
 
-    if (g_file_test (path, G_FILE_TEST_IS_REGULAR)) {
+    if (g_file_test (priv->path, G_FILE_TEST_IS_REGULAR)) {
         /* This is a single file without any asterisks */
-        pattern = g_strdup (path);
+        pattern = g_strdup (priv->path);
     }
     else {
         /* This is a directory which we may have to glob */
-        pattern = strstr (path, "*") != NULL ? g_strdup (path) : g_build_filename (path, "*", NULL);
+        pattern = strstr (priv->path, "*") != NULL ? g_strdup (priv->path) : g_build_filename (priv->path, "*", NULL);
     }
 
     glob (pattern, GLOB_MARK | GLOB_TILDE, NULL, &filenames);
@@ -123,16 +123,16 @@ read_filenames (const gchar *path)
         const gchar *filename = filenames.gl_pathv[i];
 
 #ifdef HAVE_TIFF
-        if (g_str_has_suffix (filename, ".tiff") || g_str_has_suffix (filename, ".tif"))
+        if (ufo_reader_can_open (UFO_READER (priv->tiff_reader), filename))
             result = g_list_append (result, g_strdup (filename));
 #endif
 
 #ifdef WITH_HDF5
-        if (g_str_has_suffix (filename, ".h5"))
+        if (priv->hdf5_reader && ufo_reader_can_open (UFO_READER (priv->hdf5_reader), filename))
             result = g_list_append (result, g_strdup (filename));
 #endif
 
-        if (g_str_has_suffix (filename, ".edf"))
+        if (ufo_reader_can_open (UFO_READER (priv->edf_reader), filename))
             result = g_list_append (result, g_strdup (filename));
     }
 
@@ -150,7 +150,7 @@ ufo_read_task_setup (UfoTask *task,
 
     priv = UFO_READ_TASK_GET_PRIVATE (task);
 
-    priv->filenames = read_filenames (priv->path);
+    priv->filenames = read_filenames (priv);
 
     if (priv->filenames == NULL) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
@@ -167,12 +167,12 @@ static UfoReader *
 get_reader (UfoReadTaskPrivate *priv, const gchar *filename)
 {
 #ifdef HAVE_TIFF
-    if (g_str_has_suffix (filename, ".tiff") || g_str_has_suffix (filename, ".tif"))
+    if (ufo_reader_can_open (UFO_READER (priv->tiff_reader), filename))
         return UFO_READER (priv->tiff_reader);
 #endif
 
 #ifdef WITH_HDF5
-    if (g_str_has_suffix (filename, ".h5")) {
+    if (ufo_reader_can_open (UFO_READER (priv->hdf5_reader), filename)) {
         if (priv->hdf5_reader == NULL) {
             g_error ("read: property ::dataset not specified");
             return NULL;
@@ -182,7 +182,7 @@ get_reader (UfoReadTaskPrivate *priv, const gchar *filename)
     }
 #endif
 
-    if (g_str_has_suffix (filename, ".edf"))
+    if (ufo_reader_can_open (UFO_READER (priv->edf_reader), filename))
         return UFO_READER (priv->edf_reader);
 
     return NULL;

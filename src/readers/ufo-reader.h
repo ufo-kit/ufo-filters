@@ -38,6 +38,8 @@ struct _UfoReaderIface {
     /*< private >*/
     GTypeInterface parent_iface;
 
+    gboolean    (*can_open)             (UfoReader      *reader,
+                                         const gchar    *filename);
     void        (*open)                 (UfoReader      *reader,
                                          const gchar    *filename);
     void        (*close)                (UfoReader      *reader);
@@ -54,6 +56,8 @@ struct _UfoReaderIface {
                                          guint           roi_step);
 };
 
+gboolean    ufo_reader_can_open         (UfoReader      *reader,
+                                         const gchar    *filename);
 void        ufo_reader_open             (UfoReader      *reader,
                                          const gchar    *filename);
 void        ufo_reader_close            (UfoReader      *reader);

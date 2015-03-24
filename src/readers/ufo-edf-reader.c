@@ -47,6 +47,13 @@ ufo_edf_reader_new (void)
     return reader;
 }
 
+static gboolean
+ufo_edf_reader_can_open (UfoReader *reader,
+                         const gchar *filename)
+{
+    return g_str_has_suffix (filename, ".edf");
+}
+
 static void
 ufo_edf_reader_open (UfoReader *reader,
                      const gchar *filename)
@@ -252,6 +259,7 @@ ufo_edf_reader_finalize (GObject *object)
 static void
 ufo_reader_interface_init (UfoReaderIface *iface)
 {
+    iface->can_open = ufo_edf_reader_can_open;
     iface->open = ufo_edf_reader_open;
     iface->close = ufo_edf_reader_close;
     iface->read = ufo_edf_reader_read;

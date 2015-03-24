@@ -49,6 +49,13 @@ ufo_hdf5_reader_new (const gchar *dataset)
     return reader;
 }
 
+static gboolean
+ufo_hdf5_reader_can_open (UfoReader *reader,
+                          const gchar *filename)
+{
+    return g_str_has_suffix (filename, ".h5");
+}
+
 static void
 ufo_hdf5_reader_open (UfoReader *reader,
                       const gchar *filename)
@@ -150,6 +157,7 @@ ufo_hdf5_reader_finalize (GObject *object)
 static void
 ufo_reader_interface_init (UfoReaderIface *iface)
 {
+    iface->can_open = ufo_hdf5_reader_can_open;
     iface->open = ufo_hdf5_reader_open;
     iface->close = ufo_hdf5_reader_close;
     iface->read = ufo_hdf5_reader_read;
