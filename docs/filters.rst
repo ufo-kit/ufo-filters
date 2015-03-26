@@ -95,6 +95,18 @@ Generic OpenCL
 Complex filters
 ===============
 
+Median
+------
+
+.. gobj:class:: median-filter
+
+    Filters input with a simple median.
+
+    .. gobj:prop:: size:int
+    
+        Odd-numbered size of the neighbouring window.
+
+
 Edge detection
 --------------
 
