@@ -75,15 +75,18 @@ ufo_crop_task_setup (UfoTask *task,
 
 static void
 ufo_crop_task_get_requisition (UfoTask *task,
-                                             UfoBuffer **inputs,
-                                             UfoRequisition *requisition)
+                               UfoBuffer **inputs,
+                               UfoRequisition *requisition)
 {
     UfoCropTaskPrivate *priv;
+    UfoRequisition in_req;
 
     priv = UFO_CROP_TASK_GET_PRIVATE (task);
+    ufo_buffer_get_requisition (inputs[0], &in_req);
+
     requisition->n_dims = 2;
-    requisition->dims[0] = priv->width;
-    requisition->dims[1] = priv->height;
+    requisition->dims[0] = MIN (priv->width, in_req.dims[0]);
+    requisition->dims[1] = MIN (priv->height, in_req.dims[1]);
 }
 
 static guint
@@ -108,9 +111,9 @@ ufo_crop_task_get_mode (UfoTask *task)
 
 static gboolean
 ufo_crop_task_process (UfoTask *task,
-                                     UfoBuffer **inputs,
-                                     UfoBuffer *output,
-                                     UfoRequisition *requisition)
+                       UfoBuffer **inputs,
+                       UfoBuffer *output,
+                       UfoRequisition *requisition)
 {
     UfoCropTaskPrivate *priv;
     UfoRequisition req;
@@ -258,14 +261,14 @@ ufo_crop_task_class_init (UfoCropTaskClass *klass)
         g_param_spec_uint("width",
             "Width",
             "Width of the region of interest",
-            1, G_MAXUINT, 256,
+            1, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
     properties[PROP_HEIGHT] = 
         g_param_spec_uint("height",
             "Height",
             "Height of the region of interest",
-            1, G_MAXUINT, 256,
+            1, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -280,6 +283,6 @@ ufo_crop_task_init(UfoCropTask *self)
     self->priv = UFO_CROP_TASK_GET_PRIVATE(self);
     self->priv->x = 0;
     self->priv->y = 0;
-    self->priv->width = 256;
-    self->priv->height = 256;
+    self->priv->width = G_MAXUINT;
+    self->priv->height = G_MAXUINT;
 }
