@@ -55,6 +55,7 @@ struct _UfoIfftTaskPrivate {
 
     cl_int batch_size;
     gint crop_width;
+    gint crop_height;
 };
 
 #ifdef HAVE_AMD
@@ -75,6 +76,7 @@ enum {
     PROP_0,
     PROP_DIMENSIONS,
     PROP_CROP_WIDTH,
+    PROP_CROP_HEIGHT,
     N_PROPERTIES
 };
 
@@ -189,7 +191,7 @@ ufo_ifft_task_get_requisition (UfoTask *task,
 
     requisition->n_dims = 2;
     requisition->dims[0] = priv->crop_width > 0 ? (gsize) priv->crop_width : x_dim;
-    requisition->dims[1] = in_req.dims[1];
+    requisition->dims[1] = priv->crop_height > 0 ? (gsize) priv->crop_height : in_req.dims[1];
 }
 
 static guint
@@ -234,6 +236,7 @@ ufo_ifft_task_process (UfoTask *task,
     cl_mem in_mem;
     cl_mem out_mem;
     cl_int width;
+    cl_int height;
     gfloat scale;
     gsize global_work_size[2];
 
@@ -263,9 +266,12 @@ ufo_ifft_task_process (UfoTask *task,
     }
 
     width = priv->crop_width > 0 ? priv->crop_width : (cl_int) requisition->dims[0];
+    height = (cl_int) requisition->dims[1];
+
     ufo_buffer_get_requisition (inputs[0], &in_req);
+
     global_work_size[0] = in_req.dims[0] >> 1;
-    global_work_size[1] = in_req.dims[1];
+    global_work_size[1] = height;
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), (gpointer) &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), (gpointer) &out_mem));
@@ -334,6 +340,9 @@ ufo_ifft_task_set_property (GObject *object,
         case PROP_CROP_WIDTH:
             priv->crop_width = g_value_get_int (value);
             break;
+        case PROP_CROP_HEIGHT:
+            priv->crop_height = g_value_get_int (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -354,6 +363,9 @@ ufo_ifft_task_get_property (GObject *object,
             break;
         case PROP_CROP_WIDTH:
             g_value_set_int (value, priv->crop_width);
+            break;
+        case PROP_CROP_HEIGHT:
+            g_value_set_int (value, priv->crop_height);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -388,6 +400,13 @@ ufo_ifft_task_class_init (UfoIfftTaskClass *klass)
                           -1, G_MAXINT, -1,
                           G_PARAM_READWRITE);
 
+    properties[PROP_CROP_HEIGHT] =
+        g_param_spec_int ("crop-height",
+                          "Height of cropped output",
+                          "Height of cropped output",
+                          -1, G_MAXINT, -1,
+                          G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -402,6 +421,7 @@ ufo_ifft_task_init (UfoIfftTask *self)
     UfoIfftTaskPrivate *priv;
     self->priv = priv = UFO_IFFT_TASK_GET_PRIVATE (self);
     priv->crop_width = -1;
+    priv->crop_height = -1;
     priv->batch_size = 1;
     priv->fft_dimensions = FFT_1D;
 

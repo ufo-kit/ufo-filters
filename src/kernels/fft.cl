@@ -47,7 +47,7 @@ fft_pack (global float *in,
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
-    const int dpitch = get_global_size(0)*2;
+    const int dpitch = get_global_size(0) * 2;
 
     if (idx < width)
         out[idy*width + idx] = in[idy*dpitch + 2*idx] * scale;

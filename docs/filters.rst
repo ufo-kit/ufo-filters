@@ -403,6 +403,14 @@ Fast Fourier transform
 
         Size of FFT transform in z-direction.
 
+    .. gobj:prop:: crop-width:int
+
+        Width to crop output.
+
+    .. gobj:prop:: crop-height:int
+
+        Height to crop output.
+
 
 
 Auxiliary filters
