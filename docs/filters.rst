@@ -292,12 +292,12 @@ Padding
         original image. See OpenCL sampler_t documentation for more information.
 
 
-Region of interest
-------------------
+Cropping
+--------
 
-.. gobj:class:: cut-roi
+.. gobj:class:: crop
 
-    Cut out a region of interest from two-dimensional input. If the ROI is
+    Crop a region of interest from two-dimensional input. If the region is
     (partially) outside the input, only accessible data will be copied.
 
     .. gobj:prop:: x:int
