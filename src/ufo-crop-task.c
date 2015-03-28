@@ -85,8 +85,8 @@ ufo_crop_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
     requisition->n_dims = 2;
-    requisition->dims[0] = MIN (priv->width, in_req.dims[0]);
-    requisition->dims[1] = MIN (priv->height, in_req.dims[1]);
+    requisition->dims[0] = MIN (priv->width, in_req.dims[0] - priv->x);
+    requisition->dims[1] = MIN (priv->height, in_req.dims[1] - priv->y);
 }
 
 static guint
