@@ -73,7 +73,7 @@ ufo_hdf5_reader_open (UfoReader *reader,
     h5_filename = components[0];
     h5_dataset = components[1];
 
-    priv->file_id = H5Fopen (h5_filename, H5F_ACC_RDONLY, H5P_DEFAULT);
+    priv->file_id = H5Fopen (h5_filename, H5F_ACC_RDWR, H5P_DEFAULT);
     priv->dataset_id = H5Dopen (priv->file_id, h5_dataset, H5P_DEFAULT);
     priv->src_dataspace_id = H5Dget_space (priv->dataset_id);
     priv->n_dims = H5Sget_simple_extent_ndims (priv->src_dataspace_id);
