@@ -126,6 +126,14 @@ endif ()
 if (HDF5_FOUND)
     option(WITH_HDF5 "Use HDF5" ON)
     if (WITH_HDF5)
+        # This hack is proudly presented by stupid CMake configure scripts and a
+        # badly written libhdf5.
+        find_path(MPI_INCLUDE_PATH NAMES mpi.h PATHS /usr/include /usr/include/mpich2 /usr/lib/openmpi/include)
+
+        if (MPI_INCLUDE_PATH)
+            include_directories(${MPI_INCLUDE_PATH})
+        endif ()
+
         list(APPEND read_misc_SRCS readers/ufo-hdf5-reader.c common/hdf5.c)
         list(APPEND write_misc_SRCS writers/ufo-hdf5-writer.c common/hdf5.c)
         list(APPEND ufofilter_LIBS ${HDF5_LIBRARIES})
