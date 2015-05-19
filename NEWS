@@ -1,3 +1,26 @@
+Version 0.8.0
+=============
+
+Major changes:
+
+- Read changed "end" property back to "number"
+- Renamed downsample filter to rescale
+- Renamed cut-roi filter to crop
+- null: added "finish" property to call clFinish()
+- filter: added Faris-Byer type filter coefficients
+- ifft: added crop-height property
+- Removed possibility to disable building plugins
+
+New filters:
+
+- Add calculate task
+- Add new monitor task
+- Add edge detection filter
+- Added HDF5 reader and writer
+- Added raw writer
+- Added JPEG writer
+
+
 Version 0.7.0
 =============
 
