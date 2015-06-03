@@ -108,16 +108,19 @@ ufo_stack_task_process (UfoTask *task,
 
     priv = UFO_STACK_TASK_GET_PRIVATE (task);
 
-    if (priv->current == priv->n_items) {
-        g_warning ("StackTask: current == max [%i == %i]", priv->current, priv->n_items);
-        return FALSE;
-    }
-
     size = ufo_buffer_get_size (inputs[0]);
     in_mem = (guint8 *) ufo_buffer_get_host_array (inputs[0], NULL);
     out_mem = (guint8 *) ufo_buffer_get_host_array (output, NULL);
     memcpy (out_mem + priv->current * size, in_mem, size);
     priv->current++;
+
+    if (priv->current == priv->n_items) {
+        // g_warning ("StackTask: stack full, ready for generating. [current %d]", priv->current);
+        priv->current = 0;
+        priv->generated = FALSE;
+        return FALSE;
+    }
+
     return TRUE;
 }
 
