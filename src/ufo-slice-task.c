@@ -110,7 +110,7 @@ ufo_slice_task_process (UfoTask *task,
     /* Move data */
     ufo_buffer_copy (inputs[0], priv->copy);
 
-    return TRUE;
+    return FALSE;
 }
 
 static gboolean
@@ -124,8 +124,10 @@ ufo_slice_task_generate (UfoTask *task,
 
     priv = UFO_SLICE_TASK_GET_PRIVATE (task);
 
-    if (priv->current == priv->last)
+    if (priv->current == priv->last) {
+        priv->current = 0;
         return FALSE;
+    }
 
     src = ufo_buffer_get_host_array (priv->copy, NULL);
     dst = ufo_buffer_get_host_array (output, NULL);
