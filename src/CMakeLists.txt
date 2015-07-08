@@ -95,7 +95,6 @@ pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(OPENCV opencv)
 pkg_check_modules(LIBTIFF4 libtiff-4>=4.0.0)
 pkg_check_modules(GSL gsl)
-pkg_check_modules(UFO_IR ufoir>=0.1)
 
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
 
@@ -154,12 +153,6 @@ if (GSL_FOUND)
     list(APPEND ufofilter_LIBS ${GSL_LIBRARIES})
     list(APPEND ufofilter_SRCS ufo-measure-task.c)
 endif ()
-
-if (UFO_IR_FOUND)
-    include_directories(${UFO_IR_INCLUDE_DIRS})
-    set(ufofilter_LIBS ${ufofilter_LIBS} ${UFO_IR_LIBRARIES})
-    list(APPEND ufofilter_SRCS ufo-ir-task.c)
-endif()
 
 if (CLFFT_FOUND)
     include_directories(${CLFFT_INCLUDE_DIRS})
