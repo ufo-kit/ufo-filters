@@ -259,6 +259,16 @@ ufo_blur_task_finalize (GObject *object)
         priv->v_kernel = NULL;
     }
 
+    if (priv->weights_mem) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->weights_mem));
+        priv->weights_mem = NULL;
+    }
+
+    if (priv->intermediate_mem) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->intermediate_mem));
+        priv->intermediate_mem = NULL;
+    }
+
     if (priv->context) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
         priv->context = NULL;
