@@ -17,6 +17,8 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <dfi-sinc.h>
+
 constant sampler_t image_sampler_ktbl = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_LINEAR;
 constant sampler_t image_sampler_data = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
@@ -38,73 +40,69 @@ clear_kernel(global clFFT_Complex *output) {
 }
 
 kernel void
-dfi_sinc_kernel(read_only image2d_t input,
+dfi_sinc_kernel(read_only image2d_t input, 
                 read_only image2d_t ktbl,
-                float L2,
-                int ktbl_len2,
-                int raster_size,
-                int raster_size2,
-                float table_spacing,
-                float angle_step_rad,
-                float theta_max,
-                float rho_max,
-                float max_radius,
-                int spectrum_offset,
+                const DfiSincData dfi_data,
                 global clFFT_Complex *output)
 {
-    float2 out_coord, norm_gl_coord, in_coord, ktbl_coord, id_data_coord;
-    int iul, iuh, ivl, ivh, sign, i, j, k;
-    float res_real, res_imag, weight, kernel_x_val;
-    long out_idx;
+    const float2 out_coord;
+    out_coord.x = get_global_id(0) + dfi_data.spectrum_offset;
+    out_coord.y = get_global_id(1) + dfi_data.spectrum_offset;
 
-    ktbl_coord.y = 0.5f;
-    sign = 1;
-    res_real = 0.0f, res_imag = 0.0f;
-    out_idx = 0;
+    const float  half_raster_size = dfi_data.raster_size * 0.5f;
+    const float2 norm_gl_coord;
+    norm_gl_coord.x = out_coord.x - half_raster_size;
+    norm_gl_coord.y = out_coord.y - half_raster_size;
 
-        out_coord.x = get_global_id(0) + spectrum_offset;
-    out_coord.y = get_global_id(1) + spectrum_offset;
-    out_idx = out_coord.y * raster_size + out_coord.x;
+    // calculate coordinates
+    float radius = hypot(norm_gl_coord.x, norm_gl_coord.y);
 
-    norm_gl_coord.x = out_coord.x - raster_size2;
-    norm_gl_coord.y = out_coord.y - raster_size2;
-
-    //calculate coordinates
-    float radius = sqrt(norm_gl_coord.x * norm_gl_coord.x + norm_gl_coord.y * norm_gl_coord.y);
-    if (radius > max_radius)
+    if (radius > dfi_data.radius_max)
         return;
 
-    in_coord.y = atan2(norm_gl_coord.y,norm_gl_coord.x);
+    float2 in_coord;
+    in_coord.y = atan2(norm_gl_coord.y, norm_gl_coord.x);
     in_coord.y = -in_coord.y; // spike here! (mirroring along y-axis)
 
-    sign = (in_coord.y < 0.0) ? -1 : 1;
+    const int sign = (in_coord.y < 0.0) ? -1 : 1;
 
-    in_coord.y = (in_coord.y < 0.0f) ? in_coord.y+= PI : in_coord.y;
-    in_coord.y = (float) min(1.0f + in_coord.y/angle_step_rad, theta_max - 1);
+    in_coord.y = (in_coord.y < 0.0f) ? (in_coord.y += PI) : in_coord.y;
+    in_coord.y = (float) min (1.0f + in_coord.y * dfi_data.inv_angle_step_rad,
+                              dfi_data.theta_max - 1);
+    in_coord.x = (float) min (radius, half_raster_size);
 
-    in_coord.x = (float) min(radius, (float)raster_size2);
+    // sinc interpolation
+    int    iul, iuh, ivl, ivh, i, j, k;
 
-    //sinc interpoaltion
-    iul = (int)ceil(in_coord.x - L2);
+    iul = (int)ceil(in_coord.x - dfi_data.half_kernel_length);
     iul = (iul < 0) ? 0 : iul;
 
-    iuh = (int)floor(in_coord.x + L2);
-    iuh = (iuh > rho_max - 1) ? iuh = rho_max - 1 : iuh;
+    iuh = (int)floor(in_coord.x + dfi_data.half_kernel_length);
+    iuh = (iuh > dfi_data.rho_max - 1) ? iuh = dfi_data.rho_max - 1 : iuh;
 
-    ivl = (int)ceil(in_coord.y - L2);
+    ivl = (int)ceil(in_coord.y - dfi_data.half_kernel_length);
     ivl = (ivl < 0) ? 0 : ivl;
 
-    ivh = (int)floor(in_coord.y + L2);
-    ivh = (ivh > theta_max - 1) ? ivh = theta_max - 1 : ivh;
+    ivh = (int)floor(in_coord.y + dfi_data.half_kernel_length);
+    ivh = (ivh > dfi_data.theta_max - 1) ? ivh = dfi_data.theta_max - 1 : ivh;
+
+    float weight, kernel_x_val;
+    float res_real      = 0.0f;
+    float res_imag      = 0.0f;
+
+    float2 id_data_coord;
+    float2 ktbl_coord;
+    ktbl_coord.y = 0.5f;
 
     float kernel_y[20];
+
     for (i = ivl, j = 0; i <= ivh; ++i, ++j) {
-        ktbl_coord.x = ktbl_len2 + (in_coord.y - (float)i) * table_spacing;
+        ktbl_coord.x = dfi_data.half_ktbl_length + (in_coord.y - i) * dfi_data.table_spacing;
         kernel_y[j] = read_imagef(ktbl, image_sampler_ktbl, ktbl_coord).s0;
     }
 
     for (i = iul; i <= iuh; ++i) {
-        ktbl_coord.x = ktbl_len2 + (in_coord.x - (float)i) * table_spacing;
+        ktbl_coord.x = dfi_data.half_ktbl_length + (in_coord.x - i) * dfi_data.table_spacing;
         kernel_x_val = read_imagef(ktbl, image_sampler_ktbl, ktbl_coord).s0;
 
         for (k = ivl, j = 0; k <= ivh; ++k, ++j) {
@@ -120,6 +118,7 @@ dfi_sinc_kernel(read_only image2d_t input,
         }
     }
 
+    const long out_idx = out_coord.y * dfi_data.raster_size + out_coord.x;
     output[out_idx].real = res_real;
     output[out_idx].imag = sign * res_imag;
 }

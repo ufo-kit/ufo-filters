@@ -50,27 +50,32 @@
  *
  */
 
-struct _UfoDfiSincTaskPrivate {
-    UfoResources *resources;
-    cl_kernel dfi_sinc_kernel;
-    cl_kernel clear_kernel;
-
-    UfoBuffer *ktbl_buffer;
-
-    guint number_presampled_values;
-    guint L;
-    gint roi_size;
-
-    cl_mem in_tex;
-};
-
 static void ufo_task_interface_init (UfoTaskIface *iface);
-
 G_DEFINE_TYPE_WITH_CODE (UfoDfiSincTask, ufo_dfi_sinc_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
                                                 ufo_task_interface_init))
 
 #define UFO_DFI_SINC_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_DFI_SINC_TASK, UfoDfiSincTaskPrivate))
+
+struct _UfoDfiSincTaskPrivate {
+    UfoResources     *resources;
+    cl_context       context;
+    cl_command_queue cmd_queue;
+
+    cl_kernel        dfi_sinc_kernel;
+    cl_kernel        clear_kernel;
+
+    UfoRequisition  last_input_req;
+    UfoBuffer       *ktbl_buffer;
+    cl_mem          in_tex;
+
+    guint L;
+    guint number_presampled_values;
+    gint  roi_size;
+
+    cl_int  interp_grid_cols;
+    DfiSincData dfi_data;
+};
 
 enum {
     PROP_0,
@@ -98,8 +103,9 @@ ufo_dfi_sinc_task_new (void)
  * Returns: a float.
  */
 static gfloat
-ufo_dfi_sinc_task_hammingw(int i, int length){
-    return (gfloat)(0.54f - 0.46f * cos(2*M_PI*((gfloat)i/(gfloat)length)));
+ufo_dfi_sinc_task_hammingw(int i, int length)
+{
+    return (gfloat)(0.54f - 0.46f * cos (2 * M_PI * ((gfloat) i/ (gfloat) length)));
 }
 
 /**
@@ -109,33 +115,33 @@ ufo_dfi_sinc_task_hammingw(int i, int length){
  * Returns: a float.
  */
 static gfloat
-ufo_dfi_sinc_task_sinc(gfloat x) {
-  return (x == 0.0f) ? 1.0f : (gfloat)(sin(M_PI * x)/(M_PI * x));
+ufo_dfi_sinc_task_sinc(gfloat x)
+{
+    return (x == 0.0f) ? 1.0f : (gfloat)(sin (M_PI * x) / (M_PI * x));
 }
 
 /**
  * ufo_dfi_sinc_task_get_ktbl:
- * @length:  the length of arrayo of presampled kernel values
+ * @length:  the length of array of presampled kernel values
  *
  * Returns: an array.
  */
 static gfloat *
 ufo_dfi_sinc_task_get_ktbl(size_t length)
 {
-    gfloat *ktbl = (gfloat *)g_malloc0(length * sizeof (gfloat));
+    gfloat *ktbl = (gfloat *) g_malloc0 (length * sizeof (gfloat));
 
-    if (!length%2) {
-      g_print("Error: Length %zu of ktbl cannot be even!\n", length);
-      exit(1);
+    if (!length % 2) {
+        g_print("Error: Length %zu of ktbl cannot be even!\n", length);
+        exit(1);
     }
 
     size_t ktbl_len2 = (length - 1)/2;
-    gfloat step = (gfloat)M_PI/(gfloat)ktbl_len2;
-
+    gfloat step = (gfloat) M_PI / (gfloat) ktbl_len2;
     gfloat value = -(gfloat)ktbl_len2 * step;
 
     for (size_t i = 0; i < length; ++i, value += step) {
-      ktbl[i] = ufo_dfi_sinc_task_sinc((gfloat)value) * ufo_dfi_sinc_task_hammingw((gint)i, (int)length);
+        ktbl[i] = ufo_dfi_sinc_task_sinc ((gfloat) value) * ufo_dfi_sinc_task_hammingw ((gint) i, (gint) length);
     }
 
     return ktbl;
@@ -143,34 +149,38 @@ ufo_dfi_sinc_task_get_ktbl(size_t length)
 
 static void
 ufo_dfi_sinc_task_setup (UfoTask *task,
-                       UfoResources *resources,
-                       GError **error)
+                         UfoResources *resources,
+                         GError **error)
 {
-    UfoDfiSincTaskPrivate *priv;
-    cl_context context;
-    cl_command_queue cmd_queue;
+    UfoDfiSincTaskPrivate *priv = UFO_DFI_SINC_TASK_GET_PRIVATE (task);
+    UfoGpuNode *node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
 
-    priv = UFO_DFI_SINC_TASK_GET_PRIVATE (task);
-    context = ufo_resources_get_context(resources);
-    cmd_queue = g_list_nth_data(ufo_resources_get_cmd_queues(resources), 0);
-
-    //obtain resources
-    priv->resources = g_object_ref(resources);
+    priv->resources = g_object_ref (resources);
+    priv->context   = ufo_resources_get_context (resources);
+    priv->cmd_queue = ufo_gpu_node_get_cmd_queue (node);
+    UFO_RESOURCES_CHECK_CLERR (clRetainCommandQueue (priv->cmd_queue));
 
     //create kernel
-    priv->dfi_sinc_kernel = ufo_resources_get_kernel(resources, "dfi.cl", "dfi_sinc_kernel", error);
-    priv->clear_kernel = ufo_resources_get_kernel(resources, "dfi.cl", "clear_kernel", error);
+    priv->dfi_sinc_kernel = ufo_resources_get_kernel (resources, "dfi.cl", "dfi_sinc_kernel", error);
+    priv->clear_kernel = ufo_resources_get_kernel (resources, "dfi.cl", "clear_kernel", error);
 
     //calculate and setup kernel lookup table to buffer
-    gfloat *tmp_ktbl = ufo_dfi_sinc_task_get_ktbl(priv->number_presampled_values);
     UfoRequisition ktbl_requisition;
     ktbl_requisition.n_dims = 2;
     ktbl_requisition.dims[0] = priv->number_presampled_values;
     ktbl_requisition.dims[1] = 1;
 
-    priv->ktbl_buffer = ufo_buffer_new(&ktbl_requisition, context);
-    gfloat *h_ktbl_buffer = ufo_buffer_get_host_array(priv->ktbl_buffer, cmd_queue);
+    priv->ktbl_buffer = ufo_buffer_new (&ktbl_requisition, priv->context);
+    gfloat *h_ktbl_buffer = ufo_buffer_get_host_array (priv->ktbl_buffer, priv->cmd_queue);
+
+    gfloat *tmp_ktbl = ufo_dfi_sinc_task_get_ktbl (priv->number_presampled_values);
     memcpy((void *)h_ktbl_buffer, (const void *)tmp_ktbl, priv->number_presampled_values * sizeof (gfloat));
+    g_free (tmp_ktbl);
+
+    // calculate some common variables
+    priv->dfi_data.half_kernel_length = priv->L * 0.5f;
+    priv->dfi_data.half_ktbl_length   = (priv->number_presampled_values - 1) * 0.5f;
+    priv->dfi_data.table_spacing      = ((cl_float) priv->number_presampled_values) / priv->L;
 }
 
 static void
@@ -181,7 +191,6 @@ ufo_dfi_sinc_task_get_requisition (UfoTask *task,
     //set output requsition
     UfoRequisition input_requisition;
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
-
     requisition->n_dims = 2;
     requisition->dims[0] = input_requisition.dims[0];
     requisition->dims[1] = input_requisition.dims[0] / 2;
@@ -213,57 +222,51 @@ ufo_dfi_sinc_task_process (UfoTask *task,
                            UfoBuffer *output,
                            UfoRequisition *requisition)
 {
-    UfoDfiSincTaskPrivate *priv;
-    UfoGpuNode *node;
-    UfoProfiler *profiler;
+    UfoDfiSincTaskPrivate *priv = UFO_DFI_SINC_TASK_GET_PRIVATE (task);
+
     UfoRequisition input_requisition;
-    cl_command_queue cmd_queue;
-    cl_context context;
-    cl_mem in_mem, out_mem, ktbl_mem;
-
-    priv = UFO_DFI_SINC_TASK_GET_PRIVATE (task);
-    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
-    cmd_queue = ufo_gpu_node_get_cmd_queue (node);
-    context = ufo_resources_get_context(priv->resources);
-
-    in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
-    out_mem = ufo_buffer_get_device_array (output, cmd_queue);
-    ktbl_mem = ufo_buffer_get_device_image(priv->ktbl_buffer, cmd_queue);
-
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
 
-    cl_float L2 = ((cl_float)priv->L)/2.0f;
-    cl_int ktbl_len2 = (cl_int)(priv->number_presampled_values - 1)/2;
-    cl_int raster_size = (cl_int)input_requisition.dims[0]/2;
-    cl_int raster_size2 = raster_size/2;
-    cl_float table_spacing = ((cl_float)priv->number_presampled_values)/((cl_float)priv->L);
-    cl_float angle_step_rad = (cl_float)M_PI/((cl_float)input_requisition.dims[1]);
-    cl_float theta_max = (cl_float)input_requisition.dims[1];
-    cl_float rho_max = (cl_float)input_requisition.dims[0]/2;
+    gboolean size_changed = input_requisition.n_dims != priv->last_input_req.n_dims;
 
-    int interp_grid_cols = (int)ceil((float)raster_size/(float)BLOCK_SIZE);
-    if (priv->roi_size >= 1 && priv->roi_size <= raster_size) {
-        interp_grid_cols = (int)ceil((float)priv->roi_size/(float)BLOCK_SIZE);
+    for (guint i = 0; !size_changed && i < input_requisition.n_dims; i++) {
+        size_changed = input_requisition.dims[i] != priv->last_input_req.dims[i];
     }
 
-    gint spectrum_offset = (raster_size - (interp_grid_cols * BLOCK_SIZE))/2;
-    gfloat max_radius = (gfloat)(interp_grid_cols * BLOCK_SIZE)/2.0f;
+    if (size_changed) {
+        priv->dfi_data.raster_size        = (cl_int) (input_requisition.dims[0] * 0.5f);
+        priv->dfi_data.inv_angle_step_rad = (cl_float) input_requisition.dims[1] / M_PI;
+        priv->dfi_data.theta_max          = (cl_float) input_requisition.dims[1];
+        priv->dfi_data.rho_max            = (cl_float) input_requisition.dims[0] * 0.5f;
 
-    /* Setup texture */
-    if (priv->in_tex == NULL) {
+        if (priv->roi_size >= 1 && priv->roi_size <= priv->dfi_data.raster_size) {
+            priv->interp_grid_cols = (cl_int) ceil ((gfloat) priv->roi_size / (gfloat) BLOCK_SIZE);
+        }
+        else {
+            priv->interp_grid_cols = (cl_int) ceil((gfloat)priv->dfi_data.raster_size / (gfloat)BLOCK_SIZE);
+        }
+
+        priv->dfi_data.spectrum_offset = (priv->dfi_data.raster_size - priv->interp_grid_cols * BLOCK_SIZE) * 0.5f;
+        priv->dfi_data.radius_max      = (cl_float) (priv->interp_grid_cols * BLOCK_SIZE) * 0.5f;
+
+        // Setup texture
+        // It should be recreated if input reqs was changed
+
+        if (priv->in_tex) {
+            UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->in_tex));
+            priv->in_tex = NULL;
+        }
+
         cl_image_format format;
-        cl_mem_flags flags;
-        gsize width, height;
-
         format.image_channel_order = CL_RG;
         format.image_channel_data_type = CL_FLOAT;
 
-        flags = CL_MEM_READ_WRITE;
-        width = input_requisition.dims[0]/2;
-        height = input_requisition.dims[1];
+        cl_mem_flags flags = CL_MEM_READ_WRITE;
+        gsize width  = input_requisition.dims[0]/2;
+        gsize height = input_requisition.dims[1];
 
         cl_int eer2;
-        priv->in_tex = clCreateImage2D (context,
+        priv->in_tex = clCreateImage2D (priv->context,
                                         flags, &format,
                                         width, height, 0,
                                         NULL, &eer2);
@@ -271,47 +274,49 @@ ufo_dfi_sinc_task_process (UfoTask *task,
         UFO_RESOURCES_CHECK_CLERR (eer2);
     }
 
-    size_t zero_offset[] = {0, 0, 0};
-    size_t projection_region[] = {input_requisition.dims[0]/2, input_requisition.dims[1], 1};
+    gpointer cmd_queue = priv->cmd_queue;
+    gpointer in_tex = priv->in_tex;
 
-    clEnqueueCopyBufferToImage(cmd_queue, in_mem, priv->in_tex, 0, zero_offset, projection_region, 0, NULL, NULL);
+    static size_t local_work_size[2] = {BLOCK_SIZE, BLOCK_SIZE};
+    size_t empty_kernel_working_size[2] = {(size_t)priv->dfi_data.raster_size,
+                                           (size_t)priv->dfi_data.raster_size};
 
-    /* Set size of working group */
-    size_t local_work_size[] = {BLOCK_SIZE, BLOCK_SIZE};
+    cl_mem input_mem = ufo_buffer_get_device_array (inputs[0], priv->cmd_queue);
+    cl_mem out_mem   = ufo_buffer_get_device_array (output, priv->cmd_queue);
+    cl_mem ktbl_mem  = ufo_buffer_get_device_image (priv->ktbl_buffer, priv->cmd_queue);
 
-    /* Execution of cleaning kernel */
-    size_t empty_kernel_working_size[] = {(size_t)raster_size, (size_t)raster_size};
+    UfoProfiler *profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
 
+    // clear output
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->clear_kernel, 0, sizeof (cl_mem), &out_mem));
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
-                                            priv->clear_kernel,
-                                            requisition->n_dims,
-                                            NULL,
-                                            empty_kernel_working_size,
-                                            local_work_size,
-                                            0, NULL, NULL));
+    ufo_profiler_call (profiler, cmd_queue, priv->clear_kernel,
+                       requisition->n_dims, empty_kernel_working_size, local_work_size);
 
-    /* Execution of DFI kernel */
-    size_t working_size[] = {(size_t)(interp_grid_cols * BLOCK_SIZE),
-                             (size_t)(interp_grid_cols * BLOCK_SIZE)};
+    // copy input to the special texture
+    static size_t zero_offset[3] = {0, 0, 0};
+    size_t projection_region[3]  = {(size_t) (input_requisition.dims[0] * 0.5f),
+                                    input_requisition.dims[1],
+                                    1};
+
+    UFO_RESOURCES_CHECK_CLERR (clEnqueueCopyBufferToImage (cmd_queue,
+                                                           input_mem,
+                                                           in_tex,
+                                                           0,
+                                                           zero_offset,
+                                                           projection_region,
+                                                           0, NULL, NULL));
+
+    // execute DFI kernel
+    size_t working_size[2] = {(size_t)(priv->interp_grid_cols * BLOCK_SIZE),
+                              (size_t)(priv->interp_grid_cols * BLOCK_SIZE)};
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 0, sizeof (cl_mem), &priv->in_tex));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 1, sizeof (cl_mem), &ktbl_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 2, sizeof (cl_float), &L2));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 3, sizeof (cl_int), &ktbl_len2));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 4, sizeof (cl_int), &raster_size));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 5, sizeof (cl_int), &raster_size2));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 6, sizeof (cl_float), &table_spacing));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 7, sizeof (cl_float), &angle_step_rad));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 8, sizeof (cl_float), &theta_max));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 9, sizeof (cl_float), &rho_max));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 10, sizeof (cl_float), &max_radius));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 11, sizeof (cl_int), &spectrum_offset));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 12, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 2, sizeof (DfiSincData), &priv->dfi_data));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 3, sizeof (cl_mem), &out_mem));
 
-    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-    ufo_profiler_call (profiler, cmd_queue, priv->dfi_sinc_kernel, requisition->n_dims, working_size, local_work_size);
-    
+    ufo_profiler_call (profiler, priv->cmd_queue, priv->dfi_sinc_kernel,
+                       requisition->n_dims, working_size, local_work_size);
     return TRUE;
 }
 
@@ -367,9 +372,6 @@ static void
 ufo_dfi_sinc_task_finalize (GObject *object)
 {
     UfoDfiSincTaskPrivate *priv = UFO_DFI_SINC_TASK_GET_PRIVATE (object);
-  
-    if (priv->in_tex) UFO_RESOURCES_CHECK_CLERR(clReleaseMemObject (priv->in_tex));
-
     G_OBJECT_CLASS (ufo_dfi_sinc_task_parent_class)->finalize (object);
 }
 
@@ -417,21 +419,21 @@ ufo_dfi_sinc_task_class_init (UfoDfiSincTaskClass *klass)
             "Kernel size",
             "The length of kernel which will be used in interpolation.",
             1, 25, 7,
-            G_PARAM_READWRITE);
+            G_PARAM_WRITABLE);
 
     properties[PROP_NUM_PRESAMPLED_VLS] =
         g_param_spec_uint ("number-presampled-values",
             "Number of presampled values",
             "Number of presampled values which will be used to calculate L kernel coefficients.",
             1, 16383, 2047,
-            G_PARAM_READWRITE);
+            G_PARAM_WRITABLE);
 
     properties[PROP_ROI_SIZE] =
         g_param_spec_int ("roi-size",
             "Size of Region of Interest",
             "The length of one side of Region of Interest.",
             -1, G_MAXINT, -1,
-            G_PARAM_READWRITE);
+            G_PARAM_WRITABLE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
@@ -442,9 +444,15 @@ ufo_dfi_sinc_task_class_init (UfoDfiSincTaskClass *klass)
 static void
 ufo_dfi_sinc_task_init(UfoDfiSincTask *self)
 {
-    self->priv = UFO_DFI_SINC_TASK_GET_PRIVATE(self);
-    self->priv->number_presampled_values = 2047;
-    self->priv->L = 7;
-    self->priv->roi_size = 0;
-    self->priv->in_tex = NULL;
+    UfoDfiSincTaskPrivate *priv = NULL;
+    self->priv = priv = UFO_DFI_SINC_TASK_GET_PRIVATE(self);
+    priv->resources = NULL;
+    priv->dfi_sinc_kernel = NULL;
+    priv->in_tex = NULL;
+
+    priv->L = 7;
+    priv->number_presampled_values = 2047;
+    priv->roi_size = 0;
+
+    priv->last_input_req.n_dims = 0;
 }

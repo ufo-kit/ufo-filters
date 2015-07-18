@@ -34,6 +34,7 @@ G_BEGIN_DECLS
 typedef struct _UfoDfiSincTask           UfoDfiSincTask;
 typedef struct _UfoDfiSincTaskClass      UfoDfiSincTaskClass;
 typedef struct _UfoDfiSincTaskPrivate    UfoDfiSincTaskPrivate;
+typedef struct _DfiSincData              DfiSincData;
 
 /**
  * UfoDfiSincTask:
@@ -56,6 +57,19 @@ struct _UfoDfiSincTask {
 struct _UfoDfiSincTaskClass {
     /*< private >*/
     UfoTaskNodeClass parent_class;
+};
+
+struct _DfiSincData {
+    cl_int   half_ktbl_length;
+    cl_int   raster_size;
+    cl_int   spectrum_offset;
+
+    cl_float half_kernel_length; // L2
+    cl_float table_spacing;
+    cl_float inv_angle_step_rad;
+    cl_float theta_max;
+    cl_float rho_max;
+    cl_float radius_max;
 };
 
 UfoNode  *ufo_dfi_sinc_task_new       (void);
