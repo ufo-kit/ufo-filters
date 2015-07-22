@@ -226,7 +226,6 @@ ufo_dfi_sinc_task_process (UfoTask *task,
     cl_float L2;
     cl_int ktbl_len_2;
     cl_int raster_size;
-    cl_int raster_size_2;
     cl_float table_spacing;
     cl_float theta_max;
     cl_float rho_max;
@@ -245,7 +244,6 @@ ufo_dfi_sinc_task_process (UfoTask *task,
     L2 = ((cl_float) priv->L) / 2.0f;
     ktbl_len_2 = (cl_int)(priv->number_presampled_values - 1) / 2;
     raster_size = (cl_int)input_requisition.dims[0] / 2;
-    raster_size_2 = raster_size / 2;
     table_spacing = ((cl_float) priv->number_presampled_values) / ((cl_float) priv->L);
     theta_max = (cl_float) input_requisition.dims[1];
     rho_max = (cl_float) input_requisition.dims[0] / 2;
@@ -307,14 +305,13 @@ ufo_dfi_sinc_task_process (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 2, sizeof (cl_float), &L2));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 3, sizeof (cl_int), &ktbl_len_2));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 4, sizeof (cl_int), &raster_size));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 5, sizeof (cl_int), &raster_size_2));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 6, sizeof (cl_float), &table_spacing));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 7, sizeof (cl_float), &angle_step_rad));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 8, sizeof (cl_float), &theta_max));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 9, sizeof (cl_float), &rho_max));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 10, sizeof (cl_float), &max_radius));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 11, sizeof (cl_int), &spectrum_offset));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 12, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 5, sizeof (cl_float), &table_spacing));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 6, sizeof (cl_float), &angle_step_rad));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 7, sizeof (cl_float), &theta_max));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 8, sizeof (cl_float), &rho_max));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 9, sizeof (cl_float), &max_radius));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 10, sizeof (cl_int), &spectrum_offset));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 11, sizeof (cl_mem), &out_mem));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->dfi_sinc_kernel, requisition->n_dims, working_size, local_work_size);

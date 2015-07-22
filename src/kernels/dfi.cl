@@ -43,7 +43,6 @@ dfi_sinc_kernel(read_only image2d_t input,
                 float L2,
                 int ktbl_len2,
                 int raster_size,
-                int raster_size2,
                 float table_spacing,
                 float angle_step_rad,
                 float theta_max,
@@ -56,18 +55,19 @@ dfi_sinc_kernel(read_only image2d_t input,
     int iul, iuh, ivl, ivh, sign, i, j, k;
     float res_real, res_imag, weight, kernel_x_val;
     long out_idx;
+    const int raster_size_2 = raster_size / 2;
 
     ktbl_coord.y = 0.5f;
     sign = 1;
     res_real = 0.0f, res_imag = 0.0f;
     out_idx = 0;
 
-        out_coord.x = get_global_id(0) + spectrum_offset;
+    out_coord.x = get_global_id(0) + spectrum_offset;
     out_coord.y = get_global_id(1) + spectrum_offset;
     out_idx = out_coord.y * raster_size + out_coord.x;
 
-    norm_gl_coord.x = out_coord.x - raster_size2;
-    norm_gl_coord.y = out_coord.y - raster_size2;
+    norm_gl_coord.x = out_coord.x - raster_size_2;
+    norm_gl_coord.y = out_coord.y - raster_size_2;
 
     //calculate coordinates
     float radius = sqrt(norm_gl_coord.x * norm_gl_coord.x + norm_gl_coord.y * norm_gl_coord.y);
@@ -82,7 +82,7 @@ dfi_sinc_kernel(read_only image2d_t input,
     in_coord.y = (in_coord.y < 0.0f) ? in_coord.y+= PI : in_coord.y;
     in_coord.y = (float) min(1.0f + in_coord.y/angle_step_rad, theta_max - 1);
 
-    in_coord.x = (float) min(radius, (float)raster_size2);
+    in_coord.x = (float) min(radius, (float) raster_size_2);
 
     //sinc interpoaltion
     iul = (int)ceil(in_coord.x - L2);
