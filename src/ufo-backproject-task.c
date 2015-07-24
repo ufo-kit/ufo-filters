@@ -216,7 +216,7 @@ ufo_backproject_task_get_requisition (UfoTask *task,
 
     if (priv->real_angle_step < 0.0) {
         if (priv->angle_step <= 0.0)
-            priv->real_angle_step = G_PI / ((gdouble) in_req.dims[1]);
+            priv->real_angle_step = G_PI / ((gdouble) priv->n_projections);
         else
             priv->real_angle_step = priv->angle_step;
     }
