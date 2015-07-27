@@ -38,12 +38,16 @@ pkg_check_modules(UFO ufo>=${PKG_UFO_CORE_MIN_REQUIRED} REQUIRED)
 pkg_check_variable(ufo plugindir)
 pkg_check_variable(ufo kerneldir)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps/oclfft)
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/oclfft
+)
 
-link_directories(${UFO_LIBRARY_DIRS})
+link_directories(
+    ${UFO_LIBRARY_DIRS}
+)
 #}}}
 #{{{ Global definitions
-add_definitions("-std=c99 -pedantic -Wall -Wextra -fPIC")
+add_definitions("-std=c99 -Wall -gdwarf-3 -Wextra -fPIC")
 add_definitions(-DG_LOG_DOMAIN="Ufo")
 
 if (CMAKE_COMPILER_IS_GNUCC OR ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang"))
