@@ -74,16 +74,75 @@ set(write_misc_SRCS
 
 file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}
+#{{{ Check for GMA support
+include(CheckCSourceRuns)
+set(CMAKE_REQUIRED_LIBRARIES "OpenCL")
+check_c_source_runs("
+#include <stdlib.h>
+#include <string.h>
+#include <CL/cl.h>
+
+int main()
+{
+    cl_uint num_platforms;
+    cl_platform_id *platforms;
+    cl_uint i;
+
+    if (clGetPlatformIDs (0, NULL, &num_platforms) != CL_SUCCESS)
+        return 1;
+
+    platforms = malloc (sizeof (cl_platform_id) * num_platforms);
+    if (clGetPlatformIDs (num_platforms, platforms, NULL) != CL_SUCCESS)
+        return 1;
+
+    for (i = 0; i < num_platforms; i++) {
+        cl_uint num_devices;
+        cl_device_id *devices;
+        cl_uint j;
+
+        if (clGetDeviceIDs (platforms[i], CL_DEVICE_TYPE_GPU, 0, NULL, &num_devices) != CL_SUCCESS)
+            return 1;
+
+        devices = malloc (sizeof (cl_device_id) * num_devices);
+
+        if (clGetDeviceIDs (platforms[i], CL_DEVICE_TYPE_GPU, num_devices, devices, NULL) != CL_SUCCESS)
+            return 1;
+                                                                                                                             for (j = 0; j < num_devices; j++) {
+            size_t size;
+            char *result;
+                                                                                                                                 if (clGetDeviceInfo (devices[j], CL_DEVICE_EXTENSIONS, 0, NULL, &size) != CL_SUCCESS)
+                return 1;
+
+            result = malloc (size);
+                                                                                                                                 if (clGetDeviceInfo (devices[i], CL_DEVICE_EXTENSIONS, size, result, NULL) != CL_SUCCESS)
+                return 1;
+                                                                                                                                 if (strstr (result, \"cl_amd_bus_addressable_memory\") != NULL)
+                return 0;
+                                                                                                                                 free (result);
+                                                                                                                             }
+    }
+                                                                                                                         return 1;
+}
+"
+ HAVE_GMA)
+#}}}
+
 #{{{ Variables
 set(ufofilter_LIBS
     ${UFO_LIBRARIES}
     oclfft)
 
 if (CMAKE_COMPILER_IS_GNUCC OR ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang"))
-    add_definitions("-Wcast-align -Wcast-qual -Winline -Wmissing-declarations "
+    add_definitions("-Wcast-align -Winline -Wmissing-declarations "
                     "-Wmissing-prototypes -Wnested-externs -Wno-long-long "
-                    "-Wno-missing-field-initializers -Wpointer-arith "
+                    "-Wno-missing-field-initializers"
                     "-Wredundant-decls -Wshadow -Wstrict-prototypes -Wwrite-strings")
+
+    if(HAVE_GMA)
+        add_definitions("-DHAVE_GMA
+                         -I$ENV{AMDAPPSDKROOT}/include
+                         -L$ENV{AMDAPPSDKROOT}/lib/x86_64")
+    endif()
 endif()
 #}}}
 #{{{ Dependency checks
@@ -97,7 +156,18 @@ pkg_check_modules(OPENCV opencv)
 pkg_check_modules(LIBTIFF4 libtiff-4>=4.0.0)
 pkg_check_modules(GSL gsl)
 
+if(HAVE_GMA)
+    pkg_check_modules(PCILIB pcitool>=0.2)
+endif()
+
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
+
+if(PCILIB_FOUND)
+    list(APPEND ufofilter_SRCS ufo-direct-gma-task.c)
+    list(APPEND ufofilter_LIBS ${PCILIB_LIBRARIES})
+    include_directories(${PCILIB_INCLUDE_DIRS})
+    link_directories(${PCILIB_LIBRARY_DIRS})
+endif ()
 
 if (TIFF_FOUND)
     list(APPEND read_misc_SRCS readers/ufo-tiff-reader.c)
