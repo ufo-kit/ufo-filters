@@ -276,21 +276,21 @@ ufo_rescale_task_class_init (UfoRescaleTaskClass *klass)
     properties[PROP_FACTOR] =
         g_param_spec_float ("factor",
                             "Rescale factor",
-                            "Rescale factor for both dimensions, e.g. 2 reduces width and height by 2",
+                            "Rescale factor for both dimensions, e.g. 0.5 reduces width and height by half",
                             1e-3, G_MAXFLOAT, 2.0f,
                             G_PARAM_READWRITE);
 
     properties[PROP_X_FACTOR] =
         g_param_spec_float ("x-factor",
                             "Rescale x-factor",
-                            "Rescale x-factor, e.g. 2 reduces width by 2",
+                            "Rescale x-factor, e.g. 0.5 reduces width by half",
                             1e-3, G_MAXFLOAT, 2.0f,
                             G_PARAM_READWRITE);
 
     properties[PROP_Y_FACTOR] =
         g_param_spec_float ("y-factor",
                             "Rescale y-factor",
-                            "Rescale y-factor, e.g. 2 reduces height by 2",
+                            "Rescale y-factor, e.g. 0.5 reduces height by half",
                             1e-3, G_MAXFLOAT, 2.0f,
                             G_PARAM_READWRITE);
 
