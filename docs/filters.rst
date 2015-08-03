@@ -322,11 +322,11 @@ Rescaling
 
 .. gobj:class:: rescale
 
-    Change the size of the input data by a fixed :gobj:prop:`factor`.
+    Rescale input data by a fixed :gobj:prop:`factor`.
 
     .. gobj:prop:: factor:int
 
-        Fixed factor by which the input size is to be reduced.
+        Fixed factor for scaling the input.
 
     .. gobj:prop:: interpolation:string
 
