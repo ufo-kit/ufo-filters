@@ -262,7 +262,7 @@ ufo_ifft_task_process (UfoTask *task,
     scale = 1.0f / ((gfloat) requisition->dims[0]);
 
     if (priv->fft_dimensions == FFT_2D) {
-        scale /= (gfloat) requisition->dims[0];
+        scale /= (gfloat) requisition->dims[1];
     }
 
     width = priv->crop_width > 0 ? priv->crop_width : (cl_int) requisition->dims[0];
