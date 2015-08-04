@@ -45,14 +45,17 @@ kernel void
 fft_pack (global float *in,
           global float *out,
           const int width,
+          const int xdim,
           const float scale)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
-    const int dpitch = get_global_size(0) * 2;
+    const int batch_size = get_global_size(0) / xdim;
+    const int dpitch_in = get_global_size(0) * 2;
+    const int dpitch_ou = width * batch_size;
 
-    if (idx < width)
-        out[idy*width + idx] = in[idy*dpitch + 2*idx] * scale;
+    if ((idx % xdim) < width)
+        out[idy*dpitch_ou + idx] = in[idy*dpitch_in + 2*idx] * scale;
 }
 
 kernel void
