@@ -136,11 +136,13 @@ ufo_ifft_task_get_requisition (UfoTask *task,
     switch (priv->fft_dimensions) {
         case FFT_1D:
             dimension = clFFT_1D;
+            priv->batch_size = in_req.n_dims == 2 ? (cl_int) in_req.dims[1] : 1;
             break;
 
         case FFT_2D:
             dimension = clFFT_2D;
             y_dim = (guint32) in_req.dims[1];
+            priv->batch_size = in_req.n_dims == 3 ? (cl_int) in_req.dims[2] : 1;
             break;
 
         case FFT_3D:
@@ -157,8 +159,6 @@ ufo_ifft_task_get_requisition (UfoTask *task,
     priv->fft_size.x = x_dim;
     priv->fft_size.y = y_dim;
     #endif
-
-    priv->batch_size = priv->fft_dimensions == FFT_1D ? (cl_int) in_req.dims[1] : 1;
 
     #ifdef HAVE_AMD
     if (priv->fft_plan == 0 || changed) {
@@ -189,7 +189,7 @@ ufo_ifft_task_get_requisition (UfoTask *task,
     }
     #endif
 
-    requisition->n_dims = 2;
+    *requisition = in_req;  // keep third dimension for 2-D batching 
     requisition->dims[0] = priv->crop_width > 0 ? (gsize) priv->crop_width : x_dim;
     requisition->dims[1] = priv->crop_height > 0 ? (gsize) priv->crop_height : in_req.dims[1];
 }
@@ -237,6 +237,7 @@ ufo_ifft_task_process (UfoTask *task,
     cl_mem out_mem;
     cl_int width;
     cl_int height;
+    cl_int x_dim;
     gfloat scale;
     gsize global_work_size[2];
 
@@ -267,16 +268,19 @@ ufo_ifft_task_process (UfoTask *task,
 
     width = priv->crop_width > 0 ? priv->crop_width : (cl_int) requisition->dims[0];
     height = (cl_int) requisition->dims[1];
+    x_dim = (cl_int) requisition->dims[0];
 
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
-    global_work_size[0] = in_req.dims[0] >> 1;
+    global_work_size[0] = requisition->n_dims <=2 ? in_req.dims[0] >> 1 
+                            : (in_req.dims[0] * in_req.dims[2]) >> 1;
     global_work_size[1] = height;
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), (gpointer) &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), (gpointer) &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_int), &width));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (gfloat), &scale));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_int), &x_dim));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (gfloat), &scale));
 
     UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (priv->cmd_queue,
                                                        priv->kernel,
