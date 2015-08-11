@@ -255,8 +255,7 @@ ufo_fft_task_process (UfoTask *task,
     cl_event event;
     cl_int width;
     cl_int height;
-    cl_int x_dim;
-    gsize global_work_size[2];
+    gsize global_work_size[3];
 
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
 
@@ -271,21 +270,19 @@ ufo_fft_task_process (UfoTask *task,
     if (priv->auto_zeropadding){
         width = (cl_int) in_req.dims[0];
         height = (cl_int) in_req.dims[1];
-        x_dim = (cl_int) requisition->dims[0] >> 1;
 
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), (gpointer) &out_mem));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), (gpointer) &in_mem));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_int), &width));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_int), &height));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (cl_int), &x_dim));
 
-        global_work_size[0] = requisition->n_dims <= 2 ? requisition->dims[0] >> 1 :
-                                (requisition->dims[0] * requisition->dims[2]) >> 1;
+        global_work_size[0] = requisition->dims[0] >> 1;
         global_work_size[1] = requisition->dims[1]; 
+        global_work_size[2] = requisition->n_dims == 3 ? requisition->dims[2] : 1;
 
         UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (priv->cmd_queue,
                                                            priv->kernel,
-                                                           2, NULL, global_work_size, NULL,
+                                                           3, NULL, global_work_size, NULL,
                                                            0, NULL, &event));
     }
 

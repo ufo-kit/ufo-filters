@@ -237,9 +237,8 @@ ufo_ifft_task_process (UfoTask *task,
     cl_mem out_mem;
     cl_int width;
     cl_int height;
-    cl_int x_dim;
     gfloat scale;
-    gsize global_work_size[2];
+    gsize global_work_size[3];
 
     priv = UFO_IFFT_TASK_GET_PRIVATE (task);
     #ifndef HAVE_AMD
@@ -266,25 +265,24 @@ ufo_ifft_task_process (UfoTask *task,
         scale /= (gfloat) requisition->dims[1];
     }
 
-    width = priv->crop_width > 0 ? priv->crop_width : (cl_int) requisition->dims[0];
+    width = (cl_int) requisition->dims[0];
     height = (cl_int) requisition->dims[1];
-    x_dim = (cl_int) requisition->dims[0];
 
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
-    global_work_size[0] = requisition->n_dims <=2 ? in_req.dims[0] >> 1 
-                            : (in_req.dims[0] * in_req.dims[2]) >> 1;
-    global_work_size[1] = height;
+    global_work_size[0] = in_req.dims[0] >> 1;
+    global_work_size[1] = in_req.dims[1];
+    global_work_size[2] = requisition->n_dims == 3 ? in_req.dims[2] : 1;
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), (gpointer) &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), (gpointer) &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_int), &width));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_int), &x_dim));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_int), &height));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (gfloat), &scale));
 
     UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (priv->cmd_queue,
                                                        priv->kernel,
-                                                       2, NULL, global_work_size, NULL,
+                                                       3, NULL, global_work_size, NULL,
                                                        0, NULL, NULL));
     return TRUE;
 }

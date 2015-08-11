@@ -21,23 +21,28 @@ kernel void
 fft_spread (global float *out,
             global float *in,
             const int width,
-            const int height,
-            const int xdim)
+            const int height)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
-    const int dpitch_in = get_global_size(0);
-    const int dpitch = dpitch_in << 1;
+    const int idz = get_global_id(2);
+    const int len_x = get_global_size(0);
+    const int len_y = get_global_size(1);
+
+    const int stride_x = len_x * 2;
+    const int stride_y = stride_x * len_y;
+    const int stride_x_in = width;
+    const int stride_y_in = stride_x_in * height;
 
     /* May diverge but not possible to reduce latency, because num_bins can
        be arbitrary and not be aligned. */
-    if ((idy >= height) || ((idx % xdim) >= width)) {
-        out[idy*dpitch + idx*2] = 0.0;
-        out[idy*dpitch + idx*2 + 1] = 0.0;
+    if ((idy >= height) || (idx >= width)) {
+        out[idz*stride_y + idy*stride_x + idx*2] = 0.0;
+        out[idz*stride_y + idy*stride_x + idx*2 + 1] = 0.0;
     }
     else {
-        out[idy*dpitch + idx*2] = in[idy*dpitch_in + idx];
-        out[idy*dpitch + idx*2 + 1] = 0.0;
+        out[idz*stride_y + idy*stride_x + idx*2] = in[idz*stride_y_in + idy*stride_x_in + idx];
+        out[idz*stride_y + idy*stride_x + idx*2 + 1] = 0.0;
     }
 }
 
@@ -45,17 +50,25 @@ kernel void
 fft_pack (global float *in,
           global float *out,
           const int width,
-          const int xdim,
+          const int height,
           const float scale)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
-    const int batch_size = get_global_size(0) / xdim;
-    const int dpitch_in = get_global_size(0) * 2;
-    const int dpitch_ou = width * batch_size;
+    const int idz = get_global_id(2);
 
-    if ((idx % xdim) < width)
-        out[idy*dpitch_ou + idx] = in[idy*dpitch_in + 2*idx] * scale;
+    const int len_x = get_global_size(0);
+    const int len_y = get_global_size(1);
+
+    const int stride_x_in = len_x * 2;
+    const int stride_y_in = len_y * stride_x_in;
+
+    const int stride_x = width;
+    const int stride_y = height * stride_x;
+
+    if (idx  < width && idy < height)
+        out[idz*stride_y + idy*stride_x + idx]
+            = in[idz*stride_y_in + idy*stride_x_in + idx*2] * scale;
 }
 
 kernel void
