@@ -429,6 +429,20 @@ Buffering
         Number of pre-allocated buffers.
 
 
+Loops
+-----
+
+.. gobj:class:: loop
+
+    Repeats output of incoming data items. It uses a low-overhead policy to
+    avoid unnecessary copies. You can expect the data items to be on the device
+    where the data originated.
+
+    .. gobj:prop:: count:init
+        
+        Number of iterations for each received data item.
+
+
 Monitoring
 ----------
 
