@@ -35,6 +35,7 @@ set(ufofilter_SRCS
     ufo-map-slice-task.c
     ufo-measure-sharpness-task.c
     ufo-median-filter-task.c
+    ufo-merge-task.c
     ufo-metaballs-task.c
     ufo-monitor-task.c
     ufo-multi-search-task.c

@@ -333,6 +333,19 @@ Rescaling
         Interpolation method used for rescaling.
 
 
+Merging
+-------
+
+.. gobj:class:: merge
+
+    Merges the data from two or more input data streams into a single data
+    stream by concatenation.
+
+    .. gobj:prop:: number:int
+
+        Number of input streams. By default this is two.
+
+
 Slice mapping
 -------------
 
