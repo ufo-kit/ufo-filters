@@ -37,6 +37,8 @@ typedef struct _UfoMonitorTaskPrivate    UfoMonitorTaskPrivate;
 
 struct _UfoMonitorTask {
     UfoTaskNode parent_instance;
+
+    UfoMonitorTaskPrivate *priv;
 };
 
 struct _UfoMonitorTaskClass {

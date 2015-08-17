@@ -20,6 +20,9 @@
 #include "ufo-priv.h"
 #include "ufo-monitor-task.h"
 
+struct _UfoMonitorTaskPrivate {
+    guint n_items;
+};
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
@@ -29,6 +32,13 @@ G_DEFINE_TYPE_WITH_CODE (UfoMonitorTask, ufo_monitor_task, UFO_TYPE_TASK_NODE,
 
 #define UFO_MONITOR_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_MONITOR_TASK, UfoMonitorTaskPrivate))
 
+enum {
+    PROP_0,
+    PROP_NUM_ITEMS,
+    N_PROPERTIES
+};
+
+static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
 ufo_monitor_task_new (void)
@@ -94,12 +104,14 @@ ufo_monitor_task_process (UfoTask *task,
                           UfoBuffer *output,
                           UfoRequisition *requisition)
 {
+    UfoMonitorTaskPrivate *priv;
     UfoBufferLocation location;
     GList *keys;
     GList *sizes;
     gchar *keystring;
     gchar *dimstring;
 
+    priv = UFO_MONITOR_TASK_GET_PRIVATE (task);
     location = ufo_buffer_get_location (inputs[0]);
     keys = ufo_buffer_get_metadata_keys (inputs[0]);
     sizes = NULL;
@@ -128,6 +140,26 @@ ufo_monitor_task_process (UfoTask *task,
     }
 
     g_print ("\n");
+
+    if (priv->n_items > 0) {
+        guint32 *data;
+
+        data = (guint32 *) ufo_buffer_get_host_array (inputs[0], NULL);
+
+        g_print ("  ");
+
+        for (guint i = 0; i < priv->n_items; i++) {
+            g_print ("0x%08x ", data[i]);
+
+            if ((i != 0) && (((i + 1) % 8) == 0))
+                g_print ("\n  ");
+        }
+
+        if ((priv->n_items % 8) != 0)
+            g_print ("\n");
+    }
+
+
     ufo_buffer_copy (inputs[0], output);
 
     g_free (dimstring);
@@ -136,6 +168,45 @@ ufo_monitor_task_process (UfoTask *task,
     g_list_free_full (sizes, (GDestroyNotify) g_free);
 
     return TRUE;
+}
+static void
+ufo_monitor_task_set_property (GObject *object,
+                               guint property_id,
+                               const GValue *value,
+                               GParamSpec *pspec)
+{
+    UfoMonitorTaskPrivate *priv;
+
+    priv = UFO_MONITOR_TASK_GET_PRIVATE (object);
+
+    switch (property_id) {
+        case PROP_NUM_ITEMS:
+            priv->n_items = g_value_get_uint (value);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+            break;
+    }
+}
+
+static void
+ufo_monitor_task_get_property (GObject *object,
+                               guint property_id,
+                               GValue *value,
+                               GParamSpec *pspec)
+{
+    UfoMonitorTaskPrivate *priv;
+
+    priv = UFO_MONITOR_TASK_GET_PRIVATE (object);
+
+    switch (property_id) {
+        case PROP_NUM_ITEMS:
+            g_value_set_uint (value, priv->n_items);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+            break;
+    }
 }
 
 static void
@@ -152,9 +223,29 @@ ufo_task_interface_init (UfoTaskIface *iface)
 static void
 ufo_monitor_task_class_init (UfoMonitorTaskClass *klass)
 {
+    GObjectClass *oclass;
+
+    oclass = G_OBJECT_CLASS (klass);
+
+    oclass->set_property = ufo_monitor_task_set_property;
+    oclass->get_property = ufo_monitor_task_get_property;
+
+    properties[PROP_NUM_ITEMS] =
+        g_param_spec_uint ("print",
+                           "Number of items to print",
+                           "Number of items to print",
+                           0, G_MAXUINT, 0,
+                           G_PARAM_READWRITE);
+
+    for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
+        g_object_class_install_property (oclass, i, properties[i]);
+
+    g_type_class_add_private (klass, sizeof(UfoMonitorTaskPrivate));
 }
 
 static void
 ufo_monitor_task_init(UfoMonitorTask *self)
 {
+    self->priv = UFO_MONITOR_TASK_GET_PRIVATE (self);
+    self->priv->n_items = 0;
 }
