@@ -27,6 +27,7 @@
 
 #include "readers/ufo-reader.h"
 #include "readers/ufo-edf-reader.h"
+#include "readers/ufo-raw-reader.h"
 
 #ifdef HAVE_TIFF
 #include "readers/ufo-tiff-reader.h"
@@ -56,6 +57,7 @@ struct _UfoReadTaskPrivate {
 
     UfoReader       *reader;
     UfoEdfReader    *edf_reader;
+    UfoRawReader    *raw_reader;
 
 #ifdef HAVE_TIFF
     UfoTiffReader   *tiff_reader;
@@ -64,6 +66,10 @@ struct _UfoReadTaskPrivate {
 #ifdef WITH_HDF5
     UfoHdf5Reader   *hdf5_reader;
 #endif
+
+    guint   raw_height;
+    guint   raw_width;
+    guint   raw_bitdepth;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -84,6 +90,9 @@ enum {
     PROP_ROI_HEIGHT,
     PROP_ROI_STEP,
     PROP_CONVERT,
+    PROP_RAW_WIDTH,
+    PROP_RAW_HEIGHT,
+    PROP_RAW_BITDEPTH,
     N_PROPERTIES
 };
 
@@ -130,6 +139,9 @@ read_filenames (UfoReadTaskPrivate *priv)
 
         if (ufo_reader_can_open (UFO_READER (priv->edf_reader), filename))
             result = g_list_append (result, g_strdup (filename));
+
+        if (ufo_reader_can_open (UFO_READER (priv->raw_reader), filename))
+            result = g_list_append (result, g_strdup (filename));
     }
 
     globfree (&filenames);
@@ -174,6 +186,9 @@ get_reader (UfoReadTaskPrivate *priv, const gchar *filename)
 
     if (ufo_reader_can_open (UFO_READER (priv->edf_reader), filename))
         return UFO_READER (priv->edf_reader);
+
+    if (ufo_reader_can_open (UFO_READER (priv->raw_reader), filename))
+        return UFO_READER (priv->raw_reader);
 
     return NULL;
 }
@@ -308,6 +323,15 @@ ufo_read_task_set_property (GObject *object,
         case PROP_NUMBER:
             priv->number = g_value_get_uint (value);
             break;
+        case PROP_RAW_WIDTH:
+            priv->raw_width = g_value_get_uint (value);
+            break;
+        case PROP_RAW_HEIGHT:
+            priv->raw_height = g_value_get_uint (value);
+            break;
+        case PROP_RAW_BITDEPTH:
+            priv->raw_bitdepth = g_value_get_uint (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -346,6 +370,15 @@ ufo_read_task_get_property (GObject *object,
             break;
         case PROP_NUMBER:
             g_value_set_uint (value, priv->number);
+            break;
+        case PROP_RAW_WIDTH:
+            g_value_set_uint (value, priv->raw_width);
+            break;
+        case PROP_RAW_HEIGHT:
+            g_value_set_uint (value, priv->raw_height);
+            break;
+        case PROP_RAW_BITDEPTH:
+            g_value_set_uint (value, priv->raw_bitdepth);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -466,6 +499,27 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
             0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
+    properties[PROP_RAW_WIDTH] =
+        g_param_spec_uint("raw-width",
+            "Width of raw image",
+            "Width of raw image",
+            0, G_MAXUINT, G_MAXUINT,
+            G_PARAM_READWRITE);
+
+    properties[PROP_RAW_HEIGHT] =
+        g_param_spec_uint("raw-height",
+            "Height of raw image",
+            "Height of raw image",
+            0, G_MAXUINT, G_MAXUINT,
+            G_PARAM_READWRITE);
+
+    properties[PROP_RAW_BITDEPTH] =
+        g_param_spec_uint("raw-bitdepth",
+            "Bitdepth of raw image",
+            "Bitdepth of raw image",
+            0, G_MAXUINT, G_MAXUINT,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -489,6 +543,7 @@ ufo_read_task_init(UfoReadTask *self)
     priv->depth = UFO_BUFFER_DEPTH_32F;
 
     priv->edf_reader = ufo_edf_reader_new ();
+    priv->raw_reader = ufo_raw_reader_new ();
 
 #ifdef HAVE_TIFF
     priv->tiff_reader = ufo_tiff_reader_new ();
@@ -500,4 +555,11 @@ ufo_read_task_init(UfoReadTask *self)
 
     priv->reader = NULL;
     priv->done = FALSE;
+    priv->raw_width = 0;
+    priv->raw_height = 0;
+    priv->raw_bitdepth = 0;
+
+    g_object_bind_property (self, "raw-width", priv->raw_reader, "width", G_BINDING_DEFAULT);
+    g_object_bind_property (self, "raw-height", priv->raw_reader, "height", G_BINDING_DEFAULT);
+    g_object_bind_property (self, "raw-bitdepth", priv->raw_reader, "bitdepth", G_BINDING_DEFAULT);
 }

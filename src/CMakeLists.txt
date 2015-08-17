@@ -68,7 +68,8 @@ set(ufoaux_SRCS
 
 set(read_misc_SRCS
     readers/ufo-reader.c
-    readers/ufo-edf-reader.c)
+    readers/ufo-edf-reader.c
+    readers/ufo-raw-reader.c)
 
 set(write_misc_SRCS
     writers/ufo-writer.c
