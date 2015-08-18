@@ -93,6 +93,7 @@ struct _UfoDirectGmaTaskPrivate {
     pcilib_t *pci;
     guintptr kdesc_bus;
     volatile guint32 *desc;
+    guint enable_get_aperture_size;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -116,6 +117,7 @@ enum {
     PROP_INDEX,
     PROP_START_INDEX,
     PROP_STOP_INDEX,
+    PROP_ENABLE_GET_APERTURE_SIZE,
     N_PROPERTIES
 };
 
@@ -129,8 +131,8 @@ ufo_direct_gma_task_new (void)
 
 static void
 ufo_direct_gma_task_get_requisition (UfoTask *task,
-                                 UfoBuffer **inputs,
-                                 UfoRequisition *requisition)
+                                     UfoBuffer **inputs,
+                                     UfoRequisition *requisition)
 {
     UfoDirectGmaTaskPrivate *priv;
     priv = UFO_DIRECT_GMA_TASK_GET_PRIVATE (task);
@@ -148,7 +150,7 @@ ufo_direct_gma_task_get_num_inputs (UfoTask *task)
 
 static guint
 ufo_direct_gma_task_get_num_dimensions (UfoTask *task,
-                                             guint input)
+                                        guint input)
 {
     return 0;
 }
@@ -156,7 +158,7 @@ ufo_direct_gma_task_get_num_dimensions (UfoTask *task,
 static UfoTaskMode
 ufo_direct_gma_task_get_mode (UfoTask *task)
 {
-  return UFO_TASK_MODE_GENERATOR | UFO_TASK_MODE_GPU ;
+    return UFO_TASK_MODE_GENERATOR | UFO_TASK_MODE_GPU ;
 }
 
 static void
@@ -176,75 +178,57 @@ create_gma_buffer(UfoBuffer** buffer,UfoDirectGmaTaskPrivate *task_priv,cl_bus_a
     return busadress->surface_bus_address;
 }
 
+static int 
+verify_aperture_size(UfoDirectGmaTaskPrivate *task_priv){
+    guint aperture_size;
+
+    if(task_priv->enable_get_aperture_size==1){
+        FILE *fp= popen("aticonfig --get-pcs-key=MCIL,DMAOGLExtensionApertureMB | grep -o '[0-9][0-9])$' | grep -o '[0-9][0-9]' ", "r");
+        fscanf(fp,"%lu",&aperture_size);
+        aperture_size*=1000000;
+    }
+    else if(task_priv->enable_get_aperture_size==0){
+        aperture_size=96000000;
+    }
+    else if(task_priv->enable_get_aperture_size==2){
+        aperture_size=128000000;
+    }
+        
+    if((task_priv->buffers*task_priv->huge_page*4096)>aperture_size){
+        pcilib_error("the size for buffers for gma is higher than the aperture size\n");
+        return 1;
+    }
+    else return 0;
+}
+
 static int
-gpu_init( glong* address_buffer, UfoBuffer **saving_buffers, UfoBuffer** buffers_amd,cl_command_queue* command_queue, UfoTask* task){
-  cl_bus_address_amd* busadresses; 
-  guint i;
+gpu_init_for_gma_buffers(UfoTask* task){
+    cl_bus_address_amd* busadresses; 
+    guint i;
     UfoGpuNode *node;
     UfoDirectGmaTaskPrivate *task_priv;
+
     task_priv= UFO_DIRECT_GMA_TASK_GET_PRIVATE(task); 
     
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
-    *command_queue = ufo_gpu_node_get_cmd_queue (node);
+    task_priv->command_queue = ufo_gpu_node_get_cmd_queue (node);
    
     busadresses=malloc(task_priv->buffers*sizeof(cl_bus_address_amd));
     if((task_priv->buffers*task_priv->multiple*task_priv->huge_page)>1048576){
-      pcilib_error("the total size is too big\n");
-      return 1;
+        pcilib_error("the total size is too big\n");
+        return 1;
     }
-
-    if((task_priv->buffers*task_priv->huge_page*4096)>96000000){
-      pcilib_error("the size for buffers for gma is higher than the aperture size\n");
-      return 1;
-    }
-
-    ufo_buffer_set_location(*saving_buffers, UFO_BUFFER_LOCATION_DEVICE);
-    ufo_buffer_get_device_array(*saving_buffers,command_queue);
-    init_buffer_gma(saving_buffers, command_queue);
     
-    for(i=0;i<task_priv->buffers;i++){
-        address_buffer[i]=create_gma_buffer(&buffers_amd[i],task_priv,&busadresses[i],command_queue);
-    init_buffer_gma(&buffers_amd[i], command_queue);
-    	if (address_buffer[i]==0){
-	  pcilib_error("the buffer %i for directgma has not been allocated correctly\n");
-	  return 1;
-	}
-    }
-    printf("init GPU for gma...done\n");
-    return 0;
-}    
-
-static int
-gpu_init2( glong* address_buffer, UfoBuffer** buffers_amd,cl_command_queue* command_queue, UfoTask* task){
-  cl_bus_address_amd* busadresses; 
-  guint i;
-    UfoGpuNode *node;
-    UfoDirectGmaTaskPrivate *task_priv;
-    task_priv= UFO_DIRECT_GMA_TASK_GET_PRIVATE(task); 
-    
-    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
-    *command_queue = ufo_gpu_node_get_cmd_queue (node);
-   
-    busadresses=malloc(task_priv->buffers*sizeof(cl_bus_address_amd));
-    if((task_priv->buffers*task_priv->multiple*task_priv->huge_page)>1048576){
-      pcilib_error("the total size is too big\n");
-      return 1;
-    }
-
-    if((task_priv->buffers*task_priv->huge_page*4096)>96000000){
-      pcilib_error("the size for buffers for gma is higher than the aperture size\n");
-      return 1;
-    }
+    verify_aperture_size(task_priv);
 
     for(i=0;i<task_priv->buffers;i++){
-        address_buffer[i]=create_gma_buffer(&buffers_amd[i],task_priv,&busadresses[i],command_queue);
-    init_buffer_gma(&buffers_amd[i], command_queue);
-    	if (address_buffer[i]==0){
-	  pcilib_error("the buffer %i for directgma has not been allocated correctly\n");
-	  return 1;
+      task_priv->buffer_gma_addr[i]=create_gma_buffer(&(task_priv->buffers_gma[i]),task_priv,&busadresses[i],&(task_priv->command_queue));
+      init_buffer_gma(&(task_priv->buffers_gma[i]), &(task_priv->command_queue));
+    	if (task_priv->buffer_gma_addr[i]==0){
+            pcilib_error("the buffer %i for directgma has not been allocated correctly\n");
+            return 1;
 	}
     }
-    printf("init GPU for directgma...done\n");
     return 0;
 }    
 
@@ -261,109 +245,101 @@ static gint
 pcie_test(volatile void* bar){
     guintptr offset=0;
     gint err;
-    printf("* DMA: Reset...\n");
     WR(0x00, 0x1);
     usleep(100000);
     WR(0x00, 0x0);
     usleep(100000);
 
-
-    printf("* PCIe: Testing...");
     RD(0x0, err);
     if (err == 335746816 || err == 335681280) {
-       printf("\xE2\x9C\x93 \n");
-       return 0;
+        return 0;
     } else {
-       printf("\xE2\x9C\x98\n PCIe not ready!\n");
-       return 1;
+        printf("\xE2\x9C\x98\n PCIe not ready!\n");
+        return 1;
     }
 }
 
 
 static void
-dma_conf(volatile void* bar, UfoDirectGmaTaskPrivate* task_priv){
+dma_conf(UfoDirectGmaTaskPrivate* task_priv){
     guintptr offset=0;
-    printf("* DMA: Send Data Amount\n");
+    volatile void* bar=task_priv->bar;
+
     WR(0x10, (task_priv->huge_page * (PAGE_SIZE / (4 * task_priv->tlp_size))));                              
-    printf("* DMA: Running mode: ");
 
 #ifdef USE_64   
     if (task_priv->tlp_size == 64)
     {
         WR(0x0C, 0x80040);
-        printf ("64bit - 256B Payload\n");
     }
     else if (task_priv->tlp_size == 32)
     {
         WR(0x0C, 0x80020);
-        printf ("64bit - 128B Payload\n");
     }
 #else  
     if (task_priv->tlp_size == 64) 
     {
         WR(0x0C, 0x0040);
-        printf ("32bit - 256B Payload\n");
     }
     else if (task_priv->tlp_size == 32) 
     {
         WR(0x0C, 0x0020);
-        printf ("32bit - 128B Payload\n");
     }
 #endif
     
-    printf("* DMA: Reset Desc Memory...\n");
     WR(0x5C, 0x00); 
 }
 
 
 static void
-pcilib_init_for_transfer(pcilib_t** pci, uintptr_t* kdesc_bus,volatile uint32_t** desc, volatile void** bar){
+pcilib_init_for_transfer(UfoDirectGmaTaskPrivate* task_priv){
     pcilib_kmem_handle_t *kdesc;
     pcilib_kmem_flags_t flags = PCILIB_KMEM_FLAG_HARDWARE|PCILIB_KMEM_FLAG_PERSISTENT|PCILIB_KMEM_FLAG_EXCLUSIVE;
     pcilib_kmem_flags_t clean_flags = PCILIB_KMEM_FLAG_HARDWARE|PCILIB_KMEM_FLAG_PERSISTENT|PCILIB_KMEM_FLAG_EXCLUSIVE;
     pcilib_bar_t bar_tmp = BAR;
     uintptr_t offset = 0;
-
-    *pci = pcilib_open(DEVICE, "pci");
-    if (!(*pci)) pcilib_error("pcilib_open");
+    
+    task_priv->pci = pcilib_open(DEVICE,"pci");
+    if(!(task_priv->pci)) pcilib_error("pcilib_open");
   
-    *bar = pcilib_map_bar(*pci, BAR);
-    if (!(*bar)) {
-       pcilib_close(*pci);
-       pcilib_error("map bar");
+    task_priv->bar=pcilib_map_bar(task_priv->pci,BAR);
+    if(!(task_priv->bar)){
+        pcilib_close(task_priv->pci);
+        pcilib_error("map bar");
     }
 
-    pcilib_detect_address(*pci, &bar_tmp, &offset, 1);
+    pcilib_detect_address(task_priv->pci, &bar_tmp, &offset, 1);
 
-    pcilib_enable_irq(*pci, PCILIB_IRQ_TYPE_ALL, 0);
-    pcilib_clear_irq(*pci, PCILIB_IRQ_SOURCE_DEFAULT);
+    pcilib_enable_irq(task_priv->pci, PCILIB_IRQ_TYPE_ALL, 0);
+    pcilib_clear_irq(task_priv->pci, PCILIB_IRQ_SOURCE_DEFAULT);
 
-    pcilib_clean_kernel_memory(*pci, USE, clean_flags);
-    pcilib_clean_kernel_memory(*pci, USE_RING, clean_flags);
+    pcilib_clean_kernel_memory(task_priv->pci, USE, clean_flags);
+    pcilib_clean_kernel_memory(task_priv->pci, USE_RING, clean_flags);
 
-    kdesc = pcilib_alloc_kernel_memory(*pci, PCILIB_KMEM_TYPE_CONSISTENT, 1, 128, 4096, USE_RING, flags);
-    *kdesc_bus = pcilib_kmem_get_block_ba(*pci, kdesc, 0);
-    *desc = (uint32_t*)pcilib_kmem_get_block_ua(*pci, kdesc, 0);
-    memset((void*)*desc, 0, 5*sizeof(uint32_t));
+    kdesc = pcilib_alloc_kernel_memory(task_priv->pci, PCILIB_KMEM_TYPE_CONSISTENT, 1, 128, 4096, USE_RING, flags);
+    task_priv->kdesc_bus = pcilib_kmem_get_block_ba(task_priv->pci, kdesc, 0);
+    task_priv->desc = (uint32_t*)pcilib_kmem_get_block_ua(task_priv->pci, kdesc, 0);
+
+    memset((void*)task_priv->desc, 0, 5*sizeof(uint32_t));
 
 }
 
 static void
-writing_dma_descriptors(glong* buffer_gma_addr,uintptr_t kdesc_bus,volatile void* bar, uintptr_t *bus_addr, UfoDirectGmaTaskPrivate* task_priv){
+writing_dma_descriptors(UfoDirectGmaTaskPrivate* task_priv){
     uintptr_t offset = 0;
     guint j;
+    volatile void* bar= task_priv->bar;
     WR(0x58, task_priv->buffers-1);
 
     WR(0x60, DESC_THRESHOLD);
 
-    WR(0x54, kdesc_bus);
+    WR(0x54, task_priv->kdesc_bus);
     usleep(100000);
 
-    printf("* DMA: Writing Descriptors\n");
     for (j = 0; j < task_priv->buffers; j++ ) {
-      bus_addr[j]=buffer_gma_addr[j];
+        task_priv->bus_addr[j]=task_priv->buffer_gma_addr[j];
         usleep(1000);
-        WR(0x50, bus_addr[j]);
+        WR(0x50, task_priv->bus_addr[j]);
     }
 
 
@@ -382,18 +358,18 @@ handshaking_dma(UfoBuffer** buffers_gma, UfoBuffer* saving_buffers, volatile uin
     while (i < task_priv->multiple) {
         do {
 #ifdef USE_64   
-                hwptr = desc[3];
+               hwptr = desc[3];
 #else // 32-bit
-                hwptr = desc[4];
+               hwptr = desc[4];
 #endif
         } while (hwptr == curptr);
 
         do {    
-	  err=ufo_buffer_copy_for_directgma(buffers_gma[curbuf],saving_buffers,(i*task_priv->buffers+curbuf),command_queue);
-      if(err==-30) break;
+	    err=ufo_buffer_copy_for_directgma(buffers_gma[curbuf],saving_buffers,(i*task_priv->buffers+curbuf),command_queue);
+            if(err==-30) break;
 #ifdef USE_STREAMING
-	  if (i < (task_priv->multiple-1) || (i==(task_priv->multiple-1) && curbuf<1))
-          if (desc[1] == 0)
+	    if (i < (task_priv->multiple-1) || (i==(task_priv->multiple-1) && curbuf<1))
+            if (desc[1] == 0)
               WR(0x50, bus_addr[curbuf]);
 #endif /* USE_STREAMING */
             
@@ -420,14 +396,14 @@ handshaking_dma(UfoBuffer** buffers_gma, UfoBuffer* saving_buffers, volatile uin
         curptr = hwptr;
     }
     if(curbuf!=0) *buffers_completed=i*task_priv->buffers+curbuf;
-        else *buffers_completed=i*task_priv->buffers+curbuf-1;
+    else *buffers_completed=i*task_priv->buffers+curbuf-1;
 }
 
 static void
 stop_dma(struct timeval *end,gfloat* perf_counter,volatile void* bar){
- uintptr_t offset = 0;
- gettimeofday(end, NULL);
-    printf("* DMA :Stop\n");
+    uintptr_t offset = 0;
+    gettimeofday(end, NULL);
+   
     WR(0x04, 0x00);
     usleep(100);
     RD(0x28, *perf_counter);
@@ -437,10 +413,9 @@ stop_dma(struct timeval *end,gfloat* perf_counter,volatile void* bar){
 
 static void
 free_and_close(pcilib_t *pci,volatile void* bar,UfoBuffer **buffers_gma, uintptr_t* bus_addr, UfoDirectGmaTaskPrivate* task_priv, glong* addresses){
-  guint j;
+    guint j;
     free(bus_addr);
-    for(j=0;j<task_priv->buffers;j++)
-        g_object_unref(buffers_gma[j]);
+    for(j=0;j<task_priv->buffers;j++) g_object_unref(buffers_gma[j]);
     free(addresses);
     pcilib_disable_irq(pci, 0);
     pcilib_unmap_bar(pci, BAR, bar);
@@ -450,7 +425,6 @@ free_and_close(pcilib_t *pci,volatile void* bar,UfoBuffer **buffers_gma, uintptr
 static void
 start_dma(volatile void* bar,struct timeval *start){
      guintptr offset=0;
-     printf("* DMA: Start \n");
 
 #ifdef IPECAMERA
 //     WR(0x9040, 0x88000201);
@@ -466,7 +440,6 @@ start_dma(volatile void* bar,struct timeval *start){
 #endif 
 
 #ifdef ENABLE_COUNTER
-     printf("* Enable counter\n");
      WR(ENABLE_COUNTER, 0xff);
      WR(ENABLE_COUNTER, 0x1);
 #endif 
@@ -482,7 +455,7 @@ perf( struct timeval start, struct timeval end, float perf_counter, UfoDirectGma
     gfloat size_mb;
 
      run_time = (end.tv_sec - start.tv_sec) * 1000000 + (end.tv_usec - start.tv_usec);
-    size_mb=buffers_completed*task_priv->huge_page/256;
+     size_mb=buffers_completed*task_priv->huge_page/256;
      printf("Performance: transfered %f Mbytes in %zu us using %d buffers\n", (size_mb), run_time, task_priv->buffers);
      performance = ((size_mb * FPGA_CLOCK * 1000000)/(perf_counter*256));
      printf("DMA perf counter:\t%d\n", (int)perf_counter); 
@@ -494,6 +467,7 @@ static void
 research_data_fail_counter(int* buffer, UfoDirectGmaTaskPrivate* task_priv){
     guint i;
     guint k=0;
+    printf("results: \n");
     for(i=1;i<task_priv->multiple*task_priv->huge_page*task_priv->buffers*1024-1;i++){
         if(buffer[i+1]-buffer[i]!=1){
             printf("problem at position %i: %i %i %i %i\n",i, buffer[i-1],buffer[i], buffer[i+1],buffer[i+2]);
@@ -508,16 +482,16 @@ static void
 printf_with_index(guint start, guint stop, int* buffer){
     guint i;
     printf("index ok %i %i\n", start, stop);
+    printf("results: \n");
     for(i=start;i<stop;i++) printf("%x |",buffer[i]);
     printf("\n");
 }
 
 static void
-print_results(cl_command_queue* cmd_queue, UfoBuffer* buffer, UfoDirectGmaTaskPrivate* task_priv){
+print_results(UfoBuffer* buffer, UfoDirectGmaTaskPrivate* task_priv){
     int* results;
     results=malloc(task_priv->multiple*task_priv->huge_page*task_priv->buffers*1024*sizeof(int));
-    printf("results: \n");
-    ufo_buffer_read(buffer,results,cmd_queue);
+    ufo_buffer_read(buffer,results,&(task_priv->command_queue));
     printf("start %lu stop %lu \n",task_priv->start_index, task_priv->stop_index);
     if(task_priv->counter==1) research_data_fail_counter(results, task_priv);
     if(task_priv->index==1) printf_with_index(task_priv->start_index,task_priv->stop_index,results);
@@ -541,12 +515,12 @@ ufo_direct_gma_task_setup (UfoTask *task,
     task_priv->buffers_gma=malloc(task_priv->buffers*sizeof(UfoBuffer*));
     task_priv->bus_addr=malloc(task_priv->buffers*sizeof(uintptr_t));
     
-    if((err=gpu_init2(task_priv->buffer_gma_addr, task_priv->buffers_gma, &(task_priv->command_queue), task))==1) return;
+    if((err=gpu_init_for_gma_buffers(task))==1) return;
     
-    pcilib_init_for_transfer(&(task_priv->pci),&(task_priv->kdesc_bus),&(task_priv->desc),&(task_priv->bar));
+    pcilib_init_for_transfer(task_priv);
     if((err=pcie_test(task_priv->bar))==1) return;
-    dma_conf(task_priv->bar, task_priv);
-    writing_dma_descriptors(task_priv->buffer_gma_addr, task_priv->kdesc_bus,task_priv->bar, task_priv->bus_addr, task_priv);
+    dma_conf(task_priv);
+    writing_dma_descriptors(task_priv);
     
 }
 
@@ -555,50 +529,32 @@ ufo_direct_gma_task_generate (UfoTask *task,
                               UfoBuffer *output,
                          UfoRequisition *requisition)
 {
-  struct timeval start;
-  struct timeval end;
-  static guint ok=0;
+    struct timeval start;
+    struct timeval end;
+    static guint ok=0;
     gfloat perf_counter;
-    /*    pcilib_t *pci=NULL;
-    guintptr kdesc_bus;
-    volatile guint32 *desc=NULL;
-    glong* buffer_gma_addr;
-    UfoBuffer **buffers_gma; 
-    cl_command_queue command_queue;
-    guintptr *bus_addr;
-    volatile void* bar=NULL;*/
     guint buffers_completed;
-
-    //    gint err;
-
     UfoDirectGmaTaskPrivate *task_priv;
-
     task_priv= UFO_DIRECT_GMA_TASK_GET_PRIVATE(task);
+
     printf("start1 %lu, stop1 %lu\n", task_priv->start_index, task_priv->stop_index); 
     if(ok==task_priv->frames) return FALSE;    
-   /* buffer_gma_addr=malloc(task_priv->buffers*sizeof(glong));
-    buffers_gma=malloc(task_priv->buffers*sizeof(UfoBuffer*));
-    bus_addr=malloc(task_priv->buffers*sizeof(uintptr_t));
-    
-    if((err=gpu_init(buffer_gma_addr, &output, buffers_gma, &command_queue, task))==1) return FALSE;*/
 
-/*    pcilib_init_for_transfer(&pci,&kdesc_bus,&desc,&bar);
-    if((err=pcie_test(bar))==1) return FALSE;;
-    dma_conf(bar, task_priv);
-    writing_dma_descriptors(buffer_gma_addr, kdesc_bus,bar, bus_addr, task_priv);*/
     gpu_init_for_output(&output, &(task_priv->command_queue));
+
     start_dma(task_priv->bar, &start);
     handshaking_dma(task_priv->buffers_gma, output, task_priv->desc,task_priv->bar,&(task_priv->command_queue),task_priv->bus_addr,task_priv, &buffers_completed);
     stop_dma(&end, &perf_counter,task_priv->bar);
-    perf(start,end,perf_counter, task_priv, buffers_completed);
-    ok++;
 
-    print_results(&(task_priv->command_queue),output, task_priv);
+    perf(start,end,perf_counter, task_priv, buffers_completed);
+    
+    print_results(output, task_priv);
 
     //    free_and_close(pci,bar,buffers_gma,bus_addr,task_priv,buffer_gma_addr);
 
     ufo_buffer_get_device_array(output,task_priv->command_queue);
     ufo_buffer_get_host_array(output,NULL);
+    ok++;
     return TRUE;
 }
 
@@ -651,6 +607,9 @@ ufo_direct_gma_task_set_property (GObject *object,
         case PROP_STOP_INDEX:
             priv->stop_index=g_value_get_uint64(value);
             break;
+        case PROP_ENABLE_GET_APERTURE_SIZE:
+            priv->stop_index=g_value_get_uint(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -699,6 +658,9 @@ ufo_direct_gma_task_get_property (GObject *object,
         case PROP_INDEX:
             g_value_set_uint(value,priv->index);
             break;
+        case PROP_ENABLE_GET_APERTURE_SIZE:
+            g_value_set_uint(value,priv->enable_get_aperture_size);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -743,72 +705,78 @@ ufo_direct_gma_task_class_init (UfoDirectGmaTaskClass *klass)
 			  "represents the number of virtual buffers used for dma",
 			  "represents the number of virtual buffers used for dma",
 			  1,2<<16,2,
-              G_PARAM_READWRITE);
+			  G_PARAM_READWRITE);
 
     properties[PROP_TLP_SIZE]=
         g_param_spec_uint("tlp-size",
 			  "size for the corresponding payload size of pcie frame",
 			  "size for the corresponding payload size of pcie frame",
 			  32,64,32,
-              G_PARAM_READWRITE);
+			  G_PARAM_READWRITE);
 
     properties[PROP_HEIGHT]=
         g_param_spec_uint("height",
 			  "height of the camera frame for image processing afterwards",
 			  "height of the camera frame for image processing afterwards",
 			  1,2<<16,8192,
-              G_PARAM_READWRITE);
+			  G_PARAM_READWRITE);
     
     properties[PROP_WIDTH]=
         g_param_spec_uint("width",
 			  "width of the camera frame for image processing afterwards",
 			  "width of the camera frame for image processing afterwards",
 			  1,2<<16,8000,
-              G_PARAM_READWRITE);
+			  G_PARAM_READWRITE);
 
     properties[PROP_FRAMES]=
         g_param_spec_uint("frames",
-              "number of frames transmitted (number of times the transfer is done)",
-              "number of frames transmitted (number of times the transfer is done)",
+			  "number of frames transmitted (number of times the transfer is done)",
+			  "number of frames transmitted (number of times the transfer is done)",
 			  1,2<<16,1,
-              G_PARAM_READWRITE);
+			  G_PARAM_READWRITE);
 
     properties[PROP_BUFFERS]=
         g_param_spec_uint("buffers",
-              "number of buffers for directgma",
-              "number of buffers for directgma",
+			  "number of buffers for directgma",
+			  "number of buffers for directgma",
 			  2,8000,8,
-              G_PARAM_READWRITE);
+			  G_PARAM_READWRITE);
 
     
     properties[PROP_INDEX]=
         g_param_spec_uint("index",
-              "indicates if we want to print results",
-              "indicates if we want to print results",
+			  "indicates if we want to print results",
+			  "indicates if we want to print results",
 			  0,1,0,
-              G_PARAM_READWRITE);
+			  G_PARAM_READWRITE);
     
     properties[PROP_COUNTER]=
         g_param_spec_uint("counter",
-              "indicates if we want to check data for counter",
-              "indicates if we want to check data for counter",
+			  "indicates if we want to check data for counter",
+			  "indicates if we want to check data for counter",
 			  0,1,0,
-              G_PARAM_READWRITE);
+			  G_PARAM_READWRITE);
 
     properties[PROP_START_INDEX]=
         g_param_spec_uint64("start-index",
-              "starting index for printing results",
-              "starting index for printing results",
-			  0,40000000,0,
-              G_PARAM_READWRITE);
+			    "starting index for printing results",
+			    "starting index for printing results",
+			    0,40000000,0,
+			    G_PARAM_READWRITE);
 
     properties[PROP_STOP_INDEX]=
         g_param_spec_uint64("stop-index",
-              "ending index for printing results",
-              "ending index for printing results",
-			  0,40000000,0,
-              G_PARAM_READWRITE);
+			    "ending index for printing results",
+			    "ending index for printing results",
+			    0,40000000,0,
+			    G_PARAM_READWRITE);
 
+    properties[PROP_ENABLE_GET_APERTURE_SIZE]=
+        g_param_spec_uint64("enable-get-aperture-size",
+			    "parameter to define value of aperture size",
+			    "parameter to define value of aperture size",
+			    0,2,0,
+			    G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
@@ -831,4 +799,5 @@ ufo_direct_gma_task_init(UfoDirectGmaTask *self)
     self->priv->index=0;
     self->priv->stop_index=0;
     self->priv->start_index=0;
+    self->priv->enable_get_aperture_size=0;
 }

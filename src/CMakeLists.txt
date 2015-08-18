@@ -58,7 +58,6 @@ set(ufofilter_SRCS
     ufo-volume-render-task.c
     ufo-write-task.c
     ufo-zeropad-task.c
-    ufo-direct-gma-task.c
     )
 
 set(ufoaux_SRCS
