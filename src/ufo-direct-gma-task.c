@@ -174,11 +174,11 @@ init_buffer_gma(UfoBuffer** buffer, cl_command_queue* command_queue){
 
 
 static glong 
-create_gma_buffer(UfoBuffer** buffer,UfoDirectGmaTaskPrivate *task_priv,cl_bus_address_amd* busadress, cl_command_queue *command_queue){
+create_gma_buffer(UfoBuffer** buffer,UfoDirectGmaTaskPrivate *task_priv,cl_bus_address_amd* busadress){
 
     *buffer=(UfoBuffer*)ufo_buffer_new_with_size_in_bytes(1024*task_priv->huge_page*sizeof(int), task_priv->context);
     ufo_buffer_set_location(*buffer,UFO_BUFFER_LOCATION_DEVICE_DIRECT_GMA);
-    ufo_buffer_get_device_array_for_directgma(*buffer,command_queue,task_priv->platform_id,busadress);
+    ufo_buffer_get_device_array_for_directgma(*buffer,&(task_priv->command_queue),task_priv->platform_id,busadress);
 
     return busadress->surface_bus_address;
 }
@@ -227,7 +227,7 @@ gpu_init_for_gma_buffers(UfoTask* task){
     verify_aperture_size(task_priv);
 
     for(i=0;i<task_priv->buffers;i++){
-      task_priv->buffer_gma_addr[i]=create_gma_buffer(&(task_priv->buffers_gma[i]),task_priv,&busadresses[i],&(task_priv->command_queue));
+      task_priv->buffer_gma_addr[i]=create_gma_buffer(&(task_priv->buffers_gma[i]),task_priv,&busadresses[i]);
       init_buffer_gma(&(task_priv->buffers_gma[i]), &(task_priv->command_queue));
     	if (task_priv->buffer_gma_addr[i]==0){
             pcilib_error("the buffer %i for directgma has not been allocated correctly\n");
