@@ -16,7 +16,6 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 #define _POSIX_C_SOURCE 200809L
 #define _BSD_SOURCE
 #define _XOPEN_SOURCE 700
@@ -56,6 +55,7 @@
 #define USE_RING PCILIB_KMEM_USE(PCILIB_KMEM_USE_USER, 1)
 #define USE PCILIB_KMEM_USE(PCILIB_KMEM_USE_USER, 2)
 #define EXIT_ON_EMPTY
+
 #define DESC_THRESHOLD  1
 
 #define PAGE_SIZE       4096        // other values are not supported in the kernel
