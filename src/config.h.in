@@ -2,4 +2,5 @@
 #cmakedefine HAVE_AMD
 #cmakedefine HAVE_TIFF
 #cmakedefine HAVE_JPEG
+#cmakedefine HAVE_GMA
 #cmakedefine WITH_HDF5

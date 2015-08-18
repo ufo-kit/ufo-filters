@@ -261,7 +261,7 @@ foreach(_src ${ufofilter_SRCS})
         add_library(${target} SHARED ${ufoaux_SRCS} ${_src} ${${_misc}})
     endif()
 
-    target_link_libraries(${target} ${ufofilter_LIBS})
+    target_link_libraries(${target} ${ufofilter_LIBS} ${CMAKE_THREAD_LIBS_INIT})
 
     list(APPEND all_targets ${target})
 

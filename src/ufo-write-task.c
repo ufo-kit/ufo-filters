@@ -240,6 +240,8 @@ ufo_write_task_process (UfoTask *task,
 
     priv = UFO_WRITE_TASK_GET_PRIVATE (UFO_WRITE_TASK (task));
     data = (guint8 *) ufo_buffer_get_host_array (inputs[0], NULL);
+//    data = (guint8 *) ufo_buffer_get_device_array (inputs[0], NULL);
+
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
     num_frames = in_req.n_dims == 3 ? in_req.dims[2] : 1;
@@ -252,7 +254,6 @@ ufo_write_task_process (UfoTask *task,
             g_free (filename);
             priv->opened = TRUE;
         }
-
         ufo_writer_write (priv->writer, data + i * offset, &in_req, priv->depth);
 
         if (!priv->multi_file) {
