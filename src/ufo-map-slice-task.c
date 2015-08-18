@@ -111,11 +111,6 @@ ufo_map_slice_task_process (UfoTask *task,
 
     priv = UFO_MAP_SLICE_TASK_GET_PRIVATE (task);
 
-    if (priv->current == priv->number) {
-        g_warning ("MapSlice::number set to %i but processing input %i", priv->number, priv->current);
-        return FALSE;
-    }
-
     src = ufo_buffer_get_host_array (inputs[0], NULL);
     dst = ufo_buffer_get_host_array (output, NULL);
     y = (guint) floor (priv->current / priv->grid_size);
@@ -123,6 +118,9 @@ ufo_map_slice_task_process (UfoTask *task,
 
     x *= priv->input_width;
     y *= priv->input_height;
+
+    if (priv->current == 0)
+        memset (dst, 0, ufo_buffer_get_size (output));
 
     /* Copy rows from src to dst */
     for (gsize i = 0; i < priv->input_height; i++) {
@@ -133,7 +131,7 @@ ufo_map_slice_task_process (UfoTask *task,
 
     priv->current++;
 
-    return TRUE;
+    return priv->current < priv->number;
 }
 
 static gboolean
@@ -141,10 +139,12 @@ ufo_map_slice_task_generate (UfoTask *task,
                              UfoBuffer *output,
                              UfoRequisition *requisition)
 {
-    static gboolean generated = FALSE;
+    UfoMapSliceTaskPrivate *priv;
 
-    if (!generated) {
-        generated = TRUE;
+    priv = UFO_MAP_SLICE_TASK_GET_PRIVATE (task);
+
+    if (priv->current > 0) {
+        priv->current = 0;
         return TRUE;
     }
 
