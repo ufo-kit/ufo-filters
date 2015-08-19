@@ -102,6 +102,7 @@ struct _UfoDirectGmaTaskPrivate {
     guint streaming;
     guint board_gen;
     guint get_board_gen;
+    guint number_of_lines;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -132,6 +133,7 @@ enum {
     PROP_PRINT_INDEX,
     PROP_GET_BOARD_GEN,
     PROP_GET_DMA_MODE,
+    PROP_NUMBER_OF_LINES,
     N_PROPERTIES
 };
 
@@ -485,7 +487,7 @@ start_dma( UfoDirectGmaTaskPrivate* task_priv,struct timeval *start){
 	     WR(0x9040,0xf);
 	     WR(0x9160,0x0);
 	     WR(0x9164,0x0);
-	     WR(0x9168,3840);
+	     WR(0x9168,task_priv->number_of_lines);
 	     WR(0x9170,1);
 	     WR(0x9180,0);
 	     WR(0x9040,0xfff000);
@@ -685,6 +687,9 @@ ufo_direct_gma_task_set_property (GObject *object,
         case PROP_GET_DMA_MODE:
             priv->get_dma_mode=g_value_get_uint(value);
             break;
+        case PROP_NUMBER_OF_LINES:
+            priv->number_of_lines=g_value_get_uint(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -753,6 +758,9 @@ ufo_direct_gma_task_get_property (GObject *object,
             break;
         case PROP_GET_DMA_MODE:
             g_value_set_uint(value,priv->get_dma_mode);
+            break;
+        case PROP_NUMBER_OF_LINES:
+            g_value_set_uint(value,priv->number_of_lines);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -918,6 +926,12 @@ ufo_direct_gma_task_class_init (UfoDirectGmaTaskClass *klass)
 			  0,2,0,
 			  G_PARAM_READWRITE);
 
+    properties[PROP_NUMBER_OF_LINES]=
+        g_param_spec_uint("nb-lines",
+			  "number of lines for frame generator",
+			  "number of lines for frame generator",
+			  0,G_MAXUINT,3840,
+			  G_PARAM_READWRITE);
 
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
