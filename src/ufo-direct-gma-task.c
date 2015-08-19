@@ -516,7 +516,7 @@ ufo_direct_gma_task_setup (UfoTask *task,
     gint err;
 
     task_priv->context= ufo_resources_get_context(resources);
-    task_priv->platform_id= ufo_get_platform_id_for_directgma(resources);
+    ufo_get_platform_id_for_directgma(resources, &(task_priv->platform_id));
     
     task_priv->buffer_gma_addr=malloc(task_priv->buffers*sizeof(glong));
     task_priv->buffers_gma=malloc(task_priv->buffers*sizeof(UfoBuffer*));
