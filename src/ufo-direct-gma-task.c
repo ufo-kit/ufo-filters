@@ -57,6 +57,9 @@
 
 #define DESC_THRESHOLD  1
 
+#define SIZE_128_M 128000000
+#define SIZE_96_M 96000000
+
 #define PAGE_SIZE       4096        // other values are not supported in the kernel
 
 #define USE_64                     
@@ -95,6 +98,10 @@ struct _UfoDirectGmaTaskPrivate {
     guint print_result;
     guint print_index;
     guint print_counter;
+    guint get_dma_mode;
+    guint streaming;
+    guint board_gen;
+    guint get_board_gen;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -123,6 +130,8 @@ enum {
     PROP_PRINT_RESULT,
     PROP_PRINT_COUNTER,
     PROP_PRINT_INDEX,
+    PROP_GET_BOARD_GEN,
+    PROP_GET_DMA_MODE,
     N_PROPERTIES
 };
 
@@ -184,7 +193,8 @@ create_gma_buffer(UfoBuffer** buffer,UfoDirectGmaTaskPrivate *task_priv,cl_bus_a
 }
 
 static int 
-verify_aperture_size(UfoDirectGmaTaskPrivate *task_priv){
+verify_aperture_size(UfoDirectGmaTaskPrivate *task_priv)
+{
     guint aperture_size;
 
     if(task_priv->enable_get_aperture_size==1){
@@ -193,10 +203,10 @@ verify_aperture_size(UfoDirectGmaTaskPrivate *task_priv){
         aperture_size*=1000000;
     }
     else if(task_priv->enable_get_aperture_size==0){
-        aperture_size=96000000;
+        aperture_size=SIZE_96_M;
     }
     else if(task_priv->enable_get_aperture_size==2){
-        aperture_size=128000000;
+        aperture_size=SIZE_128_M;
     }
         
     if((task_priv->buffers*task_priv->huge_page*4096)>aperture_size){
@@ -204,6 +214,34 @@ verify_aperture_size(UfoDirectGmaTaskPrivate *task_priv){
         return 1;
     }
     else return 0;
+}
+
+static void 
+get_board_generation(UfoDirectGmaTaskPrivate *task_priv)
+{
+
+    if(task_priv->get_board_gen==1){
+        FILE *fp2= popen("pci -r 0x18 | grep -o '[0-9][0-9][0-9]$' ", "r");
+        fscanf(fp2,"%i",&(task_priv->board_gen));
+    }else if(task_priv->get_board_gen==0){
+	  task_priv->board_gen=3;
+    }else if(task_priv->get_board_gen==2){
+	  task_priv->board_gen=2;
+    }
+}
+
+static void 
+get_dma_mode(UfoDirectGmaTaskPrivate *task_priv)
+{
+
+    if(task_priv->get_dma_mode==1){
+        FILE *fp3= popen("pci -r 0x18 | grep -o '^[0-9]' ", "r");
+        fscanf(fp3,"%i",&(task_priv->streaming));
+    }else if(task_priv->get_dma_mode==0){
+	  task_priv->streaming=1;
+    }else if(task_priv->get_dma_mode==2){
+	  task_priv->streaming=0;
+    }
 }
 
 static int
@@ -225,6 +263,8 @@ gpu_init_for_gma_buffers(UfoTask* task){
     }
     
     verify_aperture_size(task_priv);
+    get_board_generation(task_priv);
+    get_dma_mode(task_priv);
 
     for(i=0;i<task_priv->buffers;i++){
       task_priv->buffer_gma_addr[i]=create_gma_buffer(&(task_priv->buffers_gma[i]),task_priv,&busadresses[i]);
@@ -246,7 +286,7 @@ gpu_init_for_output( UfoBuffer **saving_buffers, cl_command_queue* command_queue
 
 }
 
-static gint
+gint
 pcie_test(volatile void* bar){
     guintptr offset=0;
     gint err;
@@ -259,7 +299,7 @@ pcie_test(volatile void* bar){
     if (err == 335746816 || err == 335681280) {
         return 0;
     } else {
-        printf("\xE2\x9C\x98\n PCIe not ready!\n");
+      //        printf("\xE2\x9C\x98\n PCIe not ready!\n");
         return 1;
     }
 }
@@ -363,21 +403,21 @@ handshaking_dma(UfoBuffer* saving_buffers, UfoDirectGmaTaskPrivate* task_priv, g
     curbuf=0;
     while (i < task_priv->multiple) {
         do {
-#ifdef USE_64   
-               hwptr = task_priv->desc[3];
-#else // 32-bit
-               hwptr = task_priv->desc[4];
-#endif
+  	    if(task_priv->board_gen==3)
+                hwptr = task_priv->desc[3];
+   	    else
+                hwptr = task_priv->desc[4];
         } while (hwptr == curptr);
 
         do {    
 	  err=ufo_buffer_copy_for_directgma(task_priv->buffers_gma[curbuf],saving_buffers,(i*task_priv->buffers+curbuf),&(task_priv->command_queue));
-            if(err==-30) break;
-#ifdef USE_STREAMING
-	    if (i < (task_priv->multiple-1) || (i==(task_priv->multiple-1) && curbuf<1))
-            if (task_priv->desc[1] == 0)
-              WR(0x50, task_priv->bus_addr[curbuf]);
-#endif /* USE_STREAMING */
+            if(err==CL_INVALID_VALUE) break;
+
+	    if(task_priv->streaming==1){
+       	        if (i < (task_priv->multiple-1) || (i==(task_priv->multiple-1) && curbuf<1))
+		    if (task_priv->desc[1] == 0)
+		        WR(0x50, task_priv->bus_addr[curbuf]);
+	    }
             
             curbuf++;
             if (curbuf == task_priv->buffers) {
@@ -387,15 +427,20 @@ handshaking_dma(UfoBuffer* saving_buffers, UfoDirectGmaTaskPrivate* task_priv, g
             }
         } while (task_priv->bus_addr[curbuf] != hwptr);
 
-#ifdef USE_64                 
-        if (task_priv->desc[1] != 0)	
-#else // 32bit  
-        if (task_priv->desc[2] != 0)
-#endif
-        {
-            if (task_priv->bus_addr[curbuf] == hwptr) {
+	
+        if (task_priv->board_gen==3){
+	    if(task_priv->desc[1] != 0){
+	        if (task_priv->bus_addr[curbuf] == hwptr) {
                 break;
-            }
+		}
+	  }
+	}
+	else {
+	  if (task_priv->desc[2] != 0){
+	        if (task_priv->bus_addr[curbuf] == hwptr) {
+                break;
+		}
+	  }
         }
         curptr = hwptr;
     }
@@ -522,10 +567,17 @@ ufo_direct_gma_task_setup (UfoTask *task,
     task_priv->buffers_gma=malloc(task_priv->buffers*sizeof(UfoBuffer*));
     task_priv->bus_addr=malloc(task_priv->buffers*sizeof(uintptr_t));
     
-    if((err=gpu_init_for_gma_buffers(task))==1) return;
+    if((err=gpu_init_for_gma_buffers(task))==1){
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "fail in gpu initialization");
+        return;
+    }
     
     pcilib_init_for_transfer(task_priv);
-    if((err=pcie_test(task_priv->bar))==1) return;
+    if((err=pcie_test(task_priv->bar))==1){
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "PCIe not ready");
+        return;
+    }
+
     dma_conf(task_priv);
     writing_dma_descriptors(task_priv);
     
@@ -551,7 +603,7 @@ ufo_direct_gma_task_generate (UfoTask *task,
     start_dma(task_priv, &start);
     handshaking_dma(output,task_priv, &buffers_completed);
     stop_dma(&end, &perf_counter,task_priv->bar);
-
+    printf(" index : %lu, %lu\n", task_priv->start_index, task_priv->stop_index);
     if(task_priv->print_perf==1) perf(start,end,perf_counter, task_priv, buffers_completed);
     
     if(task_priv->print_result==1) print_results(output, task_priv);
@@ -610,6 +662,7 @@ ufo_direct_gma_task_set_property (GObject *object,
             break;
         case PROP_START_INDEX:
             priv->start_index=g_value_get_uint64(value);
+	    printf("property : %lu\n",priv->start_index);
             break;
         case PROP_STOP_INDEX:
             priv->stop_index=g_value_get_uint64(value);
@@ -625,6 +678,12 @@ ufo_direct_gma_task_set_property (GObject *object,
             break;
         case PROP_IPECAMERA:
             priv->ipecamera=g_value_get_uint(value);
+            break;
+        case PROP_GET_BOARD_GEN:
+            priv->get_board_gen=g_value_get_uint(value);
+            break;
+        case PROP_GET_DMA_MODE:
+            priv->get_dma_mode=g_value_get_uint(value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -688,6 +747,12 @@ ufo_direct_gma_task_get_property (GObject *object,
             break;
         case PROP_IPECAMERA:
             g_value_set_uint(value,priv->ipecamera);
+            break;
+        case PROP_GET_BOARD_GEN:
+            g_value_set_uint(value,priv->get_board_gen);
+            break;
+        case PROP_GET_DMA_MODE:
+            g_value_set_uint(value,priv->get_dma_mode);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -801,14 +866,14 @@ ufo_direct_gma_task_class_init (UfoDirectGmaTaskClass *klass)
         g_param_spec_uint64("start-index",
 			    "starting index for printing results",
 			    "starting index for printing results",
-			    0,40000000,0,
+			    0,G_MAXUINT64,0,
 			    G_PARAM_READWRITE);
 
     properties[PROP_STOP_INDEX]=
         g_param_spec_uint64("stop-index",
 			    "ending index for printing results",
 			    "ending index for printing results",
-			    0,40000000,0,
+			    0,G_MAXUINT64,0,
 			    G_PARAM_READWRITE);
 
     properties[PROP_ENABLE_GET_APERTURE_SIZE]=
@@ -839,6 +904,22 @@ ufo_direct_gma_task_class_init (UfoDirectGmaTaskClass *klass)
 			  0,1,0,
 			  G_PARAM_READWRITE);
 
+    properties[PROP_GET_DMA_MODE]=
+        g_param_spec_uint("get-dma-mode",
+			  "parameter to define streaming or not for directgma",
+			  "parameter to define streaming or not for directgma",
+			  0,2,0,
+			  G_PARAM_READWRITE);
+
+    properties[PROP_GET_BOARD_GEN]=
+        g_param_spec_uint("get-board-gen",
+			  "parameter to define board gen for directgma",
+			  "parameter to define board gen for directgma",
+			  0,2,0,
+			  G_PARAM_READWRITE);
+
+
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -865,4 +946,8 @@ ufo_direct_gma_task_init(UfoDirectGmaTask *self)
     self->priv->print_result=0;
     self->priv->ipecamera=1;
     self->priv->print_counter=0;
+    self->priv->streaming=1;
+    self->priv->get_dma_mode=0;
+    self->priv->get_board_gen=0;
+    self->priv->board_gen=3;
 }
