@@ -271,6 +271,7 @@ gpu_init_for_gma_buffers(UfoTask* task){
     for(i=0;i<task_priv->buffers;i++){
       task_priv->buffer_gma_addr[i]=create_gma_buffer(&(task_priv->buffers_gma[i]),task_priv,&busadresses[i]);
       init_buffer_gma(&(task_priv->buffers_gma[i]), &(task_priv->command_queue));
+      printf("address %i, %lu\n",i,task_priv->buffer_gma_addr[i]);
     	if (task_priv->buffer_gma_addr[i]==0){
             pcilib_error("the buffer %i for directgma has not been allocated correctly\n");
             return 1;
@@ -399,7 +400,7 @@ handshaking_dma(UfoBuffer* saving_buffers, UfoDirectGmaTaskPrivate* task_priv, g
  guint32 curptr,hwptr, curbuf;
  gint err;
  volatile void* bar= task_priv->bar;
-
+    printf("gen %u streaming %u\n", task_priv->board_gen, task_priv->streaming);
     i=0;
     curptr=0;
     curbuf=0;
@@ -484,14 +485,23 @@ start_dma( UfoDirectGmaTaskPrivate* task_priv,struct timeval *start){
          }
          else if (task_priv->counter==0){
 	     WR(0x9000, 0);
-	     WR(0x9040,0xf);
+	     usleep(1000);
+         WR(0x9040,0xf);
+	     usleep(1000);
 	     WR(0x9160,0x0);
+	     usleep(1000);
 	     WR(0x9164,0x0);
+	     usleep(1000);
+         printf("number of lines : %u\n",task_priv->number_of_lines);
 	     WR(0x9168,task_priv->number_of_lines);
+	     usleep(1000);
 	     WR(0x9170,1);
+	     usleep(1000);
 	     WR(0x9180,0);
+	     usleep(1000);
 	     WR(0x9040,0xfff000);
          }
+	     
      }
      else if(task_priv->counter==1){
          WR(0x9000, 0xff);
@@ -964,4 +974,5 @@ ufo_direct_gma_task_init(UfoDirectGmaTask *self)
     self->priv->get_dma_mode=0;
     self->priv->get_board_gen=0;
     self->priv->board_gen=3;
+    self->priv->number_of_lines=3840;
 }
