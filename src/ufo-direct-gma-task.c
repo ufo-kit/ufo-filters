@@ -414,7 +414,6 @@ handshaking_dma(UfoBuffer* saving_buffers, UfoDirectGmaTaskPrivate* task_priv, g
 
         do {    
 	  err=ufo_buffer_copy_for_directgma(task_priv->buffers_gma[curbuf],saving_buffers,(i*task_priv->buffers+curbuf),&(task_priv->command_queue));
-            if(err==CL_INVALID_VALUE) break;
 
 	    if(task_priv->streaming==1){
        	        if (i < (task_priv->multiple-1) || (i==(task_priv->multiple-1) && curbuf<1))
@@ -431,6 +430,7 @@ handshaking_dma(UfoBuffer* saving_buffers, UfoDirectGmaTaskPrivate* task_priv, g
         } while (task_priv->bus_addr[curbuf] != hwptr);
 
 	
+        if(err==CL_INVALID_VALUE) break;
         if (task_priv->board_gen==3){
 	    if(task_priv->desc[1] != 0){
 	        if (task_priv->bus_addr[curbuf] == hwptr) {
