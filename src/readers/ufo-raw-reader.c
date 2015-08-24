@@ -27,6 +27,7 @@
 struct _UfoRawReaderPrivate {
     FILE *fp;
     gssize size;
+    gsize bytes_per_pixel;
     guint width;
     guint height;
     UfoBufferDepth bitdepth;
@@ -62,7 +63,7 @@ ufo_raw_reader_can_open (UfoReader *reader,
                          const gchar *filename)
 {
     UfoRawReaderPrivate *priv;
-    
+
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
 
     if (!g_str_has_suffix (filename, ".raw"))
@@ -81,7 +82,7 @@ ufo_raw_reader_open (UfoReader *reader,
                      const gchar *filename)
 {
     UfoRawReaderPrivate *priv;
-    
+
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
     priv->fp = fopen (filename, "rb");
 
@@ -94,7 +95,7 @@ static void
 ufo_raw_reader_close (UfoReader *reader)
 {
     UfoRawReaderPrivate *priv;
-    
+
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
     g_assert (priv->fp != NULL);
     fclose (priv->fp);
@@ -106,7 +107,7 @@ static gboolean
 ufo_raw_reader_data_available (UfoReader *reader)
 {
     UfoRawReaderPrivate *priv;
-    
+
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
     return priv->fp != NULL && ftell (priv->fp) < priv->size;
 }
@@ -126,7 +127,7 @@ ufo_raw_reader_read (UfoReader *reader,
     data = (gchar *) ufo_buffer_get_host_array (buffer, NULL);
 
     /* We never read more than we can store */
-    fread (data, 1, ufo_buffer_get_size (buffer), priv->fp); 
+    fread (data, 1, requisition->dims[0] * requisition->dims[1] * priv->bytes_per_pixel, priv->fp);
 }
 
 static void
@@ -136,7 +137,7 @@ ufo_raw_reader_get_meta (UfoReader *reader,
                          UfoBufferDepth *bitdepth)
 {
     UfoRawReaderPrivate *priv;
-    
+
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
     *width = (gsize) priv->width;
     *height = (gsize) priv->height;
@@ -162,12 +163,15 @@ ufo_raw_reader_set_property (GObject *object,
             switch (g_value_get_uint (value)) {
                 case 8:
                     priv->bitdepth = UFO_BUFFER_DEPTH_8U;
+                    priv->bytes_per_pixel = 1;
                     break;
                 case 16:
                     priv->bitdepth = UFO_BUFFER_DEPTH_16U;
+                    priv->bytes_per_pixel = 2;
                     break;
                 case 32:
                     priv->bitdepth = UFO_BUFFER_DEPTH_32U;
+                    priv->bytes_per_pixel = 4;
                     break;
                 default:
                     g_warning ("Cannot set bitdepth other than 8, 16 or 32.");
@@ -207,7 +211,7 @@ static void
 ufo_raw_reader_finalize (GObject *object)
 {
     UfoRawReaderPrivate *priv;
-    
+
     priv = UFO_RAW_READER_GET_PRIVATE (object);
 
     if (priv->fp != NULL) {
