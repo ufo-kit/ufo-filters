@@ -29,7 +29,7 @@ struct _UfoRawReaderPrivate {
     gssize size;
     guint width;
     guint height;
-    guint bitdepth;
+    UfoBufferDepth bitdepth;
 };
 
 static void ufo_reader_interface_init (UfoReaderIface *iface);
@@ -140,7 +140,7 @@ ufo_raw_reader_get_meta (UfoReader *reader,
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
     *width = (gsize) priv->width;
     *height = (gsize) priv->height;
-    *bitdepth = UFO_BUFFER_DEPTH_16U;
+    *bitdepth = priv->bitdepth;
 }
 
 static void
@@ -159,7 +159,19 @@ ufo_raw_reader_set_property (GObject *object,
             priv->height = g_value_get_uint (value);
             break;
         case PROP_BITDEPTH:
-            priv->bitdepth = g_value_get_uint (value);
+            switch (g_value_get_uint (value)) {
+                case 8:
+                    priv->bitdepth = UFO_BUFFER_DEPTH_8U;
+                    break;
+                case 16:
+                    priv->bitdepth = UFO_BUFFER_DEPTH_16U;
+                    break;
+                case 32:
+                    priv->bitdepth = UFO_BUFFER_DEPTH_32U;
+                    break;
+                default:
+                    g_warning ("Cannot set bitdepth other than 8, 16 or 32.");
+            }
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
