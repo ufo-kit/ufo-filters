@@ -37,6 +37,30 @@
 #include "readers/ufo-hdf5-reader.h"
 #endif
 
+/* XXX: keep enum and types array in sync! */
+typedef enum {
+    TYPE_EDF,
+    TYPE_RAW,
+#ifdef HAVE_TIFF
+    TYPE_TIFF,
+#endif
+#ifdef WITH_HDF5
+    TYPE_HDF5,
+#endif
+    TYPE_UNSPECIFIED
+} FileType;
+
+static const gchar *types[] = {
+    "edf",
+    "raw",
+#ifdef HAVE_TIFF
+    "tiff",
+#endif
+#ifdef WITH_HDF5
+    "hdf5",
+#endif
+    NULL
+};
 
 struct _UfoReadTaskPrivate {
     gchar   *path;
@@ -67,6 +91,8 @@ struct _UfoReadTaskPrivate {
     UfoHdf5Reader   *hdf5_reader;
 #endif
 
+    FileType         type;
+
     guint   raw_height;
     guint   raw_width;
     guint   raw_bitdepth;
@@ -93,6 +119,7 @@ enum {
     PROP_RAW_WIDTH,
     PROP_RAW_HEIGHT,
     PROP_RAW_BITDEPTH,
+    PROP_TYPE,
     N_PROPERTIES
 };
 
@@ -114,7 +141,7 @@ read_filenames (UfoReadTaskPrivate *priv)
     result = NULL;
 
 #ifdef WITH_HDF5
-    if (ufo_reader_can_open (UFO_READER (priv->hdf5_reader), priv->path))
+    if (ufo_reader_can_open (UFO_READER (priv->hdf5_reader), priv->path) || priv->type == TYPE_HDF5)
         return g_list_append (NULL, g_strdup (priv->path));
 #endif
 
@@ -133,14 +160,14 @@ read_filenames (UfoReadTaskPrivate *priv)
         const gchar *filename = filenames.gl_pathv[i];
 
 #ifdef HAVE_TIFF
-        if (ufo_reader_can_open (UFO_READER (priv->tiff_reader), filename))
+        if (ufo_reader_can_open (UFO_READER (priv->tiff_reader), filename) || priv->type == TYPE_TIFF)
             result = g_list_append (result, g_strdup (filename));
 #endif
 
-        if (ufo_reader_can_open (UFO_READER (priv->edf_reader), filename))
+        if (ufo_reader_can_open (UFO_READER (priv->edf_reader), filename) || priv->type == TYPE_EDF)
             result = g_list_append (result, g_strdup (filename));
 
-        if (ufo_reader_can_open (UFO_READER (priv->raw_reader), filename))
+        if (ufo_reader_can_open (UFO_READER (priv->raw_reader), filename) || priv->type == TYPE_RAW)
             result = g_list_append (result, g_strdup (filename));
     }
 
@@ -175,19 +202,19 @@ static UfoReader *
 get_reader (UfoReadTaskPrivate *priv, const gchar *filename)
 {
 #ifdef HAVE_TIFF
-    if (ufo_reader_can_open (UFO_READER (priv->tiff_reader), filename))
+    if (ufo_reader_can_open (UFO_READER (priv->tiff_reader), filename) || priv->type == TYPE_TIFF)
         return UFO_READER (priv->tiff_reader);
 #endif
 
 #ifdef WITH_HDF5
-    if (ufo_reader_can_open (UFO_READER (priv->hdf5_reader), filename))
+    if (ufo_reader_can_open (UFO_READER (priv->hdf5_reader), filename) || priv->type == TYPE_HDF5)
         return UFO_READER (priv->hdf5_reader);
 #endif
 
-    if (ufo_reader_can_open (UFO_READER (priv->edf_reader), filename))
+    if (ufo_reader_can_open (UFO_READER (priv->edf_reader), filename) || priv->type == TYPE_EDF)
         return UFO_READER (priv->edf_reader);
 
-    if (ufo_reader_can_open (UFO_READER (priv->raw_reader), filename))
+    if (ufo_reader_can_open (UFO_READER (priv->raw_reader), filename) || priv->type == TYPE_RAW)
         return UFO_READER (priv->raw_reader);
 
     return NULL;
@@ -291,9 +318,9 @@ ufo_read_task_generate (UfoTask *task,
 
 static void
 ufo_read_task_set_property (GObject *object,
-                              guint property_id,
-                              const GValue *value,
-                              GParamSpec *pspec)
+                            guint property_id,
+                            const GValue *value,
+                            GParamSpec *pspec)
 {
     UfoReadTaskPrivate *priv = UFO_READ_TASK_GET_PRIVATE (object);
 
@@ -332,6 +359,23 @@ ufo_read_task_set_property (GObject *object,
         case PROP_RAW_BITDEPTH:
             priv->raw_bitdepth = g_value_get_uint (value);
             break;
+        case PROP_TYPE:
+            {
+                const gchar *type;
+
+                type = g_value_get_string (value);
+
+                for (guint i = 0; types[i] != NULL; i++) {
+                    if (g_strcmp0 (type, types[i]) == 0) {
+                        priv->type = (FileType) i;
+                        return;
+                    }
+                }
+
+                g_warning ("File type `%s' not recognized", type);
+            }
+            break;
+
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -379,6 +423,12 @@ ufo_read_task_get_property (GObject *object,
             break;
         case PROP_RAW_BITDEPTH:
             g_value_set_uint (value, priv->raw_bitdepth);
+            break;
+        case PROP_TYPE:
+            if (priv->type != TYPE_UNSPECIFIED)
+                g_value_set_string (value, types[priv->type]);
+            else
+                g_value_set_string (value, "unspecified");
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -520,6 +570,13 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
             0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
+    properties[PROP_TYPE] =
+        g_param_spec_string ("type",
+            "Override type detection based on extension",
+            "Override type detection based on extension",
+            "unspecified",
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -558,6 +615,7 @@ ufo_read_task_init(UfoReadTask *self)
     priv->raw_width = 0;
     priv->raw_height = 0;
     priv->raw_bitdepth = 0;
+    priv->type = TYPE_UNSPECIFIED;
 
     g_object_bind_property (self, "raw-width", priv->raw_reader, "width", G_BINDING_DEFAULT);
     g_object_bind_property (self, "raw-height", priv->raw_reader, "height", G_BINDING_DEFAULT);
