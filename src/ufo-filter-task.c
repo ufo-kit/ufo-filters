@@ -140,10 +140,10 @@ compute_ramp_coefficients (UfoFilterTaskPrivate *priv,
                            gfloat *filter,
                            guint width)
 {
-    const gfloat scale = 0.25f / ((gfloat) width);
+    const gfloat scale = width / 4.0f;
 
-    for (guint k = 1; k < width / 4; k++) {
-        filter[2*k] = ((gfloat) k) * scale * priv->scale;
+    for (guint k = 0; k < width / 2; k++) {
+        filter[2*k] = k / scale * priv->scale;
         filter[2*k + 1] = filter[2*k];
     }
 }
@@ -156,7 +156,7 @@ compute_butterworth_coefficients (UfoFilterTaskPrivate *priv,
     const gfloat scale = 0.25f / ((gfloat) width);
     const guint n_samples = width / 4;
 
-    for (guint i = 0; i < n_samples; i++) {
+    for (guint i = 0; i < width / 2; i++) {
         const gfloat u = ((gfloat) i) / ((gfloat) n_samples);
         filter[2*i] = ((gfloat) i) * scale * priv->scale;
         filter[2*i] /= (1.0f + (gfloat) pow (u / priv->bw_cutoff, 2.0f * priv->bw_order));
@@ -223,7 +223,7 @@ ufo_filter_task_get_requisition (UfoTask *task,
 
         priv->filter_mem = clCreateBuffer (priv->context,
                                            CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                           requisition->dims[0] * sizeof(float),
+                                           width * sizeof(float),
                                            coefficients,
                                            &cl_err);
         UFO_RESOURCES_CHECK_CLERR (cl_err);
