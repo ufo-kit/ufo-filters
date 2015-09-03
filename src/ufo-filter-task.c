@@ -151,7 +151,7 @@ ufo_filter_task_setup (UfoTask *task,
 static void
 mirror_coefficients (gfloat *filter, guint width)
 {
-    for (guint k = width/2; k < width; k += 2) {
+    for (guint k = width/2 + 2; k < width; k += 2) {
         filter[k] = filter[width - k];
         filter[k + 1] = filter[width - k + 1];
     }
@@ -162,9 +162,12 @@ compute_ramp_coefficients (UfoFilterTaskPrivate *priv,
                            gfloat *filter,
                            guint width)
 {
-    const gdouble step = 1.0 / (width / 4.0);
+    const gdouble step = 2.0 / width;
 
-    for (guint k = 0; k < (width / 4) + 1; k++) {
+    filter[0] = 0.5 / width;
+    filter[1] = filter[0];
+
+    for (guint k = 1; k < width / 4 + 1; k++) {
         filter[2*k] = k * step * priv->scale;
         filter[2*k + 1] = filter[2*k];
     }
