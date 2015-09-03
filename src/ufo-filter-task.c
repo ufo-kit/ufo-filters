@@ -157,7 +157,7 @@ compute_butterworth_coefficients (UfoFilterTaskPrivate *priv,
 
     for (guint k = 0; k < (width / 4) + 1; k++) {
         const gdouble f = k * step;
-        filter[2*k] = f / (1.0f + (gfloat) pow (f / priv->bw_cutoff, 2.0f * priv->bw_order));
+        filter[2*k] = (gfloat) (f / (1.0 + pow (f / priv->bw_cutoff, 2.0 * priv->bw_order)));
         filter[2*k+1] = filter[2*k];
     }
 }
