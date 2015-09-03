@@ -165,7 +165,7 @@ compute_ramp_coefficients (UfoFilterTaskPrivate *priv,
     const gdouble step = 1.0 / (width / 4.0);
 
     for (guint k = 0; k < (width / 4) + 1; k++) {
-        filter[2*k] = k * step;
+        filter[2*k] = k * step * priv->scale;
         filter[2*k + 1] = filter[2*k];
     }
 }
@@ -179,7 +179,7 @@ compute_butterworth_coefficients (UfoFilterTaskPrivate *priv,
 
     for (guint k = 0; k < (width / 4) + 1; k++) {
         const gdouble f = k * step;
-        filter[2*k] = (gfloat) (f / (1.0 + pow (f / priv->cutoff, 2.0 * priv->bw_order)));
+        filter[2*k] = (gfloat) (f / (1.0 + pow (f / priv->cutoff, 2.0 * priv->bw_order)) * priv->scale);
         filter[2*k+1] = filter[2*k];
     }
 }
@@ -194,7 +194,7 @@ compute_hamming_coefficients (UfoFilterTaskPrivate *priv,
     for (guint k = 0; k < (width / 4) + 1; k++) {
         const gdouble f = k * step;
 
-        filter[2*k] = f < priv->cutoff ? f * (0.54 + 0.46 * cos (G_PI * f / priv->cutoff)) : 0;
+        filter[2*k] = f < priv->cutoff ? f * (0.54 + 0.46 * cos (G_PI * f / priv->cutoff)) * priv->scale : 0;
         filter[2*k+1] = filter[2*k];
     }
 }
