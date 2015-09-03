@@ -42,11 +42,13 @@ static void ufo_task_interface_init (UfoTaskIface *iface);
 static void compute_ramp_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
 static void compute_butterworth_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
 static void compute_faris_byer_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
+static void compute_hamming_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
 
 typedef enum {
     FILTER_RAMP = 0,
     FILTER_BUTTERWORTH,
     FILTER_FARIS_BYER,
+    FILTER_HAMMING,
     N_FILTERS,
 } Filter;
 
@@ -54,25 +56,26 @@ static const gchar *filter_names[] = {
     "ramp",
     "butterworth",
     "faris-byer",
+    "hamming",
 };
 
 static SetupFunc filter_funcs[] = {
     &compute_ramp_coefficients,
     &compute_butterworth_coefficients,
     &compute_faris_byer_coefficients,
+    &compute_hamming_coefficients,
 };
 
 struct _UfoFilterTaskPrivate {
     cl_context context;
     cl_kernel kernel;
     cl_mem filter_mem;
-    gfloat bw_cutoff;
+    gfloat cutoff;
     gfloat bw_order;
     gfloat fb_tau;
     gfloat fb_theta;
     gfloat scale;
     Filter filter;
-    /* SetupFunc setup; */
 };
 
 G_DEFINE_TYPE_WITH_CODE (UfoFilterTask, ufo_filter_task, UFO_TYPE_TASK_NODE,
@@ -84,7 +87,7 @@ G_DEFINE_TYPE_WITH_CODE (UfoFilterTask, ufo_filter_task, UFO_TYPE_TASK_NODE,
 enum {
     PROP_0,
     PROP_FILTER,
-    PROP_BW_CUTOFF,
+    PROP_CUTOFF,
     PROP_BW_ORDER,
     PROP_FB_TAU,
     PROP_FB_THETA,
@@ -176,7 +179,22 @@ compute_butterworth_coefficients (UfoFilterTaskPrivate *priv,
 
     for (guint k = 0; k < (width / 4) + 1; k++) {
         const gdouble f = k * step;
-        filter[2*k] = (gfloat) (f / (1.0 + pow (f / priv->bw_cutoff, 2.0 * priv->bw_order)));
+        filter[2*k] = (gfloat) (f / (1.0 + pow (f / priv->cutoff, 2.0 * priv->bw_order)));
+        filter[2*k+1] = filter[2*k];
+    }
+}
+
+static void
+compute_hamming_coefficients (UfoFilterTaskPrivate *priv,
+                              gfloat *filter,
+                              guint width)
+{
+    const gdouble step = 1.0 / (width / 4.0);
+
+    for (guint k = 0; k < (width / 4) + 1; k++) {
+        const gdouble f = k * step;
+
+        filter[2*k] = f < priv->cutoff ? f * (0.54 + 0.46 * cos (G_PI * f / priv->cutoff)) : 0;
         filter[2*k+1] = filter[2*k];
     }
 }
@@ -324,8 +342,8 @@ ufo_filter_task_set_property (GObject *object,
                 }
             }
             break;
-        case PROP_BW_CUTOFF:
-            priv->bw_cutoff = g_value_get_float (value);
+        case PROP_CUTOFF:
+            priv->cutoff = g_value_get_float (value);
             break;
         case PROP_BW_ORDER:
             priv->bw_order = g_value_get_float (value);
@@ -357,8 +375,8 @@ ufo_filter_task_get_property (GObject *object,
         case PROP_FILTER:
             g_value_set_string (value, filter_names[priv->filter]);
             break;
-        case PROP_BW_CUTOFF:
-            g_value_set_float (value, priv->bw_cutoff);
+        case PROP_CUTOFF:
+            g_value_set_float (value, priv->cutoff);
             break;
         case PROP_BW_ORDER:
             g_value_set_float (value, priv->bw_order);
@@ -393,15 +411,15 @@ ufo_filter_task_class_init (UfoFilterTaskClass *klass)
 
     properties[PROP_FILTER] =
         g_param_spec_string ("filter",
-            "Type of filter (\"ramp\", \"butterworth\", \"faris-byer\")",
-            "Type of filter (\"ramp\", \"butterworth\", \"faris-byer\")",
+            "Type of filter (\"ramp\", \"butterworth\", \"faris-byer\", \"hamming\")",
+            "Type of filter (\"ramp\", \"butterworth\", \"faris-byer\", \"hamming\")",
             "ramp",
             G_PARAM_READWRITE);
 
-    properties[PROP_BW_CUTOFF] =
+    properties[PROP_CUTOFF] =
         g_param_spec_float ("cutoff",
             "Relative cutoff frequency",
-            "Relative cutoff frequency of the Butterworth filter",
+            "Relative cutoff frequency",
             0.0f, 1.0f, 0.5f,
             G_PARAM_READWRITE);
 
@@ -449,7 +467,7 @@ ufo_filter_task_init (UfoFilterTask *self)
     priv->kernel = NULL;
     priv->filter_mem = NULL;
     priv->filter = FILTER_RAMP;
-    priv->bw_cutoff = 0.5f;
+    priv->cutoff = 0.5f;
     priv->bw_order = 4.0f;
     priv->fb_tau = 0.1f;
     priv->fb_theta = 1.0f;
