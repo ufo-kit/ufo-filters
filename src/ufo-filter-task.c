@@ -140,10 +140,10 @@ compute_ramp_coefficients (UfoFilterTaskPrivate *priv,
                            gfloat *filter,
                            guint width)
 {
-    const gfloat scale = width / 4.0f;
+    const gdouble step = 1.0 / (width / 4.0);
 
-    for (guint k = 0; k < width / 2; k++) {
-        filter[2*k] = k / scale * priv->scale;
+    for (guint k = 0; k < (width / 4) + 1; k++) {
+        filter[2*k] = k * step;
         filter[2*k + 1] = filter[2*k];
     }
 }
@@ -153,14 +153,12 @@ compute_butterworth_coefficients (UfoFilterTaskPrivate *priv,
                                   gfloat *filter,
                                   guint width)
 {
-    const gfloat scale = 0.25f / ((gfloat) width);
-    const guint n_samples = width / 4;
+    const gdouble step = 1.0 / (width / 4.0);
 
-    for (guint i = 0; i < width / 2; i++) {
-        const gfloat u = ((gfloat) i) / ((gfloat) n_samples);
-        filter[2*i] = ((gfloat) i) * scale * priv->scale;
-        filter[2*i] /= (1.0f + (gfloat) pow (u / priv->bw_cutoff, 2.0f * priv->bw_order));
-        filter[2*i+1] = filter[2*i];
+    for (guint k = 0; k < (width / 4) + 1; k++) {
+        const gdouble f = k * step;
+        filter[2*k] = f / (1.0f + (gfloat) pow (f / priv->bw_cutoff, 2.0f * priv->bw_order));
+        filter[2*k+1] = filter[2*k];
     }
 }
 
