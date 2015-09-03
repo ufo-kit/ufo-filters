@@ -58,20 +58,19 @@ backproject_tex (read_only image2d_t sinogram,
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
-    const int width = get_global_size(0);
     const float bx = idx - axis_pos;
     const float by = idy - axis_pos;
     float sum = 0.0f;
 
+#ifdef DEVICE_GEFORCE_GTX_TITAN_BLACK
+#pragma unroll 8
+#endif
     for(int proj = 0; proj < n_projections; proj++) {
-        /* mad() instructions have a performance impact of about 1% on GTX 580 */
-        /* float h = mad (by, sin_lut[proj], mad(bx, cos_lut[proj], axis_pos)); */
-
         float h = by * sin_lut[offset + proj] + bx * cos_lut[offset + proj] + axis_pos;
         float val = read_imagef (sinogram, volumeSampler, (float2)(h, proj + 0.5f)).x;
         sum += (isnan (val) ? 0.0 : val);
     }
 
-    slice[idy * width + idx] = sum * PI / n_projections;
+    slice[idy * get_global_size(0) + idx] = sum * PI / n_projections;
 }
 
