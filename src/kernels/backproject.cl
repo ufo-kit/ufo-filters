@@ -44,7 +44,7 @@ backproject_nearest (global float *sinogram,
         sum += sinogram[(int)(proj * width + h)];
     }
 
-    slice[idy * width + idx] = sum * 4.0 * PI;
+    slice[idy * width + idx] = sum * PI / n_projections;
 }
 
 kernel void
