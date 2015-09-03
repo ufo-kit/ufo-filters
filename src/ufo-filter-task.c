@@ -38,19 +38,42 @@
 
 typedef void (*SetupFunc)(UfoFilterTaskPrivate *priv, gfloat *coefficients, guint width);
 
+static void ufo_task_interface_init (UfoTaskIface *iface);
+static void compute_ramp_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
+static void compute_butterworth_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
+static void compute_faris_byer_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
+
+typedef enum {
+    FILTER_RAMP = 0,
+    FILTER_BUTTERWORTH,
+    FILTER_FARIS_BYER,
+    N_FILTERS,
+} Filter;
+
+static const gchar *filter_names[] = {
+    "ramp",
+    "butterworth",
+    "faris-byer",
+};
+
+static SetupFunc filter_funcs[] = {
+    &compute_ramp_coefficients,
+    &compute_butterworth_coefficients,
+    &compute_faris_byer_coefficients,
+};
+
 struct _UfoFilterTaskPrivate {
     cl_context context;
     cl_kernel kernel;
-    cl_mem  filter_mem;
-    gfloat  bw_cutoff;
-    gfloat  bw_order;
-    gfloat  fb_tau;
-    gfloat  fb_theta;
-    gfloat  scale;
-    SetupFunc setup;
+    cl_mem filter_mem;
+    gfloat bw_cutoff;
+    gfloat bw_order;
+    gfloat fb_tau;
+    gfloat fb_theta;
+    gfloat scale;
+    Filter filter;
+    /* SetupFunc setup; */
 };
-
-static void ufo_task_interface_init (UfoTaskIface *iface);
 
 G_DEFINE_TYPE_WITH_CODE (UfoFilterTask, ufo_filter_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
@@ -116,14 +139,10 @@ ufo_filter_task_setup (UfoTask *task,
     priv = UFO_FILTER_TASK_GET_PRIVATE (task);
 
     priv->context = ufo_resources_get_context (resources);
-    priv->kernel = ufo_resources_get_kernel (resources,
-                                             "filter.cl",
-                                             "filter",
-                                             error);
+    priv->kernel = ufo_resources_get_kernel (resources, "filter.cl", "filter", error);
 
     if (priv->kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
-
 }
 
 static void
@@ -216,7 +235,7 @@ ufo_filter_task_get_requisition (UfoTask *task,
         width = (guint) requisition->dims[0];
         coefficients = g_malloc0 (width * sizeof (gfloat));
 
-        priv->setup (priv, coefficients, width);
+        filter_funcs[priv->filter] (priv, coefficients, width);
         mirror_coefficients (coefficients, width);
 
         priv->filter_mem = clCreateBuffer (priv->context,
@@ -298,15 +317,11 @@ ufo_filter_task_set_property (GObject *object,
 
     switch (property_id) {
         case PROP_FILTER:
-            {
-                const char *type = g_value_get_string (value);
-
-                if (!g_strcmp0 (type, "ramp"))
-                    priv->setup = &compute_ramp_coefficients;
-                else if (!g_strcmp0 (type, "butterworth"))
-                    priv->setup = &compute_butterworth_coefficients;
-                else if (!g_strcmp0 (type, "faris-byer"))
-                    priv->setup = &compute_faris_byer_coefficients;
+            for (guint i = 0; i < N_FILTERS; i++) {
+                if (!g_strcmp0 (g_value_get_string (value), filter_names[i])) {
+                    priv->filter = (Filter) i;
+                    break;
+                }
             }
             break;
         case PROP_BW_CUTOFF:
@@ -340,12 +355,7 @@ ufo_filter_task_get_property (GObject *object,
 
     switch (property_id) {
         case PROP_FILTER:
-            if (priv->setup == &compute_ramp_coefficients)
-                g_value_set_string (value, "ramp");
-            else if (priv->setup == &compute_butterworth_coefficients)
-                g_value_set_string (value, "butterworth");
-            else if (priv->setup == &compute_faris_byer_coefficients)
-                g_value_set_string (value, "faris-byer");
+            g_value_set_string (value, filter_names[priv->filter]);
             break;
         case PROP_BW_CUTOFF:
             g_value_set_float (value, priv->bw_cutoff);
@@ -438,7 +448,7 @@ ufo_filter_task_init (UfoFilterTask *self)
     self->priv = priv = UFO_FILTER_TASK_GET_PRIVATE (self);
     priv->kernel = NULL;
     priv->filter_mem = NULL;
-    priv->setup = compute_ramp_coefficients;
+    priv->filter = FILTER_RAMP;
     priv->bw_cutoff = 0.5f;
     priv->bw_order = 4.0f;
     priv->fb_tau = 0.1f;
