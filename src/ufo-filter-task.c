@@ -164,9 +164,6 @@ compute_ramp_coefficients (UfoFilterTaskPrivate *priv,
 {
     const gdouble step = 2.0 / width;
 
-    filter[0] = 0.5 / width;
-    filter[1] = filter[0];
-
     for (guint k = 1; k < width / 4 + 1; k++) {
         filter[2*k] = k * step * priv->scale;
         filter[2*k + 1] = filter[2*k];
@@ -178,7 +175,7 @@ compute_butterworth_coefficients (UfoFilterTaskPrivate *priv,
                                   gfloat *filter,
                                   guint width)
 {
-    const gdouble step = 1.0 / (width / 4.0);
+    const gdouble step = 2.0 / width;
 
     for (guint k = 0; k < (width / 4) + 1; k++) {
         const gdouble f = k * step;
@@ -192,7 +189,7 @@ compute_hamming_coefficients (UfoFilterTaskPrivate *priv,
                               gfloat *filter,
                               guint width)
 {
-    const gdouble step = 1.0 / (width / 4.0);
+    const gdouble step = 2.0 / width;
 
     for (guint k = 0; k < (width / 4) + 1; k++) {
         const gdouble f = k * step;
@@ -255,6 +252,9 @@ ufo_filter_task_get_requisition (UfoTask *task,
 
         width = (guint) requisition->dims[0];
         coefficients = g_malloc0 (width * sizeof (gfloat));
+
+        coefficients[0] = 0.5 / width;
+        coefficients[1] = coefficients[0];
 
         filter_funcs[priv->filter] (priv, coefficients, width);
         mirror_coefficients (coefficients, width);
