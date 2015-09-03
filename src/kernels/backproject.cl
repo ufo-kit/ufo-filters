@@ -72,6 +72,6 @@ backproject_tex (read_only image2d_t sinogram,
         sum += (isnan (val) ? 0.0 : val);
     }
 
-    slice[idy * width + idx] = sum * 4.0 * PI;
+    slice[idy * width + idx] = sum * PI / n_projections;
 }
 
