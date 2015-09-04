@@ -298,7 +298,7 @@ ufo_rescale_task_class_init (UfoRescaleTaskClass *klass)
         g_param_spec_string ("interpolation",
                              "Interpolation mode",
                              "Interpolation mode from: \"nearest\", \"linear\"",
-                             "nearest",
+                             "linear",
                              G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -313,5 +313,5 @@ ufo_rescale_task_init(UfoRescaleTask *self)
     self->priv = UFO_RESCALE_TASK_GET_PRIVATE(self);
     self->priv->x_factor = 2.0f;
     self->priv->y_factor = 2.0f;
-    self->priv->filter_mode = CL_FILTER_NEAREST;
+    self->priv->filter_mode = CL_FILTER_LINEAR;
 }
