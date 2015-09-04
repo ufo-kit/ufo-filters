@@ -193,7 +193,7 @@ ufo_opencl_task_copy_real (UfoNode *node,
                   "filename", orig->priv->filename,
                   "source", orig->priv->source,
                   "kernel", orig->priv->funcname,
-                  "num-dims", orig->priv->n_dims,
+                  "dimensions", orig->priv->n_dims,
                   NULL);
 
     return UFO_NODE (copy);
