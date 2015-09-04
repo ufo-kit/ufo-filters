@@ -35,8 +35,8 @@ backproject_nearest (global float *sinogram,
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
     const int width = get_global_size(0);
-    const float bx = idx - axis_pos;
-    const float by = idy - axis_pos;
+    const float bx = idx - axis_pos + 0.5f;
+    const float by = idy - axis_pos + 0.5f;
     float sum = 0.0;
 
     for(int proj = 0; proj < n_projections; proj++) {
@@ -58,8 +58,8 @@ backproject_tex (read_only image2d_t sinogram,
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
-    const float bx = idx - axis_pos;
-    const float by = idy - axis_pos;
+    const float bx = idx - axis_pos + 0.5f;
+    const float by = idy - axis_pos + 0.5f;
     float sum = 0.0f;
 
 #ifdef DEVICE_GEFORCE_GTX_TITAN_BLACK
