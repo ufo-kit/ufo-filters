@@ -27,6 +27,7 @@ set(ufofilter_SRCS
     ufo-fftmult-task.c
     ufo-filter-particle-task.c
     ufo-filter-stripes-task.c
+    ufo-flip-task.c
     ufo-forwardproject-task.c
     ufo-get-dup-circ-task.c
     ufo-ifft-task.c

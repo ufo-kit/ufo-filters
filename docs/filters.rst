@@ -7,6 +7,28 @@ Filters transform data and have at least one input and one output.
 Point-based filters
 ===================
 
+
+Transposition
+-------------
+
+.. gobj:class:: transpose
+
+    Transpose images from (x, y) to (y, x).
+
+
+Flipping
+--------
+
+.. gobj:class:: flip
+
+    Flips images vertically or horizontally.
+
+    .. gobj:prop:: direction:string
+
+        Can be either `horizontal` or `vertical` and denotes the direction along
+        with the image is flipped.
+
+
 Averaging
 ---------
 
@@ -119,14 +141,6 @@ Edge detection
 
         Edge filter (or operator) which is one of ``sobel``, ``laplace`` and
         ``prewitt``. By default, the ``sobel`` operator is used.
-
-
-Transposition
--------------
-
-.. gobj:class:: transpose
-
-    Transpose images from (x, y) to (y, x).
 
 
 Sinogram transposition
