@@ -28,19 +28,21 @@ backproject_nearest (global float *sinogram,
                      global float *slice,
                      constant float *sin_lut,
                      constant float *cos_lut,
-                     const unsigned int offset,
+                     const unsigned int x_offset,
+                     const unsigned int y_offset,
+                     const unsigned int angle_offset,
                      const unsigned n_projections,
                      const float axis_pos)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
     const int width = get_global_size(0);
-    const float bx = idx - axis_pos + 0.5f;
-    const float by = idy - axis_pos + 0.5f;
+    const float bx = idx - axis_pos + x_offset + 0.5f;
+    const float by = idy - axis_pos + y_offset + 0.5f;
     float sum = 0.0;
 
     for(int proj = 0; proj < n_projections; proj++) {
-        float h = axis_pos + bx * cos_lut[offset + proj] + by * sin_lut[offset + proj];
+        float h = axis_pos + bx * cos_lut[angle_offset + proj] + by * sin_lut[angle_offset + proj];
         sum += sinogram[(int)(proj * width + h)];
     }
 
@@ -52,21 +54,23 @@ backproject_tex (read_only image2d_t sinogram,
                  global float *slice,
                  constant float *sin_lut,
                  constant float *cos_lut,
-                 const unsigned int offset,
+                 const unsigned int x_offset,
+                 const unsigned int y_offset,
+                 const unsigned int angle_offset,
                  const unsigned int n_projections,
                  const float axis_pos)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
-    const float bx = idx - axis_pos + 0.5f;
-    const float by = idy - axis_pos + 0.5f;
+    const float bx = idx - axis_pos + x_offset + 0.5f;
+    const float by = idy - axis_pos + y_offset + 0.5f;
     float sum = 0.0f;
 
 #ifdef DEVICE_GEFORCE_GTX_TITAN_BLACK
 #pragma unroll 8
 #endif
     for(int proj = 0; proj < n_projections; proj++) {
-        float h = by * sin_lut[offset + proj] + bx * cos_lut[offset + proj] + axis_pos;
+        float h = by * sin_lut[angle_offset + proj] + bx * cos_lut[angle_offset + proj] + axis_pos;
         float val = read_imagef (sinogram, volumeSampler, (float2)(h, proj + 0.5f)).x;
         sum += (isnan (val) ? 0.0 : val);
     }

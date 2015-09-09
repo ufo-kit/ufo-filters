@@ -48,6 +48,10 @@ struct _UfoBackprojectTaskPrivate {
     guint offset;
     guint burst_projections;
     guint n_projections;
+    guint roi_x;
+    guint roi_y;
+    gint roi_width;
+    gint roi_height;
     Mode mode;
 };
 
@@ -66,6 +70,10 @@ enum {
     PROP_AXIS_POSITION,
     PROP_ANGLE_STEP,
     PROP_ANGLE_OFFSET,
+    PROP_ROI_X,
+    PROP_ROI_Y,
+    PROP_ROI_WIDTH,
+    PROP_ROI_HEIGHT,
     PROP_MODE,
     N_PROPERTIES
 };
@@ -108,18 +116,25 @@ ufo_backproject_task_process (UfoTask *task,
     }
 
     /* Guess axis position if they are not provided by the user. */
-    if (priv->axis_pos <= 0.0)
-        axis_pos = (gfloat) ((gfloat) requisition->dims[0]) / 2.0f;
-    else
+    if (priv->axis_pos <= 0.0) {
+        UfoRequisition in_req;
+
+        ufo_buffer_get_requisition (inputs[0], &in_req);
+        axis_pos = (gfloat) ((gfloat) in_req.dims[0]) / 2.0f;
+    }
+    else {
         axis_pos = priv->axis_pos;
+    }
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 1, sizeof (cl_mem), &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 2, sizeof (cl_mem), &priv->sin_lut));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (cl_mem), &priv->cos_lut));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (guint),  &priv->offset));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 5, sizeof (guint),  &priv->burst_projections));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 6, sizeof (gfloat), &axis_pos));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (guint),  &priv->roi_x));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 5, sizeof (guint),  &priv->roi_y));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 6, sizeof (guint),  &priv->offset));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 7, sizeof (guint),  &priv->burst_projections));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 8, sizeof (gfloat), &axis_pos));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, kernel, 2, requisition->dims, NULL);
@@ -211,8 +226,11 @@ ufo_backproject_task_get_requisition (UfoTask *task,
     }
 
     requisition->n_dims = 2;
-    requisition->dims[0] = in_req.dims[0];
-    requisition->dims[1] = in_req.dims[0];
+
+    /* TODO: we should check here, that we might access data outside the
+     * projections */
+    requisition->dims[0] = priv->roi_width == 0 ? in_req.dims[0] : (gsize) priv->roi_width;
+    requisition->dims[1] = priv->roi_height == 0 ? in_req.dims[0] : (gsize) priv->roi_height;
 
     if (priv->real_angle_step < 0.0) {
         if (priv->angle_step <= 0.0)
@@ -337,6 +355,18 @@ ufo_backproject_task_set_property (GObject *object,
             else if (!g_strcmp0 (g_value_get_string (value), "texture"))
                 priv->mode = MODE_TEXTURE;
             break;
+        case PROP_ROI_X:
+            priv->roi_x = g_value_get_uint (value);
+            break;
+        case PROP_ROI_Y:
+            priv->roi_y = g_value_get_uint (value);
+            break;
+        case PROP_ROI_WIDTH:
+            priv->roi_width = g_value_get_uint (value);
+            break;
+        case PROP_ROI_HEIGHT:
+            priv->roi_height = g_value_get_uint (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -376,6 +406,18 @@ ufo_backproject_task_get_property (GObject *object,
                     g_value_set_string (value, "texture");
                     break;
             }
+            break;
+        case PROP_ROI_X:
+            g_value_set_uint (value, priv->roi_x);
+            break;
+        case PROP_ROI_Y:
+            g_value_set_uint (value, priv->roi_y);
+            break;
+        case PROP_ROI_WIDTH:
+            g_value_set_uint (value, priv->roi_width);
+            break;
+        case PROP_ROI_HEIGHT:
+            g_value_set_uint (value, priv->roi_height);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -439,6 +481,34 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
                              "texture",
                              G_PARAM_READWRITE);
 
+    properties[PROP_ROI_X] =
+        g_param_spec_uint ("roi-x",
+                           "X coordinate of region of interest",
+                           "X coordinate of region of interest",
+                           0, G_MAXUINT, 0,
+                           G_PARAM_READWRITE);
+
+    properties[PROP_ROI_Y] =
+        g_param_spec_uint ("roi-y",
+                           "Y coordinate of region of interest",
+                           "Y coordinate of region of interest",
+                           0, G_MAXUINT, 0,
+                           G_PARAM_READWRITE);
+
+    properties[PROP_ROI_WIDTH] =
+        g_param_spec_uint ("roi-width",
+                           "Width of region of interest",
+                           "Width of region of interest",
+                           0, G_MAXUINT, 0,
+                           G_PARAM_READWRITE);
+
+    properties[PROP_ROI_HEIGHT] =
+        g_param_spec_uint ("roi-height",
+                           "Height of region of interest",
+                           "Height of region of interest",
+                           0, G_MAXUINT, 0,
+                           G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -466,4 +536,6 @@ ufo_backproject_task_init (UfoBackprojectTask *self)
     priv->host_cos_lut = NULL;
     priv->mode = MODE_TEXTURE;
     priv->luts_changed = TRUE;
+    priv->roi_x = priv->roi_y = 0;
+    priv->roi_width = priv->roi_height = 0;
 }

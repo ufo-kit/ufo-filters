@@ -190,6 +190,24 @@ Tomographic backprojection
 
         Reconstruction mode which can be either ``nearest`` or ``texture``.
 
+    .. gobj:prop:: roi-x:int
+
+        Horizontal coordinate of the start of the ROI. By default 0.
+
+    .. gobj:prop:: roi-y:int
+
+        Vertical coordinate of the start of the ROI. By default 0.
+
+    .. gobj:prop:: roi-width:int
+
+        Width of the region of interest. The default value of 0 denotes full
+        width.
+
+    .. gobj:prop:: roi-height:int
+
+        Height of the region of interest. The default value of 0 denotes full
+        height.
+
 
 Forward projection
 ------------------
