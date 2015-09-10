@@ -147,7 +147,7 @@ ufo_edf_reader_read (UfoReader *reader,
     fseek (priv->fp, end_position, SEEK_SET);
 
     if ((G_BYTE_ORDER == G_LITTLE_ENDIAN) && priv->big_endian) {
-        guint32 *conv = (guint32 *) buffer;
+        guint32 *conv = (guint32 *) ufo_buffer_get_host_array (buffer, NULL);
         guint n_pixels = requisition->dims[0] * requisition->dims[1];
 
         for (guint i = 0; i < n_pixels; i++)
