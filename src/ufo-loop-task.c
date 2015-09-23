@@ -97,6 +97,7 @@ ufo_loop_task_process (UfoTask *task,
         g_object_unref (priv->temporary);
 
     g_list_free (priv->filled);
+    priv->filled = NULL;
 
     priv->current = 0;
     priv->temporary = ufo_buffer_dup (inputs[0]);
@@ -222,4 +223,5 @@ ufo_loop_task_init(UfoLoopTask *self)
 {
     self->priv = UFO_LOOP_TASK_GET_PRIVATE(self);
     self->priv->count = 1;
+    self->priv->filled = NULL;
 }
