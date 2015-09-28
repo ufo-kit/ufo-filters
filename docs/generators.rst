@@ -8,6 +8,70 @@ Generators produce data and have at least one output but no input.
 Data readers
 ============
 
+File reader
+-----------
+
+.. gobj:class:: read
+
+    The reader loads single files from disk to produce a stream of
+    two-dimensional data items. Supported file types depend on the compiled
+    plugin. Raw (`.raw`) and EDF (`.edf`) files can always be read without
+    additional support. Additionally, loading TIFF (`.tif` and `.tiff`) and HDF5
+    (`.h5`) files might be supported.
+
+    The nominal resolution can be decreased by specifying the :gobj:prop:`y`
+    coordinate and a :gobj:prop:`height`. Due to reduced I/O, this can
+    dramatically improve performance.
+
+    .. gobj:prop:: path:string
+
+        Glob-style pattern that describes the file path. For HDF5 files this
+        must point to a file and a data set separated by a colon, e.g.
+        ``/path/to/file.h5:/my/data/set``.
+
+    .. gobj:prop:: number:int
+
+        Number of files to read.
+
+    .. gobj:prop:: start:int
+
+        First index from where files are read.
+
+    .. gobj:prop:: step:int
+
+        Number of files to skip.
+
+    .. gobj:prop:: y:int
+
+        Vertical coordinate from where to start reading.
+
+    .. gobj:prop:: height:int
+
+        Height of the region that is read from the image.
+
+    .. gobj:prop:: enable-conversion:boolean
+
+        Enable conversion of input data to float elements.
+
+    .. gobj:prop:: type:string
+
+        Overrides the type detection that is based on the file extension. For
+        example, to load `.foo` files as raw files, set the ``type`` property to
+        `raw`.
+
+    .. gobj:prop:: raw-width:int
+
+        Specifies the width of raw files.
+
+    .. gobj:prop:: raw-height:int
+
+        Specifies the height of raw files.
+
+    .. gobj:prop:: raw-bitdepth:int
+
+        Specifies the bit depth of raw files.
+
+
 UcaCamera reader
 ----------------
 
@@ -41,53 +105,6 @@ UcaCamera reader
     .. _libuca: https://github.com/ufo-kit/libuca
 
     .. note:: This requires third-party library *libuca*.
-
-
-TIFF/EDF reader
----------------
-
-.. gobj:class:: read
-
-    The reader loads single files from disk and provides them as a stream The
-    nominal resolution can be decreased by specifying the :gobj:prop:`y`
-    coordinate and a :gobj:prop:`height`. Due to reduced I/O, this can
-    dramatically improve performance.
-
-    .. gobj:prop:: path:string
-
-        Glob-style pattern that describes the file path.
-
-    .. gobj:prop:: start:int
-
-        First index from where files are read.
-
-    .. gobj:prop:: end:int
-
-        Last index of file that is *not* read.
-
-    .. gobj:prop:: step:int
-
-        Number of files to skip.
-
-    .. gobj:prop:: blocking:boolean
-
-        Block until all files are read.
-
-    .. gobj:prop:: normalize:boolean
-
-        Whether 8-bit or 16-bit values are normalized to [0.0, 1.0].
-
-    .. gobj:prop:: y:int
-
-        Vertical coordinate from where to start reading.
-
-    .. gobj:prop:: height:int
-
-        Height of the region that is read from the image.
-
-    .. gobj:prop:: enable-conversion:boolean
-
-        Automatic conversion of input data to float.
 
 
 Auxiliary generators
