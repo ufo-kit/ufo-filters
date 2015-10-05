@@ -255,6 +255,12 @@ ufo_dfi_sinc_task_process (UfoTask *task,
         interp_grid_cols = (int) ceil ((float) priv->roi_size / (float) BLOCK_SIZE);
     }
 
+	int interp_grid_rows = (int) ceil ((float) (raster_size2+1) / (float)BLOCK_SIZE);
+
+	if (priv->roi_size >= 1 && priv->roi_size <= raster_size) {
+		interp_grid_rows = (int) ceil ((float) priv->roi_size/2.0 / (float)BLOCK_SIZE);
+	}	
+	
     gint spectrum_offset = (raster_size - (interp_grid_cols * BLOCK_SIZE)) / 2;
     gfloat max_radius = (gfloat) (interp_grid_cols * BLOCK_SIZE) / 2.0f;
 
@@ -298,7 +304,7 @@ ufo_dfi_sinc_task_process (UfoTask *task,
 
     /* Execution of DFI kernel */
     size_t working_size[] = {(size_t)(interp_grid_cols * BLOCK_SIZE),
-                             (size_t)(interp_grid_cols * BLOCK_SIZE)};
+                             (size_t)(interp_grid_rows * BLOCK_SIZE)};
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 0, sizeof (cl_mem), &priv->in_tex));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->dfi_sinc_kernel, 1, sizeof (cl_mem), &ktbl_mem));
