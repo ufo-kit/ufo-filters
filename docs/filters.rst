@@ -29,6 +29,22 @@ Flipping
         with the image is flipped.
 
 
+Clipping
+--------
+
+.. gobj:class:: clip
+
+    Clip input to set minimum and maximum value.
+
+    .. gobj:prop:: min:float
+
+        Minimum value, all values lower than `min` are set to `min`.
+
+    .. gobj:prop:: max:flaot
+
+        Maximum value, all values higher than `max` are set to `max`.
+
+
 Averaging
 ---------
 
