@@ -255,7 +255,7 @@ ufo_dfi_sinc_task_process (UfoTask *task,
         interp_grid_cols = (int) ceil ((float) priv->roi_size / (float) BLOCK_SIZE);
     }
 
-	int interp_grid_rows = (int) ceil ((float) (raster_size2+1) / (float)BLOCK_SIZE);
+	int interp_grid_rows = (int) ceil ((float) ((raster_size/2)+1) / (float)BLOCK_SIZE);
 
 	if (priv->roi_size >= 1 && priv->roi_size <= raster_size) {
 		interp_grid_rows = (int) ceil ((float) priv->roi_size/2.0 / (float)BLOCK_SIZE);
