@@ -1,4 +1,4 @@
-/*
+/* 
  * Copyright (C) 2011-2013 Karlsruhe Institute of Technology
  *
  * This file is part of Ufo.
@@ -64,6 +64,10 @@ dfi_sinc_kernel(read_only image2d_t input,
 
     out_coord.x = get_global_id(0) + spectrum_offset;
     out_coord.y = get_global_id(1) + spectrum_offset;
+	
+	if (out_coord.y > raster_size2) 
+    return; 
+	
     out_idx = out_coord.y * raster_size + out_coord.x;
 
     norm_gl_coord.x = out_coord.x - raster_size_2;
@@ -120,6 +124,37 @@ dfi_sinc_kernel(read_only image2d_t input,
         }
     }
 
-    output[out_idx].real = res_real;
-    output[out_idx].imag = sign * res_imag;
+//Point reflection mirroring / Hermitian symmetry//
+
+if (out_coord.y == 0 && out_coord.x <=raster_size){
+	output[out_idx].real = res_real;
+	output[out_idx].imag =  sign*res_imag; 
+	}
+else{
+	if(out_coord.x == 0 && 0 < out_coord.y <=raster_size2){
+		output[out_idx].real = res_real;
+		output[out_idx].imag =  sign*res_imag; 
+
+		out_idx = (((raster_size2+2)+y_offset) * raster_size);
+
+		output[out_idx].real = res_real;
+		output[out_idx].imag =  -sign*res_imag;
+		}
+	else{
+		if(res_imag == 0.0f){ 
+			output[out_idx].real = res_real;
+			output[out_idx].imag =  sign*res_imag;
+  
+			output[out_idx_mirror].real = res_real;
+			output[out_idx_mirror].imag =  sign*res_imag;
+			}
+		else{
+			output[out_idx].real = res_real;
+			output[out_idx].imag =  sign*res_imag;
+  
+			output[out_idx_mirror].real = res_real;
+			output[out_idx_mirror].imag =  -sign*res_imag;
+			}       
+		} 
+	}
 }
