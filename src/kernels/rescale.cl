@@ -8,5 +8,6 @@ kernel void rescale (read_only image2d_t input,
     int idy = get_global_id (1);
 
     output[idy * get_global_size(0) + idx] = read_imagef(input, sampler,
-                                                         (float2) (idx / x_factor, idy / y_factor)).x;
+                                                         (float2) (idx / x_factor + 0.5f,
+                                                                   idy / y_factor + 0.5f)).x;
 }
