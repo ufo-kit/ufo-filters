@@ -78,6 +78,7 @@ ufo_transpose_task_get_mode (UfoTask *task)
     return UFO_TASK_MODE_PROCESSOR;
 }
 
+#ifdef __SSE__
 static inline void
 transpose_sse (gfloat *src, gfloat *dst, const int width, const int height)
 {
@@ -91,6 +92,7 @@ transpose_sse (gfloat *src, gfloat *dst, const int width, const int height)
     _mm_storeu_ps (dst + 2 * width, row3);
     _mm_storeu_ps (dst + 3 * width, row4);
 }
+#endif
 
 static gboolean
 ufo_transpose_task_process (UfoTask *task,
