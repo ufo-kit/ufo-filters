@@ -1,3 +1,39 @@
+Version 0.9.0
+=============
+
+Enhancements:
+
+- backproject: reconstruct region-of-interest
+- backproject: loop unroll on GTX Titan Black
+- filter: generalize filter types
+- read: allow overriding type detection
+- read: read as many bytes as expected in raw mode
+- map-slice arbitrary number of input data
+- monitor: add print property to show data
+
+Fixes:
+
+- Fix ramp filter computation and mirroring
+- Fix two dimensional batch processing of FFT and IFFT
+- Fix segfault caused by double-freeing kernel
+- opencl: fix copying dimension property
+- read: fix segfault reading big-endian .edf
+- fbp: Use number of projs to compute angle step
+- dfi: add angle-step property
+- blur: free allocated OpenCL buffers
+- slice: slice correct number of input items
+- stack: stack every [number] inputs
+
+New filters:
+
+- Add flip task
+- Add clip task
+- Add loop task
+- Add refeed task
+- Add merge task
+- Add basic raw reader
+
+
 Version 0.8.0
 =============
 
