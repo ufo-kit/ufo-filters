@@ -55,7 +55,7 @@ dfi_sinc_kernel(read_only image2d_t input,
     int iul, iuh, ivl, ivh, sign, i, j, k;
     float res_real, res_imag, weight, kernel_x_val;
     long out_idx;
-    const int raster_size_2 = raster_size / 2;
+    const int raster_size_half = raster_size / 2;
 
     ktbl_coord.y = 0.5f;
     sign = 1;
@@ -65,19 +65,28 @@ dfi_sinc_kernel(read_only image2d_t input,
     out_coord.x = get_global_id(0) + spectrum_offset;
     out_coord.y = get_global_id(1) + spectrum_offset;
 	
-	if (out_coord.y > raster_size2) 
+	if (out_coord.y > raster_size_half) 
     return; 
 	
     out_idx = out_coord.y * raster_size + out_coord.x;
 
-    norm_gl_coord.x = out_coord.x - raster_size_2;
-    norm_gl_coord.y = out_coord.y - raster_size_2;
+    norm_gl_coord.x = out_coord.x - raster_size_half;
+    norm_gl_coord.y = out_coord.y - raster_size_half;
 
     //calculate coordinates
     float radius = sqrt(norm_gl_coord.x * norm_gl_coord.x + norm_gl_coord.y * norm_gl_coord.y);
     if (radius > max_radius)
         return;
+		
+	long x_offset = (raster_size_half) - out_coord.x;
+	long y_offset = (raster_size_half) - out_coord.y;
+		
+	long out_idx_mirror = 0;
 
+	out_idx_mirror = (((raster_size_half)+y_offset) * raster_size + ((raster_size_half)+x_offset));
+	if (out_idx_mirror < 0 || out_idx_mirror > (raster_size*raster_size)-1)
+	{return;}
+		
     in_coord.y = atan2(norm_gl_coord.y,norm_gl_coord.x);
     in_coord.y = -in_coord.y; // spike here! (mirroring along y-axis)
 
@@ -86,7 +95,7 @@ dfi_sinc_kernel(read_only image2d_t input,
     in_coord.y = (in_coord.y < 0.0f) ? in_coord.y+= PI : in_coord.y;
     in_coord.y = (float) min(1.0f + in_coord.y/angle_step_rad, theta_max - 1);
 
-    in_coord.x = (float) min(radius, (float) raster_size_2);
+    in_coord.x = (float) min(radius, (float) raster_size_half);
 
     //sinc interpoaltion
     iul = (int)ceil(in_coord.x - L2);
@@ -131,11 +140,11 @@ if (out_coord.y == 0 && out_coord.x <=raster_size){
 	output[out_idx].imag =  sign*res_imag; 
 	}
 else{
-	if(out_coord.x == 0 && 0 < out_coord.y <=raster_size2){
+	if(out_coord.x == 0 && 0 < out_coord.y <=raster_size_half){
 		output[out_idx].real = res_real;
 		output[out_idx].imag =  sign*res_imag; 
 
-		out_idx = (((raster_size2+2)+y_offset) * raster_size);
+		out_idx = (((raster_size_half+2)+y_offset) * raster_size);
 
 		output[out_idx].real = res_real;
 		output[out_idx].imag =  -sign*res_imag;
