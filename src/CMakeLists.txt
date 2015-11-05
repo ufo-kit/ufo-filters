@@ -210,13 +210,3 @@ foreach(_kernel ${ufofilter_KERNELS})
     install(FILES ${_kernel} DESTINATION ${UFO_KERNELDIR})
 endforeach()
 #}}}
-#{{{ Python tests
-find_program(NOSETESTSBIN nosetests)
-if (NOSETESTSBIN)
-    add_custom_target(test
-        COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/../run_tests.py
-        ${CMAKE_CURRENT_BINARY_DIR}
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../)
-    add_dependencies(test ${all_targets})
-endif()
-#}}}
