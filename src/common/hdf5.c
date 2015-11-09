@@ -14,7 +14,9 @@ ufo_hdf5_can_open (const gchar *filename)
     if (delimiter < filename + 3)
         return FALSE;
 
-    if (!g_str_has_prefix (delimiter - 3, ".h5"))
+    if (!g_str_has_prefix (delimiter - 3, ".h5") ||
+        !g_str_has_prefix (delimiter - 3, ".hdf5") ||
+        !g_str_has_prefix (delimiter - 3, ".nxs"))
         return FALSE;
 
     /* no dataset after delimiter */
