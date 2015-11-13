@@ -170,7 +170,7 @@ ufo_raw_reader_set_property (GObject *object,
                     priv->bytes_per_pixel = 2;
                     break;
                 case 32:
-                    priv->bitdepth = UFO_BUFFER_DEPTH_32U;
+                    priv->bitdepth = UFO_BUFFER_DEPTH_32F;
                     priv->bytes_per_pixel = 4;
                     break;
                 default:
