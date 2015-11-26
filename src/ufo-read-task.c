@@ -115,6 +115,7 @@ enum {
     PROP_RAW_WIDTH,
     PROP_RAW_HEIGHT,
     PROP_RAW_BITDEPTH,
+    PROP_RAW_OFFSET,
     PROP_TYPE,
     N_PROPERTIES
 };
@@ -349,6 +350,7 @@ ufo_read_task_set_property (GObject *object,
         case PROP_RAW_WIDTH:
         case PROP_RAW_HEIGHT:
         case PROP_RAW_BITDEPTH:
+        case PROP_RAW_OFFSET:
             {
                 const gchar *prop_name;
 
@@ -417,6 +419,7 @@ ufo_read_task_get_property (GObject *object,
         case PROP_RAW_WIDTH:
         case PROP_RAW_HEIGHT:
         case PROP_RAW_BITDEPTH:
+        case PROP_RAW_OFFSET:
             {
                 guint uvalue;
                 const gchar *prop_name;
@@ -570,6 +573,13 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
         g_param_spec_uint("raw-bitdepth",
             "Bitdepth of raw image",
             "Bitdepth of raw image",
+            0, G_MAXUINT, G_MAXUINT,
+            G_PARAM_READWRITE);
+
+    properties[PROP_RAW_OFFSET] =
+        g_param_spec_uint("raw-offset",
+            "Offset to the beginning of raw image in bytes",
+            "Offset to the beginning of raw image in bytes",
             0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
