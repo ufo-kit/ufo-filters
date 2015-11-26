@@ -529,7 +529,7 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
             G_PARAM_READWRITE);
 
     properties[PROP_CONVERT] =
-        g_param_spec_boolean("enable-conversion",
+        g_param_spec_boolean("convert",
             "Enable automatic conversion",
             "Enable automatic conversion of input data types to float",
             TRUE,
