@@ -92,10 +92,6 @@ struct _UfoReadTaskPrivate {
 #endif
 
     FileType         type;
-
-    guint   raw_height;
-    guint   raw_width;
-    guint   raw_bitdepth;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -351,13 +347,16 @@ ufo_read_task_set_property (GObject *object,
             priv->number = g_value_get_uint (value);
             break;
         case PROP_RAW_WIDTH:
-            priv->raw_width = g_value_get_uint (value);
-            break;
         case PROP_RAW_HEIGHT:
-            priv->raw_height = g_value_get_uint (value);
-            break;
         case PROP_RAW_BITDEPTH:
-            priv->raw_bitdepth = g_value_get_uint (value);
+            {
+                const gchar *prop_name;
+
+                /* Determine raw reader property name, i.e. `raw-width` becomes
+                 * `width`. */
+                prop_name = pspec->name + 4;
+                g_object_set (priv->raw_reader, prop_name, g_value_get_uint (value), NULL);
+            }
             break;
         case PROP_TYPE:
             {
@@ -416,13 +415,17 @@ ufo_read_task_get_property (GObject *object,
             g_value_set_uint (value, priv->number);
             break;
         case PROP_RAW_WIDTH:
-            g_value_set_uint (value, priv->raw_width);
-            break;
         case PROP_RAW_HEIGHT:
-            g_value_set_uint (value, priv->raw_height);
-            break;
         case PROP_RAW_BITDEPTH:
-            g_value_set_uint (value, priv->raw_bitdepth);
+            {
+                guint uvalue;
+                const gchar *prop_name;
+
+                /* Determine raw reader property name same way as the getter */
+                prop_name = pspec->name + 4;
+                g_object_get (priv->raw_reader, prop_name, &uvalue, NULL);
+                g_value_set_uint (value, uvalue);
+            }
             break;
         case PROP_TYPE:
             if (priv->type != TYPE_UNSPECIFIED)
@@ -612,12 +615,5 @@ ufo_read_task_init(UfoReadTask *self)
 
     priv->reader = NULL;
     priv->done = FALSE;
-    priv->raw_width = 0;
-    priv->raw_height = 0;
-    priv->raw_bitdepth = 0;
     priv->type = TYPE_UNSPECIFIED;
-
-    g_object_bind_property (self, "raw-width", priv->raw_reader, "width", G_BINDING_DEFAULT);
-    g_object_bind_property (self, "raw-height", priv->raw_reader, "height", G_BINDING_DEFAULT);
-    g_object_bind_property (self, "raw-bitdepth", priv->raw_reader, "bitdepth", G_BINDING_DEFAULT);
 }
