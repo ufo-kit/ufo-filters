@@ -30,6 +30,7 @@ struct _UfoRawReaderPrivate {
     gsize bytes_per_pixel;
     guint width;
     guint height;
+    guint offset;
     UfoBufferDepth bitdepth;
 };
 
@@ -46,6 +47,7 @@ enum {
     PROP_WIDTH,
     PROP_HEIGHT,
     PROP_BITDEPTH,
+    PROP_OFFSET,
     N_PROPERTIES
 };
 
@@ -126,6 +128,7 @@ ufo_raw_reader_read (UfoReader *reader,
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
     data = (gchar *) ufo_buffer_get_host_array (buffer, NULL);
 
+    fseek (priv->fp, (glong) priv->offset, SEEK_SET);
     /* We never read more than we can store */
     fread (data, 1, requisition->dims[0] * requisition->dims[1] * priv->bytes_per_pixel, priv->fp);
 }
@@ -177,6 +180,9 @@ ufo_raw_reader_set_property (GObject *object,
                     g_warning ("Cannot set bitdepth other than 8, 16 or 32.");
             }
             break;
+        case PROP_OFFSET:
+            priv->offset = g_value_get_uint (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -200,6 +206,9 @@ ufo_raw_reader_get_property (GObject *object,
             break;
         case PROP_BITDEPTH:
             g_value_set_uint (value, priv->bitdepth);
+            break;
+        case PROP_OFFSET:
+            g_value_set_uint (value, priv->offset);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -263,6 +272,13 @@ ufo_raw_reader_class_init (UfoRawReaderClass *klass)
             0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
+    properties[PROP_OFFSET] =
+        g_param_spec_uint("offset",
+            "Offset to the beginning of image in bytes",
+            "Offset to the beginning of image in bytes",
+            0, G_MAXUINT, G_MAXUINT,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -279,4 +295,5 @@ ufo_raw_reader_init (UfoRawReader *self)
     priv->width = 0;
     priv->height = 0;
     priv->bitdepth = 0;
+    priv->offset = 0;
 }
