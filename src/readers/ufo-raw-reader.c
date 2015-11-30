@@ -113,7 +113,7 @@ ufo_raw_reader_data_available (UfoReader *reader)
     UfoRawReaderPrivate *priv;
 
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
-    return priv->fp != NULL && (ftell (priv->fp) + priv->frame_size) < priv->total_size;
+    return priv->fp != NULL && (ftell (priv->fp) + priv->offset + priv->frame_size) < priv->total_size;
 }
 
 static void
@@ -130,7 +130,8 @@ ufo_raw_reader_read (UfoReader *reader,
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
     data = (gchar *) ufo_buffer_get_host_array (buffer, NULL);
 
-    fseek (priv->fp, (glong) priv->offset, SEEK_SET);
+    fseek (priv->fp, priv->offset, SEEK_CUR);
+
     /* We never read more than we can store */
     fread (data, 1, priv->frame_size, priv->fp);
 }
