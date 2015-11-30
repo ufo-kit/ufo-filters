@@ -26,7 +26,8 @@
 
 struct _UfoRawReaderPrivate {
     FILE *fp;
-    gssize size;
+    gssize total_size;
+    gssize frame_size;
     gsize bytes_per_pixel;
     guint width;
     guint height;
@@ -89,7 +90,8 @@ ufo_raw_reader_open (UfoReader *reader,
     priv->fp = fopen (filename, "rb");
 
     fseek (priv->fp, 0L, SEEK_END);
-    priv->size = (gsize) ftell (priv->fp);
+    priv->total_size = (gsize) ftell (priv->fp);
+    priv->frame_size = priv->width * priv->height * priv->bytes_per_pixel;
     fseek (priv->fp, 0L, SEEK_SET);
 }
 
@@ -102,7 +104,7 @@ ufo_raw_reader_close (UfoReader *reader)
     g_assert (priv->fp != NULL);
     fclose (priv->fp);
     priv->fp = NULL;
-    priv->size = 0;
+    priv->total_size = 0;
 }
 
 static gboolean
@@ -111,7 +113,7 @@ ufo_raw_reader_data_available (UfoReader *reader)
     UfoRawReaderPrivate *priv;
 
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
-    return priv->fp != NULL && ftell (priv->fp) < priv->size;
+    return priv->fp != NULL && (ftell (priv->fp) + priv->frame_size) < priv->total_size;
 }
 
 static void
@@ -130,7 +132,7 @@ ufo_raw_reader_read (UfoReader *reader,
 
     fseek (priv->fp, (glong) priv->offset, SEEK_SET);
     /* We never read more than we can store */
-    fread (data, 1, requisition->dims[0] * requisition->dims[1] * priv->bytes_per_pixel, priv->fp);
+    fread (data, 1, priv->frame_size, priv->fp);
 }
 
 static void
