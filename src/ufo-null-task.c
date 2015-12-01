@@ -35,13 +35,13 @@ G_DEFINE_TYPE_WITH_CODE (UfoNullTask, ufo_null_task, UFO_TYPE_TASK_NODE,
 #define UFO_NULL_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_NULL_TASK, UfoNullTaskPrivate))
 
 struct _UfoNullTaskPrivate {
-    gboolean force_download;
+    gboolean download;
     gboolean finish;
 };
 
 enum {
     PROP_0,
-    PROP_FORCE_DOWNLOAD,
+    PROP_DOWNLOAD,
     PROP_FINISH,
     N_PROPERTIES
 };
@@ -99,7 +99,7 @@ ufo_null_task_process (UfoTask *task,
 
     priv = UFO_NULL_TASK_GET_PRIVATE (task);
 
-    if (priv->force_download) {
+    if (priv->download) {
         gfloat *host_array;
 
         host_array = ufo_buffer_get_host_array (inputs[0], NULL);
@@ -136,8 +136,8 @@ ufo_null_task_set_property (GObject *object,
     UfoNullTaskPrivate *priv = UFO_NULL_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_FORCE_DOWNLOAD:
-            priv->force_download = g_value_get_boolean (value);
+        case PROP_DOWNLOAD:
+            priv->download = g_value_get_boolean (value);
             break;
 
         case PROP_FINISH:
@@ -159,8 +159,8 @@ ufo_null_task_get_property (GObject *object,
     UfoNullTaskPrivate *priv = UFO_NULL_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_FORCE_DOWNLOAD:
-            g_value_set_boolean (value, priv->force_download);
+        case PROP_DOWNLOAD:
+            g_value_set_boolean (value, priv->download);
             break;
 
         case PROP_FINISH:
@@ -182,8 +182,8 @@ ufo_null_task_class_init (UfoNullTaskClass *klass)
     oclass->set_property = ufo_null_task_set_property;
     oclass->get_property = ufo_null_task_get_property;
 
-    properties[PROP_FORCE_DOWNLOAD] =
-        g_param_spec_boolean ("force-download",
+    properties[PROP_DOWNLOAD] =
+        g_param_spec_boolean ("download",
                               "Force data to be transferred from device to host",
                               "Force data to be transferred from device to host",
                               FALSE, G_PARAM_READWRITE);
@@ -206,6 +206,6 @@ ufo_null_task_init(UfoNullTask *self)
     UfoNullTaskPrivate *priv;
 
     self->priv = priv = UFO_NULL_TASK_GET_PRIVATE (self);
-    priv->force_download = FALSE;
+    priv->download = FALSE;
     priv->finish = FALSE;
 }
