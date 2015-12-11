@@ -25,13 +25,8 @@
 #include <CL/cl.h>
 #endif
 
-#ifdef HAVE_AMD
-#include <clFFT.h>
-#else
-#include "oclFFT.h"
-#endif
-
 #include "ufo-retrieve-phase-task.h"
+#include "common/ufo-fft.h"
 
 #define IS_POW_OF_2(x) !(x & (x - 1))
 
@@ -64,14 +59,8 @@ struct _UfoRetrievePhaseTaskPrivate {
     cl_kernel get_real_kernel;
     cl_context context;
     cl_command_queue cmd_queue;
-    #ifdef HAVE_AMD
-    clfftPlanHandle fft_plan;
-    clfftSetupData fft_setup;
-    size_t fft_size[3];
-    #else
-    clFFT_Plan fft_plan;
-    clFFT_Dim3 fft_size;
-    #endif
+    UfoFft *fft;
+    UfoFftParameter param;
     UfoBuffer *fft_buffer;
     UfoBuffer *filter_buffer;
 };
@@ -177,12 +166,12 @@ ufo_retrieve_phase_task_setup (UfoTask *task,
 
 static void
 ufo_retrieve_phase_task_get_requisition (UfoTask *task,
-                                 UfoBuffer **inputs,
-                                 UfoRequisition *requisition)
+                                         UfoBuffer **inputs,
+                                         UfoRequisition *requisition)
 {
     UfoRetrievePhaseTaskPrivate *priv;
     UfoRequisition input_requisition;
-    cl_int cl_err;
+    cl_command_queue queue;
 
     priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
@@ -196,35 +185,15 @@ ufo_retrieve_phase_task_get_requisition (UfoTask *task,
         return;
     }
 
-    #ifdef HAVE_AMD
-    if (priv->fft_plan == 0) {
-        priv->fft_size[0] = input_requisition.dims[0];
-        priv->fft_size[1] = input_requisition.dims[1];
-        priv->fft_size[2] = 1;
+    priv->param.dimensions = UFO_FFT_2D;
+    priv->param.size[0] = input_requisition.dims[0];
+    priv->param.size[1] = input_requisition.dims[1];
+    priv->param.size[2] = 1;
+    priv->param.batch = 1;
+    priv->param.zeropad = TRUE;
 
-        cl_err = clfftSetup(&(priv->fft_setup));
-        cl_err = clfftCreateDefaultPlan (&(priv->fft_plan), priv->context, CLFFT_2D, priv->fft_size);
-        cl_err = clfftSetPlanBatchSize (priv->fft_plan, 1);
-        cl_err = clfftSetPlanPrecision (priv->fft_plan, CLFFT_SINGLE);
-        cl_err = clfftSetLayout (priv->fft_plan, CLFFT_COMPLEX_INTERLEAVED, CLFFT_COMPLEX_INTERLEAVED);
-        cl_err = clfftSetResultLocation (priv->fft_plan, CLFFT_INPLACE);
-        cl_err = clfftBakePlan (priv->fft_plan, 1, &(priv->cmd_queue), NULL, NULL);
-    #else
-    if (priv->fft_plan == NULL) {
-        priv->fft_size.x = input_requisition.dims[0];
-        priv->fft_size.y = input_requisition.dims[1];
-        priv->fft_size.z = 1;
-
-        priv->fft_plan = clFFT_CreatePlan (priv->context,
-                                           priv->fft_size,
-                                           clFFT_2D,
-                                           clFFT_InterleavedComplexFormat, 
-                                           &cl_err);
-    #endif
-
-
-        UFO_RESOURCES_CHECK_CLERR (cl_err);
-    }
+    queue = ufo_gpu_node_get_cmd_queue (UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task))));
+    UFO_RESOURCES_CHECK_CLERR (ufo_fft_update (priv->fft, priv->context, queue, &priv->param));
 }
 
 static guint
@@ -262,16 +231,17 @@ ufo_retrieve_phase_task_process (UfoTask *task,
     out_mem = ufo_buffer_get_device_array (output, priv->cmd_queue);
     in_mem = ufo_buffer_get_device_array (inputs[0], priv->cmd_queue);
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
- 
+
     UfoRequisition fft_requisition;
     fft_requisition.n_dims = 2;
     fft_requisition.dims[0] = requisition->dims[0] * 2;
     fft_requisition.dims[1] = requisition->dims[1];
-    ufo_buffer_resize(priv->fft_buffer, &fft_requisition);
+
+    ufo_buffer_resize (priv->fft_buffer, &fft_requisition);
     fft_mem = ufo_buffer_get_device_array (priv->fft_buffer, priv->cmd_queue);
 
     if (ufo_buffer_cmp_dimensions(priv->filter_buffer, requisition) != 0) {
-        ufo_buffer_resize(priv->filter_buffer, requisition);
+        ufo_buffer_resize (priv->filter_buffer, requisition);
         filter_mem = ufo_buffer_get_device_array (priv->filter_buffer, priv->cmd_queue);
 
         method_kernel = priv->kernels[(gint)priv->method];
@@ -292,27 +262,17 @@ ufo_retrieve_phase_task_process (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sub_value_kernel, 2, sizeof (gfloat), &priv->sub_value));
     ufo_profiler_call (profiler, priv->cmd_queue, priv->sub_value_kernel, requisition->n_dims, requisition->dims, NULL);
 
-    #ifdef HAVE_AMD
-    clfftEnqueueTransform (priv->fft_plan, 
-                           CLFFT_FORWARD, 1, &(priv->cmd_queue),
-                           0, NULL, NULL, 
-                           &fft_mem, &fft_mem, NULL);
-    #else
-    clFFT_ExecuteInterleaved_Ufo (priv->cmd_queue, priv->fft_plan, 1, clFFT_Forward, fft_mem, fft_mem, 0, NULL, NULL, profiler);
-    #endif
+    UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (priv->fft, priv->cmd_queue, profiler,
+                                                fft_mem, fft_mem, UFO_FFT_FORWARD,
+                                                0, NULL, NULL));
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 0, sizeof (cl_mem), &fft_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 1, sizeof (cl_mem), &filter_mem));
     ufo_profiler_call (profiler, priv->cmd_queue, priv->mult_by_value_kernel, requisition->n_dims, requisition->dims, NULL);
 
-    #ifdef HAVE_AMD
-    clfftEnqueueTransform (priv->fft_plan, 
-                           CLFFT_BACKWARD, 1, &(priv->cmd_queue),
-                           0, NULL, NULL, 
-                           &fft_mem, &fft_mem, NULL);
-    #else
-    clFFT_ExecuteInterleaved_Ufo (priv->cmd_queue, priv->fft_plan, 1, clFFT_Inverse, fft_mem, fft_mem, 0, NULL, NULL, profiler);
-    #endif
+    UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (priv->fft, priv->cmd_queue, profiler,
+                                                fft_mem, fft_mem, UFO_FFT_BACKWARD,
+                                                0, NULL, NULL));
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->get_real_kernel, 0, sizeof (cl_mem), &fft_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->get_real_kernel, 1, sizeof (cl_mem), &out_mem));
@@ -429,13 +389,6 @@ ufo_retrieve_phase_task_finalize (GObject *object)
 
     priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (object);
 
-    #ifdef HAVE_AMD
-    clfftDestroyPlan (&(priv->fft_plan));
-    //clfftTeardown ();
-    #else
-    clFFT_DestroyPlan (priv->fft_plan);
-    #endif
-
     if (priv->kernels) {
         for (int i = 0; i < N_METHODS; i++) {
             UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernels[i]));
@@ -472,7 +425,12 @@ ufo_retrieve_phase_task_finalize (GObject *object)
     if (priv->filter_buffer) {
         g_object_unref(priv->filter_buffer);
     }
-    
+
+    if (priv->fft) {
+        ufo_fft_destroy (priv->fft);
+        priv->fft = NULL;
+    }
+
     G_OBJECT_CLASS (ufo_retrieve_phase_task_parent_class)->finalize (object);
 }
 
@@ -563,18 +521,6 @@ ufo_retrieve_phase_task_init(UfoRetrievePhaseTask *self)
 {
     UfoRetrievePhaseTaskPrivate *priv;
     self->priv = priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE(self);
-    #ifdef HAVE_AMD
-    priv->fft_size[0] = 1;
-    priv->fft_size[1] = 1;
-    priv->fft_size[2] = 1;
-    priv->fft_setup = (clfftSetupData){0,0,0,0};
-    priv->fft_plan = 0;
-    #else
-    priv->fft_size.x = 1;
-    priv->fft_size.y = 1;
-    priv->fft_size.z = 1;
-    priv->fft_plan = NULL;
-    #endif
     priv->method = METHOD_TIE;
     priv->width = 1024;
     priv->height = 1024;
@@ -586,6 +532,7 @@ ufo_retrieve_phase_task_init(UfoRetrievePhaseTask *self)
     priv->normalize = 1;
     priv->sub_value = 1.0f;
     priv->kernels = (cl_kernel *) g_malloc0(N_METHODS * sizeof(cl_kernel));
+    priv->fft = ufo_fft_new ();
     priv->fft_buffer = NULL;
     priv->filter_buffer = NULL;
 }
