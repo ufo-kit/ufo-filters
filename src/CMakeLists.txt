@@ -76,6 +76,15 @@ set(write_misc_SRCS
     writers/ufo-writer.c
     writers/ufo-raw-writer.c)
 
+set(fft_misc_SRCS
+    common/ufo-fft.c)
+
+set(ifft_misc_SRCS
+    common/ufo-fft.c)
+
+set(retrieve_phase_misc_SRCS
+    common/ufo-fft.c)
+
 file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}
 #{{{ Variables
