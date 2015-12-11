@@ -101,7 +101,6 @@ endif()
 #}}}
 #{{{ Dependency checks
 find_package(TIFF)
-find_package(clFFT)
 find_package(HDF5 1.8)
 find_package(JPEG)
 
@@ -109,6 +108,7 @@ pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(OPENCV opencv)
 pkg_check_modules(LIBTIFF4 libtiff-4>=4.0.0)
 pkg_check_modules(GSL gsl)
+pkg_check_modules(CLFFT clFFT)
 
 set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
 
