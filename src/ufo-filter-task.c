@@ -25,6 +25,7 @@
 #include <math.h>
 
 #include "ufo-filter-task.h"
+#include "common/ufo-fft.h"
 
 /**
  * SECTION:ufo-filter-task
@@ -40,12 +41,14 @@ typedef void (*SetupFunc)(UfoFilterTaskPrivate *priv, gfloat *coefficients, guin
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 static void compute_ramp_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
+static void compute_real_space_ramp_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
 static void compute_butterworth_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
 static void compute_faris_byer_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
 static void compute_hamming_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
 
 typedef enum {
     FILTER_RAMP = 0,
+    FILTER_RAMP_FROMREAL,
     FILTER_BUTTERWORTH,
     FILTER_FARIS_BYER,
     FILTER_HAMMING,
@@ -54,6 +57,7 @@ typedef enum {
 
 static const gchar *filter_names[] = {
     "ramp",
+    "ramp-fromreal",
     "butterworth",
     "faris-byer",
     "hamming",
@@ -61,6 +65,7 @@ static const gchar *filter_names[] = {
 
 static SetupFunc filter_funcs[] = {
     &compute_ramp_coefficients,
+    &compute_real_space_ramp_coefficients,
     &compute_butterworth_coefficients,
     &compute_faris_byer_coefficients,
     &compute_hamming_coefficients,
@@ -171,6 +176,19 @@ compute_ramp_coefficients (UfoFilterTaskPrivate *priv,
 }
 
 static void
+compute_real_space_ramp_coefficients (UfoFilterTaskPrivate *priv,
+                                      gfloat *filter,
+                                      guint width)
+{
+    filter[0] = filter[1] = 0.25;
+
+    for (guint k = 1; k < width / 4 + 1; k++) {
+        filter[2*k] = k % 2 ? - 1 / (k * k * G_PI * G_PI) : 0.0;
+        filter[2*k + 1] = filter[2*k];
+    }
+}
+
+static void
 compute_butterworth_coefficients (UfoFilterTaskPrivate *priv,
                                   gfloat *filter,
                                   guint width)
@@ -260,12 +278,33 @@ ufo_filter_task_get_requisition (UfoTask *task,
         mirror_coefficients (coefficients, width);
 
         priv->filter_mem = clCreateBuffer (priv->context,
-                                           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                           CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
                                            width * sizeof(float),
                                            coefficients,
                                            &cl_err);
         UFO_RESOURCES_CHECK_CLERR (cl_err);
         g_free (coefficients);
+
+        if (priv->filter == FILTER_RAMP_FROMREAL) {
+            UfoFft *fft = ufo_fft_new ();
+            UfoFftParameter param;
+            cl_command_queue queue;
+            UfoProfiler *profiler;
+
+            param.dimensions = UFO_FFT_1D;
+            param.size[0] = requisition->dims[0] / 2;
+            param.size[1] = 1;
+            param.size[2] = 1;
+            param.batch = 1;
+
+            profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+            queue = ufo_gpu_node_get_cmd_queue (UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task))));
+            UFO_RESOURCES_CHECK_CLERR (ufo_fft_update (fft, priv->context, queue, &param));
+            UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (fft, queue, profiler, priv->filter_mem, priv->filter_mem,
+                                                        UFO_FFT_FORWARD, 0, NULL, NULL));
+
+            ufo_fft_destroy (fft);
+        }
     }
 }
 
@@ -414,8 +453,8 @@ ufo_filter_task_class_init (UfoFilterTaskClass *klass)
 
     properties[PROP_FILTER] =
         g_param_spec_string ("filter",
-            "Type of filter (\"ramp\", \"butterworth\", \"faris-byer\", \"hamming\")",
-            "Type of filter (\"ramp\", \"butterworth\", \"faris-byer\", \"hamming\")",
+            "Type of filter (\"ramp\", \"ramp-fromreal\", \"butterworth\", \"faris-byer\", \"hamming\")",
+            "Type of filter (\"ramp\", \"ramp-fromreal\", \"butterworth\", \"faris-byer\", \"hamming\")",
             "ramp",
             G_PARAM_READWRITE);
 
@@ -469,7 +508,7 @@ ufo_filter_task_init (UfoFilterTask *self)
     self->priv = priv = UFO_FILTER_TASK_GET_PRIVATE (self);
     priv->kernel = NULL;
     priv->filter_mem = NULL;
-    priv->filter = FILTER_RAMP;
+    priv->filter = FILTER_RAMP_FROMREAL;
     priv->cutoff = 0.5f;
     priv->bw_order = 4.0f;
     priv->fb_tau = 0.1f;
