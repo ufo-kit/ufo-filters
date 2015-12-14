@@ -508,7 +508,7 @@ ufo_filter_task_init (UfoFilterTask *self)
     self->priv = priv = UFO_FILTER_TASK_GET_PRIVATE (self);
     priv->kernel = NULL;
     priv->filter_mem = NULL;
-    priv->filter = FILTER_RAMP;
+    priv->filter = FILTER_RAMP_FROMREAL;
     priv->cutoff = 0.5f;
     priv->bw_order = 4.0f;
     priv->fb_tau = 0.1f;
