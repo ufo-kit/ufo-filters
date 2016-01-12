@@ -76,6 +76,9 @@ set(write_misc_SRCS
     writers/ufo-writer.c
     writers/ufo-raw-writer.c)
 
+set(filter_misc_SRCS
+    common/ufo-fft.c)
+
 set(fft_misc_SRCS
     common/ufo-fft.c)
 
