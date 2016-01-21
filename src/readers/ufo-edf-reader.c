@@ -59,7 +59,7 @@ ufo_edf_reader_open (UfoReader *reader,
                      const gchar *filename)
 {
     UfoEdfReaderPrivate *priv;
-    
+
     priv = UFO_EDF_READER_GET_PRIVATE (reader);
     priv->fp = fopen (filename, "rb");
 
@@ -72,7 +72,7 @@ static void
 ufo_edf_reader_close (UfoReader *reader)
 {
     UfoEdfReaderPrivate *priv;
-    
+
     priv = UFO_EDF_READER_GET_PRIVATE (reader);
     g_assert (priv->fp != NULL);
     fclose (priv->fp);
@@ -84,7 +84,7 @@ static gboolean
 ufo_edf_reader_data_available (UfoReader *reader)
 {
     UfoEdfReaderPrivate *priv;
-    
+
     priv = UFO_EDF_READER_GET_PRIVATE (reader);
     return priv->fp != NULL && ftell (priv->fp) < priv->size;
 }
@@ -233,6 +233,14 @@ ufo_edf_reader_get_meta (UfoReader *reader,
                  !g_strcmp0 (value, "HighByteFirst")) {
             priv->big_endian = TRUE;
         }
+        else if (!g_strcmp0 (key, "Size")) {
+            /*
+             * Override file size if Size key is given. Using the determined
+             * file size can cause wrong assumption about the number of images
+             * in the EDF file.
+             */
+            priv->size = atoi (value);
+        }
 
         g_strfreev (key_value);
     }
@@ -245,7 +253,7 @@ static void
 ufo_edf_reader_finalize (GObject *object)
 {
     UfoEdfReaderPrivate *priv;
-    
+
     priv = UFO_EDF_READER_GET_PRIVATE (object);
 
     if (priv->fp != NULL) {
