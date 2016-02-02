@@ -23,7 +23,7 @@
 #define PI      3.1415926535897932384626433832795028841971693993751058209749445923078164062f
 #define PI_2    1.5707963267948966192313216916397514420985846996876f
 
-#define METHOD_ROUTINE const int width = get_global_size(0);const int height = get_global_size(1);int idx = get_global_id(0);int idy = get_global_id(1);if (idx >= width || idy >= height) {return;}if (idx == 0 && idy == 0) {output[0] = 0.5f * pow(10, regularize_rate);return;}float n_idx = (idx > floor((float)width / 2.0f)) ? idx - width : idx;float n_idy = (idy > floor((float)height / 2.0f)) ? idy - height : idy;n_idx = n_idx / (1 - normalize * (1 - width));n_idy = n_idy / (1 - normalize * (1 - height));float sin_arg = prefac * (n_idy * n_idy + n_idx * n_idx) / 2.0f;float sin_value = sin(sin_arg);
+#define METHOD_ROUTINE const int width = get_global_size(0);const int height = get_global_size(1);int idx = get_global_id(0);int idy = get_global_id(1);if (idx >= width || idy >= height) {return;}if (idx == 0 && idy == 0) {output[0] = 0.5f * pow(10, regularize_rate);return;}float n_idx = (idx >= floor((float)width / 2.0f)) ? idx - width : idx;float n_idy = (idy >= floor((float)height / 2.0f)) ? idy - height : idy;n_idx = n_idx / (1 - normalize * (1 - width));n_idy = n_idy / (1 - normalize * (1 - height));float sin_arg = prefac * (n_idy * n_idy + n_idx * n_idx) / 2.0f;float sin_value = sin(sin_arg);
 
 kernel void
 tie_method(int normalize, float prefac, float regularize_rate, float binary_filter_rate, global float *output)
