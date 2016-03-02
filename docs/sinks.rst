@@ -45,6 +45,19 @@ File writer
         quality and larger file sizes.
 
 
+stdout writer
+-------------
+
+.. gobj:class:: stdout
+
+    Writes input to stdout. To chop up the data stream you can use the UNIX tool split.
+
+    .. gobj:prop:: bits
+
+        Number of bits for final conversion.  Possible values are 8 and 16 which
+        are saved as integer types and 32 bit float.
+
+
 Auxiliary sink
 ==============
 

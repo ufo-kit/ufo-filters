@@ -56,6 +56,7 @@ set(ufofilter_SRCS
     ufo-slice-task.c
     ufo-stack-task.c
     ufo-stdin-task.c
+    ufo-stdout-task.c
     ufo-transpose-task.c
     ufo-transpose-projections-task.c
     ufo-swap-quadrants-task.c
@@ -76,6 +77,9 @@ set(read_misc_SRCS
 set(write_misc_SRCS
     writers/ufo-writer.c
     writers/ufo-raw-writer.c)
+
+set(stdout_misc_SRCS
+    writers/ufo-writer.c)
 
 set(filter_misc_SRCS
     common/ufo-fft.c)
