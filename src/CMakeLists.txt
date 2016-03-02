@@ -55,6 +55,7 @@ set(ufofilter_SRCS
     ufo-replicate-task.c
     ufo-slice-task.c
     ufo-stack-task.c
+    ufo-stdin-task.c
     ufo-transpose-task.c
     ufo-transpose-projections-task.c
     ufo-swap-quadrants-task.c

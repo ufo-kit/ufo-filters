@@ -107,6 +107,28 @@ UcaCamera reader
     .. note:: This requires third-party library *libuca*.
 
 
+stdin reader
+------------
+
+.. gobj:class::stdin
+
+    Reads data from stdin to produce a valid data stream. :gobj:prop:`width`, :gobj:prop:`height`
+    and :gobj:prop:`bitdepth` must be set correctly to ensure correctly sized data items.
+
+    .. gobj:prop:: width:int
+
+        Specifies the width of input.
+
+    .. gobj:prop:: height:int
+
+        Specifies the height of input.
+
+    .. gobj:prop:: bitdepth:int
+
+        Specifies the bit depth of input.
+
+
+
 Auxiliary generators
 ====================
 
