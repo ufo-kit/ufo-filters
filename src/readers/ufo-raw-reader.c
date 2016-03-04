@@ -276,10 +276,10 @@ ufo_raw_reader_class_init (UfoRawReaderClass *klass)
             G_PARAM_READWRITE);
 
     properties[PROP_OFFSET] =
-        g_param_spec_long("offset",
+        g_param_spec_ulong("offset",
             "Offset to the beginning of image in bytes",
             "Offset to the beginning of image in bytes",
-            0, G_MAXUINT, G_MAXUINT,
+            0, G_MAXULONG, 0,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
