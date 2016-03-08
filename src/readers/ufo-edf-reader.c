@@ -193,16 +193,32 @@ ufo_edf_reader_get_meta (UfoReader *reader,
 {
     UfoEdfReaderPrivate *priv;
     gchar **tokens;
-    gchar *header = g_malloc (1024);
+    gchar *header, *header_trig_position;
+    gsize data_position;
 
     priv = UFO_EDF_READER_GET_PRIVATE (reader);
+    header = g_malloc (priv->size);
 
-    if (fread (header, 1, 1024, priv->fp) != 1024) {
+    if (fread (header, 1, priv->size, priv->fp) != (gsize) priv->size) {
         g_free (header);
         fclose (priv->fp);
         priv->fp = NULL;
         return;
     }
+
+    header_trig_position = g_strstr_len (header, -1, "}");
+    data_position = header_trig_position - header + 2;
+    if (header_trig_position == NULL || data_position % 512) {
+        g_warning ("Edf header corrupted");
+        g_free (header);
+        fclose (priv->fp);
+        priv->fp = NULL;
+        return;
+    }
+    /* Go to the data position */
+    fseek (priv->fp, data_position, SEEK_SET);
+    /* Don't process binary data */
+    header[data_position] = '\0';
 
     tokens = g_strsplit (header, ";", 0);
     priv->big_endian = FALSE;
