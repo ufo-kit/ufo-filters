@@ -450,6 +450,7 @@ ufo_read_task_dispose (GObject *object)
     priv = UFO_READ_TASK_GET_PRIVATE (object);
 
     g_object_unref (priv->edf_reader);
+    g_object_unref (priv->raw_reader);
 
 #ifdef HAVE_TIFF
     g_object_unref (priv->tiff_reader);
