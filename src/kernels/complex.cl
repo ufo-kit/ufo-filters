@@ -68,3 +68,31 @@ c_conj (global float *data)
     int idx = get_global_id(1) * 2 * get_global_size(0) + 2 * get_global_id(0);
     data[idx+1] = -data[idx+1];
 }
+
+/**
+  * c_mul_real_sym:
+  * @frequencies: complex Fourier transform frequencies with interleaved
+  * real/imaginary values
+  * @output: multiplication result
+  * @coefficients: first half of symmetric coefficients for the multiplication
+  * (size = width / 2 + 1)
+  *
+  * Multiply every row of @frequencies with @coefficients which are half the *real*
+  * width + 1, i.e. width = global size / 2 because of the complex numbers. This
+  * kernel takes advantage of symmetry and expects @frequencies to be ordered as
+  * [0, 1, ..., width / 2 - 1, -width / 2, ..., -1]. After width / 2 the @coefficients
+  * are mirrored.
+  */
+kernel void
+c_mul_real_sym (global float *frequencies,
+                global float *output,
+                constant float *coefficients)
+{
+    const int idx = get_global_id(0);
+    const int idy = get_global_id(1);
+    const int real_width = get_global_size (0) / 2;
+    const int index = idy * 2 * real_width + idx;
+    const int real_index = idx < real_width ? idx / 2 : real_width - idx / 2;
+
+    output[index] = frequencies[index] * coefficients[real_index];
+}
