@@ -473,6 +473,21 @@ Fast Fourier transform
         Height to crop output.
 
 
+1D stripe filtering
+-------------------
+
+.. gobj:class filter-stripes1d
+
+    Filter stripes in 1D along the x-axis. The input and output are in frequency
+    domain. The filter multiplies the frequencies with an inverse Gaussian
+    profile centered at 0 frequency. The inversed profile means that the filter
+    is f(k) = 1 - gauss(k) in order to suppress the low frequencies.
+
+    .. gobj:prop:: strength:int
+
+        Filter strength, which is the full width at half maximum of the
+        gaussian.
+
 
 Auxiliary filters
 =================
