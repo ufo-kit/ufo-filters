@@ -242,6 +242,68 @@ Forward projection
         simply pi divided by :gobj:prop:`num-projections`.
 
 
+Laminographic backprojection
+----------------------------
+
+.. gobj:class:: lamino-backproject
+
+    Backprojects parallel beam computed laminography projection-by-projection
+    into a 3D volume.
+
+    .. gobj:prop:: x-region:GValueArray
+
+        X region for reconstruction as (from, to, step).
+
+    .. gobj:prop:: y-region:GValueArray
+
+        Y region for reconstruction as (from, to, step).
+
+    .. gobj:prop:: z:float
+
+        Z coordinate of the reconstructed slice.
+
+    .. gobj:prop:: region:GValueArray
+
+        Region for the parameter along z-axis as (from, to, step).
+
+    .. gobj:prop:: projection-offset:GValueArray
+
+        Offset to projection data as (x, y) for the case input data is cropped
+        to the necessary range of interest.
+
+    .. gobj:prop:: center:GValueArray
+
+        Center of the volume with respect to projections (x, y), (rotation
+        axes).
+
+    .. gobj:prop:: overall-angle:float
+
+        Angle covered by all projections (can be negative for negative steps in
+        case only num-projections is specified)
+
+    .. gobj:prop:: num-projections:uint
+
+        Number of projections.
+
+    .. gobj:prop:: tomo-angle:float
+
+        Tomographic rotation angle in radians (used for acquiring projections).
+
+    .. gobj:prop:: lamino-angle:float
+
+        Absolute laminogrpahic angle in radians determining the sample tilt.
+
+    .. gobj:prop:: roll-angle:float
+
+        Sample angular misalignment to the side (roll) in radians (CW is
+        positive).
+
+    .. gobj:prop:: parameter:string
+
+        Which paramter will be varied along the z-axis, from "z", "x-center",
+        "lamino-angle", "roll-angle".
+
+
 Phase retrieval
 ---------------
 
