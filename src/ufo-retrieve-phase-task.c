@@ -42,8 +42,6 @@ typedef enum {
 
 struct _UfoRetrievePhaseTaskPrivate {
     Method method;
-    guint width;
-    guint height;
     gfloat energy;
     gfloat distance;
     gfloat pixel_size;
@@ -77,8 +75,6 @@ G_DEFINE_TYPE_WITH_CODE (UfoRetrievePhaseTask, ufo_retrieve_phase_task, UFO_TYPE
 enum {
     PROP_0,
     PROP_METHOD,
-    PROP_WIDTH,
-    PROP_HEIGHT,
     PROP_ENERGY,
     PROP_DISTANCE,
     PROP_PIXEL_SIZE,
@@ -304,12 +300,6 @@ ufo_retrieve_phase_task_get_property (GObject *object,
             else if (priv->method == METHOD_QP2)
                 g_value_set_string (value, "qp2");
             break;
-        case PROP_WIDTH:
-            g_value_set_uint (value, priv->width);
-            break;
-        case PROP_HEIGHT:
-            g_value_set_uint (value, priv->height);
-            break;
         case PROP_ENERGY:
             g_value_set_float (value, priv->energy);
             break;
@@ -353,12 +343,6 @@ ufo_retrieve_phase_task_set_property (GObject *object,
                 priv->method = METHOD_QPHALFSINE;
             else if (!g_strcmp0 (g_value_get_string (value), "qp2"))
                 priv->method = METHOD_QP2;
-            break;
-        case PROP_WIDTH:
-            priv->width = g_value_get_uint (value);
-            break;
-        case PROP_HEIGHT:
-            priv->height = g_value_get_uint (value);
             break;
         case PROP_ENERGY:
             priv->energy = g_value_get_float (value);
@@ -461,20 +445,6 @@ ufo_retrieve_phase_task_class_init (UfoRetrievePhaseTaskClass *klass)
             "tie",
             G_PARAM_READWRITE);
 
-    properties[PROP_WIDTH] =
-        g_param_spec_uint ("width",
-            "Filter width",
-            "Width of filter.",
-            1, G_MAXUINT, 1024,
-            G_PARAM_READWRITE);
-
-    properties[PROP_HEIGHT] =
-        g_param_spec_uint ("height",
-            "Filter height",
-            "Height of filter.",
-            1, G_MAXUINT, 1024,
-            G_PARAM_READWRITE);
-
     properties[PROP_ENERGY] =
         g_param_spec_float ("energy",
             "Energy value",
@@ -522,8 +492,6 @@ ufo_retrieve_phase_task_init(UfoRetrievePhaseTask *self)
     UfoRetrievePhaseTaskPrivate *priv;
     self->priv = priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE(self);
     priv->method = METHOD_TIE;
-    priv->width = 1024;
-    priv->height = 1024;
     priv->energy = 20.0f;
     priv->distance = 0.945f;
     priv->pixel_size = 0.75e-6f;
