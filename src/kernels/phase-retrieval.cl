@@ -73,26 +73,8 @@ qp2_method(int normalize, float prefac, float regularize_rate, float binary_filt
 }
 
 kernel void
-mult_by_value(global float *output, global float *values)
+mult_by_value(global float *input, global float *values, global float *output)
 {
-    int idx_o = get_global_id(1) * (2 * get_global_size(0)) + (2 * get_global_id(0));
-    int idx_v = get_global_id(1) * get_global_size(0) + get_global_id(0);
-    output[idx_o] = output[idx_o] * values[idx_v];
-    output[idx_o + 1] = output[idx_o + 1] * values[idx_v];
-}
-
-kernel void
-subtract_value(global float *input, global float *output, float value)
-{
-    int idx_o = get_global_id(1) * (2 * get_global_size(0)) + (2 * get_global_id(0));
-    int idx_i = get_global_id(1) * get_global_size(0) + get_global_id(0);
-    output[idx_o] = input[idx_i] - value;
-    output[idx_o + 1] = 0.0f;
-}
-
-kernel void get_real(global float *input, global float *output)
-{
-    int idx_i = get_global_id(1) * (2 * get_global_size(0)) + (2 * get_global_id(0));
-    int idx_o = get_global_id(1) * get_global_size(0) + get_global_id(0);
-    output[idx_o] = input[idx_i];
+    int idx = get_global_id(1) * get_global_size(0) + get_global_id(0);
+    output[idx] = input[idx] * values[idx];
 }

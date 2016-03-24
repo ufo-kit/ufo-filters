@@ -26,7 +26,6 @@
 #endif
 
 #include "ufo-retrieve-phase-task.h"
-#include "common/ufo-fft.h"
 
 #define IS_POW_OF_2(x) !(x & (x - 1))
 
@@ -50,16 +49,10 @@ struct _UfoRetrievePhaseTaskPrivate {
 
     gfloat prefac;
     gint normalize;
-    gfloat sub_value;
     cl_kernel *kernels;
     cl_kernel mult_by_value_kernel;
-    cl_kernel sub_value_kernel;
-    cl_kernel get_real_kernel;
     cl_context context;
     cl_command_queue cmd_queue;
-    UfoFft *fft;
-    UfoFftParameter param;
-    UfoBuffer *fft_buffer;
     UfoBuffer *filter_buffer;
 };
 
@@ -116,20 +109,9 @@ ufo_retrieve_phase_task_setup (UfoTask *task,
     priv->kernels[METHOD_QPHALFSINE] = ufo_resources_get_kernel(resources, "phase-retrieval.cl", "qphalfsine_method", error);
     priv->kernels[METHOD_QP2] = ufo_resources_get_kernel(resources, "phase-retrieval.cl", "qp2_method", error);
 
-    priv->sub_value_kernel = ufo_resources_get_kernel(resources, "phase-retrieval.cl", "subtract_value", error);
     priv->mult_by_value_kernel = ufo_resources_get_kernel(resources, "phase-retrieval.cl", "mult_by_value", error);
-    priv->get_real_kernel = ufo_resources_get_kernel(resources, "phase-retrieval.cl", "get_real", error);
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext(priv->context));
-
-    if (priv->fft_buffer == NULL) {
-        UfoRequisition requisition;
-        requisition.n_dims = 2;
-        requisition.dims[0] = 1;
-        requisition.dims[1] = 1;
-
-        priv->fft_buffer = ufo_buffer_new(&requisition, priv->context);
-    }
 
     if (priv->filter_buffer == NULL) {
         UfoRequisition requisition;
@@ -140,23 +122,14 @@ ufo_retrieve_phase_task_setup (UfoTask *task,
         priv->filter_buffer = ufo_buffer_new(&requisition, priv->context);
     }
 
-
     for (int i = 0; i < N_METHODS; i++) {
         if (priv->kernels[i] != NULL) {
             UFO_RESOURCES_CHECK_CLERR (clRetainKernel(priv->kernels[i]));
         }
     }
 
-    if (priv->sub_value_kernel != NULL) {
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->sub_value_kernel));
-    }
-
     if (priv->mult_by_value_kernel != NULL) {
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->mult_by_value_kernel));
-    }
-
-    if (priv->get_real_kernel != NULL) {
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->get_real_kernel));
     }
 }
 
@@ -176,20 +149,14 @@ ufo_retrieve_phase_task_get_requisition (UfoTask *task,
     requisition->dims[0] = input_requisition.dims[0];
     requisition->dims[1] = input_requisition.dims[1];
 
+    printf("\n%d %d", requisition->dims[0], requisition->dims[1]);
+
     if (!IS_POW_OF_2(requisition->dims[0]) || !IS_POW_OF_2(requisition->dims[1])) {
         g_error("Please, perform zeropadding of your dataset along both directions (width, height) up to length of power of 2 (e.g. 256, 512, 1024, 2048, etc.)");
         return;
     }
 
-    priv->param.dimensions = UFO_FFT_2D;
-    priv->param.size[0] = input_requisition.dims[0];
-    priv->param.size[1] = input_requisition.dims[1];
-    priv->param.size[2] = 1;
-    priv->param.batch = 1;
-    priv->param.zeropad = TRUE;
-
     queue = ufo_gpu_node_get_cmd_queue (UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task))));
-    UFO_RESOURCES_CHECK_CLERR (ufo_fft_update (priv->fft, priv->context, queue, &priv->param));
 }
 
 static guint
@@ -220,21 +187,13 @@ ufo_retrieve_phase_task_process (UfoTask *task,
     UfoRetrievePhaseTaskPrivate *priv;
     UfoProfiler *profiler;
 
-    cl_mem in_mem, out_mem, fft_mem, filter_mem;
+    cl_mem in_mem, out_mem, filter_mem;
     cl_kernel method_kernel;
 
     priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (task);
     out_mem = ufo_buffer_get_device_array (output, priv->cmd_queue);
     in_mem = ufo_buffer_get_device_array (inputs[0], priv->cmd_queue);
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-
-    UfoRequisition fft_requisition;
-    fft_requisition.n_dims = 2;
-    fft_requisition.dims[0] = requisition->dims[0] * 2;
-    fft_requisition.dims[1] = requisition->dims[1];
-
-    ufo_buffer_resize (priv->fft_buffer, &fft_requisition);
-    fft_mem = ufo_buffer_get_device_array (priv->fft_buffer, priv->cmd_queue);
 
     if (ufo_buffer_cmp_dimensions(priv->filter_buffer, requisition) != 0) {
         ufo_buffer_resize (priv->filter_buffer, requisition);
@@ -253,27 +212,11 @@ ufo_retrieve_phase_task_process (UfoTask *task,
         filter_mem = ufo_buffer_get_device_array (priv->filter_buffer, priv->cmd_queue);
     }
 
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sub_value_kernel, 0, sizeof (cl_mem), &in_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sub_value_kernel, 1, sizeof (cl_mem), &fft_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sub_value_kernel, 2, sizeof (gfloat), &priv->sub_value));
-    ufo_profiler_call (profiler, priv->cmd_queue, priv->sub_value_kernel, requisition->n_dims, requisition->dims, NULL);
-
-    UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (priv->fft, priv->cmd_queue, profiler,
-                                                fft_mem, fft_mem, UFO_FFT_FORWARD,
-                                                0, NULL, NULL));
-
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 0, sizeof (cl_mem), &fft_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 1, sizeof (cl_mem), &filter_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 2, sizeof (cl_mem), &out_mem));
     ufo_profiler_call (profiler, priv->cmd_queue, priv->mult_by_value_kernel, requisition->n_dims, requisition->dims, NULL);
-
-    UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (priv->fft, priv->cmd_queue, profiler,
-                                                fft_mem, fft_mem, UFO_FFT_BACKWARD,
-                                                0, NULL, NULL));
-
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->get_real_kernel, 0, sizeof (cl_mem), &fft_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->get_real_kernel, 1, sizeof (cl_mem), &out_mem));
-    ufo_profiler_call (profiler, priv->cmd_queue, priv->get_real_kernel, requisition->n_dims, requisition->dims, NULL);
-
+    
     return TRUE;
 }
 
@@ -387,32 +330,13 @@ ufo_retrieve_phase_task_finalize (GObject *object)
         priv->mult_by_value_kernel = NULL;
     }
 
-    if (priv->sub_value_kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->sub_value_kernel));
-        priv->sub_value_kernel = NULL;
-    }
-
-    if (priv->get_real_kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->get_real_kernel));
-        priv->sub_value_kernel = NULL;
-    }
-
     if (priv->context) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
         priv->context = NULL;
     }
 
-    if (priv->fft_buffer) {
-        g_object_unref(priv->fft_buffer);
-    }
-
     if (priv->filter_buffer) {
         g_object_unref(priv->filter_buffer);
-    }
-
-    if (priv->fft) {
-        ufo_fft_destroy (priv->fft);
-        priv->fft = NULL;
     }
 
     G_OBJECT_CLASS (ufo_retrieve_phase_task_parent_class)->finalize (object);
@@ -498,9 +422,6 @@ ufo_retrieve_phase_task_init(UfoRetrievePhaseTask *self)
     priv->regularization_rate = 2.5f;
     priv->binary_filter = 0.1f;
     priv->normalize = 1;
-    priv->sub_value = 1.0f;
     priv->kernels = (cl_kernel *) g_malloc0(N_METHODS * sizeof(cl_kernel));
-    priv->fft = ufo_fft_new ();
-    priv->fft_buffer = NULL;
     priv->filter_buffer = NULL;
 }
