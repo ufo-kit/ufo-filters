@@ -247,20 +247,13 @@ Phase retrieval
 
 .. gobj:class:: retrieve-phase
 
-    Computes correction of phase-shifted data.
+    Computes and applies a fourier filter to correct phase-shifted data. 
+    Expects frequencies as an input and produces frequencies as an output.
 
     .. gobj:prop:: method:string
 
         Retrieval method which is one of ``tie``, ``ctf``, ``ctfhalfsin``,
         ``qp``, ``qphalfsine`` or ``qp2``.
-
-    .. gobj:prop:: width:int
-
-        Filter width (optional).
-
-    .. gobj:prop:: height:int
-
-        Filter height (optional).
 
     .. gobj:prop:: energy:float
 
