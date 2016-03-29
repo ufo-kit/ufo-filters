@@ -95,7 +95,7 @@ set(ifft_misc_SRCS
 set(retrieve_phase_misc_SRCS
     common/ufo-fft.c)
 
-set(laminoaux_SRCS
+set(lamino_backproject_misc_SRCS
     lamino-roi.c)
 
 file(GLOB ufofilter_KERNELS "kernels/*.cl")
