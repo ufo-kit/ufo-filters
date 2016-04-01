@@ -28,11 +28,13 @@ set(ufofilter_SRCS
     ufo-fftmult-task.c
     ufo-filter-particle-task.c
     ufo-filter-stripes-task.c
+    ufo-filter-stripes1d-task.c
     ufo-flip-task.c
     ufo-forwardproject-task.c
     ufo-get-dup-circ-task.c
     ufo-ifft-task.c
     ufo-interpolate-task.c
+    ufo-lamino-backproject-task.c
     ufo-loop-task.c
     ufo-map-slice-task.c
     ufo-measure-sharpness-task.c
@@ -93,6 +95,9 @@ set(ifft_misc_SRCS
 set(retrieve_phase_misc_SRCS
     common/ufo-fft.c)
 
+set(lamino_backproject_misc_SRCS
+    lamino-roi.c)
+
 file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}
 #{{{ Variables
@@ -106,6 +111,7 @@ if (CMAKE_COMPILER_IS_GNUCC OR ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang"))
                     "-Wno-missing-field-initializers -Wpointer-arith "
                     "-Wredundant-decls -Wshadow -Wstrict-prototypes -Wwrite-strings")
 endif()
+add_definitions ("-DBURST=${BP_BURST}")
 #}}}
 #{{{ Dependency checks
 find_package(TIFF)
@@ -221,9 +227,8 @@ foreach(_src ${ufofilter_SRCS})
             ARCHIVE DESTINATION ${UFO_PLUGINDIR}
             LIBRARY DESTINATION ${UFO_PLUGINDIR})
 endforeach()
+#}}}
 
-# copy kernels
-foreach(_kernel ${ufofilter_KERNELS})
-    install(FILES ${_kernel} DESTINATION ${UFO_KERNELDIR})
-endforeach()
+#{{{ Subdirectories
+add_subdirectory(kernels)
 #}}}

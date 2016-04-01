@@ -21,6 +21,8 @@ include(PkgConfigVars)
 configure_paths(UFO_FILTERS)
 
 set(PKG_UFO_CORE_MIN_REQUIRED "0.6")
+# Backprojection burst mode, must be one of 1, 2, 4, 8, 16
+set(BP_BURST "16" CACHE STRING "Number of projections processed in one pass")
 
 option(WITH_PROFILING "Enable profiling" OFF)
 
