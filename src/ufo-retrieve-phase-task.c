@@ -149,8 +149,6 @@ ufo_retrieve_phase_task_get_requisition (UfoTask *task,
     requisition->dims[0] = input_requisition.dims[0];
     requisition->dims[1] = input_requisition.dims[1];
 
-    printf("\n%d %d", requisition->dims[0], requisition->dims[1]);
-
     if (!IS_POW_OF_2(requisition->dims[0]) || !IS_POW_OF_2(requisition->dims[1])) {
         g_error("Please, perform zeropadding of your dataset along both directions (width, height) up to length of power of 2 (e.g. 256, 512, 1024, 2048, etc.)");
         return;
