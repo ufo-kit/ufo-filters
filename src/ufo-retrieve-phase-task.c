@@ -138,23 +138,11 @@ ufo_retrieve_phase_task_get_requisition (UfoTask *task,
                                          UfoBuffer **inputs,
                                          UfoRequisition *requisition)
 {
-    UfoRetrievePhaseTaskPrivate *priv;
-    UfoRequisition input_requisition;
-    cl_command_queue queue;
+    ufo_buffer_get_requisition (inputs[0], requisition);
 
-    priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (task);
-    ufo_buffer_get_requisition (inputs[0], &input_requisition);
-
-    requisition->n_dims = 2;
-    requisition->dims[0] = input_requisition.dims[0];
-    requisition->dims[1] = input_requisition.dims[1];
-
-    if (!IS_POW_OF_2(requisition->dims[0]) || !IS_POW_OF_2(requisition->dims[1])) {
+    if (!IS_POW_OF_2 (requisition->dims[0]) || !IS_POW_OF_2 (requisition->dims[1])) {
         g_error("Please, perform zeropadding of your dataset along both directions (width, height) up to length of power of 2 (e.g. 256, 512, 1024, 2048, etc.)");
-        return;
     }
-
-    queue = ufo_gpu_node_get_cmd_queue (UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task))));
 }
 
 static guint
