@@ -81,6 +81,7 @@ struct _UfoFilterTaskPrivate {
     gfloat fb_theta;
     gfloat scale;
     Filter filter;
+    UfoFft *fft;
 };
 
 G_DEFINE_TYPE_WITH_CODE (UfoFilterTask, ufo_filter_task, UFO_TYPE_TASK_NODE,
@@ -286,7 +287,6 @@ ufo_filter_task_get_requisition (UfoTask *task,
         g_free (coefficients);
 
         if (priv->filter == FILTER_RAMP_FROMREAL) {
-            UfoFft *fft = ufo_fft_new ();
             UfoFftParameter param;
             cl_command_queue queue;
             UfoProfiler *profiler;
@@ -297,13 +297,12 @@ ufo_filter_task_get_requisition (UfoTask *task,
             param.size[2] = 1;
             param.batch = 1;
 
+            priv->fft = ufo_fft_new ();
             profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
             queue = ufo_gpu_node_get_cmd_queue (UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task))));
-            UFO_RESOURCES_CHECK_CLERR (ufo_fft_update (fft, priv->context, queue, &param));
-            UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (fft, queue, profiler, priv->filter_mem, priv->filter_mem,
+            UFO_RESOURCES_CHECK_CLERR (ufo_fft_update (priv->fft, priv->context, queue, &param));
+            UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (priv->fft, queue, profiler, priv->filter_mem, priv->filter_mem,
                                                         UFO_FFT_FORWARD, 0, NULL, NULL));
-
-            ufo_fft_destroy (fft);
         }
     }
 }
@@ -344,13 +343,18 @@ ufo_filter_task_finalize (GObject *object)
     priv = UFO_FILTER_TASK_GET_PRIVATE (object);
 
     if (priv->kernel) {
-        clReleaseKernel (priv->kernel);
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
         priv->kernel = NULL;
     }
 
     if (priv->filter_mem) {
-        clReleaseMemObject (priv->filter_mem);
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->filter_mem));
         priv->filter_mem = NULL;
+    }
+
+    if (priv->fft != NULL) {
+        ufo_fft_destroy (priv->fft);
+        priv->fft = NULL;
     }
 
     G_OBJECT_CLASS (ufo_filter_task_parent_class)->finalize (object);
@@ -514,4 +518,5 @@ ufo_filter_task_init (UfoFilterTask *self)
     priv->fb_tau = 0.1f;
     priv->fb_theta = 1.0f;
     priv->scale = 1.0f;
+    priv->fft = NULL;
 }
