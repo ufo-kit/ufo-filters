@@ -7,7 +7,7 @@ distributed data processing framework.  This repository contains basic plugins
 for image processing and tomographic reconstruction.
 
 You can get a list and extensive description of the filters in our
-[reference](http://ufo-filters.readthedocs.org).
+[reference](http://ufo-filters.readthedocs.io).
 
 
 ### License
