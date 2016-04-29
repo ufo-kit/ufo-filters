@@ -459,6 +459,8 @@ ufo_read_task_dispose (GObject *object)
 #ifdef WITH_HDF5
     g_object_unref (priv->hdf5_reader);
 #endif
+
+    G_OBJECT_CLASS (ufo_read_task_parent_class)->dispose (object);
 }
 
 static void
