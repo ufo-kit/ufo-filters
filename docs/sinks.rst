@@ -45,6 +45,47 @@ File writer
         quality and larger file sizes.
 
 
+Memory writer
+-------------
+
+.. gobj:class:: memory-out
+
+    Writes input to a given memory location. Unlike input and output tasks this
+    can be used to interface with other code more directly, e.g. to write into a
+    NumPy buffer::
+
+        from gi.repository import Ufo
+        import numpy as np
+        import tifffile
+
+        ref = tifffile.imread('data.tif')
+        a = np.zeros_like(ref)
+
+        pm = Ufo.PluginManager()
+        g = Ufo.TaskGraph()
+        sched = Ufo.Scheduler()
+        read = pm.get_task('read')
+        out = pm.get_task('memory-out')
+
+        read.props.path = 'data.tif'
+        out.props.pointer = a.__array_interface__['data'][0]
+        out.props.max_size = ref.nbytes
+
+        g.connect_nodes(read, out)
+        sched.run(g)
+
+        assert np.sum(a - ref) == 0.0
+
+    .. gobj:prop:: pointer:ulong
+
+        Pointer to pre-allocated memory.
+
+    .. gobj:prop:: maxsize:ulong
+
+        Size of the pre-allocated memory area in bytes. Data is written up to
+        that point only.
+
+
 stdout writer
 -------------
 
