@@ -180,7 +180,7 @@ ufo_measure_task_process (UfoTask *task,
         }
     }
 
-    ufo_signal_emit (task, signals[RESULT], 0, result_buffer);
+    g_signal_emit (task, signals[RESULT], 0, result_buffer);
     g_object_unref (result_buffer);
 
     if (priv->pass_through)
