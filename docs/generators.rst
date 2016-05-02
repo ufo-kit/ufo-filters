@@ -72,6 +72,57 @@ File reader
         Specifies the bit depth of raw files.
 
 
+Memory reader
+-------------
+
+.. gobj:class:: memory-in
+
+    Reads data from a pre-allocated memory region. Unlike input and output tasks
+    this can be used to interface with other code more directly, e.g. to read
+    from a NumPy buffer::
+
+        from gi.repository import Ufo
+        import numpy as np
+
+
+        ref = np.random.random((512, 512)).astype(np.float32)
+
+        pm = Ufo.PluginManager()
+        g = Ufo.TaskGraph()
+        sched = Ufo.Scheduler()
+        read = pm.get_task('memory-in')
+        write = pm.get_task('write')
+
+        read.props.pointer = ref.__array_interface__['data'][0]
+        read.props.width = ref.shape[1]
+        read.props.height = ref.shape[0]
+        read.props.number = 1
+
+        write.props.filename = 'out.tif'
+
+        g.connect_nodes(read, write)
+        sched.run(g)
+
+        out = tifffile.imread('out.tif')
+        assert np.sum(out - ref) == 0.0
+
+    .. gob:prop:: pointer:ulong
+
+        Pointer to pre-allocated memory.
+
+    .. gobj:prop:: width:int
+
+        Specifies the width of input.
+
+    .. gobj:prop:: height:int
+
+        Specifies the height of input.
+
+    .. gobj:prop:: number:int
+
+        Specifies the number of items to read.
+
+
 UcaCamera reader
 ----------------
 
@@ -112,8 +163,9 @@ stdin reader
 
 .. gobj:class::stdin
 
-    Reads data from stdin to produce a valid data stream. :gobj:prop:`width`, :gobj:prop:`height`
-    and :gobj:prop:`bitdepth` must be set correctly to ensure correctly sized data items.
+    Reads data from stdin to produce a valid data stream. :gobj:prop:`width`,
+    :gobj:prop:`height` and :gobj:prop:`bitdepth` must be set correctly to
+    ensure correctly sized data items.
 
     .. gobj:prop:: width:int
 
