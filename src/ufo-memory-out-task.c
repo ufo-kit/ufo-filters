@@ -107,6 +107,7 @@ ufo_memory_out_task_process (UfoTask *task,
 {
     UfoMemoryOutTaskPrivate *priv;
     gfloat *in_mem;
+    gchar *out_mem;
     gsize size;
 
     priv = UFO_MEMORY_OUT_TASK_GET_PRIVATE (task);
@@ -118,9 +119,10 @@ ufo_memory_out_task_process (UfoTask *task,
 
     size = ufo_buffer_get_size (inputs[0]);
     size = MIN (size, priv->max_size - priv->written);
+    out_mem = (gchar *) priv->pointer;
 
     in_mem = ufo_buffer_get_host_array (inputs[0], NULL);
-    memcpy (&priv->pointer[priv->written], in_mem, size);
+    memcpy (&out_mem[priv->written], in_mem, size);
     priv->written += size;
 
     return TRUE;
