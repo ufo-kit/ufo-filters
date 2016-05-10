@@ -135,15 +135,9 @@ copy_to_image (UfoBuffer *input,
     cl_event event;
 
     input_data = ufo_buffer_get_device_image (input, cmd_queue);
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueCopyImage (cmd_queue,
-                                                   input_data,
-                                                   output_image,
-                                                   origin,
-                                                   origin,
-                                                   region,
-                                                   0,
-                                                   NULL,
-                                                   &event));
+    UFO_RESOURCES_CHECK_CLERR (clEnqueueCopyImage (cmd_queue, input_data, output_image,
+                                                   origin, origin, region,
+                                                   0, NULL, &event));
 
     UFO_RESOURCES_CHECK_CLERR (clWaitForEvents (1, &event));
     UFO_RESOURCES_CHECK_CLERR (clReleaseEvent (event));
@@ -157,21 +151,35 @@ ufo_lamino_backproject_task_new (void)
 
 static void
 ufo_lamino_backproject_task_setup (UfoTask *task,
-                       UfoResources *resources,
-                       GError **error)
+                                   UfoResources *resources,
+                                   GError **error)
 {
     UfoLaminoBackprojectTaskPrivate *priv;
     cl_int cl_error;
     gint i;
-    gchar *vector_kernel_name, *kernel_filename;
+    gchar *vector_kernel_name;
+    gchar *kernel_filename;
+
+    priv = UFO_LAMINO_BACKPROJECT_TASK_GET_PRIVATE (task);
+
+    if (!priv->num_projections) {
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "Number of projections has not been set");
+        return;
+    }
+
+    if (EXTRACT_FLOAT (priv->region, 2) == 0.0f) {
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "Step in region is 0");
+        return;
+    }
 
     vector_kernel_name = g_strdup_printf ("backproject_burst_%d", BURST);
+
     if (!vector_kernel_name) {
         g_warning ("Error making burst kernel name");
     }
 
-    priv = UFO_LAMINO_BACKPROJECT_TASK_GET_PRIVATE (task);
     priv->context = ufo_resources_get_context (resources);
+
     switch (priv->parameter) {
         case PARAM_Z:
             kernel_filename = g_strdup ("z_kernel.cl");
@@ -189,21 +197,18 @@ ufo_lamino_backproject_task_setup (UfoTask *task,
             g_warning ("Unkown varying parameter");
             break;
     }
-    priv->vector_kernel = ufo_resources_get_kernel (resources, kernel_filename,
-                                                    vector_kernel_name, error);
-    priv->scalar_kernel = ufo_resources_get_kernel (resources, kernel_filename,
-                                                    "backproject_burst_1", error);
-    priv->sampler = clCreateSampler (priv->context,
-                                     (cl_bool) FALSE,
-                                     CL_ADDRESS_CLAMP,
-                                     CL_FILTER_LINEAR,
-                                     &cl_error);
+
+    priv->vector_kernel = ufo_resources_get_kernel (resources, kernel_filename, vector_kernel_name, error);
+    priv->scalar_kernel = ufo_resources_get_kernel (resources, kernel_filename, "backproject_burst_1", error);
+    priv->sampler = clCreateSampler (priv->context, (cl_bool) FALSE, CL_ADDRESS_CLAMP, CL_FILTER_LINEAR, &cl_error);
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
     UFO_RESOURCES_CHECK_CLERR (cl_error);
+
     if (priv->vector_kernel) {
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->vector_kernel));
     }
+
     if (priv->scalar_kernel) {
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->scalar_kernel));
     }
@@ -227,8 +232,8 @@ ufo_lamino_backproject_task_setup (UfoTask *task,
 
 static void
 ufo_lamino_backproject_task_get_requisition (UfoTask *task,
-                                 UfoBuffer **inputs,
-                                 UfoRequisition *requisition)
+                                             UfoBuffer **inputs,
+                                             UfoRequisition *requisition)
 {
     UfoLaminoBackprojectTaskPrivate *priv;
     gfloat start, stop, step;
@@ -237,13 +242,6 @@ ufo_lamino_backproject_task_get_requisition (UfoTask *task,
     start = EXTRACT_FLOAT (priv->region, 0);
     stop = EXTRACT_FLOAT (priv->region, 1);
     step = EXTRACT_FLOAT (priv->region, 2);
-
-    if (!priv->num_projections) {
-        g_warning ("Number of projections has not been set");
-    }
-    if (step == 0.0f) {
-        g_warning ("Step in region is 0");
-    }
 
     requisition->n_dims = 3;
     requisition->dims[0] = REGION_SIZE (priv->x_region);
@@ -259,7 +257,7 @@ ufo_lamino_backproject_task_get_num_inputs (UfoTask *task)
 
 static guint
 ufo_lamino_backproject_task_get_num_dimensions (UfoTask *task,
-                                             guint input)
+                                                guint input)
 {
     g_return_val_if_fail (input == 0, 0);
 
@@ -274,9 +272,9 @@ ufo_lamino_backproject_task_get_mode (UfoTask *task)
 
 static gboolean
 ufo_lamino_backproject_task_process (UfoTask *task,
-                         UfoBuffer **inputs,
-                         UfoBuffer *output,
-                         UfoRequisition *requisition)
+                                     UfoBuffer **inputs,
+                                     UfoBuffer *output,
+                                     UfoRequisition *requisition)
 {
     UfoLaminoBackprojectTaskPrivate *priv;
     UfoRequisition in_req;
@@ -476,9 +474,9 @@ ufo_lamino_backproject_task_generate (UfoTask *task,
 
 static void
 ufo_lamino_backproject_task_set_property (GObject *object,
-                              guint property_id,
-                              const GValue *value,
-                              GParamSpec *pspec)
+                                          guint property_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
 {
     UfoLaminoBackprojectTaskPrivate *priv = UFO_LAMINO_BACKPROJECT_TASK_GET_PRIVATE (object);
     GValueArray *array;
@@ -544,9 +542,9 @@ ufo_lamino_backproject_task_set_property (GObject *object,
 
 static void
 ufo_lamino_backproject_task_get_property (GObject *object,
-                              guint property_id,
-                              GValue *value,
-                              GParamSpec *pspec)
+                                          guint property_id,
+                                          GValue *value,
+                                          GParamSpec *pspec)
 {
     UfoLaminoBackprojectTaskPrivate *priv = UFO_LAMINO_BACKPROJECT_TASK_GET_PRIVATE (object);
 
