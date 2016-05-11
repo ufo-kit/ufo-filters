@@ -202,7 +202,9 @@ ufo_camera_task_generate (UfoTask *task,
             return FALSE;
         }
 
-        ufo_buffer_convert (output, priv->n_bits <= 8 ? UFO_BUFFER_DEPTH_8U : UFO_BUFFER_DEPTH_16U);
+        if (priv->n_bits != 32)
+            ufo_buffer_convert (output, priv->n_bits <= 8 ? UFO_BUFFER_DEPTH_8U : UFO_BUFFER_DEPTH_16U);
+
         priv->current++;
         return TRUE;
     }
