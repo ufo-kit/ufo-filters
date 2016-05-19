@@ -49,9 +49,9 @@ File reader
 
         Height of the region that is read from the image.
 
-    .. gobj:prop:: enable-conversion:boolean
+    .. gobj:prop:: convert:boolean
 
-        Enable conversion of input data to float elements.
+        Convert input data to float elements, enabled by default.
 
     .. gobj:prop:: type:string
 
