@@ -17,7 +17,9 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <glib/gstdio.h>
 #include <gmodule.h>
+#include <string.h>
 #include <errno.h>
 
 #include "config.h"
@@ -114,6 +116,20 @@ count_format_specifiers (const gchar *filename)
     return count;
 }
 
+static gboolean
+can_be_written (const gchar *filename, GError **error)
+{
+    if (g_file_test (filename, G_FILE_TEST_EXISTS)) {
+        if (g_access (filename, W_OK) < 0) {
+            g_set_error (error, G_IO_ERROR, g_io_error_from_errno (errno),
+                         "Cannot access `%s': %s.", filename, strerror (errno));
+            return FALSE;
+        }
+    }
+
+    return TRUE;
+}
+
 static void
 ufo_write_task_setup (UfoTask *task,
                       UfoResources *resources,
@@ -134,6 +150,14 @@ ufo_write_task_setup (UfoTask *task,
     }
 
     priv->multi_file = num_fmt_specifiers == 0;
+
+    /* Check that we can actually overwrite existing files */
+    if (priv->multi_file && !can_be_written (priv->filename, error))
+        return;
+
+    if (!priv->append) {
+        priv->counter = 0;
+    }
 
     if (ufo_writer_can_open (UFO_WRITER (priv->raw_writer), priv->filename)) {
         priv->writer = UFO_WRITER (priv->raw_writer);
@@ -246,8 +270,19 @@ ufo_write_task_process (UfoTask *task,
     offset = ufo_buffer_get_size (inputs[0]) / num_frames;
 
     for (guint i = 0; i < num_frames; i++) {
+retry:
         if (!priv->multi_file || !priv->opened) {
+            GError *error = NULL;
             gchar *filename = get_current_filename (priv);
+
+            if (!can_be_written (filename, &error)) {
+                g_warning ("%s", error->message);
+                g_free (filename);
+                g_error_free (error);
+                priv->counter++;
+                goto retry;
+            }
+
             ufo_writer_open (priv->writer, filename);
             g_free (filename);
             priv->opened = TRUE;
