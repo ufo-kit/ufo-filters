@@ -30,6 +30,7 @@ struct _UfoCropTaskPrivate {
     guint y;
     guint width;
     guint height;
+    gboolean from_center;
 
     cl_command_queue cmd_queue;
 };
@@ -48,6 +49,7 @@ enum {
     PROP_Y,
     PROP_WIDTH,
     PROP_HEIGHT,
+    PROP_FROM_CENTER,
     N_PROPERTIES
 };
 
@@ -124,15 +126,15 @@ ufo_crop_task_process (UfoTask *task,
     cl_mem out_data;
 
     priv = UFO_CROP_TASK_GET_PRIVATE (task);
-    x1 = priv->x;
-    y1 = priv->y;
-    x2 = x1 + priv->width;
-    y2 = y1 + priv->height;
-
     ufo_buffer_get_requisition (inputs[0], &req);
 
     in_width = (guint) req.dims[0];
     in_height = (guint) req.dims[1];
+
+    x1 = priv->from_center ? in_width / 2 - priv->width / 2 : priv->x;
+    y1 = priv->from_center ? in_height / 2 - priv->height / 2 : priv->y;
+    x2 = x1 + priv->width;
+    y2 = y1 + priv->height;
 
     /* Don't do anything if we are completely out of bounds */
     if (x1 > in_width || y1 > in_height) {
@@ -150,15 +152,12 @@ ufo_crop_task_process (UfoTask *task,
     const size_t dst_origin[3] = {0, 0, 0};
     const size_t region[3] = {rd_width * sizeof(float), rd_height, 1}; 
     
-    clEnqueueCopyBufferRect(priv->cmd_queue,
-                            in_data,
-                            out_data,
-                            src_origin,
-                            dst_origin,
-                            region,
-                            in_width * sizeof(float), 0,
-                            rd_width * sizeof(float), 0,
-                            0, NULL, NULL);
+    clEnqueueCopyBufferRect (priv->cmd_queue,
+                             in_data, out_data,
+                             src_origin, dst_origin, region,
+                             in_width * sizeof(float), 0,
+                             rd_width * sizeof(float), 0,
+                             0, NULL, NULL);
 
     return TRUE;
 }
@@ -183,6 +182,9 @@ ufo_crop_task_set_property (GObject *object,
             break;
         case PROP_HEIGHT:
             priv->height = g_value_get_uint (value);
+            break;
+        case PROP_FROM_CENTER:
+            priv->from_center = g_value_get_boolean (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -210,6 +212,9 @@ ufo_crop_task_get_property (GObject *object,
             break;
         case PROP_HEIGHT:
             g_value_set_uint (value, priv->height);
+            break;
+        case PROP_FROM_CENTER:
+            g_value_set_boolean (value, priv->from_center);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -271,6 +276,13 @@ ufo_crop_task_class_init (UfoCropTaskClass *klass)
             1, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
+    properties[PROP_FROM_CENTER] =
+        g_param_spec_boolean ("from-center",
+            "Ignore `x' and `y' and crop from center",
+            "Ignore `x' and `y' and crop from center",
+            FALSE,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -285,4 +297,5 @@ ufo_crop_task_init(UfoCropTask *self)
     self->priv->y = 0;
     self->priv->width = G_MAXUINT;
     self->priv->height = G_MAXUINT;
+    self->priv->from_center = FALSE;
 }
