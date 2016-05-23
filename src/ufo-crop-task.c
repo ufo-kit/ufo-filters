@@ -152,12 +152,12 @@ ufo_crop_task_process (UfoTask *task,
     const size_t dst_origin[3] = {0, 0, 0};
     const size_t region[3] = {rd_width * sizeof(float), rd_height, 1}; 
     
-    clEnqueueCopyBufferRect (priv->cmd_queue,
-                             in_data, out_data,
-                             src_origin, dst_origin, region,
-                             in_width * sizeof(float), 0,
-                             rd_width * sizeof(float), 0,
-                             0, NULL, NULL);
+    UFO_RESOURCES_CHECK_CLERR (clEnqueueCopyBufferRect (priv->cmd_queue,
+                                                        in_data, out_data,
+                                                        src_origin, dst_origin, region,
+                                                        in_width * sizeof(float), 0,
+                                                        rd_width * sizeof(float), 0,
+                                                        0, NULL, NULL));
 
     return TRUE;
 }
