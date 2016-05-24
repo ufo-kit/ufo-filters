@@ -21,6 +21,11 @@ struct _UfoFft {
 #endif
 };
 
+#ifdef HAVE_AMD
+static GMutex amd_mutex;
+static GList *ffts_created = NULL;
+#endif
+
 
 UfoFft *
 ufo_fft_new (void)
@@ -31,6 +36,10 @@ ufo_fft_new (void)
 
 #ifdef HAVE_AMD
     UFO_RESOURCES_CHECK_CLERR (clfftSetup (&fft->amd_setup));
+
+    g_mutex_lock (&amd_mutex);
+    ffts_created = g_list_append (ffts_created, fft);
+    g_mutex_unlock (&amd_mutex);
 #endif
 
     return fft;
@@ -110,8 +119,15 @@ void
 ufo_fft_destroy (UfoFft *fft)
 {
 #ifdef HAVE_AMD
+    g_mutex_lock (&amd_mutex);
+
     clfftDestroyPlan (&fft->amd_plan);
-    clfftTeardown ();
+    ffts_created = g_list_remove (ffts_created, fft);
+
+    if (g_list_length (ffts_created) == 0)
+        clfftTeardown ();
+
+    g_mutex_unlock (&amd_mutex);
 #else
     clFFT_DestroyPlan (fft->apple_plan);
 #endif
