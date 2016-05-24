@@ -1,3 +1,37 @@
+Version 0.10.0
+==============
+
+Enhancements:
+
+- Restructured FFT-based filters to use a common code base
+- filter: Use real space ramp by default
+- crop: add `from-center' property
+- hdf5: whitelist .hdf5 and .nxs extensions
+
+Fixes:
+
+- camera: do not convert 32 bit float data
+- EDF: fix problem parsing Frelon EDF data
+- Fix #117: fail gracefully if file can't be written
+- edf reader: Allow 512-multiple header size
+- Fix reading 32 bit float raws as unsigned int
+
+Breaks:
+
+- read: renamed enable-conversion → convert
+- null: renamed force-download → download
+
+New filters:
+
+- Add MemoryIn generator
+- Add MemoryOut sink
+- Add stdin generator
+- Add stdout sink
+- Add laminographic backprojection
+- Add 1D stripe filter
+- Add sleep task for debugging purposes
+
+
 Version 0.9.0
 =============
 
