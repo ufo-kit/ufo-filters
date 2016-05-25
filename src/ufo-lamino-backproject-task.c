@@ -300,8 +300,17 @@ ufo_lamino_backproject_task_process (UfoTask *task,
     /* keep the warp size satisfied but make sure the local grid is localized
      * around a point in 3D for efficient caching */
     const gint real_size[4] = {requisition->dims[0], requisition->dims[1], requisition->dims[2], 0};
-    const gsize local_work_size[] = {16, 8, 8};
+    gsize local_work_size[3] = {16, 8, 8};
     gsize global_work_size[3];
+    GValue *work_group_size;
+
+    priv = UFO_LAMINO_BACKPROJECT_TASK (task)->priv;
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+    work_group_size = ufo_gpu_node_get_info (node, UFO_GPU_NODE_INFO_MAX_WORK_GROUP_SIZE);
+
+    /* Let last axis depend on maximum work group size */
+    local_work_size[2] = g_value_get_ulong (work_group_size) / 128;
+    g_value_unset (work_group_size);
 
     global_work_size[0] = requisition->dims[0] % local_work_size[0] ?
                           PAD_TO_DIVIDE (requisition->dims[0], local_work_size[0]) :
@@ -313,8 +322,6 @@ ufo_lamino_backproject_task_process (UfoTask *task,
                           PAD_TO_DIVIDE (requisition->dims[2], local_work_size[2]) :
                           requisition->dims[2];
 
-    priv = UFO_LAMINO_BACKPROJECT_TASK (task)->priv;
-    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     ufo_buffer_get_requisition (inputs[0], &in_req);
