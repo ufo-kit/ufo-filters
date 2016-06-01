@@ -31,7 +31,6 @@ struct _UfoDummyDataTaskPrivate {
     guint height;
     guint depth;
     guint number;
-    guint bitdepth;
     guint current;
 };
 
@@ -49,7 +48,6 @@ enum {
     PROP_HEIGHT,
     PROP_DEPTH,
     PROP_NUMBER,
-    PROP_BITDEPTH,
     N_PROPERTIES
 };
 
@@ -119,22 +117,7 @@ ufo_dummy_data_task_generate (UfoTask *task,
 
     priv = UFO_DUMMY_DATA_TASK_GET_PRIVATE (task);
 
-    if (priv->current == priv->number)
-        return FALSE;
-
-    if (priv->bitdepth == 8 || priv->bitdepth == 16) {
-        gfloat *array;
-
-        /* force getting the data, otherwise no conversion will take place */
-        array = ufo_buffer_get_host_array (output, NULL);
-        array[0] = 0.0;
-
-        ufo_buffer_convert (output, priv->bitdepth == 8 ? UFO_BUFFER_DEPTH_8U : UFO_BUFFER_DEPTH_16U);
-    }
-
-    priv->current++;
-
-    return TRUE;
+    return priv->current++ < priv->number;
 }
 
 static void
@@ -157,18 +140,6 @@ ufo_dummy_data_task_set_property (GObject *object,
             break;
         case PROP_NUMBER:
             priv->number = g_value_get_uint (value);
-            break;
-        case PROP_BITDEPTH:
-            {
-                guint depth;
-
-                depth = g_value_get_uint (value);
-
-                if (depth != 8 && depth != 16 && depth != 32)
-                    g_warning ("::bitdepth must be either 8, 16 or 32");
-                else
-                    priv->bitdepth = depth;
-            }
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -196,9 +167,6 @@ ufo_dummy_data_task_get_property (GObject *object,
             break;
         case PROP_NUMBER:
             g_value_set_uint (value, priv->number);
-            break;
-        case PROP_BITDEPTH:
-            g_value_set_uint (value, priv->bitdepth);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -260,13 +228,6 @@ ufo_dummy_data_task_class_init (UfoDummyDataTaskClass *klass)
                            1, 2 << 16, 1,
                            G_PARAM_READWRITE);
 
-    properties[PROP_BITDEPTH] =
-        g_param_spec_uint ("bitdepth",
-                           "Number of bits",
-                           "Number of bits, to simulate the effect of implicit conversion",
-                           8, 32, 32,
-                           G_PARAM_READWRITE);
-
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -282,5 +243,4 @@ ufo_dummy_data_task_init(UfoDummyDataTask *self)
     self->priv->depth = 1;
     self->priv->number = 1;
     self->priv->current = 0;
-    self->priv->bitdepth = 32;
 }
