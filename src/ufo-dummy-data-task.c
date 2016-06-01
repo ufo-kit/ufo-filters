@@ -32,6 +32,8 @@ struct _UfoDummyDataTaskPrivate {
     guint depth;
     guint number;
     guint current;
+    gfloat init;
+    gboolean use_init;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -48,6 +50,7 @@ enum {
     PROP_HEIGHT,
     PROP_DEPTH,
     PROP_NUMBER,
+    PROP_INIT,
     N_PROPERTIES
 };
 
@@ -110,14 +113,29 @@ ufo_dummy_data_task_get_mode (UfoTask *task)
 
 static gboolean
 ufo_dummy_data_task_generate (UfoTask *task,
-                            UfoBuffer *output,
-                            UfoRequisition *requisition)
+                              UfoBuffer *output,
+                              UfoRequisition *requisition)
 {
     UfoDummyDataTaskPrivate *priv;
 
     priv = UFO_DUMMY_DATA_TASK_GET_PRIVATE (task);
 
-    return priv->current++ < priv->number;
+    if (priv->current == priv->number)
+        return FALSE;
+
+    if (priv->use_init) {
+        gfloat *data;
+        gsize size;
+
+        data = ufo_buffer_get_host_array (output, NULL);
+        size = ufo_buffer_get_size (output);
+
+        for (gsize i = 0; i < size / 4; i++)
+            data[i] = priv->init;
+    }
+
+    priv->current++;
+    return TRUE;
 }
 
 static void
@@ -140,6 +158,10 @@ ufo_dummy_data_task_set_property (GObject *object,
             break;
         case PROP_NUMBER:
             priv->number = g_value_get_uint (value);
+            break;
+        case PROP_INIT:
+            priv->init = g_value_get_float (value);
+            priv->use_init = TRUE;
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -167,6 +189,9 @@ ufo_dummy_data_task_get_property (GObject *object,
             break;
         case PROP_NUMBER:
             g_value_set_uint (value, priv->number);
+            break;
+        case PROP_INIT:
+            g_value_set_float (value, priv->init);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -228,6 +253,13 @@ ufo_dummy_data_task_class_init (UfoDummyDataTaskClass *klass)
                            1, 2 << 16, 1,
                            G_PARAM_READWRITE);
 
+    properties[PROP_INIT] =
+        g_param_spec_float ("init",
+                            "Initial float value",
+                            "Initial float value",
+                            -G_MAXFLOAT, G_MAXFLOAT, 0,
+                            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -243,4 +275,6 @@ ufo_dummy_data_task_init(UfoDummyDataTask *self)
     self->priv->depth = 1;
     self->priv->number = 1;
     self->priv->current = 0;
+    self->priv->init = 0.0f;
+    self->priv->use_init = FALSE;
 }
