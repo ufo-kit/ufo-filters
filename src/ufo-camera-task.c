@@ -32,9 +32,7 @@ struct _UfoCameraTaskPrivate {
     guint       width;
     guint       height;
     guint       n_bits;
-    double      time;
     gchar      *name;
-    GTimer     *timer;
     gboolean    readout;
 };
 
@@ -103,7 +101,6 @@ ufo_camera_task_setup (UfoTask *task,
 {
     UfoCameraTask *node;
     UfoCameraTaskPrivate *priv;
-    gboolean is_recording;
 
     node = UFO_CAMERA_TASK (task);
     priv = node->priv;
@@ -121,30 +118,14 @@ ufo_camera_task_setup (UfoTask *task,
     }
 
     priv->current = 0;
-    priv->timer = g_timer_new ();
 
     g_object_get (priv->camera,
                   "roi-width", &priv->width,
                   "roi-height", &priv->height,
                   "sensor-bitdepth", &priv->n_bits,
-                  "is-recording", &is_recording,
                   NULL);
 
-    if (!is_recording && !priv->readout) {
-        g_debug ("camera: start recording");
-        uca_camera_start_recording (priv->camera, error);
-    }
-
-    if (priv->readout) {
-        guint n_frames;
-
-        if (is_recording)
-            uca_camera_stop_recording (priv->camera, error);
-
-        g_object_get (priv->camera, "recorded-frames", &n_frames, NULL);
-        priv->count = n_frames < priv->count ? n_frames : priv->count;
-        uca_camera_start_readout (priv->camera, error);
-    }
+    uca_camera_start_recording (priv->camera, error);
 }
 
 static void
@@ -169,7 +150,7 @@ ufo_camera_task_get_num_inputs (UfoTask *task)
 
 static guint
 ufo_camera_task_get_num_dimensions (UfoTask *task,
-                               guint input)
+                                    guint input)
 {
     return 0;
 }
@@ -190,7 +171,7 @@ ufo_camera_task_generate (UfoTask *task,
 
     priv = UFO_CAMERA_TASK_GET_PRIVATE (UFO_CAMERA_TASK (task));
 
-    if (priv->current < priv->count || g_timer_elapsed (priv->timer, NULL) < priv->time) {
+    if (priv->current < priv->count) {
         gfloat *host_array;
 
         host_array = ufo_buffer_get_host_array (output, NULL);
@@ -207,6 +188,16 @@ ufo_camera_task_generate (UfoTask *task,
 
         priv->current++;
         return TRUE;
+    }
+    else {
+        GError *error = NULL;
+
+        uca_camera_stop_recording (priv->camera, &error);
+
+        if (error != NULL) {
+            g_warning ("Could not stop camera: %s", error->message);
+            g_error_free (error);
+        }
     }
 
     return FALSE;
@@ -236,9 +227,6 @@ ufo_camera_task_set_property (GObject *object,
         case PROP_COUNT:
             priv->count = g_value_get_uint (value);
             break;
-        case PROP_TIME:
-            priv->time = g_value_get_double (value);
-            break;
         case PROP_READOUT:
             priv->readout = g_value_get_boolean (value);
             break;
@@ -265,9 +253,6 @@ ufo_camera_task_get_property (GObject *object,
             break;
         case PROP_COUNT:
             g_value_set_uint (value, priv->count);
-            break;
-        case PROP_TIME:
-            g_value_set_double (value, priv->time);
             break;
         case PROP_READOUT:
             g_value_set_boolean (value, priv->readout);
@@ -302,11 +287,6 @@ ufo_camera_task_finalize (GObject *object)
     UfoCameraTaskPrivate *priv = UFO_CAMERA_TASK_GET_PRIVATE (object);
 
     g_free (priv->name);
-
-    if (priv->timer) {
-        g_timer_destroy (priv->timer);
-        priv->timer = NULL;
-    }
 
     G_OBJECT_CLASS (ufo_camera_task_parent_class)->finalize (object);
 }
@@ -352,19 +332,6 @@ ufo_camera_task_class_init(UfoCameraTaskClass *klass)
             "Number of frames to record",
             0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
-
-    properties[PROP_TIME] =
-        g_param_spec_double("time",
-            "Maximum time for recording in fraction of seconds",
-            "Maximum time for recording in fraction of seconds",
-             0.0, 3600.0, 5.0,
-            G_PARAM_READWRITE);
-
-    properties[PROP_READOUT] =
-        g_param_spec_boolean("readout",
-            "Read-out pre-recorded frames instead of starting the acquisition",
-            "Read-out pre-recorded frames instead of starting the acquisition",
-            FALSE, G_PARAM_READWRITE);
 
     for (guint i = PROP_X + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
