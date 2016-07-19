@@ -33,7 +33,7 @@ struct _UfoCameraTaskPrivate {
     guint       height;
     guint       n_bits;
     gchar      *name;
-    gboolean    readout;
+    gchar      *properties;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -49,8 +49,7 @@ enum {
     PROP_CAMERA,
     PROP_CAMERA_NAME,
     PROP_COUNT,
-    PROP_TIME,
-    PROP_READOUT,
+    PROP_PROPERTIES,
     N_PROPERTIES
 };
 
@@ -118,6 +117,19 @@ ufo_camera_task_setup (UfoTask *task,
     }
 
     priv->current = 0;
+
+    if (priv->properties != NULL) {
+        gchar **props;
+
+        props = g_strsplit (priv->properties, " ", 0);
+
+        if (!uca_camera_parse_arg_props (priv->camera, props, g_strv_length (props), error)) {
+            g_strfreev (props);
+            return;
+        }
+
+        g_strfreev (props);
+    }
 
     g_object_get (priv->camera,
                   "roi-width", &priv->width,
@@ -227,8 +239,9 @@ ufo_camera_task_set_property (GObject *object,
         case PROP_COUNT:
             priv->count = g_value_get_uint (value);
             break;
-        case PROP_READOUT:
-            priv->readout = g_value_get_boolean (value);
+        case PROP_PROPERTIES:
+            g_free (priv->properties);
+            priv->properties = g_strdup (g_value_get_string (value));
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -254,8 +267,8 @@ ufo_camera_task_get_property (GObject *object,
         case PROP_COUNT:
             g_value_set_uint (value, priv->count);
             break;
-        case PROP_READOUT:
-            g_value_set_boolean (value, priv->readout);
+        case PROP_PROPERTIES:
+            g_value_set_string (value, priv->properties);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -287,6 +300,7 @@ ufo_camera_task_finalize (GObject *object)
     UfoCameraTaskPrivate *priv = UFO_CAMERA_TASK_GET_PRIVATE (object);
 
     g_free (priv->name);
+    g_free (priv->properties);
 
     G_OBJECT_CLASS (ufo_camera_task_parent_class)->finalize (object);
 }
@@ -333,6 +347,13 @@ ufo_camera_task_class_init(UfoCameraTaskClass *klass)
             0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
+    properties[PROP_PROPERTIES] =
+        g_param_spec_string ("properties",
+            "Property string, i.e. `roi-width=512 exposure-time=0.1'",
+            "Property string, i.e. `roi-width=512 exposure-time=0.1'",
+            "",
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_X + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -349,5 +370,5 @@ ufo_camera_task_init (UfoCameraTask *self)
     priv->name = NULL;
     priv->camera = NULL;
     priv->count = 0;
-    priv->readout = FALSE;
+    priv->properties = NULL;
 }
