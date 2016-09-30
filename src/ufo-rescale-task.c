@@ -32,6 +32,8 @@ struct _UfoRescaleTaskPrivate {
     cl_filter_mode filter_mode;
     gfloat x_factor;
     gfloat y_factor;
+    guint width;
+    guint height;
     cl_sampler sampler;
 };
 
@@ -48,6 +50,8 @@ enum {
     PROP_FACTOR,
     PROP_X_FACTOR,
     PROP_Y_FACTOR,
+    PROP_WIDTH,
+    PROP_HEIGHT,
     PROP_INTERPOLATION,
     N_PROPERTIES
 };
@@ -97,8 +101,8 @@ ufo_rescale_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
     requisition->n_dims = 2;
-    requisition->dims[0] = (gint) (in_req.dims[0] * priv->x_factor);
-    requisition->dims[1] = (gint) (in_req.dims[1] * priv->y_factor);
+    requisition->dims[0] = (gint) (priv->width > 0 ? priv->width : (in_req.dims[0] * priv->x_factor));
+    requisition->dims[1] = (gint) (priv->height > 0 ? priv->height : (in_req.dims[1] * priv->y_factor));
 
     /* If the factors are too big we want at least one row/column in order */
     /* not to have a buffer with 0 in any dimension */
@@ -132,16 +136,19 @@ ufo_rescale_task_get_mode (UfoTask *task)
 
 static gboolean
 ufo_rescale_task_process (UfoTask *task,
-                             UfoBuffer **inputs,
-                             UfoBuffer *output,
-                             UfoRequisition *requisition)
+                          UfoBuffer **inputs,
+                          UfoBuffer *output,
+                          UfoRequisition *requisition)
 {
     UfoRescaleTaskPrivate *priv;
     UfoGpuNode *node;
     UfoProfiler *profiler;
+    UfoRequisition in_req;
     cl_command_queue *cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
+    gfloat x_factor;
+    gfloat y_factor;
 
     priv = UFO_RESCALE_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE(task)));
@@ -149,11 +156,17 @@ ufo_rescale_task_process (UfoTask *task,
     in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
 
+    ufo_buffer_get_requisition (inputs[0], &in_req);
+    x_factor = priv->width > 0 ? ((gfloat) priv->width) / in_req.dims[0] : priv->x_factor;
+    y_factor = priv->height > 0 ? ((gfloat) priv->height) / in_req.dims[1] : priv->y_factor;
+
+    g_print ("%f %f %i %i %i %i\n", x_factor, y_factor, priv->width, priv->height, in_req.dims[0], in_req.dims[1]);
+
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_sampler), &priv->sampler));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (gfloat), &priv->x_factor));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (gfloat), &priv->y_factor));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (gfloat), &x_factor));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (gfloat), &y_factor));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
@@ -179,6 +192,12 @@ ufo_rescale_task_set_property (GObject *object,
             break;
         case PROP_Y_FACTOR:
             priv->y_factor = g_value_get_float (value);
+            break;
+        case PROP_WIDTH:
+            priv->width = g_value_get_uint (value);
+            break;
+        case PROP_HEIGHT:
+            priv->height = g_value_get_uint (value);
             break;
         case PROP_INTERPOLATION:
             if (!g_strcmp0 (g_value_get_string (value), "nearest")) {
@@ -213,6 +232,12 @@ ufo_rescale_task_get_property (GObject *object,
             break;
         case PROP_Y_FACTOR:
             g_value_set_float (value, priv->y_factor);
+            break;
+        case PROP_WIDTH:
+            g_value_set_uint (value, priv->width);
+            break;
+        case PROP_HEIGHT:
+            g_value_set_uint (value, priv->height);
             break;
         case PROP_INTERPOLATION:
             switch (priv->filter_mode) {
@@ -301,6 +326,20 @@ ufo_rescale_task_class_init (UfoRescaleTaskClass *klass)
                              "linear",
                              G_PARAM_READWRITE);
 
+    properties[PROP_WIDTH] =
+        g_param_spec_uint ("width",
+                           "Ignore x-factor and use specified width",
+                           "Ignore x-factor and use specified width",
+                           0, G_MAXUINT, 0,
+                           G_PARAM_READWRITE);
+
+    properties[PROP_HEIGHT] =
+        g_param_spec_uint ("height",
+                           "Ignore y-factor and use specified height",
+                           "Ignore y-factor and use specified height",
+                           0, G_MAXUINT, 0,
+                           G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -313,5 +352,7 @@ ufo_rescale_task_init(UfoRescaleTask *self)
     self->priv = UFO_RESCALE_TASK_GET_PRIVATE(self);
     self->priv->x_factor = 2.0f;
     self->priv->y_factor = 2.0f;
+    self->priv->width = 0;
+    self->priv->height = 0;
     self->priv->filter_mode = CL_FILTER_LINEAR;
 }
