@@ -160,8 +160,6 @@ ufo_rescale_task_process (UfoTask *task,
     x_factor = priv->width > 0 ? ((gfloat) priv->width) / in_req.dims[0] : priv->x_factor;
     y_factor = priv->height > 0 ? ((gfloat) priv->height) / in_req.dims[1] : priv->y_factor;
 
-    g_print ("%f %f %i %i %i %i\n", x_factor, y_factor, priv->width, priv->height, in_req.dims[0], in_req.dims[1]);
-
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_sampler), &priv->sampler));
