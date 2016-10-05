@@ -45,6 +45,18 @@ Clipping
         Maximum value, all values higher than `max` are set to `max`.
 
 
+Binning
+-------
+
+.. gobj:class:: bin
+
+    Bin a square of pixels by summing their values.
+
+    .. gobj:prop:: size:uint
+
+        Number of pixels in one direction to bin to a single pixel value.
+
+
 Averaging
 ---------
 

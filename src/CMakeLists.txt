@@ -4,6 +4,7 @@ cmake_minimum_required(VERSION 2.6)
 set(ufofilter_SRCS
     ufo-average-task.c
     ufo-backproject-task.c
+    ufo-bin-task.c
     ufo-blur-task.c
     ufo-buffer-task.c
     ufo-calculate-task.c
