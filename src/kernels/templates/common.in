@@ -12,7 +12,7 @@ kernel void backproject_burst_{0} (
                                     const float2 roll_region,
                                     float sin_lamino,
                                     float cos_lamino,
-{2},
+{2}
                                     const float norm_factor,
                                     float sin_roll,
                                     float cos_roll,

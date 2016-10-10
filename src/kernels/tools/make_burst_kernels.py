@@ -13,30 +13,46 @@ IDX_TO_VEC_ELEM[14] = 'e'
 IDX_TO_VEC_ELEM[15] = 'f'
 
 
-def fill_compute_template(tmpl, num_items, index, constant):
+def fill_compute_template(tmpl, num_items, index, constant, lut_offset=0):
     """Fill the template doing the pixel computation and texture fetch."""
-    operation = '+' if index else ''
+    operation = '+' if index or lut_offset else ''
     if constant:
         access = '[{}]'.format(index)
     else:
-        access = '.s{}'.format(IDX_TO_VEC_ELEM[index]) if num_items > 1 else ''
+        access = '.s{}'.format(IDX_TO_VEC_ELEM[index % 16]) if num_items > 1 else ''
 
-    return tmpl.format(index, access, operation)
+    lut_index = 0 if constant else index / 16 + lut_offset
+
+    return tmpl.format(lut_offset * 16 + index, access, operation, lut_index)
 
 
 def fill_kernel_template(input_tmpl, compute_tmpl, kernel_outer, kernel_inner, num_items,
                          constant):
     """Construct the whole kernel."""
     if constant:
-        lut_str = 'constant float *sines,\nconstant float *cosines'
+        lut_str = 'constant float *sines_0,\nconstant float *cosines_0'
+        computes = '\n'.join([fill_compute_template(compute_tmpl, num_items, i, constant)
+                              for i in range(num_items)])
     else:
-        vector_length = num_items if num_items > 1 else ''
-        if vector_length:
-            vector_length = int(2 ** math.ceil(math.log(num_items, 2)))
-        lut_str = 'const float{0} sines,\nconst float{0} cosines'.format(vector_length)
+        lut_tmpl = 'const float{0} sines_{1},\nconst float{0} cosines_{1},\n'
+        lut_str = ''
+        num_16 = num_items / 16
+        for i in range(num_16):
+            lut_str += lut_tmpl.format(16, i)
+        computes = '\n'.join([fill_compute_template(compute_tmpl, num_items, i, constant)
+                              for i in range(16 * num_16)])
+        num_rest = num_items % 16
+        if num_rest:
+            rest_vector_length = int(2 ** math.ceil(math.log(num_rest, 2)))
+            if rest_vector_length == 1:
+                rest_vector_length = ''
+            lut_str += lut_tmpl.format(rest_vector_length, num_16)
+            if num_16:
+                computes += '\n'
+            computes += '\n'.join([fill_compute_template(compute_tmpl, num_rest, i,
+                                                         constant, lut_offset=num_16)
+                                  for i in range(num_rest)])
 
-    computes = '\n'.join([fill_compute_template(compute_tmpl, num_items, i, constant)
-                          for i in range(num_items)])
     inputs = '\n'.join([input_tmpl.format(i) for i in range(num_items)])
     kernel_inner = kernel_inner.format(computes)
 
@@ -71,8 +87,6 @@ def main():
     kernel_outer = open(common_filename, 'r').read()
     comp_tmpl, kernel_inner = open(args.filename, 'r').read().split('\n%nl\n')
     kernels = defs + '\n'
-    if args.stop > 16:
-        raise ValueError("Maximum number of projections per invocation is 16")
     for burst in range(args.start, args.stop + 1):
         kernels += fill_kernel_template(in_tmpl, comp_tmpl, kernel_outer, kernel_inner, burst,
                                         args.constant)
