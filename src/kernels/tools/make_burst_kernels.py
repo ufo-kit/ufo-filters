@@ -1,5 +1,6 @@
 """Generate burst laminographic backprojection OpenCL kernels."""
 import argparse
+import math
 import os
 
 
@@ -30,6 +31,8 @@ def fill_kernel_template(input_tmpl, compute_tmpl, kernel_outer, kernel_inner, n
         lut_str = 'constant float *sines,\nconstant float *cosines'
     else:
         vector_length = num_items if num_items > 1 else ''
+        if vector_length:
+            vector_length = int(2 ** math.ceil(math.log(num_items, 2)))
         lut_str = 'const float{0} sines,\nconst float{0} cosines'.format(vector_length)
 
     computes = '\n'.join([fill_compute_template(compute_tmpl, num_items, i, constant)
@@ -46,16 +49,21 @@ def parse_args():
     parser.add_argument('filename', type=str, help='File name with the kernel template')
     parser.add_argument('constant', type=int, choices=[0, 1],
                         help='Use constant memory to store sin and cos LUT')
-    parser.add_argument('burst', type=int, nargs='+',
-                        help='Number of projections processed by one kernel invocation')
+    parser.add_argument('start', type=int,
+                        help='Minimum number of projections processed by one kernel invocation')
+    parser.add_argument('stop', type=int,
+                        help='Maximum number of projections processed by one kernel invocation')
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.stop < args.start:
+        raise ValueError("'stop' < 'start'")
+
+    return args
 
 
 def main():
     """execute program."""
     args = parse_args()
-    allowed_bursts = [2 ** i for i in range(5)]
     in_tmpl = "read_only image2d_t projection_{},"
     common_filename = os.path.join(os.path.dirname(args.filename), 'common.in')
     defs_filename = os.path.join(os.path.dirname(args.filename), 'definitions.in')
@@ -63,9 +71,9 @@ def main():
     kernel_outer = open(common_filename, 'r').read()
     comp_tmpl, kernel_inner = open(args.filename, 'r').read().split('\n%nl\n')
     kernels = defs + '\n'
-    for burst in args.burst:
-        if burst not in allowed_bursts:
-            raise ValueError('Burst mode `{}` must be one of `{}`'.format(burst, allowed_bursts))
+    if args.stop > 16:
+        raise ValueError("Maximum number of projections per invocation is 16")
+    for burst in range(args.start, args.stop + 1):
         kernels += fill_kernel_template(in_tmpl, comp_tmpl, kernel_outer, kernel_inner, burst,
                                         args.constant)
 
