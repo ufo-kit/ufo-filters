@@ -12,28 +12,40 @@ IDX_TO_VEC_ELEM[14] = 'e'
 IDX_TO_VEC_ELEM[15] = 'f'
 
 
-def fill_compute_template(tmpl, num_items, index):
+def fill_compute_template(tmpl, num_items, index, constant):
     """Fill the template doing the pixel computation and texture fetch."""
     operation = '+' if index else ''
-    access = '.s{}'.format(IDX_TO_VEC_ELEM[index]) if num_items > 1 else ''
+    if constant:
+        access = '[{}]'.format(index)
+    else:
+        access = '.s{}'.format(IDX_TO_VEC_ELEM[index]) if num_items > 1 else ''
+
     return tmpl.format(index, access, operation)
 
 
-def fill_kernel_template(input_tmpl, compute_tmpl, kernel_outer, kernel_inner, num_items):
+def fill_kernel_template(input_tmpl, compute_tmpl, kernel_outer, kernel_inner, num_items,
+                         constant):
     """Construct the whole kernel."""
-    vector_length = num_items if num_items > 1 else ''
-    computes = '\n'.join([fill_compute_template(compute_tmpl, num_items, i)
+    if constant:
+        lut_str = 'constant float *sines,\nconstant float *cosines'
+    else:
+        vector_length = num_items if num_items > 1 else ''
+        lut_str = 'const float{0} sines,\nconst float{0} cosines'.format(vector_length)
+
+    computes = '\n'.join([fill_compute_template(compute_tmpl, num_items, i, constant)
                           for i in range(num_items)])
     inputs = '\n'.join([input_tmpl.format(i) for i in range(num_items)])
     kernel_inner = kernel_inner.format(computes)
 
-    return kernel_outer.format(num_items, inputs, vector_length, kernel_inner)
+    return kernel_outer.format(num_items, inputs, lut_str, kernel_inner)
 
 
 def parse_args():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser()
     parser.add_argument('filename', type=str, help='File name with the kernel template')
+    parser.add_argument('constant', type=int, choices=[0, 1],
+                        help='Use constant memory to store sin and cos LUT')
     parser.add_argument('burst', type=int, nargs='+',
                         help='Number of projections processed by one kernel invocation')
 
@@ -54,7 +66,8 @@ def main():
     for burst in args.burst:
         if burst not in allowed_bursts:
             raise ValueError('Burst mode `{}` must be one of `{}`'.format(burst, allowed_bursts))
-        kernels += fill_kernel_template(in_tmpl, comp_tmpl, kernel_outer, kernel_inner, burst)
+        kernels += fill_kernel_template(in_tmpl, comp_tmpl, kernel_outer, kernel_inner, burst,
+                                        args.constant)
 
     print kernels
 
