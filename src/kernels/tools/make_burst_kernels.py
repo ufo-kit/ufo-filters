@@ -30,7 +30,7 @@ def fill_kernel_template(input_tmpl, compute_tmpl, kernel_outer, kernel_inner, n
                          constant):
     """Construct the whole kernel."""
     if constant:
-        lut_str = 'constant float *sines_0,\nconstant float *cosines_0'
+        lut_str = 'constant float *sines_0,\nconstant float *cosines_0,\n'
         computes = '\n'.join([fill_compute_template(compute_tmpl, num_items, i, constant)
                               for i in range(num_items)])
     else:
