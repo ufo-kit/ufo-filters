@@ -69,8 +69,7 @@ backproject_tex (read_only image2d_t sinogram,
 #endif
     for(int proj = 0; proj < n_projections; proj++) {
         float h = by * sin_lut[angle_offset + proj] + bx * cos_lut[angle_offset + proj] + axis_pos;
-        float val = read_imagef (sinogram, volumeSampler, (float2)(h, proj + 0.5f)).x;
-        sum += (isnan (val) ? 0.0 : val);
+        sum += read_imagef (sinogram, volumeSampler, (float2)(h, proj + 0.5f)).x;
     }
 
     slice[idy * get_global_size(0) + idx] = sum * M_PI / n_projections;
