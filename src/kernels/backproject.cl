@@ -21,8 +21,6 @@ constant sampler_t volumeSampler = CLK_NORMALIZED_COORDS_FALSE |
                                    CLK_ADDRESS_CLAMP |
                                    CLK_FILTER_LINEAR;
 
-#define PI 3.1415926535897932384626433832795028841971693993751058209749445923078164062f
-
 kernel void
 backproject_nearest (global float *sinogram,
                      global float *slice,
@@ -46,7 +44,7 @@ backproject_nearest (global float *sinogram,
         sum += sinogram[(int)(proj * width + h)];
     }
 
-    slice[idy * width + idx] = sum * PI / n_projections;
+    slice[idy * width + idx] = sum * M_PI / n_projections;
 }
 
 kernel void
@@ -75,6 +73,6 @@ backproject_tex (read_only image2d_t sinogram,
         sum += (isnan (val) ? 0.0 : val);
     }
 
-    slice[idy * get_global_size(0) + idx] = sum * PI / n_projections;
+    slice[idy * get_global_size(0) + idx] = sum * M_PI / n_projections;
 }
 
