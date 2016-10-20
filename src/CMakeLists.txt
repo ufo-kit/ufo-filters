@@ -121,6 +121,7 @@ add_definitions ("-DBURST=${BP_BURST}")
 find_package(TIFF)
 find_package(HDF5 1.8)
 find_package(JPEG)
+find_package(OpenMP)
 
 pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(OPENCV opencv)
@@ -128,7 +129,10 @@ pkg_check_modules(LIBTIFF4 libtiff-4>=4.0.0)
 pkg_check_modules(GSL gsl)
 pkg_check_modules(CLFFT clFFT)
 
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp")
+
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+endif ()
 
 if (TIFF_FOUND)
     list(APPEND read_misc_SRCS readers/ufo-tiff-reader.c)
