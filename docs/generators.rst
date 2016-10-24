@@ -221,8 +221,8 @@ Empty data
 
     Only asks for image data sized :gobj:prop:`width` times :gobj:prop:`height`
     times :gobj:prop:`depth` and forwards :gobj:prop:`number` of them to the
-    next filter. The data is never touched, thus it is suitable for performance
-    measurements.
+    next filter. The data is never touched if :gobj:prop:`init` is not set, thus
+    it might be suitable for performance measurements.
 
     .. gobj:prop:: width:int
 
@@ -239,3 +239,7 @@ Empty data
     .. gobj:prop:: number:int
 
         Number of images to produce.
+
+    .. gobj:prop:: init:float
+
+        Value to initialize the output buffer.

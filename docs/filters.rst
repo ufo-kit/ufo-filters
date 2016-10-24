@@ -431,6 +431,10 @@ Cropping
 
         Height of the region of interest.
 
+    .. gobj:prop:: from-center:boolean
+
+        Start cropping from the center outwards.
+
 
 Rescaling
 ---------
