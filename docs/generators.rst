@@ -106,7 +106,7 @@ Memory reader
         out = tifffile.imread('out.tif')
         assert np.sum(out - ref) == 0.0
 
-    .. gob:prop:: pointer:ulong
+    .. gobj:prop:: pointer:ulong
 
         Pointer to pre-allocated memory.
 
