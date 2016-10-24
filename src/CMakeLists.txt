@@ -128,6 +128,7 @@ pkg_check_modules(OPENCV opencv)
 pkg_check_modules(LIBTIFF4 libtiff-4>=4.0.0)
 pkg_check_modules(GSL gsl)
 pkg_check_modules(CLFFT clFFT)
+pkg_check_modules(CLBLAST clblast)
 
 
 if (OPENMP_FOUND)
@@ -194,6 +195,12 @@ if (CLFFT_FOUND)
     include_directories(${CLFFT_INCLUDE_DIRS})
     list(APPEND ufofilter_LIBS ${CLFFT_LIBRARIES})
     set(HAVE_AMD ON)
+endif ()
+
+if (CLBLAST_FOUND)
+    include_directories(${CLBLAST_INCLUDE_DIRS})
+    list(APPEND ufofilter_LIBS ${CLBLAST_LIBRARIES})
+    list(APPEND ufofilter_SRCS ufo-gemm-task.c)
 endif ()
 
 #}}}

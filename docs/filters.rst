@@ -543,7 +543,7 @@ Fast Fourier transform
 1D stripe filtering
 -------------------
 
-.. gobj:class filter-stripes1d
+.. gobj:class:: filter-stripes1d
 
     Filter stripes in 1D along the x-axis. The input and output are in frequency
     domain. The filter multiplies the frequencies with an inverse Gaussian
@@ -554,6 +554,28 @@ Fast Fourier transform
 
         Filter strength, which is the full width at half maximum of the
         gaussian.
+
+
+General matrix-matrix multiplication
+------------------------------------
+
+.. gobj:class:: gemm
+
+    Computes :math:`\alpha A \cdot B + \beta C` where A, B and C are input
+    streams 0, 1 and 2 respectively. A must be of size :math:`m\times k`, B
+    :math:`k\times n` and C :math:`m\times n`.
+
+    .. note::
+
+        This filter is only available if CLBlast support is available.
+
+    .. gobj:prop:: alpha:float
+
+        Scalar multiplied with :math:`AB`.
+
+    .. gobj:prop:: beta:float
+
+        Scalar multiplied with C.
 
 
 Auxiliary filters
