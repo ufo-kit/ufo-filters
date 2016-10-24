@@ -113,7 +113,7 @@ ufo_raw_reader_data_available (UfoReader *reader)
     UfoRawReaderPrivate *priv;
 
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
-    return priv->fp != NULL && (ftell (priv->fp) + priv->offset + priv->frame_size) < priv->total_size;
+    return priv->fp != NULL && (ftell (priv->fp) + priv->offset + priv->frame_size) <= priv->total_size;
 }
 
 static void
