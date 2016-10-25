@@ -1,5 +1,5 @@
 project(oclfft CXX)
-include_directories(${OPENCL_INCLUDE_DIRS}
+include_directories(${OpenCL_INCLUDE_DIRS}
 		            ${UFO_INCLUDE_DIRS})
 
 add_library(oclfft SHARED
@@ -7,7 +7,7 @@ add_library(oclfft SHARED
             fft_setup.cpp
             fft_kernelstring.cpp)
 
-target_link_libraries(oclfft ${UFO_LIBRARIES} ${OPENCL_LIBRARIES})
+target_link_libraries(oclfft ${UFO_LIBRARIES} ${OpenCL_LIBRARIES})
 
 install(TARGETS oclfft
         LIBRARY DESTINATION ${UFO_FILTERS_LIBDIR})

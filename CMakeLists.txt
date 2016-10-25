@@ -1,4 +1,7 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.1)
+cmake_policy(SET CMP0053 OLD)
+cmake_policy(SET CMP0054 OLD)
+
 project(ufo C)
 
 set(TARNAME "ufo-filters")
