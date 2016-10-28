@@ -607,7 +607,7 @@ Loops
     avoid unnecessary copies. You can expect the data items to be on the device
     where the data originated.
 
-    .. gobj:prop:: count:init
+    .. gobj:prop:: count:int
         
         Number of iterations for each received data item.
 
@@ -619,6 +619,11 @@ Monitoring
 
     Inspects a data stream and prints size, location and associated metadata
     keys on stdout.
+
+    .. gobj:prop:: print:int
+
+        If set print the given numbers of items on stdout as hexadecimally
+        formatted numbers.
 
 
 Slicing

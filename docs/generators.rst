@@ -161,7 +161,7 @@ UcaCamera reader
 stdin reader
 ------------
 
-.. gobj:class::stdin
+.. gobj:class:: stdin
 
     Reads data from stdin to produce a valid data stream. :gobj:prop:`width`,
     :gobj:prop:`height` and :gobj:prop:`bitdepth` must be set correctly to
