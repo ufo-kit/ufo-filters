@@ -51,9 +51,9 @@ threshold (global float *input,
     const int width = get_global_size(0);
     const int index = idy * width + idx;
     const float intensity = input[index];
-    const int h_index = (int) (intensity * 256.0);
+    const int h_index = (int) (intensity * 256.0f);
 
-    if (histogram[h_index] < 0.03)
+    if (histogram[h_index] < 0.03f)
         output[index] = intensity;
     else
         output[index] = 0.0f;

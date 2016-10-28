@@ -37,12 +37,12 @@ fft_spread (global float *out,
     /* May diverge but not possible to reduce latency, because num_bins can
        be arbitrary and not be aligned. */
     if ((idy >= height) || (idx >= width)) {
-        out[idz*stride_y + idy*stride_x + idx*2] = 0.0;
-        out[idz*stride_y + idy*stride_x + idx*2 + 1] = 0.0;
+        out[idz*stride_y + idy*stride_x + idx*2] = 0.0f;
+        out[idz*stride_y + idy*stride_x + idx*2 + 1] = 0.0f;
     }
     else {
         out[idz*stride_y + idy*stride_x + idx*2] = in[idz*stride_y_in + idy*stride_x_in + idx];
-        out[idz*stride_y + idy*stride_x + idx*2 + 1] = 0.0;
+        out[idz*stride_y + idy*stride_x + idx*2 + 1] = 0.0f;
     }
 }
 
@@ -78,4 +78,3 @@ fft_normalize (global float *data)
     const int dim_fft = get_global_size(0);
     data[2*idx] = data[2*idx] / dim_fft;
 }
-

@@ -26,5 +26,5 @@ interpolate (global float *a,
 {
     const int index = get_global_id(1)*get_global_size(0) + get_global_id(0);
     float fraction = (float) current / (float) (total - 1);
-    output[index] = (1.0 - fraction) * a[index] + fraction*b[index];
+    output[index] = (1.0f - fraction) * a[index] + fraction*b[index];
 }

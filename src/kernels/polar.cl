@@ -33,9 +33,9 @@ populate_polar_space (read_only image2d_t input,
                       sampler_t sampler)
 {
     int2 id = (int2) (get_global_id (0), get_global_id (1));
-    float angle = (2.0 * id.y / get_global_size (1) - 1.0) * M_PI;
-    float2 pixel = (float2) (id.x * cos (angle) + get_image_width (input) / 2.0,
-                             id.x * sin (angle) + get_image_height (input) / 2.0);
+    float angle = (2.0f * id.y / get_global_size (1) - 1.0f) * M_PI_F;
+    float2 pixel = (float2) (id.x * cos (angle) + get_image_width (input) / 2.0f,
+                             id.x * sin (angle) + get_image_height (input) / 2.0f);
 
     output[id.y * get_global_size (0) + id.x] = read_imagef (input, sampler, pixel).x;
 }
@@ -57,9 +57,9 @@ populate_cartesian_space (read_only image2d_t input,
     int2 id = (int2) (get_global_id (0), get_global_id (1));
     int2 shape = (int2) (get_global_size (0), get_global_size (1));
     float2 pixel = (float2) (id.x - shape.x / 2, id.y - shape.y / 2);
-    float angle = atan2 (pixel.y, pixel.x) + M_PI;
+    float angle = atan2 (pixel.y, pixel.x) + M_PI_F;
     float2 polar_pixel = (float2) (sqrt (pixel.x * pixel.x + pixel.y * pixel.y),
-                                   angle * get_image_height (input) / (2 * M_PI));
+                                   angle * get_image_height (input) / (2 * M_PI_F));
 
     output[id.y * shape.x + id.x] = read_imagef (input, sampler, polar_pixel).x;
 }

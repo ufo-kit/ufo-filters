@@ -40,7 +40,7 @@ flat_correct (global float *corrected,
     }
 
     if (fix_abnormal && (isnan (result) || isinf (result))) {
-        result = 0.0;
+        result = 0.0f;
     }
 
     corrected[gid] = result;
