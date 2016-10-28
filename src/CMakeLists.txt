@@ -188,9 +188,15 @@ if (GSL_FOUND)
 endif ()
 
 if (CLFFT_FOUND)
-    include_directories(${CLFFT_INCLUDE_DIRS})
-    list(APPEND ufofilter_LIBS ${CLFFT_LIBRARIES})
-    set(HAVE_AMD ON)
+    option(WITH_CLFFT "Use AMD clFFT" ON)
+
+    if (WITH_CLFFT)
+        include_directories(${CLFFT_INCLUDE_DIRS})
+        list(APPEND ufofilter_LIBS ${CLFFT_LIBRARIES})
+        set(HAVE_AMD ON)
+    else ()
+        set(HAVE_AMD OFF)
+    endif ()
 endif ()
 
 if (CLBLAST_FOUND)
