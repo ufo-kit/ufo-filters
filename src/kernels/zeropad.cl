@@ -25,9 +25,9 @@ typedef struct {
 kernel void
 zeropadding_kernel (global float *input, int offset, int in_width, global clFFT_Complex *output)
 {
-	const size_t out_width = get_global_size(0);
+    const size_t out_width = get_global_size(0);
     const size_t idx = get_global_id(0);
-	const size_t idy = get_global_id(1);
+    const size_t idy = get_global_id(1);
     const size_t index = idy * out_width + idx;
 
     int lidx = idx - (out_width - in_width / 2) - offset;
