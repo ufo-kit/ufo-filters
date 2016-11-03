@@ -23,22 +23,23 @@ typedef struct {
 } clFFT_Complex;
 
 kernel void
-zeropadding_kernel(global float *input, int offset, int input_width, global clFFT_Complex *output)
+zeropadding_kernel (global float *input, int offset, int in_width, global clFFT_Complex *output)
 {
-    const uint sino_width = input_width - offset;
-	const uint out_size = get_global_size(0);
-    const uint out_size_half = out_size/2;
-    const uint lpart = sino_width/2;
-    const uint rpart = sino_width/2;
-    const uint len = out_size_half + (out_size_half - lpart);
+	const size_t out_width = get_global_size(0);
+    const size_t idx = get_global_id(0);
+	const size_t idy = get_global_id(1);
+    const size_t index = idy * out_width + idx;
 
-    const int g_idx = get_global_id(0);
-	const int g_idy = get_global_id(1);
+    int lidx = idx - (out_width - in_width / 2) - offset;
 
-    output[g_idy * out_size + g_idx].real = 
-        (g_idx < rpart) ? input[g_idy * input_width + offset + lpart + g_idx] : 
-            (g_idx < len) ? 0.0f : input[g_idy * input_width + offset + (g_idx - len)];
+    output[index].imag = 0.0f;
 
-    output[g_idy * out_size + g_idx].imag = 0.0f;
+    if (lidx >= 0) {
+        output[index].real = input[idy * in_width + lidx];
+    }
+    else {
+        lidx += out_width;
+        output[index].real = lidx < in_width ? input[idy * in_width + lidx] : 0.0f;
+    }
 }
 

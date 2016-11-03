@@ -120,6 +120,7 @@ ufo_zeropad_task_process (UfoTask *task,
                               UfoRequisition *requisition)
 {
     UfoZeropadTaskPrivate *priv;
+    UfoRequisition input_requisition;
     UfoGpuNode *node;
     UfoProfiler *profiler;
     cl_command_queue cmd_queue;
@@ -130,11 +131,10 @@ ufo_zeropad_task_process (UfoTask *task,
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 
-    UfoRequisition input_requisition;
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
 
-    xdim = (cl_int)input_requisition.dims[0];
-    offset = (priv->center_rot != -1) ? xdim - (xdim - (cl_int)priv->center_rot) * 2 : 0;
+    xdim = (cl_int) input_requisition.dims[0];
+    offset = (priv->center_rot != -1) ? (cl_int ) -(xdim / 2.0f - priv->center_rot) : 0;
 
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
@@ -145,7 +145,7 @@ ufo_zeropad_task_process (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->zeropad_kernel, 3, sizeof (cl_mem), &out_mem));
 
     /* execution */
-    size_t working_dims[] = {requisition->dims[0]/2, requisition->dims[1]};
+    size_t working_dims[] = { requisition->dims[0] / 2, requisition->dims[1] };
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->zeropad_kernel, requisition->n_dims, working_dims, NULL);
     
