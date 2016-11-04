@@ -66,7 +66,7 @@ fft_pack (global float *in,
     const int stride_x = width;
     const int stride_y = height * stride_x;
 
-    if (idx  < width && idy < height)
+    if (idx < width && idy < height)
         out[idz*stride_y + idy*stride_x + idx]
             = in[idz*stride_y_in + idy*stride_x_in + idx*2] * scale;
 }

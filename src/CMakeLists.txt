@@ -96,6 +96,9 @@ set(fft_misc_SRCS
 set(ifft_misc_SRCS
     common/ufo-fft.c)
 
+set(filter_stripes_misc_SRCS
+    common/ufo-fft.c)
+
 set(retrieve_phase_misc_SRCS
     common/ufo-fft.c)
 

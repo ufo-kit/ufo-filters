@@ -42,4 +42,6 @@ stripe_filter (global float *input,
         output[index] = 0.0f;
     else
         output[index] = input[index];
+
+    output[index] = 0.0f;
 }
