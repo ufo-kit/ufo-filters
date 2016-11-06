@@ -60,7 +60,6 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
 if (CMAKE_COMPILER_IS_GNUCC OR ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang"))
     add_definitions("-Wno-unused-parameter")
 endif ()
-
 #}}}
 #{{{ Subdirectories
 add_subdirectory(docs)

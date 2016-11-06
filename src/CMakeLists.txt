@@ -106,8 +106,7 @@ file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}
 #{{{ Variables
 set(ufofilter_LIBS
-    ${UFO_LIBRARIES}
-    oclfft)
+    ${UFO_LIBRARIES})
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -pedantic -Wall -Wextra -fPIC -Wno-unused-parameter -Wno-deprecated-declarations")
 
@@ -194,6 +193,7 @@ if (CLFFT_FOUND)
         list(APPEND ufofilter_LIBS ${CLFFT_LIBRARIES})
         set(HAVE_AMD ON)
     else ()
+        list(APPEND ufofilter_LIBS oclfft)
         set(HAVE_AMD OFF)
     endif ()
 endif ()
