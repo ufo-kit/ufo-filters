@@ -120,7 +120,6 @@ find_package(JPEG)
 find_package(OpenMP)
 
 pkg_check_modules(UCA libuca>=1.2)
-pkg_check_modules(OPENCV opencv)
 pkg_check_modules(LIBTIFF4 libtiff-4>=4.0.0)
 pkg_check_modules(GSL gsl)
 pkg_check_modules(CLFFT clFFT)
@@ -245,7 +244,6 @@ foreach(_src ${ufofilter_SRCS})
             LIBRARY DESTINATION ${UFO_PLUGINDIR})
 endforeach()
 #}}}
-
 #{{{ Subdirectories
 add_subdirectory(kernels)
 #}}}
