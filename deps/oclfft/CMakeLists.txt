@@ -10,4 +10,4 @@ add_library(oclfft SHARED
 target_link_libraries(oclfft ${UFO_LIBRARIES} ${OpenCL_LIBRARIES})
 
 install(TARGETS oclfft
-        LIBRARY DESTINATION ${UFO_FILTERS_LIBDIR})
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

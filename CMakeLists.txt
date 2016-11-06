@@ -24,10 +24,8 @@ set(UFO_DESCRIPTION_SUMMARY "UFO good filters")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/common/cmake")
 
 #{{{ Variables and Options
-include(ConfigurePaths)
+include(GNUInstallDirs)
 include(PkgConfigVars)
-
-configure_paths(UFO_FILTERS)
 
 set(PKG_UFO_CORE_MIN_REQUIRED "0.6")
 # Backprojection burst mode, must be one of 1, 2, 4, 8, 16
