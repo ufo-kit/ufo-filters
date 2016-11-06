@@ -106,7 +106,8 @@ file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}
 #{{{ Variables
 set(ufofilter_LIBS
-    ${UFO_LIBRARIES})
+    ${UFO_LIBRARIES}
+    ${OPENCL_LIBRARIES})
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -pedantic -Wall -Wextra -fPIC -Wno-unused-parameter -Wno-deprecated-declarations")
 
