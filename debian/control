@@ -4,14 +4,14 @@ Section: libs
 Priority: extra
 Build-Depends: debhelper (>= 10),
                cmake,
-	       libclfft-dev,
+               libclfft-dev,
                libglib2.0-dev,
-	       libgsl0-dev | libgsl-dev,
-	       libhdf5-dev,
-	       libtiff-dev,
-	       libufo-dev,
+               libgsl0-dev | libgsl-dev,
+               libhdf5-dev,
+               libtiff-dev,
+               libufo-dev,
                ocl-icd-opencl-dev,
-	       python-sphinx
+               python-sphinx
 Standards-Version: 3.9.8
 Vcs-Browser: http://anonscm.debian.org/cgit/debian-pan/packages/ufo-filters.git
 Vcs-Git: git://git.debian.org/git/debian-pan/packages/ufo-filters.git
@@ -25,17 +25,21 @@ Depends: ${misc:Depends},
          ${shlibs:Depends},
          ufo-filters-data (= ${source:Version})
 Pre-Depends: ${misc:Pre-Depends}
-Description: Library for high-performance, GPU-based computing - runtime
+Description: Set of plugins for ufo-core - runtime
  The UFO data processing framework is a C library suited to build
  general purpose streams data processing on heterogeneous
  architectures such as CPUs, GPUs or clusters. It is extensively used
  at the Karlsruhe Institute of Technology for Ultra-fast X-ray Imaging
  (radiography, tomography and laminography).
  .
- A gobject-instrospection binding is also provided to write scripts or
- user interfaces.
+ This package contains `average', `backproject', `bin', `blur', `buffer',
+ `calculate', `camera', `clip', `contrast', `crop', `denoise', `duplicate',
+ `fftmult', `fft', `filter', `flatten', `flip', `forwardproject', `gemm',
+ `ifft', `interpolate', `loop', `measure', `merge', `metaballs', `monitor',
+ `null', `opencl', `ordfilt', `pad', `read', `reduce', `refeed', `replicate',
+ `rescale', `ringwriter', `sleep', `slice', `stack', `stdin', `stdout',
+ `subtract', `transpose', `write' and `zeropad' plugins
  .
- This package provides the runtime for libufo.
 
 Package: ufo-filters-doc
 Architecture: all
@@ -48,10 +52,8 @@ Description: Library for high-performance, GPU-based computing - documentation
  at the Karlsruhe Institute of Technology for Ultra-fast X-ray Imaging
  (radiography, tomography and laminography).
  .
- A gobject-instrospection binding is also provided to write scripts or
- user interfaces.
+ This package provides the documentation for the plugins
  .
- This package provides the documentation for libufo.
 
 Package: ufo-filters-data
 Architecture: all
@@ -64,8 +66,5 @@ Description: Library for high-performance, GPU-based computing - data
  at the Karlsruhe Institute of Technology for Ultra-fast X-ray Imaging
  (radiography, tomography and laminography).
  .
- A gobject-instrospection binding is also provided to write scripts or
- user interfaces.
+ This package provides the OpenCL kernel files for the plugins
  .
- This package provides the openCL kernel files and templates to write
- ufo filters
