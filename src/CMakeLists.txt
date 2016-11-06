@@ -209,7 +209,7 @@ endif ()
 #{{{ Plugin targets
 include_directories(${CMAKE_CURRENT_BINARY_DIR}
                     ${CMAKE_CURRENT_SOURCE_DIR}
-                    ${OPENCL_INCLUDE_DIRS}
+                    ${OpenCL_INCLUDE_DIRS}
                     ${UFO_INCLUDE_DIRS})
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in
