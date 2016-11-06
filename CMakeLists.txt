@@ -63,6 +63,7 @@ endif ()
 
 #}}}
 #{{{ Subdirectories
+add_subdirectory(docs)
 add_subdirectory(deps)
 add_subdirectory(src)
 #}}}
