@@ -12,7 +12,7 @@ before_script:
   - cd core
   - git clone https://github.com/ufo-kit/ufo-core
   - cd ufo-core
-  - cmake -DPREFIX=$HOME/usr -DWITH_GIR=OFF -DWITH_GTK_DOC=OFF -DWITH_PYTHON=OFF .
+  - cmake -DCMAKE_INSTALL_PREFIX=$HOME/usr -DWITH_GIR=OFF -DWITH_GTK_DOC=OFF -DWITH_PYTHON=OFF .
   - make install
   - cd ../..
 
