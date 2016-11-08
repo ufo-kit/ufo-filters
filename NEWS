@@ -1,3 +1,39 @@
+Version 0.11.0
+==============
+
+Enhancements:
+
+- Add option to build Sphinx manual
+- Improved filter documentation
+- Increase robustness of OpenCL kernels by using correct type everywhere
+- Make AMD clFFT optional
+- backproject: improve performance on GTX Titan
+- rescale: allow setting absolute width and height
+- camera: allow passing properties to camera
+- camera: simplify readout mechanism
+- dummy-data: opt-in for initialization using `init`
+
+Fixes:
+
+- Link only to required dependencies
+- Do not link oclfft unconditionally
+- zeropad: fix for centers < half width
+- Fix #121: use correct exit condition
+- Set std=c99 only on C source files
+- oclfft: link against UFO
+- rescale: remove debug output
+- lamino-backproject: fix for small max workgroups
+
+Breaks:
+
+- dummy-data: remove bitdepth property
+
+New filters:
+
+- Add GEMM matrix multiplication using CLBlast
+- Add bin filter to bin pixel values
+
+
 Version 0.10.0
 ==============
 
