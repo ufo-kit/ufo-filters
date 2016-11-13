@@ -175,7 +175,8 @@ ufo_lamino_backproject_task_setup (UfoTask *task,
     vector_kernel_name = g_strdup_printf ("backproject_burst_%d", BURST);
 
     if (!vector_kernel_name) {
-        g_warning ("Error making burst kernel name");
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "Unable to create burst kernel name");
+        return;
     }
 
     priv->context = ufo_resources_get_context (resources);
@@ -194,8 +195,8 @@ ufo_lamino_backproject_task_setup (UfoTask *task,
             kernel_filename = g_strdup ("roll_kernel.cl");
             break;
         default:
-            g_warning ("Unkown varying parameter");
-            break;
+            g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "Unknown varying parameter");
+            return;
     }
 
     priv->vector_kernel = ufo_resources_get_kernel (resources, kernel_filename, vector_kernel_name, error);
