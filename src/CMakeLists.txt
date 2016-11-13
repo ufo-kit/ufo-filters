@@ -106,6 +106,7 @@ file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}
 #{{{ Variables
 set(ufofilter_LIBS
+    m
     ${UFO_LIBRARIES}
     ${OpenCL_LIBRARIES})
 
