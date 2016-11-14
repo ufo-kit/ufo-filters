@@ -41,7 +41,7 @@ Enhancements:
 
 - Restructured FFT-based filters to use a common code base
 - filter: Use real space ramp by default
-- crop: add `from-center' property
+- crop: add ``from-center`` property
 - hdf5: whitelist .hdf5 and .nxs extensions
 
 Fixes:
