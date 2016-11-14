@@ -23,12 +23,6 @@
 #include <CL/cl.h>
 #endif
 
-#ifdef HAVE_AMD
-#include <clFFT.h>
-#else
-#include "oclFFT.h"
-#endif
-
 #include "ufo-ifft-task.h"
 #include "common/ufo-fft.h"
 
