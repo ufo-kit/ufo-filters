@@ -120,9 +120,6 @@ ufo_edf_reader_read (UfoReader *reader,
         /* Read the full ROI at once if no stepping is specified */
         num_bytes = width * roi_height;
         num_read = fread (data, 1, num_bytes, priv->fp);
-
-        if (num_bytes != num_bytes)
-            return;
     }
     else {
         for (guint i = 0; i < num_rows - 1; i++) {
