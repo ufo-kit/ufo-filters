@@ -162,7 +162,7 @@ static void
 get_max_work_group_size (UfoResources *resources, size_t *x_worker_count,
                          size_t * y_worker_count)
 {
-    *x_worker_count = ULLONG_MAX;
+    *x_worker_count = G_MAXSIZE;
     GList *devices = ufo_resources_get_devices (resources);
     GList *it;
     g_list_for (devices, it) {

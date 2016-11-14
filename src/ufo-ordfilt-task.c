@@ -53,7 +53,7 @@ ufo_ordfilt_task_new (void)
 static void
 get_max_alloc_size (UfoResources *resources, UfoOrdfiltTaskPrivate *priv)
 {
-    priv->max_alloc_size = ULLONG_MAX;
+    priv->max_alloc_size = G_MAXSIZE;
     GList *devices = ufo_resources_get_devices (resources);
     GList *it;
 
