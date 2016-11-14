@@ -104,9 +104,12 @@ ufo_transpose_task_process (UfoTask *task,
     gfloat *transposed;
     gint width = (gint) requisition->dims[0];
     gint height = (gint) requisition->dims[1];
+    const gint block_size = 128;
+
+#ifdef __SSE__
     gint fast_width = width - width % 4;
     gint fast_height = height - height % 4;
-    const gint block_size = 128;
+#endif
 
     host_array = ufo_buffer_get_host_array (inputs[0], NULL);
     transposed = ufo_buffer_get_host_array (output, NULL);
