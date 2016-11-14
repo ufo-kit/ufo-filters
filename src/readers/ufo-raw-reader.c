@@ -133,7 +133,8 @@ ufo_raw_reader_read (UfoReader *reader,
     fseek (priv->fp, priv->offset, SEEK_CUR);
 
     /* We never read more than we can store */
-    fread (data, 1, priv->frame_size, priv->fp);
+    if (fread (data, 1, priv->frame_size, priv->fp) != ((gsize) priv->frame_size))
+        g_warning ("Could not read enough data");
 }
 
 static void
