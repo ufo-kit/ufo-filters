@@ -1,3 +1,20 @@
+Version 0.11.1
+==============
+
+Fixes:
+
+- Fix #124: build and install oclfft optionally
+- Use OLD behaviour for CMP0046
+- Use G_MAXSIZE instead of ULLONG_MAX
+- Include oclfft deps dir only if enabled
+- filter: link FFT libs
+- ifft: remove unused/wrong imports
+- raw: do not ignore return value of fread
+- transpose: fix warning if SSE is not possible
+- Add license statements where missing
+- Link against m unconditionally
+
+
 Version 0.11.0
 ==============
 
