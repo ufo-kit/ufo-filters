@@ -99,7 +99,7 @@ Frequency filtering
     Computes a frequency filter function and multiplies it with its input,
     effectively attenuating certain frequencies.
 
-    .. gobj:prop:: filter:string
+    .. gobj:prop:: filter_:string
 
         Any of ``ramp``, ``ramp-fromreal``, ``butterworth``, ``faris-byer`` and
         ``hamming``. The default filter is ``ramp-fromreal`` which computes a
@@ -110,19 +110,19 @@ Frequency filtering
 
         Arbitrary scale that is multiplied to each frequency component.
 
-    .. gobj:prop:: cutoff
+    .. gobj:prop:: cutoff:float
 
         Cutoff frequency of the Butterworth filter.
 
-    .. gobj:prop:: order
+    .. gobj:prop:: order:int
 
         Order of the Butterworth filter.
 
-    .. gobj:prop:: tau
+    .. gobj:prop:: tau:float
 
         Tau parameter of Faris-Byer filter.
 
-    .. gobj:prop:: theta
+    .. gobj:prop:: theta:float
 
         Theta parameter of Faris-Byer filter.
 
