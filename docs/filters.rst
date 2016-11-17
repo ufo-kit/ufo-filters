@@ -91,6 +91,42 @@ Flat-field correction
         If *TRUE*, replace all resulting NANs and INFs with zeros.
 
 
+Frequency filtering
+-------------------
+
+.. gobj:class:: filter
+
+    Computes a frequency filter function and multiplies it with its input,
+    effectively attenuating certain frequencies.
+
+    .. gobj:prop:: filter:string
+
+        Any of ``ramp``, ``ramp-fromreal``, ``butterworth``, ``faris-byer`` and
+        ``hamming``. The default filter is ``ramp-fromreal`` which computes a
+        correct ramp filter avoiding offset issues encountered with naive
+        implementations.
+
+    .. gobj:prop:: scale:float
+
+        Arbitrary scale that is multiplied to each frequency component.
+
+    .. gobj:prop:: cutoff
+
+        Cutoff frequency of the Butterworth filter.
+
+    .. gobj:prop:: order
+
+        Order of the Butterworth filter.
+
+    .. gobj:prop:: tau
+
+        Tau parameter of Faris-Byer filter.
+
+    .. gobj:prop:: theta
+
+        Theta parameter of Faris-Byer filter.
+
+
 Arithmetic expressions
 ----------------------
 
