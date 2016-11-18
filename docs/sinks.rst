@@ -5,11 +5,8 @@ Sinks
 Sinks are endpoints and have at least one input but no output.
 
 
-Data writers
-============
-
 File writer
------------
+===========
 
 .. gobj:class:: write
 
@@ -46,7 +43,7 @@ File writer
 
 
 Memory writer
--------------
+=============
 
 .. gobj:class:: memory-out
 
@@ -87,7 +84,7 @@ Memory writer
 
 
 stdout writer
--------------
+=============
 
 .. gobj:class:: stdout
 
@@ -103,7 +100,7 @@ Auxiliary sink
 ==============
 
 Null
-----
+====
 
 .. gobj:class:: null
 

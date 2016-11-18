@@ -5,11 +5,8 @@ Generators
 Generators produce data and have at least one output but no input.
 
 
-Data readers
-============
-
 File reader
------------
+===========
 
 .. gobj:class:: read
 
@@ -73,7 +70,7 @@ File reader
 
 
 Memory reader
--------------
+=============
 
 .. gobj:class:: memory-in
 
@@ -124,7 +121,7 @@ Memory reader
 
 
 UcaCamera reader
-----------------
+================
 
 .. gobj:class:: camera
 
@@ -159,7 +156,7 @@ UcaCamera reader
 
 
 stdin reader
-------------
+============
 
 .. gobj:class:: stdin
 
@@ -180,12 +177,8 @@ stdin reader
         Specifies the bit depth of input.
 
 
-
-Auxiliary generators
-====================
-
-Metaballs
----------
+Metaball simulation
+===================
 
 .. gobj:class:: metaballs
 
@@ -214,8 +207,8 @@ Metaballs
         second.
 
 
-Empty data
-----------
+Data generation
+===============
 
 .. gobj:class:: dummy-data
 
