@@ -52,6 +52,7 @@ segment (global float *slices,
     x = prelabeled[idx].x;
     y = prelabeled[idx].y;
     z = 0;
+    offset = width * height;
     current = slices[y * width + x + z * offset];
 
 #ifdef DEVICE_GEFORCE_GTX_TITAN_BLACK
