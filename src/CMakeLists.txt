@@ -58,6 +58,7 @@ set(ufofilter_SRCS
     ufo-ring-pattern-task.c
     ufo-ringwriter-task.c
     ufo-replicate-task.c
+    ufo-segment-task.c
     ufo-sleep-task.c
     ufo-slice-task.c
     ufo-stack-task.c

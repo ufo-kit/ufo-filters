@@ -189,7 +189,7 @@ Median
     Filters input with a simple median.
 
     .. gobj:prop:: size:int
-    
+
         Odd-numbered size of the neighbouring window.
 
 
@@ -357,7 +357,7 @@ Phase retrieval
 
 .. gobj:class:: retrieve-phase
 
-    Computes and applies a fourier filter to correct phase-shifted data. 
+    Computes and applies a fourier filter to correct phase-shifted data.
     Expects frequencies as an input and produces frequencies as an output.
 
     .. gobj:prop:: method:string
@@ -382,7 +382,7 @@ Phase retrieval
         Regularization parameter is log10 of the constant to be added to the
         denominator to regularize the singularity at zero frequency: 1/sin(x) ->
         1/(sin(x)+10^-RegPar).
-        
+
         Typical values [2, 3].
 
     .. gobj:prop:: thresholding-rate:float
@@ -390,7 +390,7 @@ Phase retrieval
         Parameter for Quasiparticle phase retrieval which defines the width of
         the rings to be cropped around the zero crossing of the CTF denominator
         in Fourier space.
-        
+
         Typical values in [0.01, 0.1], ``qp`` retrieval is rather independent of
         cropping width.
 
@@ -618,6 +618,24 @@ General matrix-matrix multiplication
         Scalar multiplied with C.
 
 
+Segmentation
+------------
+
+.. gobj:class:: segment
+
+    Segments a stack of images given a field of labels using the random walk
+    algorithm described in  [#]_. The first
+    input stream must contain three-dimensional image stacks, the second input
+    stream a label image with the same width and height as the images. Any pixel
+    value other than zero is treated as a label and used to determine segments
+    in all directions.
+
+    .. [#]
+        Lösel and Heuveline, *Enhancing a Diffusion Algorithm for 4D Image
+        Segmentation Using Local Information* in Proc. SPIE 9784, Medical
+        Imaging 2016, https://doi.org/10.1117/12.2216202
+
+
 Auxiliary filters
 =================
 
@@ -644,7 +662,7 @@ Loops
     where the data originated.
 
     .. gobj:prop:: count:int
-        
+
         Number of iterations for each received data item.
 
 
