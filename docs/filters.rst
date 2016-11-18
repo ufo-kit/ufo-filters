@@ -8,6 +8,18 @@ Point-based filters
 ===================
 
 
+Binarization
+------------
+
+.. gobj:class:: binarize
+
+    Binarizes an image.
+
+    .. gobj:prop:: threshold:float
+
+        Any values above the threshold are set to one all others to zero.
+
+
 Transposition
 -------------
 
@@ -40,7 +52,7 @@ Clipping
 
         Minimum value, all values lower than `min` are set to `min`.
 
-    .. gobj:prop:: max:flaot
+    .. gobj:prop:: max:float
 
         Maximum value, all values higher than `max` are set to `max`.
 
