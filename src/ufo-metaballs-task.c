@@ -37,12 +37,7 @@ struct _UfoMetaballsTaskPrivate {
     guint num_balls;
     guint num_iterations;
     guint current_iteration;
-    gboolean run_infinitely;
-    guint frames_per_second;
     gsize num_position_bytes;
-
-    GTimer *timer;
-    gdouble seconds_per_frame;
 
     gfloat *positions;
     gfloat *velocities;
@@ -63,8 +58,6 @@ enum {
     PROP_HEIGHT,
     PROP_NUM_BALLS,
     PROP_NUM_ITERATIONS,
-    PROP_RUN_INFINITELY,
-    PROP_FRAMES_PER_SECOND,
     N_PROPERTIES
 };
 
@@ -103,12 +96,10 @@ ufo_metaballs_task_setup (UfoTask *task,
     size = priv->num_balls * sizeof (gfloat);
 
     priv->current_iteration = 0;
-    priv->seconds_per_frame = 1.0 / ((gdouble) priv->frames_per_second);
     priv->num_position_bytes = 2 * size;
     priv->positions = g_malloc0 (priv->num_position_bytes);
     priv->velocities = g_malloc0 (priv->num_position_bytes);
     priv->sizes = g_malloc0 (size);
-    priv->timer = g_timer_new ();
 
     f_width = (gfloat) priv->width;
     f_height = (gfloat) priv->height;
@@ -181,7 +172,7 @@ ufo_metaballs_task_generate (UfoTask *task,
     
     priv = UFO_METABALLS_TASK_GET_PRIVATE (task);
 
-    if (!priv->run_infinitely && (priv->current_iteration++) >= priv->num_iterations)
+    if (priv->current_iteration++ >= priv->num_iterations)
         return FALSE;
 
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
@@ -214,16 +205,6 @@ ufo_metaballs_task_generate (UfoTask *task,
                                                      0, priv->num_position_bytes, priv->positions,
                                                      0, NULL, NULL));
 
-    g_timer_stop(priv->timer);
-
-    if (priv->frames_per_second > 0) {
-        const gdouble elapsed = g_timer_elapsed (priv->timer, NULL);
-        const gdouble delta = priv->seconds_per_frame - elapsed;
-
-        if (delta > 0.0)
-            g_usleep (G_USEC_PER_SEC * ((gulong) delta));
-    }
-
     return TRUE;
 }
 
@@ -247,12 +228,6 @@ ufo_metaballs_task_set_property (GObject *object,
             break;
         case PROP_NUM_ITERATIONS:
             priv->num_iterations = g_value_get_uint(value);
-            break;
-        case PROP_RUN_INFINITELY:
-            priv->run_infinitely = g_value_get_boolean(value);
-            break;
-        case PROP_FRAMES_PER_SECOND:
-            priv->frames_per_second = g_value_get_uint(value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -280,12 +255,6 @@ ufo_metaballs_task_get_property (GObject *object,
             break;
         case PROP_NUM_ITERATIONS:
             g_value_set_uint(value, priv->num_iterations);
-            break;
-        case PROP_RUN_INFINITELY:
-            g_value_set_boolean(value, priv->run_infinitely);
-            break;
-        case PROP_FRAMES_PER_SECOND:
-            g_value_set_uint(value, priv->frames_per_second);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -323,7 +292,6 @@ ufo_metaballs_task_finalize (GObject *object)
     g_free (priv->sizes);
     g_free (priv->positions);
     g_free (priv->velocities);
-    g_timer_destroy (priv->timer);
 
     G_OBJECT_CLASS (ufo_metaballs_task_parent_class)->finalize (object);
 }
@@ -376,20 +344,6 @@ ufo_metaballs_task_class_init (UfoMetaballsTaskClass *klass)
                 1, G_MAXUINT, 1,
                 G_PARAM_READWRITE);
 
-    properties[PROP_RUN_INFINITELY] =
-        g_param_spec_boolean("run-infinitely",
-                "Run infinitely",
-                "Run infinitely",
-                FALSE,
-                G_PARAM_READWRITE);
-
-    properties[PROP_FRAMES_PER_SECOND] =
-        g_param_spec_uint("frames-per-second",
-                "Number of frames per second (0 for maximum possible rate)",
-                "Number of frames per second (0 for maximum possible rate)",
-                0, G_MAXINT, 0,
-                G_PARAM_READWRITE);
-
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -406,6 +360,4 @@ ufo_metaballs_task_init(UfoMetaballsTask *self)
     priv->height = 512;
     priv->num_balls = 1;
     priv->num_iterations = 1;
-    priv->run_infinitely = FALSE;
-    priv->frames_per_second = 0;
 }

@@ -201,11 +201,6 @@ Metaball simulation
 
         Length of data stream.
 
-    .. gobj:prop:: frames-per-second:int
-
-        Simulate behaviour by restricting the number of output images per
-        second.
-
 
 Data generation
 ===============
