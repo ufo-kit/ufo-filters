@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2013 Karlsruhe Institute of Technology
+ * Copyright (C) 2011-2016 Karlsruhe Institute of Technology
  *
  * This file is part of Ufo.
  *
@@ -36,7 +36,6 @@ typedef struct {
 struct _UfoMetaballsTaskPrivate {
     cl_kernel   kernel;
     cl_mem      balls_mem;
-    /* cl_mem      sizes_mem; */
 
     guint width;
     guint height;
@@ -45,11 +44,6 @@ struct _UfoMetaballsTaskPrivate {
     guint current_iteration;
 
     Ball *balls;
-    /* gsize num_position_bytes; */
-
-    /* gfloat *positions; */
-    /* gfloat *velocities; */
-    /* gfloat *sizes; */
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -79,8 +73,8 @@ ufo_metaballs_task_new (void)
 
 static void
 ufo_metaballs_task_setup (UfoTask *task,
-                           UfoResources *resources,
-                           GError **error)
+                          UfoResources *resources,
+                          GError **error)
 {
     UfoMetaballsTaskPrivate *priv;
     gfloat f_width;
@@ -117,8 +111,8 @@ ufo_metaballs_task_setup (UfoTask *task,
 
 static void
 ufo_metaballs_task_get_requisition (UfoTask *task,
-                                     UfoBuffer **inputs,
-                                     UfoRequisition *requisition)
+                                    UfoBuffer **inputs,
+                                    UfoRequisition *requisition)
 {
     UfoMetaballsTaskPrivate *priv;
 
@@ -149,11 +143,12 @@ ufo_metaballs_task_get_mode (UfoTask *task)
 
 static gboolean
 ufo_metaballs_task_generate (UfoTask *task,
-                              UfoBuffer *output,
-                              UfoRequisition *requisition)
+                             UfoBuffer *output,
+                             UfoRequisition *requisition)
 {
     UfoMetaballsTaskPrivate *priv;
     UfoGpuNode *node;
+    UfoProfiler *profiler;
     cl_command_queue cmd_queue;
     cl_mem out_mem;
     
@@ -170,10 +165,8 @@ ufo_metaballs_task_generate (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &priv->balls_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_uint), &priv->num_balls));
 
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
-                                                       priv->kernel,
-                                                       2, NULL, requisition->dims, NULL,
-                                                       0, NULL, NULL));
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
 
     /* Update positions and velocities */
     for (guint i = 0; i < priv->num_balls; i++) {
@@ -197,9 +190,9 @@ ufo_metaballs_task_generate (UfoTask *task,
 
 static void
 ufo_metaballs_task_set_property (GObject *object,
-                                  guint property_id,
-                                  const GValue *value,
-                                  GParamSpec *pspec)
+                                 guint property_id,
+                                 const GValue *value,
+                                 GParamSpec *pspec)
 {
     UfoMetaballsTaskPrivate *priv = UFO_METABALLS_TASK_GET_PRIVATE (object);
 
@@ -224,9 +217,9 @@ ufo_metaballs_task_set_property (GObject *object,
 
 static void
 ufo_metaballs_task_get_property (GObject *object,
-                                  guint property_id,
-                                  GValue *value,
-                                  GParamSpec *pspec)
+                                 guint property_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
 {
     UfoMetaballsTaskPrivate *priv = UFO_METABALLS_TASK_GET_PRIVATE (object);
 
