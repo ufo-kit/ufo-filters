@@ -25,23 +25,31 @@
 
 #include "ufo-metaballs-task.h"
 
+typedef struct {
+    gfloat x;
+    gfloat y;
+    gfloat vx;
+    gfloat vy;
+    gfloat size;
+} Ball;
 
 struct _UfoMetaballsTaskPrivate {
-    cl_context  context;
     cl_kernel   kernel;
-    cl_mem      positions_mem;
-    cl_mem      sizes_mem;
+    cl_mem      balls_mem;
+    /* cl_mem      sizes_mem; */
 
     guint width;
     guint height;
     guint num_balls;
     guint num_iterations;
     guint current_iteration;
-    gsize num_position_bytes;
 
-    gfloat *positions;
-    gfloat *velocities;
-    gfloat *sizes;
+    Ball *balls;
+    /* gsize num_position_bytes; */
+
+    /* gfloat *positions; */
+    /* gfloat *velocities; */
+    /* gfloat *sizes; */
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -77,55 +85,34 @@ ufo_metaballs_task_setup (UfoTask *task,
     UfoMetaballsTaskPrivate *priv;
     gfloat f_width;
     gfloat f_height;
-    gsize size;
+    cl_context context;
     cl_int err = CL_SUCCESS;
 
     priv = UFO_METABALLS_TASK_GET_PRIVATE (task);
-    priv->context = ufo_resources_get_context (resources);
+    context = ufo_resources_get_context (resources);
 
-    priv->kernel = ufo_resources_get_kernel (resources,
-                                             "metaballs.cl",
-                                             "draw_metaballs",
-                                             error);
-
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+    priv->kernel = ufo_resources_get_kernel (resources, "metaballs.cl", "draw_metaballs", error);
 
     if (priv->kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
 
-    size = priv->num_balls * sizeof (gfloat);
-
     priv->current_iteration = 0;
-    priv->num_position_bytes = 2 * size;
-    priv->positions = g_malloc0 (priv->num_position_bytes);
-    priv->velocities = g_malloc0 (priv->num_position_bytes);
-    priv->sizes = g_malloc0 (size);
+    priv->balls = g_malloc0 (priv->num_balls * sizeof (Ball));
 
     f_width = (gfloat) priv->width;
     f_height = (gfloat) priv->height;
 
     for (guint i = 0; i < priv->num_balls; i++) {
-        const guint x = 2*i, y = 2*i + 1;
-        priv->sizes[i] = (gfloat) g_random_double_range (f_width / 50.0f, f_width / 10.0f);
-        priv->positions[x] = (gfloat) g_random_double_range (0.0, (double) f_width);
-        priv->positions[y] = (gfloat) g_random_double_range (0.0, (double) f_height);
-        priv->velocities[x] = (gfloat) g_random_double_range (-4.0, 4.0);
-        priv->velocities[y] = (gfloat) g_random_double_range (-4.0, 4.0);
+        priv->balls[i].size = (gfloat) g_random_double_range (0.01 * f_width, 0.05 * f_width);
+        priv->balls[i].x = (gfloat) g_random_double_range (0.0, (double) f_width);
+        priv->balls[i].y = (gfloat) g_random_double_range (0.0, (double) f_height);
+        priv->balls[i].vy = (gfloat) g_random_double_range (-4.0, 4.0);
+        priv->balls[i].vy = (gfloat) g_random_double_range (-4.0, 4.0);
     };
 
-    priv->positions_mem = clCreateBuffer(priv->context,
-                                         CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                         priv->num_position_bytes, priv->positions, &err);
+    priv->balls_mem = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                     priv->num_balls * sizeof (Ball), priv->balls, &err);
     UFO_RESOURCES_CHECK_CLERR (err);
-
-    priv->sizes_mem = clCreateBuffer(priv->context,
-                                     CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-                                     size, priv->sizes, &err);
-    UFO_RESOURCES_CHECK_CLERR (err);
-
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &priv->positions_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_mem), &priv->sizes_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_uint), &priv->num_balls));
 }
 
 static void
@@ -180,29 +167,29 @@ ufo_metaballs_task_generate (UfoTask *task,
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof(cl_mem), (cl_mem) &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &priv->balls_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_uint), &priv->num_balls));
+
     UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
                                                        priv->kernel,
                                                        2, NULL, requisition->dims, NULL,
                                                        0, NULL, NULL));
 
     /* Update positions and velocities */
-    for (guint j = 0; j < priv->num_balls; j++) {
-        const guint x = 2*j, y = 2*j + 1;
+    for (guint i = 0; i < priv->num_balls; i++) {
+        priv->balls[i].x += priv->balls[i].vx;
+        priv->balls[i].y += priv->balls[i].vy;
 
-        priv->positions[x] += priv->velocities[x];
-        priv->positions[y] += priv->velocities[y];
+        if (priv->balls[i].x < 0 || priv->balls[i].x > priv->width)
+            priv->balls[i].vx = -priv->balls[i].vx;
 
-        if (priv->positions[x] < 0 || priv->positions[x] > priv->width)
-            priv->velocities[x] = -priv->velocities[x];
-
-        if (priv->positions[y] < 0 || priv->positions[y] > priv->height)
-            priv->velocities[y] = -priv->velocities[y];
+        if (priv->balls[i].y < 0 || priv->balls[i].y > priv->height)
+            priv->balls[i].vy = -priv->balls[i].vy;
     }
 
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueWriteBuffer (cmd_queue,
-                                                     priv->positions_mem,
+    UFO_RESOURCES_CHECK_CLERR (clEnqueueWriteBuffer (cmd_queue, priv->balls_mem,
                                                      CL_FALSE,
-                                                     0, priv->num_position_bytes, priv->positions,
+                                                     0, priv->num_balls * sizeof (Ball), priv->balls,
                                                      0, NULL, NULL));
 
     return TRUE;
@@ -274,24 +261,12 @@ ufo_metaballs_task_finalize (GObject *object)
         priv->kernel = NULL;
     }
 
-    if (priv->positions_mem) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->positions_mem));
-        priv->positions_mem= NULL;
+    if (priv->balls_mem) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->balls_mem));
+        priv->balls_mem = NULL;
     }
 
-    if (priv->sizes_mem) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->sizes_mem));
-        priv->sizes_mem= NULL;
-    }
-
-    if (priv->context) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
-        priv->context = NULL;
-    }
-
-    g_free (priv->sizes);
-    g_free (priv->positions);
-    g_free (priv->velocities);
+    g_free (priv->balls);
 
     G_OBJECT_CLASS (ufo_metaballs_task_parent_class)->finalize (object);
 }

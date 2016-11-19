@@ -17,10 +17,17 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+typedef struct {
+    float x;
+    float y;
+    float vx;
+    float vy;
+    float size;
+} Ball;
+
 kernel void
 draw_metaballs (global float *output,
-                global float2 *positions,
-                constant float *sizes,
+                global Ball *balls,
                 uint num_balls)
 {
     const int idx = get_global_id(0);
@@ -28,11 +35,13 @@ draw_metaballs (global float *output,
     const float r = 1.0f;
 
     float sum = 0.0f;
+
     for (int i = 0; i < num_balls; i++) {
-        float x = (positions[i].x - idx);
-        float y = (positions[i].y - idy);
-        sum += sizes[i] / sqrt(x*x + y*y);
+        float x = (balls[i].x - idx);
+        float y = (balls[i].y - idy);
+        sum += balls[i].size / sqrt(x*x + y*y);
     }
+
     if ((sum > (r - 0.01f)) && (sum < (r + 0.01f)))
         output[idy * get_global_size(0) + idx] = 1.0f;
     else
