@@ -106,7 +106,7 @@ ufo_metaballs_task_setup (UfoTask *task,
         priv->balls[i].size = (gfloat) g_random_double_range (0.01 * f_width, 0.05 * f_width);
         priv->balls[i].x = (gfloat) g_random_double_range (0.0, (double) f_width);
         priv->balls[i].y = (gfloat) g_random_double_range (0.0, (double) f_height);
-        priv->balls[i].vy = (gfloat) g_random_double_range (-4.0, 4.0);
+        priv->balls[i].vx = (gfloat) g_random_double_range (-4.0, 4.0);
         priv->balls[i].vy = (gfloat) g_random_double_range (-4.0, 4.0);
     };
 

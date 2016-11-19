@@ -42,7 +42,7 @@ draw_metaballs (global float *output,
         sum += balls[i].size / sqrt(x*x + y*y);
     }
 
-    if ((sum > (r - 0.01f)) && (sum < (r + 0.01f)))
+    if (sum > 1.0f)
         output[idy * get_global_size(0) + idx] = 1.0f;
     else
         output[idy * get_global_size(0) + idx] = 0.0f;
