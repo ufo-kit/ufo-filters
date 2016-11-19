@@ -722,7 +722,7 @@ Loops
     avoid unnecessary copies. You can expect the data items to be on the device
     where the data originated.
 
-    .. gobj:prop:: count:int
+    .. gobj:prop:: number:int
 
         Number of iterations for each received data item.
 

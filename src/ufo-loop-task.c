@@ -21,7 +21,7 @@
 
 
 struct _UfoLoopTaskPrivate {
-    guint count;
+    guint number;
     guint current;
     UfoBuffer *temporary;
     GList *filled;
@@ -37,7 +37,7 @@ G_DEFINE_TYPE_WITH_CODE (UfoLoopTask, ufo_loop_task, UFO_TYPE_TASK_NODE,
 
 enum {
     PROP_0,
-    PROP_COUNT,
+    PROP_NUMBER,
     N_PROPERTIES
 };
 
@@ -120,7 +120,7 @@ ufo_loop_task_generate (UfoTask *task,
 
     priv = UFO_LOOP_TASK_GET_PRIVATE (task);
 
-    if (priv->current == priv->count)
+    if (priv->current == priv->number)
         return FALSE;
 
     /*
@@ -146,8 +146,8 @@ ufo_loop_task_set_property (GObject *object,
     UfoLoopTaskPrivate *priv = UFO_LOOP_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_COUNT:
-            priv->count = g_value_get_uint (value);
+        case PROP_NUMBER:
+            priv->number = g_value_get_uint (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -164,8 +164,8 @@ ufo_loop_task_get_property (GObject *object,
     UfoLoopTaskPrivate *priv = UFO_LOOP_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_COUNT:
-            g_value_set_uint (value, priv->count);
+        case PROP_NUMBER:
+            g_value_set_uint (value, priv->number);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -205,8 +205,8 @@ ufo_loop_task_class_init (UfoLoopTaskClass *klass)
     oclass->get_property = ufo_loop_task_get_property;
     oclass->finalize = ufo_loop_task_finalize;
 
-    properties[PROP_COUNT] =
-        g_param_spec_uint ("count",
+    properties[PROP_NUMBER] =
+        g_param_spec_uint ("number",
             "Number of loop iterations",
             "Number of loop iterations",
             0, G_MAXUINT, 1,
@@ -222,6 +222,6 @@ static void
 ufo_loop_task_init(UfoLoopTask *self)
 {
     self->priv = UFO_LOOP_TASK_GET_PRIVATE(self);
-    self->priv->count = 1;
+    self->priv->number = 1;
     self->priv->filled = NULL;
 }
