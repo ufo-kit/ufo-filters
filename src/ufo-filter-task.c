@@ -52,15 +52,15 @@ typedef enum {
     FILTER_BUTTERWORTH,
     FILTER_FARIS_BYER,
     FILTER_HAMMING,
-    N_FILTERS,
 } Filter;
 
-static const gchar *filter_names[] = {
-    "ramp",
-    "ramp-fromreal",
-    "butterworth",
-    "faris-byer",
-    "hamming",
+static GEnumValue filter_values[] = {
+    { FILTER_RAMP,          "FILTER_RAMP",          "ramp" },
+    { FILTER_RAMP_FROMREAL, "FILTER_RAMP_FROMREAL", "ramp-fromreal" },
+    { FILTER_BUTTERWORTH,   "FILTER_BUTTERWORTH",   "butterworth"},
+    { FILTER_FARIS_BYER,    "FILTER_FARIS_BYER",    "faris-byer"},
+    { FILTER_HAMMING,       "FILTER_HAMMING",       "hamming"},
+    { 0, NULL, NULL}
 };
 
 static SetupFunc filter_funcs[] = {
@@ -381,12 +381,7 @@ ufo_filter_task_set_property (GObject *object,
 
     switch (property_id) {
         case PROP_FILTER:
-            for (guint i = 0; i < N_FILTERS; i++) {
-                if (!g_strcmp0 (g_value_get_string (value), filter_names[i])) {
-                    priv->filter = (Filter) i;
-                    break;
-                }
-            }
+            priv->filter = g_value_get_enum (value);
             break;
         case PROP_CUTOFF:
             priv->cutoff = g_value_get_float (value);
@@ -419,7 +414,7 @@ ufo_filter_task_get_property (GObject *object,
 
     switch (property_id) {
         case PROP_FILTER:
-            g_value_set_string (value, filter_names[priv->filter]);
+            g_value_set_enum (value, priv->filter);
             break;
         case PROP_CUTOFF:
             g_value_set_float (value, priv->cutoff);
@@ -456,11 +451,11 @@ ufo_filter_task_class_init (UfoFilterTaskClass *klass)
     oclass->get_property = ufo_filter_task_get_property;
 
     properties[PROP_FILTER] =
-        g_param_spec_string ("filter",
+        g_param_spec_enum ("filter",
             "Type of filter (\"ramp\", \"ramp-fromreal\", \"butterworth\", \"faris-byer\", \"hamming\")",
             "Type of filter (\"ramp\", \"ramp-fromreal\", \"butterworth\", \"faris-byer\", \"hamming\")",
-            "ramp",
-            G_PARAM_READWRITE);
+            g_enum_register_static ("filter", filter_values),
+            0, G_PARAM_READWRITE);
 
     properties[PROP_CUTOFF] =
         g_param_spec_float ("cutoff",
