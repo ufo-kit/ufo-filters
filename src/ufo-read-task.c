@@ -37,7 +37,7 @@
 #include "readers/ufo-hdf5-reader.h"
 #endif
 
-/* XXX: keep enum and types array in sync! */
+/* XXX: keep enum and values array in sync! */
 typedef enum {
     TYPE_EDF,
     TYPE_RAW,
@@ -50,16 +50,17 @@ typedef enum {
     TYPE_UNSPECIFIED
 } FileType;
 
-static const gchar *types[] = {
-    "edf",
-    "raw",
+static GEnumValue type_values[] = {
+    { TYPE_EDF,     "TYPE_EDF",     "edf" },
+    { TYPE_RAW,     "TYPE_RAW",     "raw" },
 #ifdef HAVE_TIFF
-    "tiff",
+    { TYPE_TIFF,    "TYPE_TIFF",    "tiff" },
 #endif
 #ifdef WITH_HDF5
-    "hdf5",
+    { TYPE_HDF5,    "TYPE_HDF5",    "hdf5" },
 #endif
-    NULL
+    { TYPE_UNSPECIFIED, "TYPE_UNSPECIFIED", "unspecified" },
+    { 0, NULL, NULL}
 };
 
 struct _UfoReadTaskPrivate {
@@ -361,20 +362,7 @@ ufo_read_task_set_property (GObject *object,
             }
             break;
         case PROP_TYPE:
-            {
-                const gchar *type;
-
-                type = g_value_get_string (value);
-
-                for (guint i = 0; types[i] != NULL; i++) {
-                    if (g_strcmp0 (type, types[i]) == 0) {
-                        priv->type = (FileType) i;
-                        return;
-                    }
-                }
-
-                g_warning ("File type `%s' not recognized", type);
-            }
+            priv->type = g_value_get_enum (value);
             break;
 
         default:
@@ -431,10 +419,7 @@ ufo_read_task_get_property (GObject *object,
             }
             break;
         case PROP_TYPE:
-            if (priv->type != TYPE_UNSPECIFIED)
-                g_value_set_string (value, types[priv->type]);
-            else
-                g_value_set_string (value, "unspecified");
+            g_value_set_enum (value, priv->type);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -503,94 +488,95 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
     gobject_class->finalize = ufo_read_task_finalize;
 
     properties[PROP_PATH] =
-        g_param_spec_string("path",
+        g_param_spec_string ("path",
             "Glob-style pattern.",
             "Glob-style pattern that describes the file path.",
             "*.tif",
             G_PARAM_READWRITE);
 
     properties[PROP_STEP] =
-        g_param_spec_uint("step",
+        g_param_spec_uint ("step",
         "Read every \"step\" file",
         "Read every \"step\" file",
         1, G_MAXUINT, 1,
         G_PARAM_READWRITE);
 
     properties[PROP_ROI_Y] =
-        g_param_spec_uint("y",
+        g_param_spec_uint ("y",
             "Vertical coordinate",
             "Vertical coordinate from where to start reading the image",
             0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_ROI_HEIGHT] =
-        g_param_spec_uint("height",
+        g_param_spec_uint ("height",
             "Height",
             "Height of the region of interest to read",
             0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_ROI_STEP] =
-        g_param_spec_uint("y-step",
+        g_param_spec_uint ("y-step",
             "Read every \"step\" row",
             "Read every \"step\" row",
             1, G_MAXUINT, 1,
             G_PARAM_READWRITE);
 
     properties[PROP_CONVERT] =
-        g_param_spec_boolean("convert",
+        g_param_spec_boolean ("convert",
             "Enable automatic conversion",
             "Enable automatic conversion of input data types to float",
             TRUE,
             G_PARAM_READWRITE);
 
     properties[PROP_START] =
-        g_param_spec_uint("start",
+        g_param_spec_uint ("start",
             "Offset to the first read file",
             "Offset to the first read file",
             0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_NUMBER] =
-        g_param_spec_uint("number",
+        g_param_spec_uint ("number",
             "Number of files that will be read at most",
             "Number of files that will be read at most",
             0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
     properties[PROP_RAW_WIDTH] =
-        g_param_spec_uint("raw-width",
+        g_param_spec_uint ("raw-width",
             "Width of raw image",
             "Width of raw image",
             0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
     properties[PROP_RAW_HEIGHT] =
-        g_param_spec_uint("raw-height",
+        g_param_spec_uint ("raw-height",
             "Height of raw image",
             "Height of raw image",
             0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
     properties[PROP_RAW_BITDEPTH] =
-        g_param_spec_uint("raw-bitdepth",
+        g_param_spec_uint ("raw-bitdepth",
             "Bitdepth of raw image",
             "Bitdepth of raw image",
             0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
     properties[PROP_RAW_OFFSET] =
-        g_param_spec_uint("raw-offset",
+        g_param_spec_uint ("raw-offset",
             "Offset to the beginning of raw image in bytes",
             "Offset to the beginning of raw image in bytes",
             0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
     properties[PROP_TYPE] =
-        g_param_spec_string ("type",
+        g_param_spec_enum ("type",
             "Override type detection based on extension",
             "Override type detection based on extension",
-            "unspecified",
+            g_enum_register_static ("type", type_values),
+            TYPE_UNSPECIFIED,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)

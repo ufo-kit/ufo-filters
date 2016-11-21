@@ -20,14 +20,17 @@
 #include "ufo-flatten-inplace-task.h"
 
 typedef enum {
-    M_0,
-    M_SUM,
-    M_MIN,
-    M_MAX,
-    M_LAST
+    MODE_SUM,
+    MODE_MIN,
+    MODE_MAX,
 } Mode;
 
-static const gchar *modes[] = {"sum", "min", "max"};
+static GEnumValue mode_values[] = {
+    { MODE_SUM, "MODE_SUM", "sum" },
+    { MODE_MIN, "MODE_MIN", "min" },
+    { MODE_MAX, "MODE_MAX", "max" },
+    { 0, NULL, NULL}
+};
 
 struct _UfoFlattenInplaceTaskPrivate {
     Mode mode;
@@ -54,17 +57,6 @@ UfoNode *
 ufo_flatten_inplace_task_new (void)
 {
     return UFO_NODE (g_object_new (UFO_TYPE_FLATTEN_INPLACE_TASK, NULL));
-}
-
-static Mode
-string_to_mode (const gchar *s)
-{
-    for (Mode i = M_0 + 1; i < M_LAST; i++) {
-        if (!g_strcmp0 (s, modes[i - 1]))
-            return i;
-    }
-
-    return M_0;
 }
 
 static void
@@ -118,19 +110,19 @@ ufo_flatten_inplace_task_process (UfoTask *task,
     out_array = ufo_buffer_get_host_array (output, NULL);
 
     switch (priv->mode) {
-        case M_SUM:
+        case MODE_SUM:
             for (gsize i = 0; i < n_pixels; i++)
                 out_array[i] += in_array[i];
             break;
 
-        case M_MIN:
+        case MODE_MIN:
             for (gsize i = 0; i < n_pixels; i++) {
                 if (in_array[i] < out_array[i])
                     out_array[i] = in_array[i];
             }
             break;
 
-        case M_MAX:
+        case MODE_MAX:
             for (gsize i = 0; i < n_pixels; i++) {
                 if (in_array[i] > out_array[i])
                     out_array[i] = in_array[i];
@@ -169,12 +161,7 @@ ufo_flatten_inplace_task_set_property (GObject *object,
 
     switch (property_id) {
         case PROP_MODE:
-            {
-                Mode mode = string_to_mode (g_value_get_string (value));
-
-                if (mode != M_0)
-                    priv->mode = mode;
-            }
+            priv->mode = g_value_get_enum (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -192,7 +179,7 @@ ufo_flatten_inplace_task_get_property (GObject *object,
 
     switch (property_id) {
         case PROP_MODE:
-            g_value_set_string (value, modes[priv->mode]);
+            g_value_set_enum (value, priv->mode);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -228,11 +215,11 @@ ufo_flatten_inplace_task_class_init (UfoFlattenInplaceTaskClass *klass)
     oclass->finalize = ufo_flatten_inplace_task_finalize;
 
     properties[PROP_MODE] =
-        g_param_spec_string ("mode",
-            "Mode (min, max, sum)",
-            "Mode (min, max, sum)",
-            "",
-            G_PARAM_READWRITE);
+        g_param_spec_enum ("mode",
+                           "Mode (min, max, sum)",
+                           "Mode (min, max, sum)",
+                           g_enum_register_static ("mode", mode_values),
+                           MODE_SUM, G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
@@ -244,6 +231,6 @@ static void
 ufo_flatten_inplace_task_init(UfoFlattenInplaceTask *self)
 {
     self->priv = UFO_FLATTEN_INPLACE_TASK_GET_PRIVATE(self);
-    self->priv->mode = M_SUM;
+    self->priv->mode = MODE_SUM;
     self->priv->generated = FALSE;
 }

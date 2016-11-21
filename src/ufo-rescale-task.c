@@ -26,10 +26,21 @@
 #include "ufo-rescale-task.h"
 
 
+typedef enum {
+    INTERPOLATION_NEAREST = CL_FILTER_NEAREST,
+    INTERPOLATION_LINEAR = CL_FILTER_LINEAR,
+} Interpolation;
+
+static GEnumValue interpolation_values[] = {
+    { INTERPOLATION_NEAREST,   "INTERPOLATION_NEAREST",   "nearest" },
+    { INTERPOLATION_LINEAR,    "INTERPOLATION_LINEAR",    "linear" },
+    { 0, NULL, NULL}
+};
+
 struct _UfoRescaleTaskPrivate {
     cl_context context;
     cl_kernel kernel;
-    cl_filter_mode filter_mode;
+    Interpolation interpolation;
     gfloat x_factor;
     gfloat y_factor;
     guint width;
@@ -80,7 +91,7 @@ ufo_rescale_task_setup (UfoTask *task,
     priv->sampler = clCreateSampler (priv->context,
                                      (cl_bool) FALSE,
                                      CL_ADDRESS_NONE,
-                                     priv->filter_mode,
+                                     (cl_filter_mode) priv->interpolation,
                                      &err);
     UFO_RESOURCES_CHECK_CLERR (err);
 
@@ -198,11 +209,7 @@ ufo_rescale_task_set_property (GObject *object,
             priv->height = g_value_get_uint (value);
             break;
         case PROP_INTERPOLATION:
-            if (!g_strcmp0 (g_value_get_string (value), "nearest")) {
-                priv->filter_mode = CL_FILTER_NEAREST;
-            } else if (!g_strcmp0 (g_value_get_string (value), "linear")) {
-                priv->filter_mode = CL_FILTER_LINEAR;
-            }
+            priv->interpolation = g_value_get_enum (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -238,14 +245,7 @@ ufo_rescale_task_get_property (GObject *object,
             g_value_set_uint (value, priv->height);
             break;
         case PROP_INTERPOLATION:
-            switch (priv->filter_mode) {
-                case CL_FILTER_NEAREST:
-                    g_value_set_string (value, "nearest");
-                    break;
-                case CL_FILTER_LINEAR:
-                    g_value_set_string (value, "linear");
-                    break;
-            }
+            g_value_set_enum (value, priv->interpolation);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -318,11 +318,11 @@ ufo_rescale_task_class_init (UfoRescaleTaskClass *klass)
                             G_PARAM_READWRITE);
 
     properties[PROP_INTERPOLATION] =
-        g_param_spec_string ("interpolation",
-                             "Interpolation mode",
-                             "Interpolation mode from: \"nearest\", \"linear\"",
-                             "linear",
-                             G_PARAM_READWRITE);
+        g_param_spec_enum ("interpolation",
+                           "Interpolation mode (\"nearest\", \"linear\")",
+                           "Interpolation mode (\"nearest\", \"linear\")",
+                           g_enum_register_static ("interpolation", interpolation_values),
+                           INTERPOLATION_LINEAR, G_PARAM_READWRITE);
 
     properties[PROP_WIDTH] =
         g_param_spec_uint ("width",
@@ -352,5 +352,5 @@ ufo_rescale_task_init(UfoRescaleTask *self)
     self->priv->y_factor = 2.0f;
     self->priv->width = 0;
     self->priv->height = 0;
-    self->priv->filter_mode = CL_FILTER_LINEAR;
+    self->priv->interpolation = INTERPOLATION_LINEAR;
 }

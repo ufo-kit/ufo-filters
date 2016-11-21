@@ -30,7 +30,7 @@
 #define IS_POW_OF_2(x) !(x & (x - 1))
 
 typedef enum {
-    METHOD_TIE,
+    METHOD_TIE = 0,
     METHOD_CTF,
     METHOD_CTFHALFSINE,
     METHOD_QP,
@@ -38,6 +38,16 @@ typedef enum {
     METHOD_QP2,
     N_METHODS
 } Method;
+
+static GEnumValue method_values[] = {
+    { METHOD_TIE,           "METHOD_TIE",           "tie" },
+    { METHOD_CTF,           "METHOD_CTF",           "ctf" },
+    { METHOD_CTFHALFSINE,   "METHOD_CTFHALFSINE",   "ctfhalfsine" },
+    { METHOD_QP,            "METHOD_QP",            "qp" },
+    { METHOD_QPHALFSINE,    "METHOD_QPHALFSINE",    "qphalfsine" },
+    { METHOD_QP2,           "METHOD_QP2",           "qp2" },
+    { 0, NULL, NULL}
+};
 
 struct _UfoRetrievePhaseTaskPrivate {
     Method method;
@@ -85,8 +95,8 @@ ufo_retrieve_phase_task_new (void)
 
 static void
 ufo_retrieve_phase_task_setup (UfoTask *task,
-                                UfoResources *resources,
-                                GError **error)
+                               UfoResources *resources,
+                               GError **error)
 {
     UfoRetrievePhaseTaskPrivate *priv;
     gfloat lambda;
@@ -161,9 +171,9 @@ ufo_filter_task_get_mode (UfoTask *task)
 
 static gboolean
 ufo_retrieve_phase_task_process (UfoTask *task,
-                         UfoBuffer **inputs,
-                         UfoBuffer *output,
-                         UfoRequisition *requisition)
+                                 UfoBuffer **inputs,
+                                 UfoBuffer *output,
+                                 UfoRequisition *requisition)
 {
     UfoRetrievePhaseTaskPrivate *priv;
     UfoGpuNode *node;
@@ -208,26 +218,15 @@ ufo_retrieve_phase_task_process (UfoTask *task,
 
 static void
 ufo_retrieve_phase_task_get_property (GObject *object,
-                              guint property_id,
-                              GValue *value,
-                              GParamSpec *pspec)
+                                      guint property_id,
+                                      GValue *value,
+                                      GParamSpec *pspec)
 {
     UfoRetrievePhaseTaskPrivate *priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_METHOD:
-            if (priv->method == METHOD_TIE)
-                g_value_set_string (value, "tie");
-            else if (priv->method == METHOD_CTF)
-                g_value_set_string (value, "ctf");
-            else if (priv->method == METHOD_CTFHALFSINE)
-                g_value_set_string (value, "ctfhalfsine");
-            else if (priv->method == METHOD_QP)
-                g_value_set_string (value, "qp");
-            else if (priv->method == METHOD_QPHALFSINE)
-                g_value_set_string (value, "qphalfsine");
-            else if (priv->method == METHOD_QP2)
-                g_value_set_string (value, "qp2");
+            g_value_set_enum (value, priv->method);
             break;
         case PROP_ENERGY:
             g_value_set_float (value, priv->energy);
@@ -252,26 +251,15 @@ ufo_retrieve_phase_task_get_property (GObject *object,
 
 static void
 ufo_retrieve_phase_task_set_property (GObject *object,
-                              guint property_id,
-                              const GValue *value,
-                              GParamSpec *pspec)
+                                      guint property_id,
+                                      const GValue *value,
+                                      GParamSpec *pspec)
 {
     UfoRetrievePhaseTaskPrivate *priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_METHOD:
-            if (!g_strcmp0 (g_value_get_string (value), "tie"))
-                priv->method = METHOD_TIE;
-            else if (!g_strcmp0 (g_value_get_string (value), "ctf"))
-                priv->method = METHOD_CTF;
-            else if (!g_strcmp0 (g_value_get_string (value), "ctfhalfsine"))
-                priv->method = METHOD_CTFHALFSINE;
-            else if (!g_strcmp0 (g_value_get_string (value), "qp"))
-                priv->method = METHOD_QP;
-            else if (!g_strcmp0 (g_value_get_string (value), "qphalfsine"))
-                priv->method = METHOD_QPHALFSINE;
-            else if (!g_strcmp0 (g_value_get_string (value), "qp2"))
-                priv->method = METHOD_QP2;
+            priv->method = g_value_get_enum (value);
             break;
         case PROP_ENERGY:
             priv->energy = g_value_get_float (value);
@@ -349,10 +337,11 @@ ufo_retrieve_phase_task_class_init (UfoRetrievePhaseTaskClass *klass)
     gobject_class->finalize = ufo_retrieve_phase_task_finalize;
 
     properties[PROP_METHOD] =
-        g_param_spec_string ("method",
-            "Name of method",
-            "Method.",
-            "tie",
+        g_param_spec_enum ("method",
+            "Method name",
+            "Method name",
+            g_enum_register_static ("method", method_values),
+            METHOD_TIE,
             G_PARAM_READWRITE);
 
     properties[PROP_ENERGY] =

@@ -26,19 +26,25 @@
 #include "ufo-detect-edge-task.h"
 
 
-struct _UfoDetectEdgeTaskPrivate {
-    enum {
-        FILTER_SOBEL = 0,
-        FILTER_LAPLACE,
-        FILTER_PREWITT,
-    } type;
+typedef enum {
+    FILTER_SOBEL = 0,
+    FILTER_LAPLACE,
+    FILTER_PREWITT,
+} Filter;
 
+static GEnumValue filter_values[] = {
+    { FILTER_SOBEL,     "FILTER_SOBEL",     "sobel" },
+    { FILTER_LAPLACE,   "FILTER_LAPLACE",   "laplace" },
+    { FILTER_PREWITT,   "FILTER_PREWITT",   "prewitt" },
+    { 0, NULL, NULL}
+};
+
+struct _UfoDetectEdgeTaskPrivate {
+    Filter type;
     cl_context context;
     cl_kernel kernel;
     cl_mem mask_mem;
 };
-
-static const gchar* FILTER_NAMES[] = { "sobel", "laplace", "prewitt", NULL };
 
 static gfloat FILTER_MASKS[][9] = {
     {  1.0f,  0.0f, -1.0f,   /* Sobel in one direction */
@@ -51,7 +57,6 @@ static gfloat FILTER_MASKS[][9] = {
       -1.0f,  0.0f,  1.0f,
       -1.0f,  0.0f,  1.0f }
 };
-
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
@@ -166,17 +171,8 @@ ufo_detect_edge_task_set_property (GObject *object,
 
     switch (property_id) {
         case PROP_TYPE:
-            {
-                const gchar *type;
-
-                type = g_value_get_string (value);
-
-                for (guint i = 0; FILTER_NAMES[i] != NULL; i++)
-                    if (!g_strcmp0 (type, FILTER_NAMES[i]))
-                        priv->type = i;
-            }
+            priv->type = g_value_get_enum (value);
             break;
-
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -195,9 +191,8 @@ ufo_detect_edge_task_get_property (GObject *object,
 
     switch (property_id) {
         case PROP_TYPE:
-            g_value_set_string (value, FILTER_NAMES[priv->type]);
+            g_value_set_enum (value, priv->type);
             break;
-
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -245,11 +240,12 @@ ufo_detect_edge_task_class_init (UfoDetectEdgeTaskClass *klass)
     oclass->finalize = ufo_detect_edge_task_finalize;
 
     properties[PROP_TYPE] =
-        g_param_spec_string ("type",
-                             "Filter type (\"sobel\", \"laplace\", \"prewitt\")",
-                             "Filter type (\"sobel\", \"laplace\", \"prewitt\")",
-                             "sobel",
-                             G_PARAM_READWRITE);
+        g_param_spec_enum ("type",
+                           "Filter type (\"sobel\", \"laplace\", \"prewitt\")",
+                           "Filter type (\"sobel\", \"laplace\", \"prewitt\")",
+                           g_enum_register_static ("type", filter_values),
+                           FILTER_SOBEL,
+                           G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

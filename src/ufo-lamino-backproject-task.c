@@ -43,11 +43,19 @@
 
 
 typedef enum {
-    PARAM_Z,
-    PARAM_CENTER,
-    PARAM_LAMINO,
-    PARAM_ROLL
-} Param;
+    PARAMETER_Z,
+    PARAMETER_X_CENTER,
+    PARAMETER_LAMINO_ANGLE,
+    PARAMETER_ROLL_ANGLE
+} Parameter;
+
+static GEnumValue parameter_values[] = {
+    { PARAMETER_Z,              "PARAMETER_Z",  "z" },
+    { PARAMETER_X_CENTER,       "X_CENTER",     "x-center" },
+    { PARAMETER_LAMINO_ANGLE,   "LAMINO_ANGLE", "lamino-angle" },
+    { PARAMETER_ROLL_ANGLE,     "ROLL_ANGLE",   "roll-angle" },
+    { 0, NULL, NULL}
+};
 
 struct _UfoLaminoBackprojectTaskPrivate {
     /* private */
@@ -79,7 +87,7 @@ struct _UfoLaminoBackprojectTaskPrivate {
     gfloat lamino_angle;
     gfloat z;
     gfloat roll_angle;
-    Param parameter;
+    Parameter parameter;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -182,16 +190,16 @@ ufo_lamino_backproject_task_setup (UfoTask *task,
     priv->context = ufo_resources_get_context (resources);
 
     switch (priv->parameter) {
-        case PARAM_Z:
+        case PARAMETER_Z:
             kernel_filename = g_strdup ("z_kernel.cl");
             break;
-        case PARAM_CENTER:
+        case PARAMETER_X_CENTER:
             kernel_filename = g_strdup ("center_kernel.cl");
             break;
-        case PARAM_LAMINO:
+        case PARAMETER_LAMINO_ANGLE:
             kernel_filename = g_strdup ("lamino_kernel.cl");
             break;
-        case PARAM_ROLL:
+        case PARAMETER_ROLL_ANGLE:
             kernel_filename = g_strdup ("roll_kernel.cl");
             break;
         default:
@@ -337,7 +345,8 @@ ufo_lamino_backproject_task_process (UfoTask *task,
     x_region[1] = (gfloat) EXTRACT_INT (priv->x_region, 2);
     y_region[0] = (gfloat) EXTRACT_INT (priv->y_region, 0);
     y_region[1] = (gfloat) EXTRACT_INT (priv->y_region, 2);
-    if (priv->parameter == PARAM_Z) {
+
+    if (priv->parameter == PARAMETER_Z) {
         z_ends[0] = z_region[0] = EXTRACT_FLOAT (priv->region, 0);
         z_region[1] = EXTRACT_FLOAT (priv->region, 2);
         z_ends[1] = EXTRACT_FLOAT (priv->region, 1);
@@ -345,19 +354,22 @@ ufo_lamino_backproject_task_process (UfoTask *task,
         z_ends[0] = z_region[0] = priv->z;
         z_ends[1] = priv->z + 1.0f;
     }
-    if (priv->parameter == PARAM_CENTER) {
+
+    if (priv->parameter == PARAMETER_X_CENTER) {
         x_center[0] = EXTRACT_FLOAT (priv->region, 0) - EXTRACT_INT (priv->projection_offset, 0);
         x_center[1] = EXTRACT_FLOAT (priv->region, 2);
     } else {
         x_center[0] = x_center[1] = EXTRACT_FLOAT (priv->center, 0) - EXTRACT_INT (priv->projection_offset, 0);
     }
-    if (priv->parameter == PARAM_LAMINO) {
+
+    if (priv->parameter == PARAMETER_LAMINO_ANGLE) {
         lamino_angles[0] = EXTRACT_FLOAT (priv->region, 0);
         lamino_angles[1] = EXTRACT_FLOAT (priv->region, 2);
     } else {
         lamino_angles[0] = lamino_angles[1] = priv->lamino_angle;
     }
-    if (priv->parameter == PARAM_ROLL) {
+
+    if (priv->parameter == PARAMETER_ROLL_ANGLE) {
         roll_angles[0] = EXTRACT_FLOAT (priv->region, 0);
         roll_angles[1] = EXTRACT_FLOAT (priv->region, 2);
     } else {
@@ -374,8 +386,8 @@ ufo_lamino_backproject_task_process (UfoTask *task,
 
     /* If COPY_PROJECTION_REGION is True we copy only the part necessary  */
     /* for a given tomographic and laminographic angle */
-    /* TODO: Extend the region determination to be able to handle PARAM_LAMINO */
-    if (COPY_PROJECTION_REGION && priv->parameter != PARAM_LAMINO) {
+    /* TODO: Extend the region determination to be able to handle PARAMETER_LAMINO_ANGLE */
+    if (COPY_PROJECTION_REGION && priv->parameter != PARAMETER_LAMINO_ANGLE) {
         determine_x_region (x_copy_region, priv->x_region, priv->y_region, tomo_angle,
                             EXTRACT_FLOAT (priv->center, 0), in_req.dims[0]);
         determine_y_region (y_copy_region, priv->x_region, priv->y_region, z_ends,
@@ -532,15 +544,7 @@ ufo_lamino_backproject_task_set_property (GObject *object,
             priv->roll_angle = g_value_get_float (value);
             break;
         case PROP_PARAMETER:
-            if (!g_strcmp0 (g_value_get_string (value), "z")) {
-                priv->parameter = PARAM_Z;
-            } else if (!g_strcmp0 (g_value_get_string (value), "x-center")) {
-                priv->parameter = PARAM_CENTER;
-            } else if (!g_strcmp0 (g_value_get_string (value), "lamino-angle")) {
-                priv->parameter = PARAM_LAMINO;
-            } else if (!g_strcmp0 (g_value_get_string (value), "roll-angle")) {
-                priv->parameter = PARAM_ROLL;
-            }
+            priv->parameter = g_value_get_enum (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -591,20 +595,7 @@ ufo_lamino_backproject_task_get_property (GObject *object,
             g_value_set_float (value, priv->roll_angle);
             break;
         case PROP_PARAMETER:
-            switch (priv->parameter) {
-                case PARAM_Z:
-                    g_value_set_string (value, "z");
-                    break;
-                case PARAM_CENTER:
-                    g_value_set_string (value, "x-center");
-                    break;
-                case PARAM_LAMINO:
-                    g_value_set_string (value, "lamino-angle");
-                    break;
-                case PARAM_ROLL:
-                    g_value_set_string (value, "roll-angle");
-                    break;
-            }
+            g_value_set_enum (value, priv->parameter);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -781,12 +772,13 @@ ufo_lamino_backproject_task_class_init (UfoLaminoBackprojectTaskClass *klass)
                             G_PARAM_READWRITE);
 
     properties[PROP_PARAMETER] =
-        g_param_spec_string ("parameter",
-                             "Which paramter will be varied along the z-axis",
-                             "Which paramter will be varied along the z-axis, from \"z\", \"x-center\", \"lamino-angle\",\
-                             \"roll-angle\"",
-                             "z",
-                             G_PARAM_READWRITE);
+        g_param_spec_enum ("parameter",
+                           "Which parameter will be varied along the z-axis",
+                           "Which parameter will be varied along the z-axis (\"z\", \"x-center\", \"lamino-angle\",\
+                           \"roll-angle\")",
+                           g_enum_register_static ("parameter", parameter_values),
+                           PARAMETER_Z,
+                           G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
@@ -828,7 +820,7 @@ ufo_lamino_backproject_task_init(UfoLaminoBackprojectTask *self)
     self->priv->tomo_angle = -G_MAXFLOAT;
     self->priv->lamino_angle = 0.0f;
     self->priv->roll_angle = 0.0f;
-    self->priv->parameter = PARAM_Z;
+    self->priv->parameter = PARAMETER_Z;
     self->priv->count = 0;
     self->priv->generated = FALSE;
 }

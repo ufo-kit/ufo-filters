@@ -32,6 +32,12 @@ typedef enum {
     MODE_TEXTURE
 } Mode;
 
+static GEnumValue mode_values[] = {
+    { MODE_NEAREST, "MODE_NEAREST", "nearest" },
+    { MODE_TEXTURE, "MODE_TEXTURE", "texture" },
+    { 0, NULL, NULL}
+};
+
 struct _UfoBackprojectTaskPrivate {
     cl_context context;
     cl_kernel nearest_kernel;
@@ -350,10 +356,7 @@ ufo_backproject_task_set_property (GObject *object,
             priv->luts_changed = TRUE;
             break;
         case PROP_MODE:
-            if (!g_strcmp0 (g_value_get_string (value), "nearest"))
-                priv->mode = MODE_NEAREST;
-            else if (!g_strcmp0 (g_value_get_string (value), "texture"))
-                priv->mode = MODE_TEXTURE;
+            priv->mode = g_value_get_enum (value);
             break;
         case PROP_ROI_X:
             priv->roi_x = g_value_get_uint (value);
@@ -398,14 +401,7 @@ ufo_backproject_task_get_property (GObject *object,
             g_value_set_double (value, priv->angle_offset);
             break;
         case PROP_MODE:
-            switch (priv->mode) {
-                case MODE_NEAREST:
-                    g_value_set_string (value, "nearest");
-                    break;
-                case MODE_TEXTURE:
-                    g_value_set_string (value, "texture");
-                    break;
-            }
+            g_value_set_enum (value, priv->mode);
             break;
         case PROP_ROI_X:
             g_value_set_uint (value, priv->roi_x);
@@ -475,11 +471,11 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
                              G_PARAM_READWRITE);
 
     properties[PROP_MODE] =
-        g_param_spec_string ("mode",
-                             "Backprojection mode",
-                             "Backprojection mode from: \"nearest\", \"texture\"",
-                             "texture",
-                             G_PARAM_READWRITE);
+        g_param_spec_enum ("mode",
+                           "Backprojection mode (\"nearest\", \"texture\")",
+                           "Backprojection mode (\"nearest\", \"texture\")",
+                           g_enum_register_static ("mode", mode_values),
+                           MODE_TEXTURE, G_PARAM_READWRITE);
 
     properties[PROP_ROI_X] =
         g_param_spec_uint ("roi-x",

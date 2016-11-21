@@ -24,12 +24,22 @@
 
 #include "ufo-pad-task.h"
 
-/**
- * SECTION:ufo-pad-task
- * @Short_description: Pad images to some extent
- * @Title: pad
- *
- */
+typedef enum {
+    ADDRESS_NONE = CL_ADDRESS_NONE,
+    ADDRESS_CLAMP_TO_EDGE = CL_ADDRESS_CLAMP_TO_EDGE,
+    ADDRESS_CLAMP = CL_ADDRESS_CLAMP,
+    ADDRESS_REPEAT = CL_ADDRESS_REPEAT,
+    ADDRESS_MIRRORED_REPEAT = CL_ADDRESS_MIRRORED_REPEAT
+} AddressingMode;
+
+static GEnumValue addressing_values[] = {
+    { ADDRESS_NONE,             "ADDRESS_NONE",             "none" },
+    { ADDRESS_CLAMP_TO_EDGE,    "ADDRESS_CLAMP_TO_EDGE",    "clamp_to_edge" },
+    { ADDRESS_CLAMP,            "ADDRESS_CLAMP",            "clamp" },
+    { ADDRESS_REPEAT,           "ADDRESS_REPEAT",           "repeat" },
+    { ADDRESS_MIRRORED_REPEAT,  "ADDRESS_MIRRORED_REPEAT",  "mirrored_repeat" },
+    { 0, NULL, NULL}
+};
 
 struct _UfoPadTaskPrivate {
     /* OpenCL */
@@ -40,7 +50,7 @@ struct _UfoPadTaskPrivate {
     /* properties */
     guint width, height;
     gint x, y;
-    cl_addressing_mode addressing_mode;
+    AddressingMode addressing_mode;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -234,23 +244,7 @@ ufo_pad_task_set_property (GObject *object,
             priv->y = g_value_get_int (value);
             break;
         case PROP_ADDRESSING_MODE:
-            if (!g_strcmp0 (g_value_get_string (value), "none")) {
-                priv->addressing_mode = CL_ADDRESS_NONE;
-            }
-            else if (!g_strcmp0 (g_value_get_string (value), "clamp")) {
-                priv->addressing_mode = CL_ADDRESS_CLAMP;
-            }
-            else if (!g_strcmp0 (g_value_get_string (value), "clamp_to_edge")) {
-                priv->addressing_mode = CL_ADDRESS_CLAMP_TO_EDGE;
-            }
-            else if (!g_strcmp0 (g_value_get_string (value), "repeat")) {
-                priv->addressing_mode = CL_ADDRESS_REPEAT;
-            } else {
-                g_warning ("Invalid addressing mode \"%s\", "\
-                           "it has to be one of [\"none\", \"clamp\", "\
-                           "clamp_to_edge\", \"repeat\"]",
-                           g_value_get_string (value));
-            }
+            priv->addressing_mode = g_value_get_enum (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -280,20 +274,7 @@ ufo_pad_task_get_property (GObject *object,
             g_value_set_int (value, priv->y);
             break;
         case PROP_ADDRESSING_MODE:
-            switch (priv->addressing_mode) {
-                case CL_ADDRESS_NONE:
-                    g_value_set_string (value, "none");
-                    break;
-                case CL_ADDRESS_CLAMP:
-                    g_value_set_string (value, "clamp");
-                    break;
-                case CL_ADDRESS_CLAMP_TO_EDGE:
-                    g_value_set_string (value, "clamp_to_edge");
-                    break;
-                case CL_ADDRESS_REPEAT:
-                    g_value_set_string (value, "repeat");
-                    break;
-            }
+            g_value_set_enum (value, priv->addressing_mode);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -374,11 +355,12 @@ ufo_pad_task_class_init (UfoPadTaskClass *klass)
                            G_PARAM_READWRITE);
 
     properties[PROP_ADDRESSING_MODE] =
-        g_param_spec_string ("addressing-mode",
-                             "Outlier treatment",
-                             "Outlier treatment from : \"none\", \"clamp\", \"clamp_to_edge\", \"repeat\"",
-                             "clamp",
-                             G_PARAM_READWRITE);
+        g_param_spec_enum ("addressing-mode",
+                           "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
+                           "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
+                           g_enum_register_static ("addressing_mode", addressing_values),
+                           CL_ADDRESS_CLAMP,
+                           G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);

@@ -26,9 +26,15 @@
 #include "ufo-flip-task.h"
 
 typedef enum {
-    HORIZONTAL = 0,
-    VERTICAL
+    DIRECTION_HORIZONTAL = 0,
+    DIRECTION_VERTICAL
 } Direction;
+
+static GEnumValue direction_values[] = {
+    { DIRECTION_HORIZONTAL, "DIRECTION_HORIZONTAL", "horizontal" },
+    { DIRECTION_VERTICAL,   "DIRECTION_VERTICAL",   "vertical" },
+    { 0, NULL, NULL}
+};
 
 struct _UfoFlipTaskPrivate {
     Direction direction;
@@ -65,8 +71,8 @@ ufo_flip_task_setup (UfoTask *task,
     UfoFlipTaskPrivate *priv;
 
     priv = UFO_FLIP_TASK_GET_PRIVATE (task);
-    priv->kernels[HORIZONTAL] = ufo_resources_get_kernel (resources, "flip.cl", "flip_horizontal", error);
-    priv->kernels[VERTICAL] = ufo_resources_get_kernel (resources, "flip.cl", "flip_vertical", error);
+    priv->kernels[DIRECTION_HORIZONTAL] = ufo_resources_get_kernel (resources, "flip.cl", "flip_horizontal", error);
+    priv->kernels[DIRECTION_VERTICAL] = ufo_resources_get_kernel (resources, "flip.cl", "flip_vertical", error);
 }
 
 static void
@@ -136,12 +142,7 @@ ufo_flip_task_set_property (GObject *object,
 
     switch (property_id) {
         case PROP_DIRECTION:
-            if (g_strcmp0 (g_value_get_string (value), "horizontal") == 0)
-                priv->direction = HORIZONTAL;
-            else if (g_strcmp0 (g_value_get_string (value), "vertical") == 0)
-                priv->direction = VERTICAL;
-            else
-                g_warning ("`%s' cannot be set", g_value_get_string (value));
+            priv->direction = g_value_get_enum (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -159,10 +160,7 @@ ufo_flip_task_get_property (GObject *object,
 
     switch (property_id) {
         case PROP_DIRECTION:
-            if (priv->direction == HORIZONTAL)
-                g_value_set_string (value, "horizontal");
-            else if (priv->direction == VERTICAL)
-                g_value_set_string (value, "vertical");
+            g_value_set_enum (value, priv->direction);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -197,10 +195,11 @@ ufo_flip_task_class_init (UfoFlipTaskClass *klass)
     oclass->finalize = ufo_flip_task_finalize;
 
     properties[PROP_DIRECTION] =
-        g_param_spec_string ("direction",
-            "Flip direction (either `horizontal' or `vertical')",
-            "Flip direction (either `horizontal' or `vertical')",
-            "horizontal",
+        g_param_spec_enum ("direction",
+                           "Flip direction (`horizontal' or `vertical')",
+                           "Flip direction (`horizontal' or `vertical')",
+                           g_enum_register_static ("direction", direction_values),
+                           DIRECTION_HORIZONTAL,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -213,7 +212,7 @@ static void
 ufo_flip_task_init(UfoFlipTask *self)
 {
     self->priv = UFO_FLIP_TASK_GET_PRIVATE(self);
-    self->priv->direction = HORIZONTAL;
-    self->priv->kernels[HORIZONTAL] = NULL;
-    self->priv->kernels[VERTICAL] = NULL;
+    self->priv->direction = DIRECTION_HORIZONTAL;
+    self->priv->kernels[DIRECTION_HORIZONTAL] = NULL;
+    self->priv->kernels[DIRECTION_VERTICAL] = NULL;
 }
