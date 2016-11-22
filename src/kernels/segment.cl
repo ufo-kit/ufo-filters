@@ -30,13 +30,13 @@ typedef struct {
 #define C_DOWN  5
 
 kernel void
-segment (global float *slices,
-         global float *labeled,
-         global Label *prelabeled,
-         const int width,
-         const int height,
-         const int num_slices,
-         global float *random)
+walk (global float *slices,
+      global ushort *labeled,
+      global Label *prelabeled,
+      const int width,
+      const int height,
+      const int num_slices,
+      global float *random)
 {
     size_t idx;
     int x, y, z;
@@ -60,7 +60,7 @@ segment (global float *slices,
 #endif
     for (int depth = 0; depth < num_slices * 5000; depth++) {
         /* FIXME: race condition */
-        labeled[y * width + x + z * offset] += 1.0f;
+        labeled[y * width + x + z * offset] += 1;
 
         c[C_WEST]  = slices[y * width + x - 1 + z * offset];
         c[C_EAST]  = slices[y * width + x + 1 + z * offset];
@@ -160,4 +160,17 @@ segment (global float *slices,
                 break;
         }
     }
+}
+
+kernel void
+render (global ushort *labeled,
+        global float *output,
+        const int slice)
+{
+    int x = get_global_id (0);
+    int y = get_global_id (1);
+    int width = get_global_size (0);
+    int height = get_global_size (1);
+
+    output[y * width + x] = labeled[y * width + x + slice * width * height];
 }

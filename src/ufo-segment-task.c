@@ -32,8 +32,10 @@ typedef struct {
 
 struct _UfoSegmentTaskPrivate {
     cl_context context;
-    cl_kernel kernel;
-    UfoBuffer *labeled;
+    cl_kernel walk;
+    cl_kernel render;
+    cl_mem accumulator;
+    guint num_slices;
     guint current;
 };
 
@@ -61,12 +63,16 @@ ufo_segment_task_setup (UfoTask *task,
     priv = UFO_SEGMENT_TASK_GET_PRIVATE (task);
 
     priv->context = ufo_resources_get_context (resources);
-    priv->kernel = ufo_resources_get_kernel (resources, "segment.cl", "segment", error);
+    priv->walk = ufo_resources_get_kernel (resources, "segment.cl", "walk", error);
+    priv->render = ufo_resources_get_kernel (resources, "segment.cl", "render", error);
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
 
-    if (priv->kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+    if (priv->walk != NULL)
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->walk));
+
+    if (priv->render != NULL)
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->render));
 }
 
 static void
@@ -162,15 +168,13 @@ ufo_segment_task_process (UfoTask *task,
     cl_mem prelabeled_device;
     gfloat *random_host;
     cl_mem random_device;
-    cl_mem labeled;
     cl_mem slices;
     cl_int error;
     guint width;
     guint height;
-    guint num_slices;
     gsize work_size;
     guint num_labels = 0;
-    gfloat fill_pattern = 0.0f;
+    guint16 fill_pattern = 0;
 
     priv = UFO_SEGMENT_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
@@ -195,29 +199,36 @@ ufo_segment_task_process (UfoTask *task,
 
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
-    priv->labeled = ufo_buffer_dup (inputs[0]);
     width = in_req.dims[0];
     height = in_req.dims[1];
-    num_slices = in_req.dims[2];
+    priv->num_slices = in_req.dims[2];
     priv->current = in_req.dims[2];
 
-    labeled = ufo_buffer_get_device_array (priv->labeled, cmd_queue);
+    /* create and initialize accumulator memory */
+    priv->accumulator = clCreateBuffer (priv->context, CL_MEM_READ_WRITE,
+                                        sizeof (guint16) * width * height * priv->num_slices,
+                                        NULL, &error);
+    UFO_RESOURCES_CHECK_CLERR (error);
+
+    UFO_RESOURCES_CHECK_CLERR (clEnqueueFillBuffer (cmd_queue, priv->accumulator,
+                                                    &fill_pattern, sizeof (fill_pattern),
+                                                    0, width * height * priv->num_slices * sizeof (guint16),
+                                                    0, NULL, NULL));
+
     slices = ufo_buffer_get_device_array (inputs[0], cmd_queue);
 
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueFillBuffer (cmd_queue, labeled, &fill_pattern, sizeof (fill_pattern), 0, ufo_buffer_get_size (priv->labeled), 0, NULL, NULL));
-
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &slices));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &labeled));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_mem), &prelabeled_device));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (guint), &width));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (guint), &height));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 5, sizeof (guint), &num_slices));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 6, sizeof (cl_mem), &random_device));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->walk, 0, sizeof (cl_mem), &slices));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->walk, 1, sizeof (cl_mem), &priv->accumulator));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->walk, 2, sizeof (cl_mem), &prelabeled_device));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->walk, 3, sizeof (guint), &width));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->walk, 4, sizeof (guint), &height));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->walk, 5, sizeof (guint), &priv->num_slices));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->walk, 6, sizeof (cl_mem), &random_device));
 
     work_size = num_labels;
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-    ufo_profiler_call (profiler, cmd_queue, priv->kernel, 1, &work_size, NULL);
+    ufo_profiler_call (profiler, cmd_queue, priv->walk, 1, &work_size, NULL);
 
     UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (prelabeled_device));
     UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (random_device));
@@ -233,39 +244,35 @@ ufo_segment_task_generate (UfoTask *task,
                            UfoRequisition *requisition)
 {
     UfoSegmentTaskPrivate *priv;
-    UfoRequisition req;
+    UfoProfiler *profiler;
     UfoGpuNode *node;
     cl_command_queue cmd_queue;
-    cl_mem labeled;
     cl_mem out_mem;
-    cl_event event;
-    gsize offset;
-    gsize size;
+    guint slice;
+    gsize work_size[2];
 
     priv = UFO_SEGMENT_TASK_GET_PRIVATE (task);
 
     if (priv->current == 0) {
-        g_object_unref (priv->labeled);
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->accumulator));
         return FALSE;
     }
 
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 
-    labeled = ufo_buffer_get_device_array (priv->labeled, cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
+    slice = priv->num_slices - priv->current;
 
-    ufo_buffer_get_requisition (priv->labeled, &req);
-    size = ufo_buffer_get_size (output);
-    offset = (req.dims[2] - priv->current) * size;
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->render, 0, sizeof (cl_mem), &priv->accumulator));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->render, 1, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->render, 2, sizeof (guint), &slice));
 
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueCopyBuffer (cmd_queue,
-                                                    labeled, out_mem,
-                                                    offset, 0, size,
-                                                    0, NULL, &event));
+    work_size[0] = requisition->dims[0];
+    work_size[1] = requisition->dims[1];
 
-    UFO_RESOURCES_CHECK_CLERR (clWaitForEvents (1, &event));
-    UFO_RESOURCES_CHECK_CLERR (clReleaseEvent (event));
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    ufo_profiler_call (profiler, cmd_queue, priv->render, 2, work_size, NULL);
 
     priv->current--;
     return TRUE;
@@ -278,8 +285,11 @@ ufo_segment_task_finalize (GObject *object)
 
     priv = UFO_SEGMENT_TASK_GET_PRIVATE (object);
 
-    if (priv->kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
+    if (priv->walk != NULL)
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->walk));
+
+    if (priv->render != NULL)
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->render));
 
     UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
 
