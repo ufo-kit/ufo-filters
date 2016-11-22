@@ -58,7 +58,8 @@ segment (global float *slices,
 #ifdef DEVICE_GEFORCE_GTX_TITAN_BLACK
 #pragma unroll 2
 #endif
-    for (int depth = 0; depth < num_slices * 10000; depth++) {
+    for (int depth = 0; depth < num_slices * 5000; depth++) {
+        /* FIXME: race condition */
         labeled[y * width + x + z * offset] += 1.0f;
 
         c[C_WEST]  = slices[y * width + x - 1 + z * offset];

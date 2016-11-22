@@ -244,8 +244,10 @@ ufo_segment_task_generate (UfoTask *task,
 
     priv = UFO_SEGMENT_TASK_GET_PRIVATE (task);
 
-    if (priv->current == 0)
+    if (priv->current == 0) {
+        g_object_unref (priv->labeled);
         return FALSE;
+    }
 
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
