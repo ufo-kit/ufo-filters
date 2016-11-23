@@ -72,7 +72,7 @@ ufo_raw_reader_can_open (UfoReader *reader,
     if (!g_str_has_suffix (filename, ".raw"))
         return FALSE;
 
-    if (priv->width == 0 || priv->height == 0 || priv->bitdepth == 0) {
+    if (priv->width == 0 || priv->height == 0 || priv->bitdepth == UFO_BUFFER_DEPTH_INVALID) {
         g_warning ("`raw-width', `raw-height' or `raw-bitdepth' was not set");
         return FALSE;
     }
@@ -298,6 +298,6 @@ ufo_raw_reader_init (UfoRawReader *self)
     priv->fp = NULL;
     priv->width = 0;
     priv->height = 0;
-    priv->bitdepth = 0;
+    priv->bitdepth = UFO_BUFFER_DEPTH_INVALID;
     priv->offset = 0L;
 }
