@@ -31,7 +31,7 @@ typedef struct {
 
 kernel void
 walk (global float *slices,
-      global ushort *labeled,
+      global ushort *accumulator,
       global Label *prelabeled,
       const int width,
       const int height,
@@ -58,9 +58,9 @@ walk (global float *slices,
 #ifdef DEVICE_GEFORCE_GTX_TITAN_BLACK
 #pragma unroll 2
 #endif
-    for (int depth = 0; depth < num_slices * 5000; depth++) {
+    for (int depth = 0; depth < num_slices * 500; depth++) {
         /* FIXME: race condition */
-        labeled[y * width + x + z * offset] += 1;
+        accumulator[y * width + x + z * offset] += 1;
 
         c[C_WEST]  = slices[y * width + x - 1 + z * offset];
         c[C_EAST]  = slices[y * width + x + 1 + z * offset];
@@ -163,14 +163,53 @@ walk (global float *slices,
 }
 
 kernel void
-render (global ushort *labeled,
+threshold (global ushort *accumulator,
+           global uint *bitmap,
+           const int segment)
+{
+    const int x = get_global_id (0);
+    const int y = get_global_id (1);
+    const int z = get_global_id (2);
+    const int width = get_global_size (0);
+    const int height = get_global_size (1);
+    const int num_slices = get_global_size (2);
+    const int offset = y * width * 32 + z * width * 32 * height;
+    uint v = 0;
+
+    for (int b = 0; b < 32; b++) {
+        ushort d = accumulator[offset + 32 * x + b];
+
+        if (d > 175)
+            v = v | (1 << b);
+    }
+
+    bitmap[segment * width * height * num_slices + z * width * height + y * width + x] = (uint) v;
+}
+
+kernel void
+render (global uint *bitmap,
         global float *output,
-        const int slice)
+        const int slice,
+        const int num_segments,
+        const int num_slices)
 {
     int x = get_global_id (0);
     int y = get_global_id (1);
     int width = get_global_size (0);
     int height = get_global_size (1);
+    int r[32] = {0};
 
-    output[y * width + x] = labeled[y * width + x + slice * width * height];
+    for (int segment = 0; segment < num_segments; segment++) {
+        uint v;
+
+        v = bitmap[segment * width * height * num_slices + slice * width * height + y * width + x];
+
+        for (int b = 0; b < 32; b++) {
+            if (v & (1 << b))
+                r[b] = (int) (segment + 1);
+        }
+    }
+
+    for (int i = 0; i < 32; i++)
+        output[y * width * 32 + 32 * x + i] = (float) r[i];
 }
