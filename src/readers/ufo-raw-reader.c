@@ -31,7 +31,7 @@ struct _UfoRawReaderPrivate {
     gsize bytes_per_pixel;
     guint width;
     guint height;
-    glong offset;
+    gulong offset;
     UfoBufferDepth bitdepth;
 };
 
@@ -185,7 +185,7 @@ ufo_raw_reader_set_property (GObject *object,
             }
             break;
         case PROP_OFFSET:
-            priv->offset = g_value_get_long (value);
+            priv->offset = g_value_get_ulong (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -212,7 +212,7 @@ ufo_raw_reader_get_property (GObject *object,
             g_value_set_uint (value, priv->bitdepth);
             break;
         case PROP_OFFSET:
-            g_value_set_long (value, priv->offset);
+            g_value_set_ulong (value, priv->offset);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);

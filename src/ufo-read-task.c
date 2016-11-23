@@ -351,7 +351,6 @@ ufo_read_task_set_property (GObject *object,
         case PROP_RAW_WIDTH:
         case PROP_RAW_HEIGHT:
         case PROP_RAW_BITDEPTH:
-        case PROP_RAW_OFFSET:
             {
                 const gchar *prop_name;
 
@@ -360,6 +359,9 @@ ufo_read_task_set_property (GObject *object,
                 prop_name = pspec->name + 4;
                 g_object_set (priv->raw_reader, prop_name, g_value_get_uint (value), NULL);
             }
+            break;
+        case PROP_RAW_OFFSET:
+            g_object_set (priv->raw_reader, "offset", g_value_get_ulong (value), NULL);
             break;
         case PROP_TYPE:
             priv->type = g_value_get_enum (value);
@@ -565,10 +567,10 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
             G_PARAM_READWRITE);
 
     properties[PROP_RAW_OFFSET] =
-        g_param_spec_uint ("raw-offset",
+        g_param_spec_ulong ("raw-offset",
             "Offset to the beginning of raw image in bytes",
             "Offset to the beginning of raw image in bytes",
-            0, G_MAXUINT, G_MAXUINT,
+            0, G_MAXULONG, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_TYPE] =
