@@ -58,7 +58,7 @@ walk (global float *slices,
 #ifdef DEVICE_GEFORCE_GTX_TITAN_BLACK
 #pragma unroll 2
 #endif
-    for (int depth = 0; depth < num_slices * 500; depth++) {
+    for (int depth = 0; depth < num_slices * 1000; depth++) {
         /* FIXME: race condition */
         accumulator[y * width + x + z * offset] += 1;
 
@@ -179,7 +179,7 @@ threshold (global ushort *accumulator,
     for (int b = 0; b < 32; b++) {
         ushort d = accumulator[offset + 32 * x + b];
 
-        if (d > 175)
+        if (d > 20)
             v = v | (1 << b);
     }
 
@@ -189,6 +189,7 @@ threshold (global ushort *accumulator,
 kernel void
 render (global uint *bitmap,
         global float *output,
+        const global uint *label_map,
         const int slice,
         const int num_segments,
         const int num_slices)
@@ -206,7 +207,7 @@ render (global uint *bitmap,
 
         for (int b = 0; b < 32; b++) {
             if (v & (1 << b))
-                r[b] = (int) (segment + 1);
+                r[b] = label_map[segment];
         }
     }
 

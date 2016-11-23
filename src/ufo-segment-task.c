@@ -75,6 +75,7 @@ struct _UfoSegmentTaskPrivate {
     cl_kernel render;
     cl_kernel threshold;
     cl_mem bitmap;
+    cl_mem label_map;
     guint num_slices;
     guint num_segments;
     guint current;
@@ -224,6 +225,7 @@ ufo_segment_task_process (UfoTask *task,
     guint width;
     guint height;
     guint segment;
+    guint label_map_host[MAX_LABELS];
     gsize work_size[3];
     guint16 fill_pattern = 0;
 
@@ -281,7 +283,7 @@ ufo_segment_task_process (UfoTask *task,
 
     segment = 0;
 
-    for (guint s = 0; s < MAX_SEGMENTS; s++, segment++) {
+    for (guint s = 0; s < MAX_SEGMENTS; s++) {
         if (prelabeled[s].num_labels == 0)
             continue;
 
@@ -318,11 +320,19 @@ ufo_segment_task_process (UfoTask *task,
         work_size[1] = height;
         work_size[2] = priv->num_slices;
         ufo_profiler_call (profiler, cmd_queue, priv->threshold, 3, work_size, NULL);
+
+        label_map_host[segment] = s + 1;
+        segment++;
     }
 
     UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (accumulator));
     UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (prelabeled_device));
     UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (random_device));
+
+    priv->label_map = clCreateBuffer (priv->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                      MAX_LABELS * sizeof (guint),
+                                      label_map_host, &error);
+    UFO_RESOURCES_CHECK_CLERR (error);
 
     for (guint s = 0; s < MAX_SEGMENTS; s++)
         g_free (prelabeled[s].labels);
@@ -350,6 +360,7 @@ ufo_segment_task_generate (UfoTask *task,
 
     if (priv->current == 0) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->bitmap));
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->label_map));
         return FALSE;
     }
 
@@ -361,9 +372,10 @@ ufo_segment_task_generate (UfoTask *task,
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->render, 0, sizeof (cl_mem), &priv->bitmap));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->render, 1, sizeof (cl_mem), &out_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->render, 2, sizeof (guint), &slice));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->render, 3, sizeof (guint), &priv->num_segments));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->render, 4, sizeof (guint), &priv->num_slices));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->render, 2, sizeof (cl_mem), &priv->label_map));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->render, 3, sizeof (guint), &slice));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->render, 4, sizeof (guint), &priv->num_segments));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->render, 5, sizeof (guint), &priv->num_slices));
 
     work_size[0] = requisition->dims[0] / 32;
     work_size[1] = requisition->dims[1];
