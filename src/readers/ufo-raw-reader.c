@@ -26,8 +26,8 @@
 
 struct _UfoRawReaderPrivate {
     FILE *fp;
-    gssize total_size;
-    gssize frame_size;
+    gsize total_size;
+    gsize frame_size;
     gsize bytes_per_pixel;
     guint width;
     guint height;
@@ -111,9 +111,11 @@ static gboolean
 ufo_raw_reader_data_available (UfoReader *reader)
 {
     UfoRawReaderPrivate *priv;
+    glong pos;
 
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
-    return priv->fp != NULL && (ftell (priv->fp) + priv->offset + priv->frame_size) <= priv->total_size;
+    pos = ftell (priv->fp);
+    return priv->fp != NULL && pos >= 0 && (((gulong) pos) + priv->offset + priv->frame_size) <= priv->total_size;
 }
 
 static void
