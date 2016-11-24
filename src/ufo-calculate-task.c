@@ -64,9 +64,12 @@ make_kernel (UfoCalculateTaskPrivate *priv, UfoResources *resources, GError **er
     expression = priv->expression == NULL ? default_expression : priv->expression;
     source = (gchar *) g_try_malloc (strlen (template) + strlen (expression));
 
-    if (!source) {
-        g_warning ("Error allocating kernel string memory");
+    if (source == NULL) {
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                     "Error allocating kernel string memory");
+        return;
     }
+
     if (priv->kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
     }

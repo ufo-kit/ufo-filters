@@ -352,7 +352,7 @@ pfind (float *input, unsigned *out, unsigned nc, unsigned nr, unsigned *pcount,
     /* dupindex gives the new index for each index, when two index are duplicates
      * dupindex will affect those two indexes a same value */
     for(k=0;k<ndup;k++) {
-        k1=dupx[k];     k2=dupy[k];
+        k1=dupx[k];
         for(j=k;j<ndup;j++) {
             if(dupy[j]== dupy[k]||dupx[j]== dupy[k]) {
                 dupindex[ dupx[j] ]=dupindex[k1];
@@ -497,6 +497,10 @@ ufo_filter_particle_task_process (UfoTask *task,
         unsigned y =  min((unsigned)round(cy[i]), (unsigned) (req.dims[1] - 1));
         res[i].intensity = input[y * req.dims[0] + x];
     }
+
+    free (cx);
+    free (cy);
+    free (rr);
 
     return TRUE;
 }

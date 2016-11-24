@@ -72,9 +72,11 @@ create_coefficients (UfoFilterStripes1dTaskPrivate *priv, const guint width)
     const guint real_width = width / 2 + 1;
     cl_int cl_err;
 
-    if (!coefficients) {
+    if (coefficients == NULL) {
         g_warning ("Could not allocate memory for coeefficients");
+        return;
     }
+
     if (width % 2) {
         g_warning ("Width must be an even number");
     }

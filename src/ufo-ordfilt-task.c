@@ -288,8 +288,6 @@ ufo_ordfilt_task_process (UfoTask *task,
     priv = UFO_ORDFILT_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
-
-    priv = UFO_ORDFILT_TASK_GET_PRIVATE (task);
     compute_ordfilt (priv, inputs[0], inputs[1], output, cmd_queue);
 
     return TRUE;

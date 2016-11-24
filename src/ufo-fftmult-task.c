@@ -174,7 +174,7 @@ ufo_fftmult_task_process (UfoTask *task,
                           UfoRequisition *requisition)
 {
     UfoFftmultTaskPrivate *priv;
-    priv = UFO_FFTMULT_TASK_GET_PRIVATE (task);
+
     /* Forwarding ring radius metada to next plugin */
     unsigned radius, number_ones;
     get_ring_metadata(inputs[1], &number_ones, &radius);
