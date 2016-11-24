@@ -22,9 +22,9 @@
 
 
 struct _UfoStdinTaskPrivate {
-    guint width;
-    guint height;
-    guint bytes_per_pixel;
+    gsize width;
+    gsize height;
+    gsize bytes_per_pixel;
     UfoBufferDepth bitdepth;
     gboolean convert;
 };
@@ -122,10 +122,10 @@ ufo_stdin_task_set_property (GObject *object,
 
     switch (property_id) {
         case PROP_WIDTH:
-            priv->width = g_value_get_uint (value);
+            priv->width = (gsize) g_value_get_uint (value);
             break;
         case PROP_HEIGHT:
-            priv->height = g_value_get_uint (value);
+            priv->height = (gsize) g_value_get_uint (value);
             break;
         case PROP_BITDEPTH:
             switch (g_value_get_uint (value)) {
@@ -164,10 +164,10 @@ ufo_stdin_task_get_property (GObject *object,
 
     switch (property_id) {
         case PROP_WIDTH:
-            g_value_set_uint (value, priv->width);
+            g_value_set_uint (value, (guint) priv->width);
             break;
         case PROP_HEIGHT:
-            g_value_set_uint (value, priv->height);
+            g_value_set_uint (value, (guint) priv->height);
             break;
         case PROP_BITDEPTH:
             g_value_set_uint (value, priv->bitdepth);
