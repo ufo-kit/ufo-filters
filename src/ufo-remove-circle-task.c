@@ -223,7 +223,7 @@ void remove_inner_circle(URCS *src, URCS *dst)
     }
     dst->nb_elt = (float) counter;
     if (counter >= src->nb_elt && min_i != -1)
-        g_print("Remove Circle : Some memory corruption occured.  This is a bug "
+        g_print("Remove Circle: Some memory corruption occurred. This is a bug "
                 " in the software that needs fixing\n");
 }
 
