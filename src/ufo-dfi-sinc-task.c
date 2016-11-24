@@ -24,7 +24,6 @@
 #endif
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <math.h>
 
@@ -123,14 +122,9 @@ ufo_dfi_sinc_task_sinc(gfloat x)
  * Returns: an array.
  */
 static gfloat *
-ufo_dfi_sinc_task_get_ktbl(size_t length)
+ufo_dfi_sinc_task_get_ktbl (size_t length)
 {
     gfloat *ktbl = (gfloat *) g_malloc0 (length * sizeof (gfloat));
-
-    if (!length % 2) {
-        g_print("Error: Length %zu of ktbl cannot be even!\n", length);
-        exit(1);
-    }
 
     size_t ktbl_len2 = (length - 1) / 2;
     gfloat step = (gfloat) G_PI / (gfloat) ktbl_len2;
@@ -259,8 +253,8 @@ ufo_dfi_sinc_task_process (UfoTask *task,
 
 	if (priv->roi_size >= 1 && priv->roi_size <= raster_size) {
 		interp_grid_rows = (int) ceil ((float) priv->roi_size/2.0 / (float)BLOCK_SIZE);
-	}	
-	
+	}
+
     gint spectrum_offset = (raster_size - (interp_grid_cols * BLOCK_SIZE)) / 2;
     gfloat max_radius = (gfloat) (interp_grid_cols * BLOCK_SIZE) / 2.0f;
 
@@ -321,7 +315,7 @@ ufo_dfi_sinc_task_process (UfoTask *task,
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->dfi_sinc_kernel, requisition->n_dims, working_size, local_work_size);
-    
+
     return TRUE;
 }
 
@@ -338,7 +332,16 @@ ufo_dfi_sinc_task_set_property (GObject *object,
             priv->L = g_value_get_uint (value);
             break;
         case PROP_NUM_PRESAMPLED_VLS:
-            priv->number_presampled_values = g_value_get_uint (value);
+            {
+                guint v;
+
+                v = g_value_get_uint (value);
+
+                if (v % 2)
+                    g_warning ("::number-presampled-values cannot be even");
+                else
+                    priv->number_presampled_values = v;
+            }
             break;
         case PROP_ROI_SIZE:
             priv->roi_size = g_value_get_int (value);
@@ -383,7 +386,7 @@ static void
 ufo_dfi_sinc_task_finalize (GObject *object)
 {
     UfoDfiSincTaskPrivate *priv = UFO_DFI_SINC_TASK_GET_PRIVATE (object);
-  
+
     if (priv->in_tex) UFO_RESOURCES_CHECK_CLERR(clReleaseMemObject (priv->in_tex));
 
     G_OBJECT_CLASS (ufo_dfi_sinc_task_parent_class)->finalize (object);
