@@ -51,3 +51,4 @@ GType     ufo_filter_stripes1d_task_get_type  (void);
 G_END_DECLS
 
 #endif
+

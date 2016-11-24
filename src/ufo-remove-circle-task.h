@@ -64,3 +64,4 @@ GType     ufo_remove_circle_task_get_type  (void);
 G_END_DECLS
 
 #endif
+

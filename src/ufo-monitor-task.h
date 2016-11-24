@@ -51,3 +51,4 @@ GType     ufo_monitor_task_get_type  (void);
 G_END_DECLS
 
 #endif
+
