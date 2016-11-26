@@ -1,3 +1,33 @@
+Version 0.12.0
+==============
+
+Enhancements:
+
+- Fortify source and enable large file support
+- Re-arrange filter documentation
+
+Fixes:
+
+- Fix #127: use enums where possible
+- Document the filter task
+- Fix potential errors found with static analysis
+- stdin: use gsize to avoid LFS problems
+- dfi-sinc: do not call exit()
+- raw/read: fix type translation for raw-offset
+
+Breaks:
+
+- metaballs: create filled balls rather than circles
+- metaballs: remove run-infinitely and fps props
+- filter: use enum instead of type-unsafe string
+- loop: rename ::count to ::number
+
+New filters:
+
+- Add binarization filter
+- Add basic segmentation filter
+
+
 Version 0.11.1
 ==============
 
