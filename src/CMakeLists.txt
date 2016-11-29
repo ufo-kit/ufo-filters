@@ -233,6 +233,9 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in
                ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
+# build static auxiliary library first
+add_library(ufoaux STATIC ${ufoaux_SRCS})
+
 foreach(_src ${ufofilter_SRCS})
     # find plugin suffix
     string(REGEX REPLACE "ufo-([^ \\.]+)-task.*" "\\1" task "${_src}")
@@ -250,12 +253,12 @@ foreach(_src ${ufofilter_SRCS})
 
     # build single shared library per filter
     if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-        add_library(${target} MODULE ${ufoaux_SRCS} ${_src} ${${_aux_src}})
+        add_library(${target} MODULE ${_src} ${${_aux_src}})
     else()
-        add_library(${target} SHARED ${ufoaux_SRCS} ${_src} ${${_aux_src}})
+        add_library(${target} SHARED ${_src} ${${_aux_src}})
     endif()
 
-    target_link_libraries(${target} ${ufofilter_LIBS} ${${_aux_libs}})
+    target_link_libraries(${target} ${ufofilter_LIBS} ${${_aux_libs}} ufoaux)
 
     list(APPEND all_targets ${target})
 
