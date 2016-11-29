@@ -41,7 +41,8 @@ struct _UfoReaderIface {
     gboolean    (*can_open)             (UfoReader      *reader,
                                          const gchar    *filename);
     void        (*open)                 (UfoReader      *reader,
-                                         const gchar    *filename);
+                                         const gchar    *filename,
+                                         guint           start);
     void        (*close)                (UfoReader      *reader);
     gboolean    (*data_available)       (UfoReader      *reader);
     void        (*get_meta)             (UfoReader      *reader,
@@ -59,7 +60,8 @@ struct _UfoReaderIface {
 gboolean    ufo_reader_can_open         (UfoReader      *reader,
                                          const gchar    *filename);
 void        ufo_reader_open             (UfoReader      *reader,
-                                         const gchar    *filename);
+                                         const gchar    *filename,
+                                         guint           start);
 void        ufo_reader_close            (UfoReader      *reader);
 gboolean    ufo_reader_data_available   (UfoReader      *reader);
 void        ufo_reader_get_meta         (UfoReader      *reader,

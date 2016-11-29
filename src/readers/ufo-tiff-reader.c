@@ -52,13 +52,17 @@ ufo_tiff_reader_can_open (UfoReader *reader,
 
 static void
 ufo_tiff_reader_open (UfoReader *reader,
-                      const gchar *filename)
+                      const gchar *filename,
+                      guint start)
 {
     UfoTiffReaderPrivate *priv;
     
     priv = UFO_TIFF_READER_GET_PRIVATE (reader);
     priv->tiff = TIFFOpen (filename, "r");
     priv->more = TRUE;
+
+    for (guint i = 0; i < start; i++)
+        priv->more = TIFFReadDirectory (priv->tiff) == 1;
 }
 
 static void

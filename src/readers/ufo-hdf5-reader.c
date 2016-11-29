@@ -55,7 +55,8 @@ ufo_hdf5_reader_can_open (UfoReader *reader,
 
 static void
 ufo_hdf5_reader_open (UfoReader *reader,
-                      const gchar *filename)
+                      const gchar *filename,
+                      guint start)
 {
     UfoHdf5ReaderPrivate *priv;
     gchar *h5_filename;
@@ -83,7 +84,7 @@ ufo_hdf5_reader_open (UfoReader *reader,
 
     H5Sget_simple_extent_dims (priv->src_dataspace_id, priv->dims, NULL);
 
-    priv->current = 0;
+    priv->current = start;
     g_strfreev (components);
 }
 

@@ -72,6 +72,7 @@ struct _UfoReadTaskPrivate {
     guint    start;
     guint    number;
     gboolean done;
+    gboolean single;
 
     UfoBufferDepth  depth;
     gboolean convert;
@@ -145,10 +146,12 @@ read_filenames (UfoReadTaskPrivate *priv)
 
     if (g_file_test (priv->path, G_FILE_TEST_IS_REGULAR)) {
         /* This is a single file without any asterisks */
+        priv->single = TRUE;
         pattern = g_strdup (priv->path);
     }
     else {
         /* This is a directory which we may have to glob */
+        priv->single = FALSE;
         pattern = strstr (priv->path, "*") != NULL ? g_strdup (priv->path) : g_build_filename (priv->path, "*", NULL);
     }
 
@@ -192,7 +195,12 @@ ufo_read_task_setup (UfoTask *task,
     }
 
     priv->filenames = g_list_sort (priv->filenames, (GCompareFunc) g_strcmp0);
-    priv->current_element = g_list_nth (priv->filenames, priv->start);
+
+    if (priv->single)
+        priv->current_element = g_list_first (priv->filenames);
+    else
+        priv->current_element = g_list_nth (priv->filenames, priv->start);
+
     priv->current = 0;
 }
 
@@ -233,7 +241,8 @@ ufo_read_task_get_requisition (UfoTask *task,
     if (priv->reader == NULL) {
         filename = (gchar *) priv->current_element->data;
         priv->reader = get_reader (priv, filename);
-        ufo_reader_open (priv->reader, filename);
+        ufo_reader_open (priv->reader, filename, priv->start);
+        priv->start = 0;
     }
 
     if (!ufo_reader_data_available (priv->reader)) {
@@ -248,7 +257,7 @@ ufo_read_task_get_requisition (UfoTask *task,
         else {
             filename = (gchar *) priv->current_element->data;
             priv->reader = get_reader (priv, filename);
-            ufo_reader_open (priv->reader, filename);
+            ufo_reader_open (priv->reader, filename, 0);
         }
     }
 
@@ -616,5 +625,6 @@ ufo_read_task_init(UfoReadTask *self)
 
     priv->reader = NULL;
     priv->done = FALSE;
+    priv->single = FALSE;
     priv->type = TYPE_UNSPECIFIED;
 }

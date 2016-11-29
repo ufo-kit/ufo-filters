@@ -56,7 +56,8 @@ ufo_edf_reader_can_open (UfoReader *reader,
 
 static void
 ufo_edf_reader_open (UfoReader *reader,
-                     const gchar *filename)
+                     const gchar *filename,
+                     guint start)
 {
     UfoEdfReaderPrivate *priv;
 

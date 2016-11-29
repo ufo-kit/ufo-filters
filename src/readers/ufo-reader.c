@@ -33,9 +33,10 @@ ufo_reader_can_open (UfoReader *reader,
 
 void
 ufo_reader_open (UfoReader *reader,
-                 const gchar *filename)
+                 const gchar *filename,
+                 guint start)
 {
-    UFO_READER_GET_IFACE (reader)->open (reader, filename);
+    UFO_READER_GET_IFACE (reader)->open (reader, filename, start);
 }
 
 void
