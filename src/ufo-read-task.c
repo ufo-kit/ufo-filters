@@ -201,6 +201,12 @@ ufo_read_task_setup (UfoTask *task,
     else
         priv->current_element = g_list_nth (priv->filenames, priv->start);
 
+    if (priv->current_element == NULL) {
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                     "start=%i skips too many files", priv->start);
+    }
+
+    priv->start = 0;
     priv->current = 0;
 }
 
