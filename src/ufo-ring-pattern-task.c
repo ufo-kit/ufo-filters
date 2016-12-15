@@ -254,28 +254,28 @@ ufo_ring_pattern_task_class_init (UfoRingPatternTaskClass *klass)
     gobject_class->finalize = ufo_ring_pattern_task_finalize;
 
     properties[PROP_RING_START] =
-        g_param_spec_uint ("ring_start",
+        g_param_spec_uint ("ring-start",
                            "give starting radius size",
                            "give starting radius size",
                            1, G_MAXUINT, 5,
                            G_PARAM_READWRITE);
 
     properties[PROP_RING_STEP] =
-        g_param_spec_uint ("ring_step",
+        g_param_spec_uint ("ring-step",
                            "Gives ring step",
                            "Gives ring step",
                            1, G_MAXUINT, 2,
                            G_PARAM_READWRITE);
 
     properties[PROP_RING_END] =
-        g_param_spec_uint ("ring_end",
+        g_param_spec_uint ("ring-end",
                            "give ending radius size",
                            "give ending radius size",
                            1, G_MAXUINT, 5,
                            G_PARAM_READWRITE);
 
     properties[PROP_RING_THICKNESS] =
-        g_param_spec_uint ("ring_thickness",
+        g_param_spec_uint ("ring-thickness",
                            "give desired ring thickness",
                            "give desired ring thickness",
                            1, G_MAXUINT, 13,

@@ -664,7 +664,7 @@ ufo_lamino_backproject_task_class_init (UfoLaminoBackprojectTaskClass *klass)
     oclass->get_property = ufo_lamino_backproject_task_get_property;
     oclass->finalize = ufo_lamino_backproject_task_finalize;
 
-    GParamSpec *region_vals = g_param_spec_int ("region_values",
+    GParamSpec *region_vals = g_param_spec_int ("region-values",
                                                 "Region values",
                                                 "Elements in regions",
                                                 G_MININT,
@@ -672,7 +672,7 @@ ufo_lamino_backproject_task_class_init (UfoLaminoBackprojectTaskClass *klass)
                                                 (gint) 0,
                                                 G_PARAM_READWRITE);
 
-    GParamSpec *float_region_vals = g_param_spec_float ("float_region_values",
+    GParamSpec *float_region_vals = g_param_spec_float ("float-region-values",
                                                         "Float Region values",
                                                         "Elements in float regions",
                                                         -G_MAXFLOAT,

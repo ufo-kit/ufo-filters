@@ -26,47 +26,55 @@ File reader
         must point to a file and a data set separated by a colon, e.g.
         ``/path/to/file.h5:/my/data/set``.
 
-    .. gobj:prop:: number:int
+    .. gobj:prop:: number:uint
 
         Number of files to read.
 
-    .. gobj:prop:: start:int
+    .. gobj:prop:: start:uint
 
         First index from where files are read.
 
-    .. gobj:prop:: step:int
+    .. gobj:prop:: step:uint
 
         Number of files to skip.
 
-    .. gobj:prop:: y:int
+    .. gobj:prop:: y:uint
 
         Vertical coordinate from where to start reading.
 
-    .. gobj:prop:: height:int
+    .. gobj:prop:: height:uint
 
         Height of the region that is read from the image.
+
+    .. gobj:prop:: y-step:uint
+
+        Read every ``y-step`` row.
 
     .. gobj:prop:: convert:boolean
 
         Convert input data to float elements, enabled by default.
 
-    .. gobj:prop:: type:string
+    .. gobj:prop:: raw-width:uint
+
+        Specifies the width of raw files.
+
+    .. gobj:prop:: raw-height:uint
+
+        Specifies the height of raw files.
+
+    .. gobj:prop:: raw-bitdepth:uint
+
+        Specifies the bit depth of raw files.
+
+    .. gobj:prop:: raw-offset:ulong
+
+        Sets the offset to the beginning of raw image in bytes.
+
+    .. gobj:prop:: type:enum
 
         Overrides the type detection that is based on the file extension. For
         example, to load `.foo` files as raw files, set the ``type`` property to
         `raw`.
-
-    .. gobj:prop:: raw-width:int
-
-        Specifies the width of raw files.
-
-    .. gobj:prop:: raw-height:int
-
-        Specifies the height of raw files.
-
-    .. gobj:prop:: raw-bitdepth:int
-
-        Specifies the bit depth of raw files.
 
 
 Memory reader
@@ -80,6 +88,7 @@ Memory reader
 
         from gi.repository import Ufo
         import numpy as np
+        import tifffile
 
 
         ref = np.random.random((512, 512)).astype(np.float32)
@@ -107,15 +116,15 @@ Memory reader
 
         Pointer to pre-allocated memory.
 
-    .. gobj:prop:: width:int
+    .. gobj:prop:: width:uint
 
         Specifies the width of input.
 
-    .. gobj:prop:: height:int
+    .. gobj:prop:: height:uint
 
         Specifies the height of input.
 
-    .. gobj:prop:: number:int
+    .. gobj:prop:: number:uint
 
         Specifies the number of items to read.
 
@@ -126,29 +135,23 @@ UcaCamera reader
 .. gobj:class:: camera
 
     The camera task uses `libuca`_ to read frames from a connected camera and
-    provides them as a stream. When :gobj:prop:`name` is provided, the
-    corresponding plugin is instantiated by the camera task itself. However, an
-    already configured UcaCamera object can also be passed via
-    :gobj:prop:`camera`.
+    provides them as a stream.
 
-    The amount of processed frames can be controlled with either
-    :gobj:prop:`count` or :gobj:prop:`time`.
+    When :gobj:prop:`name` is provided, the corresponding plugin is instantiated
+    by the camera task itself. However, an already configured UcaCamera object
+    can also be passed via :gobj:prop:`camera`.
 
     .. gobj:prop:: name:string
 
         Name of the camera that is used.
 
-    .. gobj:prop:: number:int
+    .. gobj:prop:: number:uint
 
         Number of frames that are recorded.
 
-    .. gobj:prop:: time:float
+    .. gobj:prop:: properties:string
 
-        Duration over which frames are recorded.
-
-    .. gobj:prop:: readout:boolean
-
-        If *TRUE*, start read out instead of recording and grabbing live.
+        Property string, i.e. ``roi-width=512 exposure-time=0.1``.
 
     .. _libuca: https://github.com/ufo-kit/libuca
 
@@ -164,17 +167,21 @@ stdin reader
     :gobj:prop:`height` and :gobj:prop:`bitdepth` must be set correctly to
     ensure correctly sized data items.
 
-    .. gobj:prop:: width:int
+    .. gobj:prop:: width:uint
 
         Specifies the width of input.
 
-    .. gobj:prop:: height:int
+    .. gobj:prop:: height:uint
 
         Specifies the height of input.
 
-    .. gobj:prop:: bitdepth:int
+    .. gobj:prop:: bitdepth:uint
 
         Specifies the bit depth of input.
+
+    .. gobj:prop:: convert:boolean
+
+        Convert input data types to float, enabled by default.
 
 
 Metaball simulation
@@ -185,19 +192,19 @@ Metaball simulation
     Generate animated meta balls. In each time step the meta balls move by a
     random velocity.
 
-    .. gobj:prop:: width:int
+    .. gobj:prop:: width:uint
 
         Width of output data stream.
 
-    .. gobj:prop:: height:int
+    .. gobj:prop:: height:uint
 
         Height of output data stream.
 
-    .. gobj:prop:: number-balls:int
+    .. gobj:prop:: number-balls:uint
 
         Number of meta balls.
 
-    .. gobj:prop:: number:int
+    .. gobj:prop:: number:uint
 
         Length of data stream.
 
@@ -212,19 +219,19 @@ Data generation
     next filter. The data is never touched if :gobj:prop:`init` is not set, thus
     it might be suitable for performance measurements.
 
-    .. gobj:prop:: width:int
+    .. gobj:prop:: width:uint
 
         Width of image data stream.
 
-    .. gobj:prop:: height:int
+    .. gobj:prop:: height:uint
 
         Height of image data stream.
 
-    .. gobj:prop:: depth:int
+    .. gobj:prop:: depth:uint
 
         Depth of image data stream.
 
-    .. gobj:prop:: number:int
+    .. gobj:prop:: number:uint
 
         Number of images to produce.
 
