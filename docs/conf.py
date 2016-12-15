@@ -47,7 +47,6 @@ exclude_patterns = ['_build']
 pygments_style = 'sphinx'
 
 html_theme = 'default'
-html_static_path = ['_static']
 html_use_smartypants = True
 htmlhelp_basename = 'ufo-filtersdoc'
 

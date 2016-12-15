@@ -49,9 +49,9 @@ Arithmetic expressions
     write *expression="x % 256"*. Another example is the *sinc* function which
     you would calculate as *expression="sin(v) / x"* for 1D input.
     For more complex math or other operations please consider using
-    :ref:`opencl <generic-opencl-ref>`.
+    :ref:`OpenCL <generic-opencl-ref>`.
 
-    .. gobj:prop:: expression
+    .. gobj:prop:: expression:string
 
         Arithmetic expression with math functions supported by OpenCL.
 
@@ -81,7 +81,7 @@ Generic OpenCL
 
         Name of the kernel that this filter is associated with.
 
-    .. gobj:prop:: dimensions:int
+    .. gobj:prop:: dimensions:uint
 
         Number of dimensions the kernel works on. Must be in [1, 3].
 
@@ -104,7 +104,7 @@ Flipping
 
     Flips images vertically or horizontally.
 
-    .. gobj:prop:: direction:string
+    .. gobj:prop:: direction:enum
 
         Can be either `horizontal` or `vertical` and denotes the direction along
         with the image is flipped.
@@ -129,29 +129,30 @@ Rescaling
 
     Rescale input data by a fixed :gobj:prop:`factor`.
 
-    .. gobj:prop:: factor:int
+    .. gobj:prop:: factor:float
 
         Fixed factor for scaling the input in both directions.
 
-    .. gobj:prop:: x-factor:int
+    .. gobj:prop:: x-factor:float
 
         Fixed factor for scaling the input width.
 
-    .. gobj:prop:: y-factor:int
+    .. gobj:prop:: y-factor:float
 
         Fixed factor for scaling the input height.
 
-    .. gobj:prop:: width:int
+    .. gobj:prop:: width:uint
 
         Fixed width, disabling scalar rescaling.
 
-    .. gobj:prop:: height:int
+    .. gobj:prop:: height:uint
 
         Fixed height, disabling scalar rescaling.
 
-    .. gobj:prop:: interpolation:string
+    .. gobj:prop:: interpolation:enum
 
-        Interpolation method used for rescaling.
+        Interpolation method used for rescaling which can be either ``nearest`` or ``linear``.
+
 
 Padding
 -------
@@ -171,18 +172,18 @@ Padding
         Vertical coordinate in the output image which will contain the first
         input row.
 
-    .. gobj:prop:: width:int
+    .. gobj:prop:: width:uint
 
         Width of the padded image.
 
-    .. gobj:prop:: height:int
+    .. gobj:prop:: height:uint
 
         Height of the padded image.
 
-    .. gobj:prop:: addressing-mode:string
+    .. gobj:prop:: addressing-mode:enum
 
         Addressing mode specifies the behavior for pixels falling outside the
-        original image. See OpenCL sampler_t documentation for more information.
+        original image. See OpenCL ``sampler_t`` documentation for more information.
 
 
 Cropping
@@ -193,19 +194,19 @@ Cropping
     Crop a region of interest from two-dimensional input. If the region is
     (partially) outside the input, only accessible data will be copied.
 
-    .. gobj:prop:: x:int
+    .. gobj:prop:: x:uint
 
         Horizontal coordinate from where to start the ROI.
 
-    .. gobj:prop:: y:int
+    .. gobj:prop:: y:uint
 
         Vertical coordinate from where to start the ROI.
 
-    .. gobj:prop:: width:int
+    .. gobj:prop:: width:uint
 
         Width of the region of interest.
 
-    .. gobj:prop:: height:int
+    .. gobj:prop:: height:uint
 
         Height of the region of interest.
 
@@ -224,7 +225,7 @@ Median
 
     Filters input with a simple median.
 
-    .. gobj:prop:: size:int
+    .. gobj:prop:: size:uint
 
         Odd-numbered size of the neighbouring window.
 
@@ -237,7 +238,7 @@ Edge detection
     Detect edges by computing the power gradient image using different edge
     filters.
 
-    .. gobj:prop:: type:string
+    .. gobj:prop:: type:enum
 
         Edge filter (or operator) which is one of ``sobel``, ``laplace`` and
         ``prewitt``. By default, the ``sobel`` operator is used.
@@ -251,11 +252,11 @@ Gaussian blur
 
     Blur image with a gaussian kernel.
 
-    .. gobj:prop:: size:int
+    .. gobj:prop:: size:uint
 
         Size of the kernel.
 
-    .. gobj:prop:: sigma:int
+    .. gobj:prop:: sigma:float
 
         Sigma of the kernel.
 
@@ -269,11 +270,11 @@ Averaging
 
 .. gobj:class:: average
 
-Read in full data stream and generate an averaged output.
+    Read in full data stream and generate an averaged output.
 
-.. gobj:prop:: number:int
+    .. gobj:prop:: number:uint
 
-Number of averaged images to output. By default one image is generated.
+        Number of averaged images to output. By default one image is generated.
 
 
 Slicing
@@ -292,7 +293,7 @@ Stacking
     Symmetrical to the slice filter, the stack filter stacks two-dimensional
     input.
 
-    .. gobj:prop:: number:int
+    .. gobj:prop:: number:uint
 
         Number of items, i.e. the length of the third dimension.
 
@@ -305,7 +306,7 @@ Merging
     Merges the data from two or more input data streams into a single data
     stream by concatenation.
 
-    .. gobj:prop:: number:int
+    .. gobj:prop:: number:uint
 
         Number of input streams. By default this is two.
 
@@ -319,7 +320,7 @@ Slice mapping
     input elements is not the square of some integer value, the next higher
     number is chosen and the remaining data is blackened.
 
-    .. gobj:prop:: number:int
+    .. gobj:prop:: number:uint
 
         Number of expected input elements. If more elements are sent to the
         mapper, warnings are issued.
@@ -340,19 +341,19 @@ Fast Fourier transform
 
         Automatically zeropad input data to a size to the next power of 2.
 
-    .. gobj:prop:: dimensions:int
+    .. gobj:prop:: dimensions:uint
 
         Number of dimensions in [1, 3].
 
-    .. gobj:prop:: size-x:int
+    .. gobj:prop:: size-x:uint
 
         Size of FFT transform in x-direction.
 
-    .. gobj:prop:: size-y:int
+    .. gobj:prop:: size-y:uint
 
         Size of FFT transform in y-direction.
 
-    .. gobj:prop:: size-z:int
+    .. gobj:prop:: size-z:uint
 
         Size of FFT transform in z-direction.
 
@@ -363,25 +364,9 @@ Fast Fourier transform
     :gobj:prop:`dimensions` is one but the input data is 2-dimensional, the 1-D
     FFT is computed for each row.
 
-    .. gobj:prop:: auto-zeropadding:boolean
-
-        Automatically zeropad input data to a size to the next power of 2.
-
-    .. gobj:prop:: dimensions:int
+    .. gobj:prop:: dimensions:uint
 
         Number of dimensions in [1, 3].
-
-    .. gobj:prop:: size-x:int
-
-        Size of FFT transform in x-direction.
-
-    .. gobj:prop:: size-y:int
-
-        Size of FFT transform in y-direction.
-
-    .. gobj:prop:: size-z:int
-
-        Size of FFT transform in z-direction.
 
     .. gobj:prop:: crop-width:int
 
@@ -400,7 +385,7 @@ Frequency filtering
     Computes a frequency filter function and multiplies it with its input,
     effectively attenuating certain frequencies.
 
-    .. gobj:prop:: filter_:string
+    .. gobj:prop:: filter :enum
 
         Any of ``ramp``, ``ramp-fromreal``, ``butterworth``, ``faris-byer`` and
         ``hamming``. The default filter is ``ramp-fromreal`` which computes a
@@ -415,7 +400,7 @@ Frequency filtering
 
         Cutoff frequency of the Butterworth filter.
 
-    .. gobj:prop:: order:int
+    .. gobj:prop:: order:float
 
         Order of the Butterworth filter.
 
@@ -438,7 +423,7 @@ Frequency filtering
     profile centered at 0 frequency. The inversed profile means that the filter
     is f(k) = 1 - gauss(k) in order to suppress the low frequencies.
 
-    .. gobj:prop:: strength:int
+    .. gobj:prop:: strength:float
 
         Filter strength, which is the full width at half maximum of the
         gaussian.
@@ -458,8 +443,7 @@ Flat-field correction
     2. Dark field data on input 1
     3. Flat field data on input 2
 
-
-    .. gobj:prop:: absorption-correction:boolean
+    .. gobj:prop:: absorption-correct:boolean
 
         If *TRUE*, compute the negative natural logarithm of the
         flat-corrected data.
@@ -468,6 +452,14 @@ Flat-field correction
 
         If *TRUE*, replace all resulting NANs and INFs with zeros.
 
+    .. gobj:prop:: sinogram-input:boolean
+
+        If *TRUE*, correct only one line (the sinogram), thus darks are flats are 1D.
+
+    .. gobj:prop:: dark-scale:float
+
+        Scale the dark field prior to the flat field correct.
+
 
 Sinogram transposition
 ----------------------
@@ -475,10 +467,10 @@ Sinogram transposition
 .. gobj:class:: transpose-projections
 
     Read a stream of two-dimensional projections and output a stream of
-    transposed sinograms. :gobj:prop:`num-projections` *must* be set to the
+    transposed sinograms. :gobj:prop:`number` *must* be set to the
     number of incoming projections to allocate enough memory.
 
-    .. gobj:prop:: number:int
+    .. gobj:prop:: number:uint
 
         Number of projections.
 
@@ -496,18 +488,26 @@ Tomographic backprojection
 
     Computes the backprojection for a single sinogram.
 
-    .. gobj:prop:: axis-pos:float
+    .. gobj:prop:: num-projections:uint
+
+        Number of projections between 0 and 180 degrees.
+
+    .. gobj:prop:: offset:uint
+
+        Offset to the first projection.
+
+    .. gobj:prop:: axis-pos:double
 
         Position of the rotation axis in horizontal pixel dimension of a
         sinogram or projection. If not given, the center of the sinogram is
         assumed.
 
-    .. gobj:prop:: angle-step:float
+    .. gobj:prop:: angle-step:double
 
         Angle step increment in radians. If not given, pi divided by height
         of input sinogram is assumed.
 
-    .. gobj:prop:: angle-offset:float
+    .. gobj:prop:: angle-offset:double
 
         Constant angle offset in radians. This determines effectively the
         starting angle.
@@ -516,20 +516,20 @@ Tomographic backprojection
 
         Reconstruction mode which can be either ``nearest`` or ``texture``.
 
-    .. gobj:prop:: roi-x:int
+    .. gobj:prop:: roi-x:uint
 
         Horizontal coordinate of the start of the ROI. By default 0.
 
-    .. gobj:prop:: roi-y:int
+    .. gobj:prop:: roi-y:uint
 
         Vertical coordinate of the start of the ROI. By default 0.
 
-    .. gobj:prop:: roi-width:int
+    .. gobj:prop:: roi-width:uint
 
         Width of the region of interest. The default value of 0 denotes full
         width.
 
-    .. gobj:prop:: roi-height:int
+    .. gobj:prop:: roi-height:uint
 
         Height of the region of interest. The default value of 0 denotes full
         height.
@@ -542,14 +542,14 @@ Forward projection
 
     Computes the forward projection of slices into sinograms.
 
-    .. gobj:prop:: number:int
+    .. gobj:prop:: number:uint
 
         Number of final 1D projections, that means height of the sinogram.
 
     .. gobj:prop:: angle-step:float
 
         Angular step between two adjacent projections. If not changed, it is
-        simply pi divided by :gobj:prop:`num-projections`.
+        simply pi divided by :gobj:prop:`number`.
 
 
 Laminographic backprojection
@@ -559,6 +559,14 @@ Laminographic backprojection
 
     Backprojects parallel beam computed laminography projection-by-projection
     into a 3D volume.
+
+    .. gobj:prop:: region-values:int
+
+        Elements in regions.
+
+    .. gobj:prop:: float-region-values:float
+
+        Elements in float regions.
 
     .. gobj:prop:: x-region:GValueArray
 
@@ -608,10 +616,10 @@ Laminographic backprojection
         Sample angular misalignment to the side (roll) in radians (CW is
         positive).
 
-    .. gobj:prop:: parameter:string
+    .. gobj:prop:: parameter:enum
 
-        Which paramter will be varied along the z-axis, from "z", "x-center",
-        "lamino-angle", "roll-angle".
+        Which paramter will be varied along the z-axis, from ``z``, ``x-center``,
+        ``lamino-angle``, ``roll-angle``.
 
 
 Phase retrieval
@@ -622,9 +630,9 @@ Phase retrieval
     Computes and applies a fourier filter to correct phase-shifted data.
     Expects frequencies as an input and produces frequencies as an output.
 
-    .. gobj:prop:: method:string
+    .. gobj:prop:: method:enum
 
-        Retrieval method which is one of ``tie``, ``ctf``, ``ctfhalfsin``,
+        Retrieval method which is one of ``tie``, ``ctf``, ``ctfhalfsine``,
         ``qp``, ``qphalfsine`` or ``qp2``.
 
     .. gobj:prop:: energy:float
@@ -662,9 +670,9 @@ General matrix-matrix multiplication
 
 .. gobj:class:: gemm
 
-    Computes :math:`\alpha A \cdot B + \beta C` where A, B and C are input
-    streams 0, 1 and 2 respectively. A must be of size :math:`m\times k`, B
-    :math:`k\times n` and C :math:`m\times n`.
+    Computes :math:`\alpha A \cdot B + \beta C` where :math:`A`, :math:`B` and :math:`C` are input
+    streams 0, 1 and 2 respectively. :math:`A` must be of size :math:`m\times k`, :math:`B`
+    :math:`k\times n` and :math:`C` :math:`m\times n`.
 
     .. note::
 
@@ -676,7 +684,7 @@ General matrix-matrix multiplication
 
     .. gobj:prop:: beta:float
 
-        Scalar multiplied with C.
+        Scalar multiplied with :math:`C`.
 
 
 Segmentation
@@ -694,7 +702,7 @@ Segmentation
     .. [#]
         Lösel and Heuveline, *Enhancing a Diffusion Algorithm for 4D Image
         Segmentation Using Local Information* in Proc. SPIE 9784, Medical
-        Imaging 2016, https://doi.org/10.1117/12.2216202
+        Imaging 2016, http://proceedings.spiedigitallibrary.org/proceeding.aspx?articleid=2506235
 
 
 Auxiliary
@@ -708,9 +716,17 @@ Buffering
     Buffers items internally until data stream has finished. After that all
     buffered elements are forwarded to the next task.
 
-    .. gobj:prop:: number:int
+    .. gobj:prop:: number:uint
 
         Number of pre-allocated buffers.
+
+    .. gobj:prop:: dup-count:uint
+
+        Number of times each image should be duplicated.
+
+    .. gobj:prop:: loop:boolean
+
+        Duplicates the data in a loop manner :gobj:prop:`dup-count` times.
 
 
 Loops
@@ -722,7 +738,7 @@ Loops
     avoid unnecessary copies. You can expect the data items to be on the device
     where the data originated.
 
-    .. gobj:prop:: number:int
+    .. gobj:prop:: number:uint
 
         Number of iterations for each received data item.
 
@@ -735,7 +751,7 @@ Monitoring
     Inspects a data stream and prints size, location and associated metadata
     keys on stdout.
 
-    .. gobj:prop:: print:int
+    .. gobj:prop:: print:uint
 
         If set print the given numbers of items on stdout as hexadecimally
         formatted numbers.

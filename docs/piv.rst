@@ -14,36 +14,44 @@ Ring pattern
     each pattern is it's radii size.  The thickness of the rings stays identical no
     matter the radii size.
 
-    The ``ring-start`` and ``ring-end`` represent the range of radii used for
+    The :gobj:prop:`ring-start` and :gobj:prop:`ring-end` represent the range of radii used for
     the ring generations and are given on a pixel basis.  Each of these rings
-    will have a thickness of ``ring-thickness`` pixels. Using a low value for
+    will have a thickness of :gobj:prop:`ring-thickness` pixels. Using a low value for
     the ring thickness tends to result in more rings being detected. Ideally
     this value should be the same as the actual ring thickness within the image.
 
-    .. gobj:prop:: ring-start:int
+    .. gobj:prop:: ring-start:uint
     
         Gives the size of the radius of the first ring to be generated. The size
         is given on a pixel basis.
 
-    .. gobj:prop:: ring-end:int
-    
-        Gives the size of the radius of the last ring to be generated. The size
-        is given on a pixel basis.
-
-    .. gobj:prop:: ring-thickness:int
-
-        Specifies the desired thickness of the generated ring on a pixel basis.
-
-    .. gobj:prop:: ring-step:int
+    .. gobj:prop:: ring-step:uint
 
         Indicates by how much the radii should be increased at each iteration.
         The value is given on a pixel basis.
+
+    .. gobj:prop:: ring-end:uint
+
+        Gives the size of the radius of the last ring to be generated. The size
+        is given on a pixel basis.
+
+    .. gobj:prop:: ring-thickness:uint
+
+        Specifies the desired thickness of the generated ring on a pixel basis.
+
+    .. gobj:prop:: width:uint
+
+        Give x size of output image.
+
+    .. gobj:prop:: height:uint
+
+        Give y size of output image.
 
 
 Concatenate
 -----------
 
-.. gobj:class:: concatenate
+.. gobj:class:: concatenate-result
 
 
     For each image, there are ``(ring-end - ring-start + 1) / ring-step``
@@ -64,7 +72,7 @@ Concatenate
         being processed.
 
 
-    .. gobj:prop:: max-count:int
+    .. gobj:prop:: max-count:uint
 
         Sometimes for small rings patterns hundreds of rings can be detected due
         to the noise. When large amounts of rings are detected, most of them
@@ -72,6 +80,10 @@ Concatenate
         ``max-count``. Note that if it is set to a very high value (over 200)
         the post processing algorithms might considerably slow down the
         software.
+
+    .. gobj:prop:: ring-count:uint
+
+        The maximum number of rings desired per ring pattern.
 
 
 Denoise
@@ -99,7 +111,7 @@ Denoise
         input.  The output image is then created by subtracting the input image
         to this background image.
 
-    .. gobj:prop:: matrix-size:int
+    .. gobj:prop:: matrix-size:uint
 
         This parameter specifies the size of the matrix used when looking for
         neighbouring pixels.  A bigger value for the matrix size means that more
@@ -126,8 +138,8 @@ Contrast
     By using the `imadjust` algorithm as described in matlab, we compute the new
     pixel values using the following formula : :math:`f'(x, y) =
     \left(\frac{f(x, y)  - low}{high - low}\right)^\gamma` Where :math:`f'` is
-    the output image, :math:`f` is the input image, `high` is the maximum value
-    and `low` is the smallest value. :math:`\gamma` is a value less than 1, and
+    the output image, :math:`f` is the input image, :math:`high` is the maximum value
+    and :math:`low` is the smallest value. :math:`\gamma` is a value less than 1, and
     is what allows to get a non linear mapping and more values near the high
     intensities.
 
@@ -168,8 +180,8 @@ Ordfilt
 
         f'(x, y) = intensity \cdot contrast
 
-    `high_p` is the 50 percentile pixel value. `low_p` is the 25th percentile
-    pixel value.  This formula is based on the fact that rings are always
+    :math:`high_p` is the 50 percentile pixel value. :math:`low_p` is the 25th
+    percentile pixel value. This formula is based on the fact that rings are always
     brighter, hence the more bright the pixels the more likely we have a ring.
     Moreover,  the pixels forming the ring should not vary in intensity, i.e.
     the low and high percentile should have the same value,  by computing the
@@ -207,17 +219,17 @@ Particle filtering
         represents the likeliness of it to become the center of a ring.
 
     Output
-        A 1D stream. An array of  $(x, y, r)$ coordinates representing the list
+        A 1D stream. An array of  :math:`(x, y, r)` coordinates representing the list
         of currently detected rings.
 
     .. gobj:prop:: threshold:float
 
         A value between 0 and 1 representing a threshold relative to the images
         maximum value.  Each pixel of the image whose value is greater than
-        :math:`threshold * \max(Image)` is considered as a candidate to being a
+        :math:`threshold \cdot \max(Image)` is considered as a candidate to being a
         center of a ring.
 
-    .. gobj:prop:: min:int
+    .. gobj:prop:: min:float
 
         Gives the minimum value a pixels needs to have to be considered a
         possible candidate.

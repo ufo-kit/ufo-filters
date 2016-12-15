@@ -291,7 +291,7 @@ ufo_contrast_task_class_init (UfoContrastTaskClass *klass)
     gobject_class->finalize = ufo_contrast_task_finalize;
 
     properties[PROP_REMOVE_HIGH] =
-        g_param_spec_boolean ("remove_high",
+        g_param_spec_boolean ("remove-high",
             "Tells whether or not to set high intensity pixels to 0",
             "Tells whether or not to set high intensity pixels to 0",
             0,

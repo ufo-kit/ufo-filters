@@ -28,7 +28,7 @@ File writer
 
         Append rather than overwrite if ``TRUE``.
 
-    .. gobj:prop:: bits:int
+    .. gobj:prop:: bits:uint
 
         Number of bits to store the data if applicable to the file format.
         Possible values are 8 and 16 which are saved as integer types and 32 bit
@@ -36,7 +36,7 @@ File writer
 
     For JPEG files the following property applies:
 
-    .. gobj:prop:: quality:int
+    .. gobj:prop:: quality:uint
 
         JPEG quality value between 0 and 100. Higher values correspond to higher
         quality and larger file sizes.
@@ -77,7 +77,7 @@ Memory writer
 
         Pointer to pre-allocated memory.
 
-    .. gobj:prop:: maxsize:ulong
+    .. gobj:prop:: max-size:ulong
 
         Size of the pre-allocated memory area in bytes. Data is written up to
         that point only.
@@ -90,7 +90,7 @@ stdout writer
 
     Writes input to stdout. To chop up the data stream you can use the UNIX tool split.
 
-    .. gobj:prop:: bits
+    .. gobj:prop:: bits:uint
 
         Number of bits for final conversion.  Possible values are 8 and 16 which
         are saved as integer types and 32 bit float.
@@ -106,6 +106,10 @@ Null
 
     Eats input and discards it.
 
-    .. gobj:prop:: force-download:boolean
+    .. gobj:prop:: download:boolean
 
         If *TRUE* force final data transfer from device to host if necessary.
+
+    .. gobj:prop:: finish:boolean
+
+        Call finish on the associated command queue.

@@ -347,14 +347,14 @@ ufo_concatenate_result_task_class_init (UfoConcatenateResultTaskClass *klass)
     gobject_class->finalize = ufo_concatenate_result_task_finalize;
 
     properties[PROP_MAX_COUNT] =
-        g_param_spec_uint ("max_count",
+        g_param_spec_uint ("max-count",
             "The maximum number of rings desired per ring pattern",
             "The maximum number of rings desired per ring pattern",
             1, G_MAXUINT, 60,
             G_PARAM_READWRITE);
 
     properties[PROP_RING_COUNT] =
-        g_param_spec_uint ("ring_count",
+        g_param_spec_uint ("ring-count",
             "The number of ring pattern generated per image",
             "The maximum number of rings desired per ring pattern",
             0, G_MAXUINT, 0,

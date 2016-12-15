@@ -332,7 +332,7 @@ ufo_denoise_task_class_init (UfoDenoiseTaskClass *klass)
     gobject_class->finalize = ufo_denoise_task_finalize;
 
     properties[PROP_MATRIX_SIZE] =
-        g_param_spec_uint ("matrix_size",
+        g_param_spec_uint ("matrix-size",
             "determines the number of surrounding pixels to be compared with",
             "determines the number of surrounding pixels to be compared with",
             1, G_MAXUINT, 13,
