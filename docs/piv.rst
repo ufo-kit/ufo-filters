@@ -233,3 +233,47 @@ Particle filtering
 
         Gives the minimum value a pixels needs to have to be considered a
         possible candidate.
+
+
+Ring dumping
+------------
+
+.. gobj:class:: dump-ring
+
+    .. gobj:prop:: scale:uint
+
+        Says by how much rings should be increased.
+
+
+get-dup-circ
+------------
+
+.. gobj:class:: get-dup-circ
+
+    .. gobj:prop:: threshold:float
+
+        Give maximum ring distance and radius difference.
+
+
+Circle removing
+---------------
+
+.. gobj:class:: remove-circle
+
+    .. gobj:prop:: threshold:float
+
+        Set maximum inner and outer ring radii size difference.
+
+
+Writing rings
+-------------
+
+.. gobj:class:: ringwriter
+
+    .. gobj:prop:: scale:uint
+
+        Says by how much rings should be increased.
+
+    .. gobj:prop:: filename:string
+
+        Path for the output file to write data.

@@ -158,6 +158,16 @@ UcaCamera reader
     .. note:: This requires third-party library *libuca*.
 
 
+Sleeping
+--------
+
+.. gobj:class:: sleep
+
+    .. gobj:prop:: time:double
+
+        Time to sleep in seconds.
+
+
 stdin reader
 ============
 

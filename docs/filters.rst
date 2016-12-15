@@ -34,6 +34,28 @@ Clipping
 
         Maximum value, all values higher than `max` are set to `max`.
 
+
+Flattening
+----------
+
+.. gobj:class:: flatten-inplace
+
+    Flatten task for sum, min and max.
+
+    .. gobj:prop:: mode:enum
+
+        Mode (min, max, sum).
+
+
+.. gobj:class:: flatten
+
+    Flatten task based on median sort.
+
+    .. gobj:prop:: mode:string
+
+        Mode (min, max, sum, median).
+
+
 Arithmetic expressions
 ----------------------
 
@@ -215,6 +237,31 @@ Cropping
         Start cropping from the center outwards.
 
 
+Coordinates transformation
+--------------------------
+
+.. gobj:class:: polar-coordinates
+
+    Transformation between polar and cartesian coordinate systems.
+
+    When transforming from cartesian to polar coordinates the origin is in the
+    image center (:gobj:prop:`width` / 2, :gobj:prop:`height` / 2). When transforming from polar to
+    cartesian coordinates the origin is in the image corner (0, 0).
+
+    .. gobj:prop:: width:uint
+
+        Final width after transformation.
+
+    .. gobj:prop:: height:uint
+
+        Final height after transformation.
+
+    .. gobj:prop:: direction: string
+
+        Conversion direction from ``polar_to_cartesian``.
+
+
+
 Filters
 =======
 
@@ -260,6 +307,11 @@ Gaussian blur
 
         Sigma of the kernel.
 
+
+Reduction
+---------
+
+.. gobj:class:: reduce
 
 
 Stream transformations
@@ -326,6 +378,18 @@ Slice mapping
         mapper, warnings are issued.
 
 
+Interpolation
+-------------
+
+.. gobj:class:: interpolate
+
+    Interpolation between two streams.
+
+    .. gobj:prop:: number:uint
+
+        Number of interpolated images.
+
+
 Fourier domain
 ==============
 
@@ -377,6 +441,23 @@ Fast Fourier transform
         Height to crop output.
 
 
+Zeropadding
+-----------
+
+.. gobj:class:: zeropad
+
+    Add zeros in the center of sinogram using :gobj:prop:`oversampling`
+    to manage the amount of zeros which will be added.
+
+    .. gobj:prop:: oversampling:uint
+
+        Oversampling coefficient.
+
+    .. gobj:prop:: center-of-rotation:float
+
+        Center of rotation of specimen.
+
+
 Frequency filtering
 -------------------
 
@@ -413,6 +494,18 @@ Frequency filtering
         Theta parameter of Faris-Byer filter.
 
 
+fftmult
+-------
+
+.. gobj:class:: fftmult
+
+
+Stripe filtering
+----------------
+
+.. gobj:class:: filter-stripes
+
+
 1D stripe filtering
 -------------------
 
@@ -427,6 +520,34 @@ Frequency filtering
 
         Filter strength, which is the full width at half maximum of the
         gaussian.
+
+
+2D Fourier spectrum
+-------------------
+
+.. gobj:class:: dfi-sinc
+
+    Computes the 2D Fourier spectrum of reconstructed image using
+    1D Fourier projection of sinogram (fft filter should be applied before).
+    There are no default values for properties, therefore they should be
+    assign manually.
+
+    .. gobj:prop:: kernel-size:uint
+
+        The length of kernel which will be used in interpolation.
+
+    .. gobj:prop:: number-presampled-values:uint
+
+        Number of presampled values which will be used to calculate ``kernel-size``
+        kernel coefficients.
+
+    .. gobj:prop:: roi-size:int
+
+        The length of one side of Region of Interest.
+
+    .. gobj:prop:: angle-step:double
+
+        Increment of angle in radians.
 
 
 Reconstruction
@@ -705,6 +826,50 @@ Segmentation
         Imaging 2016, http://proceedings.spiedigitallibrary.org/proceeding.aspx?articleid=2506235
 
 
+Volume rendering
+================
+
+.. gobj:class:: volume-render
+
+    Project volume data onto 2D plane.
+
+    .. gobj:prop:: width:uint
+
+        Width of the rendered image.
+
+    .. gobj:prop:: height:uint
+
+        Height of the rendered image
+
+    .. gobj:prop:: num-generate:uint
+
+        Number of rendered views.
+
+    .. gobj:prop:: delta:float
+
+        Delta between angles in radians.
+
+    .. gobj:prop:: step:float
+
+        Delta between angles in radians.
+
+    .. gobj:prop:: threshold:float
+
+        Threshold.
+
+    .. gobj:prop:: slope:float
+
+        Slope of the alpha function.
+
+    .. gobj:prop:: constant:float
+
+        Constant of the alpha function.
+
+    .. gobj:prop:: displacement:float
+
+        Displacement of the near plane.
+
+
 Auxiliary
 =========
 
@@ -727,6 +892,12 @@ Buffering
     .. gobj:prop:: loop:boolean
 
         Duplicates the data in a loop manner :gobj:prop:`dup-count` times.
+
+
+Duplicating
+-----------
+
+.. gobj:class:: duplicate
 
 
 Loops
@@ -755,3 +926,80 @@ Monitoring
 
         If set print the given numbers of items on stdout as hexadecimally
         formatted numbers.
+
+
+Measuring
+---------
+
+.. gobj:class:: measure
+
+    Measure basic image properties with GSL.
+
+    .. gobj:prop:: metric:string
+
+        Metric (std, min, max).
+
+    .. gobj:prop:: axis:int
+
+        Along which axis to measure (-1, all).
+
+    .. gobj:prop:: pass-through:boolean
+
+        Copy data to next output.
+
+
+.. gobj:class:: measure-sharpness
+
+    .. gobj:prop:: sharpness:double
+
+        Dimensionless measure describing the sharpness of the image.
+
+
+Computing center of Rotation
+----------------------------
+
+.. gobj:class:: center-of-rotation
+
+    Compute the center of rotation.
+
+    .. gobj:prop:: angle-step:double
+
+        Step between two successive projections.
+
+    .. gobj:prop:: center:double
+
+        The calculated center of rotation.
+
+
+Cutting sinogram
+----------------
+
+.. gobj:class:: cut-sinogram
+
+    .. gobj:prop:: center-of-rotation:float
+
+        Center of rotation of specimen.
+
+
+Refeeding
+---------
+
+.. gobj:class:: refeed
+
+
+Replicating
+-----------
+
+.. gobj:class:: replicate
+
+
+Subtracting
+-----------
+
+.. gobj:class:: subtract
+
+
+Quadrants swapping
+------------------
+
+.. gobj:class:: swap-quadrants
