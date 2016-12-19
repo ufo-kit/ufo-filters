@@ -19,6 +19,7 @@ Binarization
 
         Any values above the threshold are set to one all others to zero.
 
+
 Clipping
 --------
 
@@ -33,6 +34,7 @@ Clipping
     .. gobj:prop:: max:float
 
         Maximum value, all values higher than `max` are set to `max`.
+
 
 Arithmetic expressions
 ----------------------
@@ -54,6 +56,26 @@ Arithmetic expressions
     .. gobj:prop:: expression:string
 
         Arithmetic expression with math functions supported by OpenCL.
+
+
+Statistics
+----------
+
+.. gobj:class:: measure
+
+    Measure basic image properties with GSL.
+
+    .. gobj:prop:: metric:string
+
+        Metric, one of ``std``, ``min`` or ``max``.
+
+    .. gobj:prop:: axis:int
+
+        Along which axis to measure (-1, all).
+
+    .. gobj:prop:: pass-through:boolean
+
+        ``TRUE`` if data should be copied to next output.
 
 
 .. _generic-opencl-ref:
@@ -215,6 +237,59 @@ Cropping
         Start cropping from the center outwards.
 
 
+Polar transformation
+--------------------
+
+.. gobj:class:: polar-coordinates
+
+    Transformation between polar and cartesian coordinate systems.
+
+    When transforming from cartesian to polar coordinates the origin is in the
+    image center (:gobj:prop:`width` / 2, :gobj:prop:`height` / 2).  When
+    transforming from polar to cartesian coordinates the origin is in the image
+    corner (0, 0).
+
+    .. gobj:prop:: width:uint
+
+        Final width after transformation.
+
+    .. gobj:prop:: height:uint
+
+        Final height after transformation.
+
+    .. gobj:prop:: direction: string
+
+        Conversion direction from ``polar_to_cartesian``.
+
+
+
+Multi-stream
+============
+
+Interpolation
+-------------
+
+.. gobj:class:: interpolate
+
+    Interpolates incoming data from two compatible streams, i.e.  the task
+    computes :math:`(1 - \alpha) s_1 + \alpha s_2` where :math:`s_1` and
+    :math:`s_2` are the two input streams and :math:`\alpha` a blend factor.
+    :math:`\alpha` is :math:`i / (n - 1)` for :math:`n > 1`, :math:`n` being
+    :gobj:prop:`number` and :math:`i` the current iteration.
+
+    .. gobj:prop:: number:uint
+
+        Number of total input stream length.
+
+
+Subtract
+--------
+
+.. gobj:class:: subtract
+
+    Subtract data items of the second from the first stream.
+
+
 Filters
 =======
 
@@ -275,6 +350,26 @@ Averaging
     .. gobj:prop:: number:uint
 
         Number of averaged images to output. By default one image is generated.
+
+
+Statistics
+----------
+
+.. gobj:class:: flatten
+
+    Flatten input stream by reducing with operation based on the given mode.
+
+    .. gobj:prop:: mode:string
+
+        Operation, can be either ``min``, ``max``, ``sum`` and ``median``.
+
+.. gobj:class:: flatten-inplace
+
+    Faster inplace operating variant of the ``flatten`` task.
+
+    .. gobj:prop:: mode:enum
+
+         Operation, can be either ``min``, ``max`` and ``sum``.
 
 
 Slicing
@@ -427,6 +522,23 @@ Frequency filtering
 
         Filter strength, which is the full width at half maximum of the
         gaussian.
+
+
+Zeropadding
+-----------
+
+.. gobj:class:: zeropad
+
+    Add zeros in the center of sinogram using :gobj:prop:`oversampling`
+    to manage the amount of zeros which will be added.
+
+    .. gobj:prop:: oversampling:uint
+
+        Oversampling coefficient.
+
+    .. gobj:prop:: center-of-rotation:float
+
+        Center of rotation of sample.
 
 
 Reconstruction
@@ -622,6 +734,62 @@ Laminographic backprojection
         ``lamino-angle``, ``roll-angle``.
 
 
+Fourier interpolation
+---------------------
+
+.. gobj:class:: dfi-sinc
+
+    Computes the 2D Fourier spectrum of reconstructed image using 1D Fourier
+    projection of sinogram (fft filter must be applied before).  There are no
+    default values for properties, therefore they should be assigned manually.
+
+    .. gobj:prop:: kernel-size:uint
+
+        The length of kernel which will be used in
+        interpolation.
+
+    .. gobj:prop:: number-presampled-values:uint
+
+        Number of presampled values which will be used to calculate
+        ``kernel-size`` kernel coefficients.
+
+    .. gobj:prop:: roi-size:int
+
+        The length of one side of region of Interest.
+
+    .. gobj:prop:: angle-step:double
+
+        Increment of angle in radians.
+
+
+Center of rotation
+------------------
+
+.. gobj:class:: center-of-rotation
+
+    Compute the center of rotation of input sinograms.
+
+    .. gobj:prop:: angle-step:double
+
+        Step between two successive projections.
+
+     .. gobj:prop:: center:double
+
+        The calculated center of rotation.
+
+
+Sinogram offset shift
+---------------------
+
+.. gobj:class:: cut-sinogram
+
+    Shifts the sinogram given a center not centered to the input image.
+
+    .. gobj:prop:: center-of-rotation:float
+
+        Center of rotation of specimen.
+
+
 Phase retrieval
 ---------------
 
@@ -755,3 +923,17 @@ Monitoring
 
         If set print the given numbers of items on stdout as hexadecimally
         formatted numbers.
+
+
+Sleep
+-----
+
+.. gobj:class:: sleep
+
+    Wait :gobj:prop:`time` seconds before continuing. Useful for debugging
+    throughput issues.
+
+    .. gobj:prop:: time:double
+
+        Time to sleep in seconds.
+
