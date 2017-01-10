@@ -41,6 +41,8 @@ if (WITH_PROFILING)
     add_definitions("-pg")
     set(CMAKE_C_FLAGS "-pg")
 endif ()
+
+option(WITH_CONTRIB "Enable contrib filters" OFF)
 #}}}
 #{{{ Common dependencies
 find_package(OpenCL REQUIRED)
@@ -69,7 +71,7 @@ endif ()
 add_subdirectory(docs)
 add_subdirectory(deps)
 add_subdirectory(src)
-if ("${WITH_CONTRIB}")
+if (WITH_CONTRIB)
     add_subdirectory(contrib)
 endif ()
 #}}}
