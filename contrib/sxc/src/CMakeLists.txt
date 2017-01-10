@@ -18,9 +18,6 @@
 ## Serge Cohen <serge.cohen@synchrotron-soleil.fr>
 ##
 
-
-cmake_minimum_required(VERSION 2.6)
-
 set(contribs_sxc_filter_SRCS
    ufo-med-mad-reject-2d-task.c
    ufo-med-mad-reject-task.c
