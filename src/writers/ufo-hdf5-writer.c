@@ -214,8 +214,6 @@ ufo_hdf5_writer_write (UfoWriter *writer,
         H5Dset_extent (priv->dataset_id, dims);
     }
 
-    ufo_writer_convert_inplace (data, requisition, depth);
-
     dst_dataspace_id = H5Dget_space (priv->dataset_id);
     src_dataspace_id = H5Screate_simple (2, src_dims, NULL);
 

@@ -49,6 +49,7 @@ ufo_writer_write (UfoWriter *writer,
                   UfoRequisition *requisition,
                   UfoBufferDepth depth)
 {
+    ufo_writer_convert_inplace (data, requisition, depth);
     UFO_WRITER_GET_IFACE (writer)->write (writer, data, requisition, depth);
 }
 

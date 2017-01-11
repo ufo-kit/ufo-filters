@@ -115,7 +115,6 @@ ufo_tiff_writer_write (UfoWriter *writer,
     }
 
     TIFFSetField (priv->tiff, TIFFTAG_BITSPERSAMPLE, bits_per_sample);
-    ufo_writer_convert_inplace (data, requisition, depth);
     stride = requisition->dims[0] * bits_per_sample / 8;
     buff = (gchar *) data;
 

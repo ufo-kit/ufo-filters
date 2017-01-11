@@ -95,8 +95,6 @@ ufo_raw_writer_write (UfoWriter *writer,
 
     priv = UFO_RAW_WRITER_GET_PRIVATE (writer);
 
-    ufo_writer_convert_inplace (data, requisition, depth);
-
     for (guint i = 0; i < requisition->n_dims; i++)
         size *= requisition->dims[i];
 
