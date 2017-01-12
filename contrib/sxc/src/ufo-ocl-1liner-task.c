@@ -18,6 +18,10 @@
  *
  * Serge Cohen <serge.cohen@synchrotron-soleil.fr>
  */
+// The following define seems necessary on Linux to get stdio.h declare asprintf family of functions.
+// Should be done early enough to be sure that stdio.h is not already included withOUT _GNU_SOURCE on.
+#define _GNU_SOURCE
+#include <stdio.h> // for asprintf at least.
 
 #ifdef __APPLE__
 #include <OpenCL/cl.h>
@@ -25,7 +29,6 @@
 #include <CL/cl.h>
 #endif
 
-#include <stdio.h> // for asprintf at least.
 
 #include "ufo-ocl-1liner-task.h"
 
@@ -81,7 +84,7 @@ ufo_ocl_1liner_task_setup (UfoTask *task,
   char * skel_in_next = skel_in;
 
   for ( guint i=0; i != priv->num_inputs; ++i ) {
-    one_in_size = snprintf(skel_in, 1024 - (skel_in_next - skel_in), "__global float *in_%d,\n", i);
+    one_in_size = snprintf(skel_in_next, 1024 - (skel_in_next - skel_in), "__global float *in_%d,\n", i);
     if ( 0 >= one_in_size )
       goto exit;
     skel_in_next += one_in_size;
@@ -96,12 +99,14 @@ ufo_ocl_1liner_task_setup (UfoTask *task,
                                                       kernel_src,
                                                       "ocl_1liner",
                                                       error);
-  /* Done compiling sources into a kernel*/
+  /* Done compiling sources into a kernel, if existing retain it */
+  if (priv->kernel != NULL)
+    UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
 
  exit:
   /* Releasing resources no longer used */
   g_free (kernel_skel);
-  g_free (kernel_src);
+  free (kernel_src);
 }
 
 static void

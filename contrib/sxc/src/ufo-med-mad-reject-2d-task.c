@@ -236,7 +236,7 @@ ufo_med_mad_reject_2d_task_class_init (UfoMedMadReject2DTaskClass *klass)
                         G_PARAM_READWRITE);
 
   properties[PROP_BOX_SIZE] =
-    g_param_spec_float ("box-size",
+    g_param_spec_uint ("box-size",
                         "Size of the box in which the median and mad are computed",
                         "Should be an odd number so that current pixel is the exact center of the box.",
                         1, 1023, 3,

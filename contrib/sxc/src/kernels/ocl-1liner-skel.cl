@@ -40,9 +40,10 @@
 
 __kernel void
 ocl_1liner (
-            %s // The inputs...
-            __global float *out,
-            )
+// The input(s)
+%s 
+// The output
+__global float *out)
 {
   size_t sizeX = get_global_size(0);
   size_t sizeY = get_global_size(1);

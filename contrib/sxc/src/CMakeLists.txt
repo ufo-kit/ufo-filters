@@ -18,23 +18,23 @@
 ## Serge Cohen <serge.cohen@synchrotron-soleil.fr>
 ##
 
-set(contribs_sxc_filter_SRCS
+set(contrib_sxc_filter_SRCS
    ufo-med-mad-reject-2d-task.c
    ufo-med-mad-reject-task.c
    ufo-ocl-1liner-task.c
    ufo-stat-monitor-task.c
    )
 
-set(contribs_sxc_aux_SRCS
+set(contrib_sxc_aux_SRCS
     ufo-sxc-common.c)
 
-file(GLOB contribs_sxc_filter_KERNELS "kernels/*.cl")
+file(GLOB contrib_sxc_filter_KERNELS "kernels/*.cl")
 
 include(ConfigurePaths)
 include(PkgConfigVars)
 include(CheckCSourceCompiles)
 
-configure_paths(CONTRIBS_SXC_FILTERS)
+configure_paths(CONTRIB_SXC_FILTERS)
 
 find_package(OpenCL REQUIRED)
 find_package(PkgConfig REQUIRED)
@@ -60,9 +60,9 @@ set(ufofilter_LIBS
     ${OpenCL_LIBRARIES})
 
 # build static auxiliary library first
-add_library(contribs_sxc_aux STATIC ${contribs_sxc_aux_SRCS})
+add_library(contrib_sxc_aux STATIC ${contrib_sxc_aux_SRCS})
 
-foreach(_src ${contribs_sxc_filter_SRCS})
+foreach(_src ${contrib_sxc_filter_SRCS})
     # find plugin suffix
     string(REGEX REPLACE "ufo-([^ \\.]+)-task.*" "\\1" task "${_src}")
 
@@ -83,7 +83,7 @@ foreach(_src ${contribs_sxc_filter_SRCS})
         add_library(${target} SHARED ${_src} ${${_misc}})
     endif()
 
-    target_link_libraries(${target} ${ufofilter_LIBS} ${${_aux_libs}} contribs_sxc_aux)
+    target_link_libraries(${target} ${ufofilter_LIBS} ${${_aux_libs}} contrib_sxc_aux)
 
     list(APPEND all_targets ${target})
 
@@ -94,6 +94,6 @@ endforeach()
 
 
 # copy kernels
-foreach(_kernel ${contribs_sxc_filter_KERNELS})
+foreach(_kernel ${contrib_sxc_filter_KERNELS})
     install(FILES ${_kernel} DESTINATION ${UFO_KERNELDIR})
 endforeach()

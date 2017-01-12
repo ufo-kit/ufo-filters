@@ -157,7 +157,7 @@ ufo_stat_monitor_task_setup (UfoTask *task,
       priv->wg_size = (priv->local_scratch_size) >> 4; // Reducing the number of items in a work-group to fit local memory constraints
     }
   }
-#warning Still have to check that the values here are properly set.
+  // #warning Still have to check that the values here are properly set.
   // In particular taking into account local memory usage per work-item and work-group to optimsed these values.
 
   priv->im_index = 0;
@@ -196,7 +196,7 @@ ufo_stat_monitor_task_setup (UfoTask *task,
   fprintf(stdout, "  * Will print standard monitor message : %s\n", (priv->be_quiet) ? "no" : "yes");
   fprintf(stdout, "  * Will output statistics to %s\n", strcmp("-", priv->stat_fn) ? priv->stat_fn : "stdout");
   fprintf(stdout, "  * OpenCL Device %s fp64/double precision support (cl_khr_fp64)\n", (priv->node_has_fp64) ? "has" : "does not have");
-  fprintf(stdout, "  * Maximum local memory is %lluB\n", priv->max_local_mem);
+  fprintf(stdout, "  * Maximum local memory is %luB\n", priv->max_local_mem);
   fprintf(stdout, "  * Number of compute units is %d\n", num_cu);
   fprintf(stdout, "  * Maximum work group size is %zu\n", max_wgs);
   fprintf(stdout, "  * Maximum work items (in WG) [0] is %zu\n", max_wis[0]);
@@ -325,7 +325,7 @@ ufo_stat_monitor_task_process (UfoTask *task,
   //  fprintf(stdout, "Reduction 1st stage :num pixels %u, num items %lu, workgroup size %lu\n", img_size, total_wi, wg_size);
   ufo_profiler_call (profiler, cmd_queue, priv->kernel, 1, &total_wi, &wg_size);
 
-#warning Further reduction is required, CPU or GPU ...
+  // #warning Further reduction is required, CPU or GPU ...
   // At this time, we need to have a second kernel to further reduce the results of the previous results that where
   // produced at the rate of one per work-group.
   if ( TRUE ) { // OpenCL version of this last stage of reduction
@@ -423,10 +423,10 @@ ufo_stat_monitor_task_process (UfoTask *task,
   }
 
   if (priv->n_items > 0) {
-    guint32 *data;
+    //    guint32 *data;
     gfloat *data_f32;
 
-    data = (guint32 *) ufo_buffer_get_host_array (inputs[0], NULL);
+    //    data = (guint32 *) ufo_buffer_get_host_array (inputs[0], NULL);
     data_f32 = (gfloat *) ufo_buffer_get_host_array (inputs[0], NULL);
 
     g_print ("  ");
@@ -487,6 +487,9 @@ ufo_stat_monitor_task_get_property (GObject *object,
     break;
   case PROP_STAT_FN:
     g_value_set_string (value, priv->stat_fn);
+    break;
+  case PROP_QUIET:
+    g_value_set_boolean (value, priv->be_quiet);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -554,7 +557,7 @@ ufo_stat_monitor_task_class_init (UfoStatMonitorTaskClass *klass)
     g_param_spec_boolean("quiet",
                          "When turned to true, will not print frame monitoring information on stdout",
                          "Defaulting to 'false', that is mimicking the 'monitor' filter",
-                         TRUE,
+                         FALSE,
                          G_PARAM_READWRITE);
   properties[PROP_NUM_ITEMS] =
     g_param_spec_uint ("print",
