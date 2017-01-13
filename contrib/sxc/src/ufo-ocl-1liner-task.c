@@ -89,18 +89,27 @@ ufo_ocl_1liner_task_setup (UfoTask *task,
 
   kernel_skel = ufo_resources_get_kernel_source (resources, skel_filename, error);
 
+  char skel_in_macro[1024];
   char skel_in[1024];
+  int one_in_macro_size;
   int one_in_size;
+  char * skel_in_macro_next = skel_in_macro;
   char * skel_in_next = skel_in;
 
   for ( guint i=0; i != priv->num_inputs; ++i ) {
-    one_in_size = snprintf(skel_in_next, 1024 - (skel_in_next - skel_in), "__global float *in_%d,\n", i);
-    if ( 0 >= one_in_size )
+    one_in_macro_size = snprintf(skel_in_macro_next, 1024 - (skel_in_macro_next - skel_in_macro),
+				 "#define in_%d_px (in_%d[px_index])\n", i, i);
+    one_in_size = snprintf(skel_in_next, 1024 - (skel_in_next - skel_in),
+			   "__global float *in_%d,\n", i);
+
+    if ( (0 >= one_in_macro_size) || (0 >= one_in_size) )
       goto exit;
+
+    skel_in_macro_next += one_in_macro_size;
     skel_in_next += one_in_size;
   }
 
-  asprintf(&kernel_src, kernel_skel, skel_in, priv->one_line);
+  asprintf(&kernel_src, kernel_skel, skel_in_macro, skel_in, priv->one_line);
   if ( ! priv->be_quiet ) {
     /* Done with the preparation of the OpenCL sources. */
     fprintf(stdout, "Current version of the one-liner OpenCL source code :\n%s\n", kernel_src);

@@ -36,12 +36,17 @@
  * modifies a pixel value in =out= that is NOT the one indexed by px_index.
  */
 
-#define IMG_VAL(hx,hy,image) image[(hx) + (hy)*sizeX]
+#define IMG_VAL(hx,hy,image) (image[(hx) + (hy)*sizeX])
+
+// Macros to access input pixel without parenthesis or bracket
+%s
+// Macro to access output pixel without parenthesis or bracket
+#define out_px (out[px_index])
 
 __kernel void
 ocl_1liner (
 // The input(s)
-%s 
+%s
 // The output
 __global float *out)
 {
@@ -55,3 +60,4 @@ __global float *out)
   // And here the one line of /variable/ code :
   %s;
 }
+
