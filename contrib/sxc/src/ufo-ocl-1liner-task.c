@@ -32,11 +32,19 @@
 
 #include "ufo-ocl-1liner-task.h"
 
+/*
+#define IN_LOG printf("=> %s : %s.%d\n", __func__, __FILE__, __LINE__);
+#define OUT_LOG printf("OUT %s : %s.%d\n", __func__, __FILE__, __LINE__);
+*/
+
+#define IN_LOG
+#define OUT_LOG
 
 struct _UfoOCL1LinerTaskPrivate {
   gchar * one_line;
   cl_kernel kernel;
   guint num_inputs;
+  gboolean be_quiet;
 };
 
 
@@ -52,6 +60,7 @@ enum {
   PROP_0,
   PROP_ONE_LINE,
   PROP_NUM_INPUTS,
+  PROP_QUIET,
   N_PROPERTIES
 };
 
@@ -68,6 +77,7 @@ ufo_ocl_1liner_task_setup (UfoTask *task,
                            UfoResources *resources,
                            GError **error)
 {
+  IN_LOG
   UfoOCL1LinerTaskPrivate *priv;
   priv = UFO_OCL_1LINER_TASK_GET_PRIVATE (task);
 
@@ -91,8 +101,10 @@ ufo_ocl_1liner_task_setup (UfoTask *task,
   }
 
   asprintf(&kernel_src, kernel_skel, skel_in, priv->one_line);
-  /* Done with the preparation of the OpenCL sources. */
-  fprintf(stdout, "Current version of the one-liner OpenCL source code :\n%s\n", kernel_src);
+  if ( ! priv->be_quiet ) {
+    /* Done with the preparation of the OpenCL sources. */
+    fprintf(stdout, "Current version of the one-liner OpenCL source code :\n%s\n", kernel_src);
+  }
 
   /* Copiling the kernel now : */
   priv->kernel = ufo_resources_get_kernel_from_source(resources,
@@ -107,6 +119,7 @@ ufo_ocl_1liner_task_setup (UfoTask *task,
   /* Releasing resources no longer used */
   g_free (kernel_skel);
   free (kernel_src);
+  OUT_LOG
 }
 
 static void
@@ -123,9 +136,11 @@ ufo_ocl_1liner_task_get_requisition (UfoTask *task,
 static guint
 ufo_ocl_1liner_task_get_num_inputs (UfoTask *task)
 {
+  IN_LOG
   UfoOCL1LinerTaskPrivate *priv;
   priv = UFO_OCL_1LINER_TASK_GET_PRIVATE (task);
 
+  OUT_LOG
   return priv->num_inputs;
 }
 
@@ -149,6 +164,7 @@ ufo_ocl_1liner_task_process (UfoTask *task,
                              UfoBuffer *output,
                              UfoRequisition *requisition)
 {
+  IN_LOG
   UfoOCL1LinerTaskPrivate *priv;
   priv = UFO_OCL_1LINER_TASK_GET_PRIVATE (task);
 
@@ -176,6 +192,7 @@ ufo_ocl_1liner_task_process (UfoTask *task,
   ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
 
   // Done, returning (TRUE):
+  OUT_LOG
   return TRUE;
 }
 
@@ -186,6 +203,7 @@ ufo_ocl_1liner_task_set_property (GObject *object,
                                   const GValue *value,
                                   GParamSpec *pspec)
 {
+  IN_LOG
   UfoOCL1LinerTaskPrivate *priv = UFO_OCL_1LINER_TASK_GET_PRIVATE (object);
 
   switch (property_id) {
@@ -196,10 +214,14 @@ ufo_ocl_1liner_task_set_property (GObject *object,
   case PROP_NUM_INPUTS:
     priv->num_inputs = g_value_get_uint (value);
     break;
+  case PROP_QUIET:
+    priv->be_quiet = g_value_get_boolean (value);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
   }
+  OUT_LOG
 }
 
 static void
@@ -208,6 +230,7 @@ ufo_ocl_1liner_task_get_property (GObject *object,
                                   GValue *value,
                                   GParamSpec *pspec)
 {
+  IN_LOG
   UfoOCL1LinerTaskPrivate *priv = UFO_OCL_1LINER_TASK_GET_PRIVATE (object);
 
   switch (property_id) {
@@ -217,15 +240,20 @@ ufo_ocl_1liner_task_get_property (GObject *object,
   case PROP_NUM_INPUTS:
     g_value_set_uint (value, priv->num_inputs);
     break;
+  case PROP_QUIET:
+    g_value_set_boolean (value, priv->be_quiet);
+    break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
     break;
   }
+  OUT_LOG
 }
 
 static void
 ufo_ocl_1liner_task_finalize (GObject *object)
 {
+  IN_LOG
   UfoOCL1LinerTaskPrivate *priv = UFO_OCL_1LINER_TASK_GET_PRIVATE (object);
   g_free (priv->one_line);
 
@@ -233,22 +261,26 @@ ufo_ocl_1liner_task_finalize (GObject *object)
     UFO_RESOURCES_CHECK_CLERR(clReleaseKernel(priv->kernel));
 
   G_OBJECT_CLASS (ufo_ocl_1liner_task_parent_class)->finalize (object);
+  OUT_LOG
 }
 
 static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
+  IN_LOG
   iface->setup = ufo_ocl_1liner_task_setup;
   iface->get_num_inputs = ufo_ocl_1liner_task_get_num_inputs;
   iface->get_num_dimensions = ufo_ocl_1liner_task_get_num_dimensions;
   iface->get_mode = ufo_ocl_1liner_task_get_mode;
   iface->get_requisition = ufo_ocl_1liner_task_get_requisition;
   iface->process = ufo_ocl_1liner_task_process;
+  OUT_LOG
 }
 
 static void
 ufo_ocl_1liner_task_class_init (UfoOCL1LinerTaskClass *klass)
 {
+  IN_LOG
   GObjectClass *oclass = G_OBJECT_CLASS (klass);
 
   oclass->set_property = ufo_ocl_1liner_task_set_property;
@@ -283,17 +315,28 @@ ufo_ocl_1liner_task_class_init (UfoOCL1LinerTaskClass *klass)
                        G_PARAM_READWRITE);
 
 
+  properties[PROP_QUIET] =
+    g_param_spec_boolean("quiet",
+                         "When turned to false, will display the generated kernel source to stdout",
+                         "Defaulting to 'true', minimising output",
+                         TRUE,
+                         G_PARAM_READWRITE);
+
   for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
     g_object_class_install_property (oclass, i, properties[i]);
 
   g_type_class_add_private (oclass, sizeof(UfoOCL1LinerTaskPrivate));
+  OUT_LOG
 }
 
 static void
 ufo_ocl_1liner_task_init(UfoOCL1LinerTask *self)
 {
+  IN_LOG
   self->priv = UFO_OCL_1LINER_TASK_GET_PRIVATE(self);
   self->priv->one_line = NULL;
   self->priv->kernel = NULL;
   self->priv->num_inputs=1;
+  self->priv->be_quiet=TRUE;
+  OUT_LOG
 }

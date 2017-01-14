@@ -191,7 +191,7 @@ ufo_stat_monitor_task_setup (UfoTask *task,
     priv->stat_out_red = clCreateBuffer (context_cl, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY, 1 << 4, NULL, &err_code);
     UFO_RESOURCES_CHECK_CLERR(err_code);
   }
-
+  /*
   fprintf(stdout, "%s (%s.%d) : instrospected and computed values are as follow :\n", __func__, __FILE__, __LINE__);
   fprintf(stdout, "  * Will print standard monitor message : %s\n", (priv->be_quiet) ? "no" : "yes");
   fprintf(stdout, "  * Will output statistics to %s\n", strcmp("-", priv->stat_fn) ? priv->stat_fn : "stdout");
@@ -204,6 +204,7 @@ ufo_stat_monitor_task_setup (UfoTask *task,
   fprintf(stdout, "  * Tyring %d work-item per work-group\n", priv->wg_size);
   fprintf(stdout, "  * Tyring %d work-groups\n", priv->wg_num);
   fprintf(stdout, "  * Providing %zuB of local memory to each work-group\n", priv->local_scratch_size);
+  */
 }
 
 static void
