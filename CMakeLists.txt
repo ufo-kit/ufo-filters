@@ -27,6 +27,11 @@ set(UFO_DESCRIPTION_SUMMARY "UFO good filters")
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/common/cmake")
 
+if (APPLE)
+    set(CMAKE_MACOSX_RPATH      "ON")
+    set(CMAKE_INSTALL_RPATH     "${CMAKE_INSTALL_PREFIX}/lib")
+endif()
+
 #{{{ Variables and Options
 include(GNUInstallDirs)
 include(PkgConfigVars)
