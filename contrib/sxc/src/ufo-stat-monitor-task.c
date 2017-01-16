@@ -31,6 +31,7 @@
 struct _UfoStatMonitorTaskPrivate {
   FILE * stat_file;
   gchar * stat_fn;
+  gboolean trace_count;
   gboolean be_quiet;
   gboolean node_has_fp64;
   cl_kernel kernel;
@@ -43,6 +44,7 @@ struct _UfoStatMonitorTaskPrivate {
   cl_uint wg_num;
   cl_mem stat_out_buff; // The buffer used by the kernel to output its results
   cl_mem stat_out_red; // The buffer used by the final reduction kernel
+  guint sm_index;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -57,6 +59,7 @@ enum {
   PROP_0,
   PROP_NUM_ITEMS,
   PROP_STAT_FN,
+  PROP_TRACE,
   PROP_QUIET,
   N_PROPERTIES
 };
@@ -165,12 +168,12 @@ ufo_stat_monitor_task_setup (UfoTask *task,
   // Opening (if required) the statistic file
   if ( strcmp("-", priv->stat_fn) ) {
     priv->stat_file = fopen(priv->stat_fn, "a");
-    fprintf(stdout, "stat-monitor will outputs its results to file '%s'\n", priv->stat_fn);
+    fprintf(stdout, "stat-monitor (%u) will outputs its results to file '%s'\n", priv->sm_index, priv->stat_fn);
     fprintf(priv->stat_file, "# index min max mean var\n");
   }
   else {
     priv->stat_file = stdout;
-    fprintf(stdout, "stat-monitor will outputs its results to stdout\n");
+    fprintf(stdout, "stat-monitor (%u) will outputs its results to stdout\n", priv->sm_index);
   }
 
   // Allocating once for all the output buffer that will be used for statistcis output.
@@ -389,6 +392,11 @@ ufo_stat_monitor_task_process (UfoTask *task,
     fprintf (priv->stat_file, "%e %e %e %e\n", stat_res[0], stat_res[1], stat_res[2], stat_res[3]);
     */
   }
+
+  if ( priv->trace_count ) {
+    fprintf(stdout, "stat-monitor (%u) : done frame %zu\n", priv->sm_index, priv->im_index);
+  }
+  
   ++(priv->im_index);
 
   if ( ! priv->be_quiet ) {
@@ -465,6 +473,9 @@ ufo_stat_monitor_task_set_property (GObject *object,
     g_free (priv->stat_fn);
     priv->stat_fn = g_value_dup_string (value);
     break;
+  case PROP_TRACE:
+    priv->trace_count = g_value_get_boolean (value);
+    break;
   case PROP_QUIET:
     priv->be_quiet = g_value_get_boolean (value);
     break;
@@ -489,6 +500,9 @@ ufo_stat_monitor_task_get_property (GObject *object,
   case PROP_STAT_FN:
     g_value_set_string (value, priv->stat_fn);
     break;
+  case PROP_TRACE:
+    g_value_set_boolean (value, priv->trace_count);
+    break;
   case PROP_QUIET:
     g_value_set_boolean (value, priv->be_quiet);
     break;
@@ -506,6 +520,11 @@ ufo_stat_monitor_task_finalize (GObject *object)
   if ( stdout != priv->stat_file ) {
     fclose(priv->stat_file);
     priv->stat_file = NULL;
+  }
+
+  if ( priv->trace_count ) {
+    fprintf(stdout, "stat-monitor (%u) finalising after processing %zu frames.\n",
+            priv->sm_index, priv->im_index);
   }
 
   g_free (priv->stat_fn);
@@ -554,6 +573,12 @@ ufo_stat_monitor_task_class_init (UfoStatMonitorTaskClass *klass)
                         "If provided with a '-' it will output statistcis to standard output of the process",
                         "-",
                         G_PARAM_READWRITE);
+  properties[PROP_TRACE] =
+    g_param_spec_boolean("trace",
+                         "When turned to true, will print processed frame index on stdout",
+                         "Defaulting to 'false', that is mimicking the 'monitor' filter",
+                         FALSE,
+                         G_PARAM_READWRITE);
   properties[PROP_QUIET] =
     g_param_spec_boolean("quiet",
                          "When turned to true, will not print frame monitoring information on stdout",
@@ -576,10 +601,14 @@ ufo_stat_monitor_task_class_init (UfoStatMonitorTaskClass *klass)
 static void
 ufo_stat_monitor_task_init(UfoStatMonitorTask *self)
 {
+  static guint sm_next_index=0;
+
   self->priv = UFO_STAT_MONITOR_TASK_GET_PRIVATE(self);
 
   self->priv->stat_file = stdout;
   self->priv->stat_fn = g_strdup ("-");
+  self->priv->trace_count = FALSE;
   self->priv->be_quiet = FALSE;
   self->priv->n_items = 0;
+  self->priv->sm_index = sm_next_index++;
 }
