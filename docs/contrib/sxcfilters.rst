@@ -111,14 +111,13 @@ Producing simple statistics on a stream
 
 .. gobj:class:: stat-monitor
 
-    Inspects a data stream in a way similar to the
-    :gobj:class:monitor:`monitor` task but also computing simple
-    statistics on the monitored frame stream : min, max, mean and
-    standard deviation of each frame is computed. To limit truncation
-    errors the OpenCL kernel uses fp64 operations if those are
-    supported by the used OpenCL device, otherwise it falls back to
-    use fp32 arithmetic which might incurs significant truncation
-    errors on images of large dimensions.
+    Inspects a data stream in a way similar to the :gobj:class:`monitor`
+    task but also computing simple statistics on the monitored frame stream:
+    min, max, mean and standard deviation of each frame is computed. To limit
+    truncation errors the OpenCL kernel uses fp64 operations if those are
+    supported by the used OpenCL device, otherwise it falls back to use fp32
+    arithmetic which might incurs significant truncation errors on images of
+    large dimensions.
 
     .. gobj:prop:: filename:string
 
@@ -136,10 +135,10 @@ Producing simple statistics on a stream
 
         When set to `true` will not print the frame
         monitoring. Defaulting to `false` to be as close as possible
-        to the output of the :gobj:class:monitor:`monitor` task.
+        to the output of the :gobj:class:`monitor` task.
 
     .. gobj:prop:: print:uint
 
         If set print the given numbers of items on stdout as hexadecimally
-        formatted numbers (taken from :gobj:class:monitor:`monitor` task).
+        formatted numbers (taken from :gobj:class:`monitor` task).
 

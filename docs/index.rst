@@ -22,6 +22,7 @@ Reference
     filters
     sinks
     piv
+    contrib/index
 
 
 Additional notes
