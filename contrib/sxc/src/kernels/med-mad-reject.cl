@@ -41,63 +41,133 @@ outliersRej_MedMad_3x3x3_f32(
   // Pixel in work item : localX, localY
   // Pixel in __local buffer : [globalX][YinBuf]
 
-  //  __local float groupBox[get_local_size(0)+2][get_local_size(1)+2][3];
-  // Conversion using the following RegExp (Perl style) : groupBox\[([-[:alnum:] .+*]*)\]\[([-[:alnum:] .+*]*)\]\[([-[:alnum:] .+*]*)\] => GB(\1, \2, \3)
-  //#define GB(a,b,c) groupBox[a + lSizeX * (b + lSizeY * c)]
+  // Gathering pixel values from the locally centered box :
+  // Using the floowing macro to simplify lisibility
 #define FromImage(x,y,image) image[(x) + (y)*ioStride]
 
-  // We can finally start the computation itself :
+  // Performing first the gathering from the current frame (we are sure it is existing)
+  // so that we can copy the corresponding values for previous or next frames when those
+  // are not provided.
+
   float v[27];
 
   bool X_m1 = ( globalX ), X_p1 = ( (globalX + 1) != ioStride );
   bool Y_m1 = ( globalY ), Y_p1 = ( (globalY + 1) != get_global_size(1) );
 
-  if ( Zfront ) {
-    v[0] = v[1] = v[2] = v[3] = v[4] = v[5] = v[6] = v[7] = v[8] = 0.0f;
+  // Indexes 0-8 correspond to Zfront
+  // Indexes 9-17 to current
+  // Indexes 18-26 to Zrear
+
+  /* X horizontal (left to right), Y vertical (bottom-up), we have for current frame
+   * (-9 for Zfront and +9 for Zrear ):
+   *
+   *             |-----------+------------+-----------|
+   *   globalY+1 | 15        | 16         | 17        |
+   *   globalY   | 12        | 13         | 14        |
+   *   globalY-1 |  9        | 10         | 11        |
+   *             |-----------+------------+-----------|
+   *             | globalX-1 | globalX    | globalX+1 |
+   */
+
+  v[13] = FromImage(globalX  , globalY  , iThisImage);
+  v[10] = (Y_m1) ? FromImage(globalX  , globalY-1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+  v[16] = (Y_p1) ? FromImage(globalX  , globalY+1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+  if ( X_m1 ) {
+    v[12] = FromImage(globalX-1, globalY  , iThisImage);
+    v[9]  = (Y_m1) ? FromImage(globalX-1, globalY-1, iThisImage) : FromImage(globalX-1, globalY, iThisImage);
+    v[15] = (Y_p1) ? FromImage(globalX-1, globalY+1, iThisImage) : FromImage(globalX-1, globalY, iThisImage);
   }
   else {
-    v[0]  = ( X_m1 && Y_m1 ) ? FromImage(globalX-1, globalY-1, iPreviousImage) : 0.0f;
-    v[1]  = ( X_m1 )         ? FromImage(globalX-1, globalY  , iPreviousImage) : 0.0f;
-    v[2]  = ( X_m1 && Y_p1 ) ? FromImage(globalX-1, globalY+1, iPreviousImage) : 0.0f;
-
-    v[3]  =         ( Y_m1 ) ? FromImage(globalX  , globalY-1, iPreviousImage) : 0.0f;
-    v[4]  =                    FromImage(globalX  , globalY  , iPreviousImage);
-    v[5]  =         ( Y_p1 ) ? FromImage(globalX  , globalY+1, iPreviousImage) : 0.0f;
-
-    v[6]  = ( X_p1 && Y_m1 ) ? FromImage(globalX+1, globalY-1, iPreviousImage) : 0.0f;
-    v[7]  = ( X_p1 )         ? FromImage(globalX+1, globalY  , iPreviousImage) : 0.0f;
-    v[8]  = ( X_p1 && Y_p1 ) ? FromImage(globalX+1, globalY+1, iPreviousImage) : 0.0f;
+    v[12] = FromImage(globalX, globalY  , iThisImage);
+    v[9]  = (Y_m1) ? FromImage(globalX, globalY-1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+    v[15] = (Y_p1) ? FromImage(globalX, globalY+1, iThisImage) : FromImage(globalX, globalY, iThisImage);
   }
-
-  v[9]  = ( X_m1 && Y_m1 ) ? FromImage(globalX-1, globalY-1, iThisImage) : 0.0f;
-  v[10] = ( X_m1 )         ? FromImage(globalX-1, globalY  , iThisImage) : 0.0f;
-  v[11] = ( X_m1 && Y_p1 ) ? FromImage(globalX-1, globalY+1, iThisImage) : 0.0f;
-
-  v[12] =         ( Y_m1 ) ? FromImage(globalX  , globalY-1, iThisImage) : 0.0f;
-  v[13] =                    FromImage(globalX  , globalY  , iThisImage);
-  v[14] =         ( Y_p1 ) ? FromImage(globalX  , globalY+1, iThisImage) : 0.0f;
-
-  v[15] = ( X_p1 && Y_m1 ) ? FromImage(globalX+1, globalY-1, iThisImage) : 0.0f;
-  v[16] = ( X_p1 )         ? FromImage(globalX+1, globalY  , iThisImage) : 0.0f;
-  v[17] = ( X_p1 && Y_p1 ) ? FromImage(globalX+1, globalY+1, iThisImage) : 0.0f;
-
-  if ( Zrear ) {
-    v[18] = v[19] = v[20] = v[21] = v[22] = v[23] = v[24] = v[25] = v[26] = 0.0f;
+  if ( X_p1 ) {
+    v[14] = FromImage(globalX+1, globalY  , iThisImage);
+    v[11]  = (Y_m1) ? FromImage(globalX+1, globalY-1, iThisImage) : FromImage(globalX+1, globalY, iThisImage);
+    v[17] = (Y_p1) ? FromImage(globalX+1, globalY+1, iThisImage) : FromImage(globalX+1, globalY, iThisImage);
   }
   else {
-    v[18] = ( X_m1 && Y_m1 ) ? FromImage(globalX-1, globalY-1, iNextImage) : 0.0f;
-    v[19] = ( X_m1 )         ? FromImage(globalX-1, globalY  , iNextImage) : 0.0f;
-    v[20] = ( X_m1 && Y_p1 ) ? FromImage(globalX-1, globalY+1, iNextImage) : 0.0f;
-
-    v[21] =         ( Y_m1 ) ? FromImage(globalX  , globalY-1, iNextImage) : 0.0f;
-    v[22] =                    FromImage(globalX  , globalY  , iNextImage);
-    v[23] =         ( Y_p1 ) ? FromImage(globalX  , globalY+1, iNextImage) : 0.0f;
-
-    v[24] = ( X_p1 && Y_m1 ) ? FromImage(globalX+1, globalY-1, iNextImage) : 0.0f;
-    v[25] = ( X_p1 )         ? FromImage(globalX+1, globalY  , iNextImage) : 0.0f;
-    v[26] = ( X_p1 && Y_p1 ) ? FromImage(globalX+1, globalY+1, iNextImage) : 0.0f;
+    v[14] = FromImage(globalX, globalY  , iThisImage);
+    v[11] = (Y_m1) ? FromImage(globalX, globalY-1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+    v[17] = (Y_p1) ? FromImage(globalX, globalY+1, iThisImage) : FromImage(globalX, globalY, iThisImage);
   }
 
+  if ( Zfront ) { // Missing front frame; values copied from current frame.
+    v[0] = v[9];
+    v[1] = v[10];
+    v[2] = v[11];
+    v[3] = v[12];
+    v[4] = v[13];
+    v[5] = v[14];
+    v[6] = v[15];
+    v[7] = v[16];
+    v[8] = v[17];
+  }
+  else {
+    v[ 4] = FromImage(globalX  , globalY  , iThisImage);
+    v[ 1] = (Y_m1) ? FromImage(globalX  , globalY-1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+    v[ 7] = (Y_p1) ? FromImage(globalX  , globalY+1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+    if ( X_m1 ) {
+      v[ 3] = FromImage(globalX-1, globalY  , iThisImage);
+      v[ 0] = (Y_m1) ? FromImage(globalX-1, globalY-1, iThisImage) : FromImage(globalX-1, globalY, iThisImage);
+      v[ 6] = (Y_p1) ? FromImage(globalX-1, globalY+1, iThisImage) : FromImage(globalX-1, globalY, iThisImage);
+    }
+    else {
+      v[ 3] = FromImage(globalX, globalY  , iThisImage);
+      v[ 0] = (Y_m1) ? FromImage(globalX, globalY-1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+      v[ 6] = (Y_p1) ? FromImage(globalX, globalY+1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+    }
+    if ( X_p1 ) {
+      v[ 5] = FromImage(globalX+1, globalY  , iThisImage);
+      v[ 2] = (Y_m1) ? FromImage(globalX+1, globalY-1, iThisImage) : FromImage(globalX+1, globalY, iThisImage);
+      v[ 8] = (Y_p1) ? FromImage(globalX+1, globalY+1, iThisImage) : FromImage(globalX+1, globalY, iThisImage);
+    }
+    else {
+      v[ 5] = FromImage(globalX, globalY  , iThisImage);
+      v[ 2] = (Y_m1) ? FromImage(globalX, globalY-1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+      v[ 8] = (Y_p1) ? FromImage(globalX, globalY+1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+    }
+  }
+
+  if ( Zrear ) { // Missing rear frame; values copied from current frame.
+    v[18] = v[9];
+    v[19] = v[10];
+    v[20] = v[11];
+    v[21] = v[12];
+    v[22] = v[13];
+    v[23] = v[14];
+    v[24] = v[15];
+    v[25] = v[16];
+    v[26] = v[17];
+  }
+  else {
+    v[22] = FromImage(globalX  , globalY  , iThisImage);
+    v[19] = (Y_m1) ? FromImage(globalX  , globalY-1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+    v[25] = (Y_p1) ? FromImage(globalX  , globalY+1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+    if ( X_m1 ) {
+      v[21] = FromImage(globalX-1, globalY  , iThisImage);
+      v[18] = (Y_m1) ? FromImage(globalX-1, globalY-1, iThisImage) : FromImage(globalX-1, globalY, iThisImage);
+      v[24] = (Y_p1) ? FromImage(globalX-1, globalY+1, iThisImage) : FromImage(globalX-1, globalY, iThisImage);
+    }
+    else {
+      v[21] = FromImage(globalX, globalY  , iThisImage);
+      v[18] = (Y_m1) ? FromImage(globalX, globalY-1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+      v[24] = (Y_p1) ? FromImage(globalX, globalY+1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+    }
+    if ( X_p1 ) {
+      v[23] = FromImage(globalX+1, globalY  , iThisImage);
+      v[20] = (Y_m1) ? FromImage(globalX+1, globalY-1, iThisImage) : FromImage(globalX+1, globalY, iThisImage);
+      v[26] = (Y_p1) ? FromImage(globalX+1, globalY+1, iThisImage) : FromImage(globalX+1, globalY, iThisImage);
+    }
+    else {
+      v[23] = FromImage(globalX, globalY  , iThisImage);
+      v[20] = (Y_m1) ? FromImage(globalX, globalY-1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+      v[26] = (Y_p1) ? FromImage(globalX, globalY+1, iThisImage) : FromImage(globalX, globalY, iThisImage);
+    }
+  }
+
+  // We can finally start the computation itself :
 #undef b
 #undef bub
 #undef rabbit_up
@@ -136,6 +206,7 @@ outliersRej_MedMad_3x3x3_f32(
 
     float median = v[13];
   // Now computing the MAD :
+  /*
 #undef abs_diff_med
 #define abs_diff_med(a) v[a] = fabs(v[a] - median);
   abs_diff_med(0)
@@ -165,8 +236,39 @@ outliersRej_MedMad_3x3x3_f32(
     abs_diff_med(24)
     abs_diff_med(25)
     abs_diff_med(26)
-    // And the median of that again :
-    rabbit_up
+  */
+  // Since the array is ordered we now that all index < 13 are lower than median
+  // and index > 13 are greater than median (we can make the economy of the fabs)
+  v[0]  = median - v[0];
+  v[1]  = median - v[1];
+  v[2]  = median - v[2];
+  v[3]  = median - v[3];
+  v[4]  = median - v[4];
+  v[5]  = median - v[5];
+  v[6]  = median - v[6];
+  v[7]  = median - v[7];
+  v[8]  = median - v[8];
+  v[9]  = median - v[9];
+  v[10] = median - v[10];
+  v[11] = median - v[11];
+  v[12] = median - v[12];
+  v[13] = 0.0f;
+  v[14] -= median;
+  v[15] -= median;
+  v[16] -= median;
+  v[17] -= median;
+  v[18] -= median;
+  v[19] -= median;
+  v[20] -= median;
+  v[21] -= median;
+  v[22] -= median;
+  v[23] -= median;
+  v[24] -= median;
+  v[25] -= median;
+  v[26] -= median;
+
+  // And the median of that again :
+  rabbit_up
     rabbit_down
     rabbit_up
     rabbit_down
