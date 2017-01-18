@@ -1,6 +1,6 @@
-=====================================
-Filters contributed by Serge X. Cohen
-=====================================
+===============================
+Contributions by Serge X. Cohen
+===============================
 
 These filters were initially written with X-ray tomographic processing
 in mind. Still they are of a general usage as long as input are image.
