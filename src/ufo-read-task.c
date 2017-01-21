@@ -424,7 +424,6 @@ ufo_read_task_get_property (GObject *object,
         case PROP_RAW_WIDTH:
         case PROP_RAW_HEIGHT:
         case PROP_RAW_BITDEPTH:
-        case PROP_RAW_OFFSET:
             {
                 guint uvalue;
                 const gchar *prop_name;
@@ -433,6 +432,14 @@ ufo_read_task_get_property (GObject *object,
                 prop_name = pspec->name + 4;
                 g_object_get (priv->raw_reader, prop_name, &uvalue, NULL);
                 g_value_set_uint (value, uvalue);
+            }
+            break;
+        case PROP_RAW_OFFSET:
+            {
+                gulong ulvalue;
+
+                g_object_get (priv->raw_reader, "offset", &ulvalue, NULL);
+                g_value_set_ulong (value, ulvalue);
             }
             break;
         case PROP_TYPE:
