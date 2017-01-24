@@ -27,8 +27,8 @@ stat_monitor_f32(__global float *in_img,   // Input image to reduce (will comput
                  )
 {
   size_t gi = get_global_id(0);
-  float wi_min = in_img[gi];
-  float wi_max = in_img[gi];
+  float wi_min = + INFINITY; // in_img[gi];
+  float wi_max = - INFINITY; // in_img[gi];
   float wi_sum = 0.0f;
   float wi_sum_sq = 0.0f;
 
@@ -97,7 +97,7 @@ stat_monitor_f32_fin(__global float *red_in,
                      )
 {
   // Since there is a single workgroup, locol_id and global_id are identical.
-  // The total number of workitems is (pproximately) half the num_elts
+  // The total number of workitems is (approximately) half the num_elts
   size_t gi = get_global_id(0);
   size_t grs = get_local_size(0);
 
@@ -106,16 +106,19 @@ stat_monitor_f32_fin(__global float *red_in,
   // Synchronising on the copy being done
   wait_group_events(1, &copied_to_scr);
 
+  size_t curr_n_elts = num_elts;
+
   // Performing the reduction
-  for ( size_t offset = grs; 0 != offset; offset >>=1 ) {
-    if ( (gi < offset) && (gi+offset < num_elts) ) {
+  for ( size_t offset = grs; 0 != offset; offset = (offset>>1) + (( 1 != offset ) ? (offset & 0x1L) : 0 ) ) {
+    if ( (gi < offset) && (gi+offset < curr_n_elts) ) {
         size_t gi_4B = gi << 2;
         size_t gi_of_4B = (gi + offset) << 2;
         local_scr[gi_4B  ] = fmin(local_scr[gi_4B  ], local_scr[gi_of_4B  ]);
         local_scr[gi_4B+1] = fmax(local_scr[gi_4B+1], local_scr[gi_of_4B+1]);
-        local_scr[gi_4B+2] += local_scr[gi_4B+2];
-        local_scr[gi_4B+3] += local_scr[gi_4B+3];
+        local_scr[gi_4B+2] += local_scr[gi_of_4B+2];
+        local_scr[gi_4B+3] += local_scr[gi_of_4B+3];
       }
+    curr_n_elts = offset;
     barrier(CLK_LOCAL_MEM_FENCE);
   }
 
@@ -137,8 +140,8 @@ stat_monitor_f64(__global float *in_img,   // Input image to reduce (will comput
                  )
 {
   size_t gi = get_global_id(0);
-  double wi_min = convert_double(in_img[gi]);
-  double wi_max = convert_double(in_img[gi]);
+  double wi_min = + INFINITY; // convert_double(in_img[gi]);
+  double wi_max = - INFINITY; // convert_double(in_img[gi]);
   double wi_sum = 0.0;
   double wi_sum_sq = 0.0;
 
@@ -203,25 +206,28 @@ stat_monitor_f64_fin(__global double *red_in,
                      )
 {
   // Since there is a single workgroup, locol_id and global_id are identical.
-  // The total number of workitems is (pproximately) half the num_elts
+  // The total number of workitems is (approximately) half the num_elts
   size_t gi = get_global_id(0);
-  size_t grs = get_local_size(0);
+  size_t grs = get_global_size(0); // == get_local_size(0) since a single work-group.
 
   // Copying all data to the local memory, for speed during the reduction
   event_t copied_to_scr = async_work_group_copy(local_scr, red_in, num_elts<<2, 0);
   // Synchronising on the copy being done
   wait_group_events(1, &copied_to_scr);
 
+  size_t curr_n_elts = num_elts;
+
   // Performing the reduction
-  for ( size_t offset = grs; 0 != offset; offset >>=1 ) {
-    if ( (gi < offset) && (gi+offset < num_elts) ) {
+  for ( size_t offset = grs; 0 != offset; offset = (offset>>1) + (( 1 != offset ) ? (offset & 0x1L) : 0 ) ) {
+    if ( (gi < offset) && (gi+offset < curr_n_elts) ) {
         size_t gi_4B = gi << 2;
         size_t gi_of_4B = (gi + offset) << 2;
         local_scr[gi_4B  ] = fmin(local_scr[gi_4B  ], local_scr[gi_of_4B  ]);
         local_scr[gi_4B+1] = fmax(local_scr[gi_4B+1], local_scr[gi_of_4B+1]);
-        local_scr[gi_4B+2] += local_scr[gi_4B+2];
-        local_scr[gi_4B+3] += local_scr[gi_4B+3];
+        local_scr[gi_4B+2] += local_scr[gi_of_4B+2];
+        local_scr[gi_4B+3] += local_scr[gi_of_4B+3];
       }
+    curr_n_elts = offset;
     barrier(CLK_LOCAL_MEM_FENCE);
   }
 

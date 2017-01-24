@@ -97,6 +97,7 @@ ufo_stat_monitor_task_setup (UfoTask *task,
   priv->node_has_fp64 = device_has_extension(node, "cl_khr_fp64");
 
   // Loading the OpenCL kernel :
+  // Error : kernel compilation is buggy is one device has fp64 and another has not !
   if ( priv->node_has_fp64 ) {
     priv->kernel = ufo_resources_get_kernel (resources, "stat-monitor.cl", "stat_monitor_f64", error);
     if (priv->kernel != NULL)
@@ -169,7 +170,7 @@ ufo_stat_monitor_task_setup (UfoTask *task,
   if ( strcmp("-", priv->stat_fn) ) {
     priv->stat_file = fopen(priv->stat_fn, "a");
     fprintf(stdout, "stat-monitor (%u) will outputs its results to file '%s'\n", priv->sm_index, priv->stat_fn);
-    fprintf(priv->stat_file, "# index min max mean var\n");
+    fprintf(priv->stat_file, "# index min max sum sum-of-sq mean var\n");
   }
   else {
     priv->stat_file = stdout;
@@ -199,6 +200,7 @@ ufo_stat_monitor_task_setup (UfoTask *task,
   fprintf(stdout, "  * Will print standard monitor message : %s\n", (priv->be_quiet) ? "no" : "yes");
   fprintf(stdout, "  * Will output statistics to %s\n", strcmp("-", priv->stat_fn) ? priv->stat_fn : "stdout");
   fprintf(stdout, "  * OpenCL Device %s fp64/double precision support (cl_khr_fp64)\n", (priv->node_has_fp64) ? "has" : "does not have");
+  fprintf(stdout, "  * Computation done using %s precision on OpenCL device\n", (priv->node_has_fp64) ? "fp64" : "fp32");
   fprintf(stdout, "  * Maximum local memory is %luB\n", priv->max_local_mem);
   fprintf(stdout, "  * Number of compute units is %d\n", num_cu);
   fprintf(stdout, "  * Maximum work group size is %zu\n", max_wgs);
@@ -206,8 +208,9 @@ ufo_stat_monitor_task_setup (UfoTask *task,
   fprintf(stdout, "  * Preferred multiple of work-group size is %zu\n", ker_pref_wgs);
   fprintf(stdout, "  * Tyring %d work-item per work-group\n", priv->wg_size);
   fprintf(stdout, "  * Tyring %d work-groups\n", priv->wg_num);
+  fprintf(stdout, "  * That is a total number of work-item of %d in the initial pass\n", priv->wg_size*priv->wg_num);
   fprintf(stdout, "  * Providing %zuB of local memory to each work-group\n", priv->local_scratch_size);
-  */
+  // */
 }
 
 static void
@@ -322,55 +325,96 @@ ufo_stat_monitor_task_process (UfoTask *task,
   gsize total_wi = priv->wg_num * priv->wg_size;
   gsize wg_size = (gsize)(priv->wg_size);
 
-  total_wi = (total_wi < (gsize)img_size) ? total_wi : (gsize)img_size;
+  gsize true_wi = (total_wi < (gsize)img_size) ? total_wi : (gsize)img_size;
+  gsize true_wg_num = ((true_wi-1) / priv->wg_size) + 1;
+
+  true_wi = priv->wg_size * true_wg_num; // Making sure that true_wi is a mulitple of work group size.
+
+  /*
+  if ( ! priv->be_quiet ) {
+    fprintf(stdout, "*** Number of pixels : %d, number of work items : %lu, active work items :%lu, work group size : %d, number of work group: %u\n", img_size, total_wi, true_wi, priv->wg_size, true_wg_num);
+  }
+  // */
 
   profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
   // First reduction step :
   //  fprintf(stdout, "Reduction 1st stage :num pixels %u, num items %lu, workgroup size %lu\n", img_size, total_wi, wg_size);
-  ufo_profiler_call (profiler, cmd_queue, priv->kernel, 1, &total_wi, &wg_size);
+  ufo_profiler_call (profiler, cmd_queue, priv->kernel, 1, &true_wi, &wg_size);
 
-  // #warning Further reduction is required, CPU or GPU ...
+  /*
+  // Some logging to get a better understanding of what is going on :
+  if ( TRUE ) {
+    // Getting the per-workgroup results and displaying those :
+    if ( priv->node_has_fp64 ) {
+      double *per_wg_res = (double*) calloc(sizeof(double)*4, true_wg_num);
+      UFO_RESOURCES_CHECK_CLERR (clEnqueueReadBuffer(cmd_queue, priv->stat_out_buff, CL_TRUE, 0, sizeof(double)*4*true_wg_num, per_wg_res, 0, NULL, NULL));
+
+      for ( size_t ijk=0; true_wg_num != ijk; ++ijk ) {
+        fprintf(stdout, "Work-group %lu : %f %f %f %f \n", ijk, per_wg_res[ijk<<2], per_wg_res[(ijk<<2)+1], per_wg_res[(ijk<<2)+2], per_wg_res[(ijk<<2)+3]);
+      }
+      free(per_wg_res);
+    }
+    else {
+      float *per_wg_res = (float*) calloc(sizeof(float)*4, true_wg_num);
+      UFO_RESOURCES_CHECK_CLERR (clEnqueueReadBuffer(cmd_queue, priv->stat_out_buff, CL_TRUE, 0, sizeof(float)*4*true_wg_num, per_wg_res, 0, NULL, NULL));
+
+      for ( size_t ijk=0; true_wg_num != ijk; ++ijk ) {
+        fprintf(stdout, "Work-group %lu : %f %f %f %f \n", ijk, per_wg_res[ijk<<2], per_wg_res[(ijk<<2)+1], per_wg_res[(ijk<<2)+2], per_wg_res[(ijk<<2)+3]);
+      }
+      free(per_wg_res);
+    }
+  }
+  // */
+
   // At this time, we need to have a second kernel to further reduce the results of the previous results that where
   // produced at the rate of one per work-group.
   if ( TRUE ) { // OpenCL version of this last stage of reduction
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel_final, 0, sizeof (cl_mem), &(priv->stat_out_buff)));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel_final, 1, sizeof (cl_mem), &(priv->stat_out_red)));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel_final, 2, sizeof (cl_uint), &(priv->wg_num)));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel_final, 2, sizeof (cl_uint), &(true_wg_num)));
     if ( priv->node_has_fp64 ) {
-      UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel_final, 3, sizeof(cl_double)*4*priv->wg_num, NULL));
+      UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel_final, 3, sizeof(cl_double)*4*true_wg_num, NULL));
     }
     else {
-      UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel_final, 3, sizeof(cl_float)*4*priv->wg_num, NULL));
+      UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel_final, 3, sizeof(cl_float)*4*true_wg_num, NULL));
     }
 
-    cl_uint true_wg_num = ((priv->wg_num * priv->wg_size) < (gsize)img_size) ? priv->wg_num : (1 + (total_wi-1)/wg_size) ;
+    //    cl_uint true_wg_num = ((priv->wg_num * priv->wg_size) < (gsize)img_size) ? priv->wg_num : (1 + (total_wi-1)/wg_size) ;
 
     total_wi = (true_wg_num & 0x1) + (true_wg_num >> 1);
     // Second reduction step :
-    // fprintf(stdout, "Reduction 2nd stage : num of 1st stage WG %u, num items %lu, workgroup size %lu\n", true_wg_num, total_wi, total_wi);
+    //  fprintf(stdout, "Reduction 2nd stage : num of 1st stage WG %u, num items %lu, workgroup size %lu\n", true_wg_num, total_wi, total_wi);
     ufo_profiler_call(profiler, cmd_queue, priv->kernel_final, 1, &total_wi, &total_wi);
 
     if ( priv->node_has_fp64 ) {
-      double stat_res[4];
+      double stat_res[6];
       double img_size_f = (double)img_size;
 
       UFO_RESOURCES_CHECK_CLERR (clEnqueueReadBuffer(cmd_queue, priv->stat_out_red, CL_TRUE, 0, 4<<3, stat_res, 0, NULL, NULL));
 
-      stat_res[2] = stat_res[2] / img_size_f;
-      stat_res[3] = (stat_res[3] - img_size_f * stat_res[2] * stat_res[2]) / (img_size_f - 1.0);
+      // fprintf (priv->stat_file, "%zu %le %le %le %le\n", priv->im_index, stat_res[0], stat_res[1], stat_res[2], stat_res[3]);
+      stat_res[4] = stat_res[2] / img_size_f;
+      stat_res[5] = (stat_res[3] - img_size_f * stat_res[4] * stat_res[4]) / (img_size_f - 1.0);
 
-      fprintf (priv->stat_file, "%zu %le %le %le %le\n", priv->im_index, stat_res[0], stat_res[1], stat_res[2], stat_res[3]);
+      if ( stdout == priv->stat_file ) {
+        fprintf(priv->stat_file, "(%u) ", priv->sm_index);
+      }
+      fprintf (priv->stat_file, "%zu %le %le %le %le %le %le\n", priv->im_index, stat_res[0], stat_res[1], stat_res[2], stat_res[3], stat_res[4], stat_res[5]);
     }
     else {
-      float stat_res[4];
+      float stat_res[6];
       float img_size_f = (float)img_size;
 
       UFO_RESOURCES_CHECK_CLERR (clEnqueueReadBuffer(cmd_queue, priv->stat_out_red, CL_TRUE, 0, 4<<2, stat_res, 0, NULL, NULL));
 
-      stat_res[2] = stat_res[2] / img_size_f;
-      stat_res[3] = (stat_res[3] - img_size_f * stat_res[2] * stat_res[2]) / (img_size_f - 1.0f);
+      // fprintf (priv->stat_file, "%zu %e %e %e %e\n", priv->im_index, stat_res[0], stat_res[1], stat_res[2], stat_res[3]);
+      stat_res[4] = stat_res[2] / img_size_f;
+      stat_res[5] = (stat_res[3] - img_size_f * stat_res[4] * stat_res[4]) / (img_size_f - 1.0f);
 
-      fprintf (priv->stat_file, "%zu %e %e %e %e\n", priv->im_index, stat_res[0], stat_res[1], stat_res[2], stat_res[3]);
+      if ( stdout == priv->stat_file ) {
+        fprintf(priv->stat_file, "(%u) ", priv->sm_index);
+      }
+      fprintf (priv->stat_file, "%zu %e %e %e %e %e %e\n", priv->im_index, stat_res[0], stat_res[1], stat_res[2], stat_res[3], stat_res[4], stat_res[5]);
     }
     // #error Should continue adding fp32/fp64 branch here ...
   }
@@ -396,7 +440,7 @@ ufo_stat_monitor_task_process (UfoTask *task,
   if ( priv->trace_count ) {
     fprintf(stdout, "stat-monitor (%u) : done frame %zu\n", priv->sm_index, priv->im_index);
   }
-  
+
   ++(priv->im_index);
 
   if ( ! priv->be_quiet ) {
