@@ -1,3 +1,29 @@
+Version 0.13.0
+==============
+
+Enhancements:
+
+- Added infrastructure to "stage" filter contributions by third parties. To
+  enable building it the WITH_CONTRIB option must be set explicitly to ON.
+
+Fixes:
+
+- write: call conversion only once
+- read: fix segfault with start too large
+- read: fix dumping to JSON
+- Fix compilation and installation on MacOS
+- Fix #128: prevent segfault with start parameter
+- Do not compile ufo-priv.c for each task thus saving compile and link time
+- Add documentation for undocumented tasks
+
+New contributed filters by Serge X. Cohen (Synchrotron SOLEIL):
+
+- Add MedMadReject median value rejection in 3D
+- Add MedMadReject2D median value rejection in 2D
+- Add Ocl1Liner to compute basic OpenCL arithmetics
+- Add StatMonitor to output stream statistics
+
+
 Version 0.12.0
 ==============
 
