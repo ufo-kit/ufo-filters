@@ -74,9 +74,7 @@ ufo_tiff_writer_close (UfoWriter *writer)
 
 static void
 ufo_tiff_writer_write (UfoWriter *writer,
-                       gpointer data,
-                       UfoRequisition *requisition,
-                       UfoBufferDepth depth)
+                       UfoWriterImage *image)
 {
     UfoTiffWriterPrivate *priv;
     guint bits_per_sample;
@@ -88,8 +86,8 @@ ufo_tiff_writer_write (UfoWriter *writer,
 
     TIFFSetField (priv->tiff, TIFFTAG_SUBFILETYPE, FILETYPE_PAGE);
     TIFFSetField (priv->tiff, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-    TIFFSetField (priv->tiff, TIFFTAG_IMAGEWIDTH, requisition->dims[0]);
-    TIFFSetField (priv->tiff, TIFFTAG_IMAGELENGTH, requisition->dims[1]);
+    TIFFSetField (priv->tiff, TIFFTAG_IMAGEWIDTH, image->requisition->dims[0]);
+    TIFFSetField (priv->tiff, TIFFTAG_IMAGELENGTH, image->requisition->dims[1]);
     TIFFSetField (priv->tiff, TIFFTAG_ROWSPERSTRIP, TIFFDefaultStripSize (priv->tiff, (guint32) - 1));
 
     /*
@@ -99,7 +97,7 @@ ufo_tiff_writer_write (UfoWriter *writer,
      */
     TIFFSetField (priv->tiff, TIFFTAG_PAGENUMBER, priv->page, priv->page);
 
-    switch (depth) {
+    switch (image->depth) {
         case UFO_BUFFER_DEPTH_8U:
             TIFFSetField (priv->tiff, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_UINT);
             bits_per_sample = 8;
@@ -115,10 +113,10 @@ ufo_tiff_writer_write (UfoWriter *writer,
     }
 
     TIFFSetField (priv->tiff, TIFFTAG_BITSPERSAMPLE, bits_per_sample);
-    stride = requisition->dims[0] * bits_per_sample / 8;
-    buff = (gchar *) data;
+    stride = image->requisition->dims[0] * bits_per_sample / 8;
+    buff = (gchar *) image->data;
 
-    for (guint y = 0; y < requisition->dims[1]; y++) {
+    for (guint y = 0; y < image->requisition->dims[1]; y++) {
         TIFFWriteScanline (priv->tiff, buff, y, 0);
         buff += stride;
     }

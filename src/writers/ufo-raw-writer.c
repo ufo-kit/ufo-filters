@@ -86,19 +86,17 @@ bytes_per_pixel (UfoBufferDepth depth)
 
 static void
 ufo_raw_writer_write (UfoWriter *writer,
-                      gpointer data,
-                      UfoRequisition *requisition,
-                      UfoBufferDepth depth)
+                      UfoWriterImage *image)
 {
     UfoRawWriterPrivate *priv;
-    gsize size = bytes_per_pixel (depth);
+    gsize size = bytes_per_pixel (image->depth);
 
     priv = UFO_RAW_WRITER_GET_PRIVATE (writer);
 
-    for (guint i = 0; i < requisition->n_dims; i++)
-        size *= requisition->dims[i];
+    for (guint i = 0; i < image->requisition->n_dims; i++)
+        size *= image->requisition->dims[i];
 
-    fwrite (data, 1, size, priv->fp);
+    fwrite (image->data, 1, size, priv->fp);
 }
 
 static void

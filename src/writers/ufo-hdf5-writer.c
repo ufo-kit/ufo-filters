@@ -172,9 +172,7 @@ buffer_depth_to_hdf5_type (UfoBufferDepth depth)
 
 static void
 ufo_hdf5_writer_write (UfoWriter *writer,
-                       gpointer data,
-                       UfoRequisition *requisition,
-                       UfoBufferDepth depth)
+                       UfoWriterImage *image)
 {
     UfoHdf5WriterPrivate *priv;
     hid_t dst_dataspace_id;
@@ -184,10 +182,10 @@ ufo_hdf5_writer_write (UfoWriter *writer,
     priv = UFO_HDF5_WRITER_GET_PRIVATE (writer);
 
     hsize_t offset[3] = { priv->current, 0, 0 };
-    hsize_t count[3] = { 1, requisition->dims[1], requisition->dims[0] };
-    hsize_t dims[3] = { priv->current + 1, requisition->dims[1], requisition->dims[0] };
-    hsize_t src_dims[2] = { requisition->dims[0], requisition->dims[1] };
-    mem_type = buffer_depth_to_hdf5_type (depth);
+    hsize_t count[3] = { 1, image->requisition->dims[1], image->requisition->dims[0] };
+    hsize_t dims[3] = { priv->current + 1, image->requisition->dims[1], image->requisition->dims[0] };
+    hsize_t src_dims[2] = { image->requisition->dims[0], image->requisition->dims[1] };
+    mem_type = buffer_depth_to_hdf5_type (image->depth);
 
     if (priv->current == 0) {
         if (dataset_exists (priv->file_id, priv->dataset)) {
@@ -196,7 +194,7 @@ ufo_hdf5_writer_write (UfoWriter *writer,
         else {
             hid_t group_id;
             hid_t dcpl;
-            hsize_t max_dims[3] = { H5S_UNLIMITED, requisition->dims[1], requisition->dims[0] };
+            hsize_t max_dims[3] = { H5S_UNLIMITED, image->requisition->dims[1], image->requisition->dims[0] };
 
             group_id = make_groups (priv->file_id, priv->dataset);
 
@@ -218,7 +216,7 @@ ufo_hdf5_writer_write (UfoWriter *writer,
     src_dataspace_id = H5Screate_simple (2, src_dims, NULL);
 
     H5Sselect_hyperslab (dst_dataspace_id, H5S_SELECT_SET, offset, NULL, count, NULL);
-    H5Dwrite (priv->dataset_id, mem_type, src_dataspace_id, dst_dataspace_id, H5P_DEFAULT, data);
+    H5Dwrite (priv->dataset_id, mem_type, src_dataspace_id, dst_dataspace_id, H5P_DEFAULT, image->data);
 
     H5Sclose (src_dataspace_id);
     H5Sclose (dst_dataspace_id);

@@ -45,12 +45,10 @@ ufo_writer_close (UfoWriter *writer)
 
 void
 ufo_writer_write (UfoWriter *writer,
-                  gpointer data,
-                  UfoRequisition *requisition,
-                  UfoBufferDepth depth)
+                  UfoWriterImage *image)
 {
-    ufo_writer_convert_inplace (data, requisition, depth);
-    UFO_WRITER_GET_IFACE (writer)->write (writer, data, requisition, depth);
+    ufo_writer_convert_inplace (image->data, image->requisition, image->depth);
+    UFO_WRITER_GET_IFACE (writer)->write (writer, image);
 }
 
 static gsize

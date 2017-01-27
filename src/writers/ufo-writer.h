@@ -33,6 +33,11 @@ G_BEGIN_DECLS
 typedef struct _UfoWriter         UfoWriter;
 typedef struct _UfoWriterIface    UfoWriterIface;
 
+typedef struct {
+    gpointer data;
+    UfoRequisition *requisition;
+    UfoBufferDepth depth;
+} UfoWriterImage;
 
 struct _UfoWriterIface {
     /*< private >*/
@@ -44,9 +49,7 @@ struct _UfoWriterIface {
                           const gchar    *filename);
     void     (*close)    (UfoWriter      *writer);
     void     (*write)    (UfoWriter      *writer,
-                          gpointer        data,
-                          UfoRequisition *requisition,
-                          UfoBufferDepth  depth);
+                          UfoWriterImage *image);
 };
 
 gboolean ufo_writer_can_open (UfoWriter      *writer,
@@ -55,9 +58,7 @@ void     ufo_writer_open     (UfoWriter      *writer,
                               const gchar    *filename);
 void     ufo_writer_close    (UfoWriter      *writer);
 void     ufo_writer_write    (UfoWriter      *writer,
-                              gpointer        data,
-                              UfoRequisition *requisition,
-                              UfoBufferDepth  depth);
+                              UfoWriterImage *image);
 void     ufo_writer_convert_inplace
                              (gpointer        data,
                               UfoRequisition *requisition,

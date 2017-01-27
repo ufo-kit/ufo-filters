@@ -257,6 +257,7 @@ ufo_write_task_process (UfoTask *task,
                         UfoRequisition *requisition)
 {
     UfoWriteTaskPrivate *priv;
+    UfoWriterImage image;
     UfoRequisition in_req;
     guint8 *data;
     guint num_frames;
@@ -268,6 +269,9 @@ ufo_write_task_process (UfoTask *task,
 
     num_frames = in_req.n_dims == 3 ? in_req.dims[2] : 1;
     offset = ufo_buffer_get_size (inputs[0]) / num_frames;
+
+    image.requisition = &in_req;
+    image.depth = priv->depth;
 
     for (guint i = 0; i < num_frames; i++) {
 retry:
@@ -288,7 +292,8 @@ retry:
             priv->opened = TRUE;
         }
 
-        ufo_writer_write (priv->writer, data + i * offset, &in_req, priv->depth);
+        image.data = data + i * offset;
+        ufo_writer_write (priv->writer, &image);
 
         if (!priv->multi_file) {
             ufo_writer_close (priv->writer);
