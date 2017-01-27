@@ -32,7 +32,19 @@ File writer
 
         Number of bits to store the data if applicable to the file format.
         Possible values are 8 and 16 which are saved as integer types and 32 bit
-        float.
+        float. By default, the minimum and maximum for scaling is determined
+        automatically, however depending on the use case you should override
+        this with the ``minimum`` and ``maximum`` properties.
+
+    .. gobj:prop:: minimum:float
+
+        This value will represent zero for discrete bit depths, i.e. 8 and 16
+        bit.
+
+    .. gobj:prop:: minimum:float
+
+        This value will represent the largest possible value for discrete bit
+        depths, i.e. 8 and 16 bit.
 
     For JPEG files the following property applies:
 

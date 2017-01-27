@@ -21,6 +21,7 @@
 #include <gmodule.h>
 #include <string.h>
 #include <errno.h>
+#include <math.h>
 
 #include "config.h"
 #include "ufo-write-task.h"
@@ -45,7 +46,10 @@ struct _UfoWriteTaskPrivate {
     gboolean append;
     gsize width;
     gsize height;
+
     UfoBufferDepth depth;
+    gfloat minimum;
+    gfloat maximum;
 
     gboolean multi_file;
     gboolean opened;
@@ -80,6 +84,8 @@ enum {
     PROP_FILENAME,
     PROP_APPEND,
     PROP_BITS,
+    PROP_MINIMUM,
+    PROP_MAXIMUM,
 #ifdef HAVE_JPEG
     PROP_QUALITY,
 #endif
@@ -272,6 +278,8 @@ ufo_write_task_process (UfoTask *task,
 
     image.requisition = &in_req;
     image.depth = priv->depth;
+    image.min = priv->minimum;
+    image.max = priv->maximum;
 
     for (guint i = 0; i < num_frames; i++) {
 retry:
@@ -341,6 +349,12 @@ ufo_write_task_set_property (GObject *object,
                     priv->depth = UFO_BUFFER_DEPTH_32F;
             }
             break;
+        case PROP_MAXIMUM:
+            priv->maximum = g_value_get_float (value);
+            break;
+        case PROP_MINIMUM:
+            priv->minimum = g_value_get_float (value);
+            break;
 #ifdef HAVE_JPEG
         case PROP_QUALITY:
             priv->quality = g_value_get_uint (value);
@@ -377,6 +391,12 @@ ufo_write_task_get_property (GObject *object,
 
             if (priv->depth == UFO_BUFFER_DEPTH_32F)
                 g_value_set_uint (value, 32);
+            break;
+        case PROP_MAXIMUM:
+            g_value_set_float (value, priv->maximum);
+            break;
+        case PROP_MINIMUM:
+            g_value_set_float (value, priv->minimum);
             break;
 #ifdef HAVE_JPEG
         case PROP_QUALITY:
@@ -470,6 +490,20 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
                            "Number of bits per sample. Possible values in [8, 16, 32].",
                            8, 32, 32, G_PARAM_READWRITE);
 
+    properties[PROP_MINIMUM] =
+        g_param_spec_float ("minimum",
+                            "Lowest value to be used for spreading",
+                            "Lowest value to be used for spreading",
+                            -G_MAXFLOAT, G_MAXFLOAT, G_MAXFLOAT,
+                            G_PARAM_READWRITE);
+
+    properties[PROP_MAXIMUM] =
+        g_param_spec_float ("maximum",
+                            "Highest value to be used for spreading",
+                            "Highest value to be used for spreading",
+                            -G_MAXFLOAT, G_MAXFLOAT, -G_MAXFLOAT,
+                            G_PARAM_READWRITE);
+
 #ifdef HAVE_JPEG
     properties[PROP_QUALITY] =
         g_param_spec_uint ("quality",
@@ -492,6 +526,8 @@ ufo_write_task_init(UfoWriteTask *self)
     self->priv->append = FALSE;
     self->priv->multi_file = FALSE;
     self->priv->depth = UFO_BUFFER_DEPTH_32F;
+    self->priv->minimum = G_MAXFLOAT;
+    self->priv->maximum = -G_MAXFLOAT;
     self->priv->writer = NULL;
     self->priv->opened = FALSE;
     self->priv->raw_writer = ufo_raw_writer_new ();

@@ -47,7 +47,7 @@ void
 ufo_writer_write (UfoWriter *writer,
                   UfoWriterImage *image)
 {
-    ufo_writer_convert_inplace (image->data, image->requisition, image->depth);
+    ufo_writer_convert_inplace (image);
     UFO_WRITER_GET_IFACE (writer)->write (writer, image);
 }
 
@@ -63,18 +63,28 @@ get_num_elements (UfoRequisition *requisition)
 }
 
 static void
-get_min_max (gfloat *data, UfoRequisition *requisition, gfloat *min, gfloat *max)
+get_min_max (UfoWriterImage *image, gfloat *min, gfloat *max)
 {
-    gsize n_elements = get_num_elements (requisition);
+    if (image->max > -G_MAXFLOAT && image->min < G_MAXFLOAT) {
+        *max = image->max;
+        *min = image->min;
+        return;
+    }
+
+    /* TODO: We should issue a warning if only one of max or min was set by the
+     * user ... */
+
+    gsize n_elements = get_num_elements (image->requisition);
     gfloat cmax = -G_MAXFLOAT;
     gfloat cmin = G_MAXFLOAT;
+    gfloat *src = (gfloat *) image->data;
 
     for (gsize i = 0; i < n_elements; i++) {
-        if (data[i] < cmin)
-            cmin = data[i];
+        if (src[i] < cmin)
+            cmin = src[i];
 
-        if (data[i] > cmax)
-            cmax = data[i];
+        if (src[i] > cmax)
+            cmax = src[i];
     }
 
     *max = cmax;
@@ -82,14 +92,16 @@ get_min_max (gfloat *data, UfoRequisition *requisition, gfloat *min, gfloat *max
 }
 
 static void
-convert_to_8bit (gfloat *src, UfoRequisition *requisition)
+convert_to_8bit (UfoWriterImage *image)
 {
+    gfloat *src;
     guint8 *dst;
     gfloat max, min;
     gsize n_elements;
 
-    get_min_max (src, requisition, &min, &max);
-    n_elements = get_num_elements (requisition);
+    src = (gfloat *) image->data;
+    get_min_max (image, &min, &max);
+    n_elements = get_num_elements (image->requisition);
     dst = (guint8 *) src;
 
     if (min >= 0.0 && max <= 255) {
@@ -105,14 +117,16 @@ convert_to_8bit (gfloat *src, UfoRequisition *requisition)
 }
 
 static void
-convert_to_16bit (gfloat *src, UfoRequisition *requisition)
+convert_to_16bit (UfoWriterImage *image)
 {
+    gfloat *src;
     guint16 *dst;
     gfloat max, min;
     gsize n_elements;
 
-    get_min_max (src, requisition, &min, &max);
-    n_elements = get_num_elements (requisition);
+    src = (gfloat *) image->data;
+    get_min_max (image, &min, &max);
+    n_elements = get_num_elements (image->requisition);
     dst = (guint16 *) src;
 
     /* TODO: good opportunity for some SSE acceleration */
@@ -129,21 +143,19 @@ convert_to_16bit (gfloat *src, UfoRequisition *requisition)
 }
 
 void
-ufo_writer_convert_inplace (gpointer data,
-                            UfoRequisition *requisition,
-                            UfoBufferDepth depth)
+ufo_writer_convert_inplace (UfoWriterImage *image)
 {
     /*
      * Since we convert to data requiring less bytes per pixel than the native
      * float format, we can do everything in-place.
      */
-    switch (depth) {
+    switch (image->depth) {
         case UFO_BUFFER_DEPTH_8U:
-            convert_to_8bit (data, requisition);
+            convert_to_8bit (image);
             break;
         case UFO_BUFFER_DEPTH_16U:
         case UFO_BUFFER_DEPTH_16S:
-            convert_to_16bit (data, requisition);
+            convert_to_16bit (image);
             break;
         default:
             break;

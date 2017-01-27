@@ -103,7 +103,8 @@ ufo_jpeg_writer_write (UfoWriter *writer,
     /* We have to ignore the given bit depth for JPEG. Note that this way, we
      * might convert data twice because the parent ufo_writer_write already
      * converts to the given bit depth. */
-    ufo_writer_convert_inplace (image->data, image->requisition, UFO_BUFFER_DEPTH_8U);
+    image->depth = UFO_BUFFER_DEPTH_8U;
+    ufo_writer_convert_inplace (image);
 
     row_stride = (gint) image->requisition->dims[0];
 

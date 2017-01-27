@@ -37,6 +37,8 @@ typedef struct {
     gpointer data;
     UfoRequisition *requisition;
     UfoBufferDepth depth;
+    gfloat min;
+    gfloat max;
 } UfoWriterImage;
 
 struct _UfoWriterIface {
@@ -60,9 +62,7 @@ void     ufo_writer_close    (UfoWriter      *writer);
 void     ufo_writer_write    (UfoWriter      *writer,
                               UfoWriterImage *image);
 void     ufo_writer_convert_inplace
-                             (gpointer        data,
-                              UfoRequisition *requisition,
-                              UfoBufferDepth  depth);
+                             (UfoWriterImage *image);
 
 GType  ufo_writer_get_type        (void);
 

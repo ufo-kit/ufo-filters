@@ -89,6 +89,7 @@ ufo_stdout_task_process (UfoTask *task,
                          UfoRequisition *requisition)
 {
     UfoStdoutTaskPrivate *priv;
+    UfoWriterImage image;
     UfoRequisition in;
     gpointer data;
     gsize size;
@@ -103,7 +104,11 @@ ufo_stdout_task_process (UfoTask *task,
     for (guint i = 0; i < in.n_dims; i++)
         size *= in.dims[i];
 
-    ufo_writer_convert_inplace (data, &in, priv->depth);
+    image.data = data;
+    image.requisition = &in;
+    image.depth = priv->depth;
+
+    ufo_writer_convert_inplace (&image);
     fwrite (data, size, 1, stdout);
     fflush (stdout);
 
