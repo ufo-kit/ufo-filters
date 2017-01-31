@@ -17,7 +17,8 @@ class GObjectObj(ObjectDescription):
             name = '{0}-{1}'.format(current, fqn.split(':')[0])
             signode['names'].append(name)
             signode['ids'].append(name)
-            self.state.document.note_explicit_target(signode)
+            # FIXME: this fails for some names like "minimum", "maximum", etc.
+            # self.state.document.note_explicit_target(signode)
 
             objects = self.env.domaindata['gobj']['objects']
             objects[name] = (self.env.docname, self.objtype)
