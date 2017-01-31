@@ -96,17 +96,17 @@ convert_to_8bit (UfoWriterImage *image)
 {
     gfloat *src;
     guint8 *dst;
-    gfloat max, min, range;
+    gfloat max, min, scale;
     gsize n_elements;
 
     src = (gfloat *) image->data;
     get_min_max (image, &min, &max);
-    range = max - min;
+    scale = 255.0f / (max - min);
     n_elements = get_num_elements (image->requisition);
     dst = (guint8 *) src;
 
     for (gsize i = 0; i < n_elements; i++)
-        dst[i] = (guint16) ((src[i] - min) / range * 255);
+        dst[i] = (guint8) ((src[i] - min) * scale);
 }
 
 static void
@@ -114,18 +114,18 @@ convert_to_16bit (UfoWriterImage *image)
 {
     gfloat *src;
     guint16 *dst;
-    gfloat max, min, range;
+    gfloat max, min, scale;
     gsize n_elements;
 
     src = (gfloat *) image->data;
     get_min_max (image, &min, &max);
-    range = max - min;
+    scale = 65535.0f / (max - min);
     n_elements = get_num_elements (image->requisition);
     dst = (guint16 *) src;
 
     /* TODO: good opportunity for some SSE acceleration */
     for (gsize i = 0; i < n_elements; i++)
-        dst[i] = (guint16) ((src[i] - min) / range * 65535);
+        dst[i] = (guint16) ((src[i] - min) * scale);
 }
 
 void
