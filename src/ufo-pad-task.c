@@ -23,23 +23,7 @@
 #endif
 
 #include "ufo-pad-task.h"
-
-typedef enum {
-    ADDRESS_NONE = CL_ADDRESS_NONE,
-    ADDRESS_CLAMP_TO_EDGE = CL_ADDRESS_CLAMP_TO_EDGE,
-    ADDRESS_CLAMP = CL_ADDRESS_CLAMP,
-    ADDRESS_REPEAT = CL_ADDRESS_REPEAT,
-    ADDRESS_MIRRORED_REPEAT = CL_ADDRESS_MIRRORED_REPEAT
-} AddressingMode;
-
-static GEnumValue addressing_values[] = {
-    { ADDRESS_NONE,             "ADDRESS_NONE",             "none" },
-    { ADDRESS_CLAMP_TO_EDGE,    "ADDRESS_CLAMP_TO_EDGE",    "clamp_to_edge" },
-    { ADDRESS_CLAMP,            "ADDRESS_CLAMP",            "clamp" },
-    { ADDRESS_REPEAT,           "ADDRESS_REPEAT",           "repeat" },
-    { ADDRESS_MIRRORED_REPEAT,  "ADDRESS_MIRRORED_REPEAT",  "mirrored_repeat" },
-    { 0, NULL, NULL}
-};
+#include "common/ufo-addressing.h"
 
 struct _UfoPadTaskPrivate {
     /* OpenCL */
