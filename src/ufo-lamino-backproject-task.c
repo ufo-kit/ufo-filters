@@ -30,6 +30,7 @@
 
 #include "ufo-lamino-backproject-task.h"
 #include "lamino-roi.h"
+#include "common/ufo-addressing.h"
 
 /* Copy only neccessary projection region */
 /* TODO: make this a parameter? */
@@ -88,6 +89,7 @@ struct _UfoLaminoBackprojectTaskPrivate {
     gfloat z;
     gfloat roll_angle;
     Parameter parameter;
+    AddressingMode addressing_mode;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -112,6 +114,7 @@ enum {
     PROP_LAMINO_ANGLE,
     PROP_PARAMETER,
     PROP_ROLL_ANGLE,
+    PROP_ADDRESSING_MODE,
     N_PROPERTIES
 };
 
@@ -209,7 +212,7 @@ ufo_lamino_backproject_task_setup (UfoTask *task,
 
     priv->vector_kernel = ufo_resources_get_kernel (resources, kernel_filename, vector_kernel_name, error);
     priv->scalar_kernel = ufo_resources_get_kernel (resources, kernel_filename, "backproject_burst_1", error);
-    priv->sampler = clCreateSampler (priv->context, (cl_bool) FALSE, CL_ADDRESS_CLAMP, CL_FILTER_LINEAR, &cl_error);
+    priv->sampler = clCreateSampler (priv->context, (cl_bool) FALSE, priv->addressing_mode, CL_FILTER_LINEAR, &cl_error);
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
     UFO_RESOURCES_CHECK_CLERR (cl_error);
@@ -546,6 +549,9 @@ ufo_lamino_backproject_task_set_property (GObject *object,
         case PROP_PARAMETER:
             priv->parameter = g_value_get_enum (value);
             break;
+        case PROP_ADDRESSING_MODE:
+            priv->addressing_mode = g_value_get_enum (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -596,6 +602,9 @@ ufo_lamino_backproject_task_get_property (GObject *object,
             break;
         case PROP_PARAMETER:
             g_value_set_enum (value, priv->parameter);
+            break;
+        case PROP_ADDRESSING_MODE:
+            g_value_set_enum (value, priv->addressing_mode);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -780,6 +789,14 @@ ufo_lamino_backproject_task_class_init (UfoLaminoBackprojectTaskClass *klass)
                            PARAMETER_Z,
                            G_PARAM_READWRITE);
 
+    properties[PROP_ADDRESSING_MODE] =
+        g_param_spec_enum ("addressing-mode",
+                           "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
+                           "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
+                           g_enum_register_static ("bp_addressing_mode", addressing_values),
+                           CL_ADDRESS_CLAMP,
+                           G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -822,5 +839,6 @@ ufo_lamino_backproject_task_init(UfoLaminoBackprojectTask *self)
     self->priv->roll_angle = 0.0f;
     self->priv->parameter = PARAMETER_Z;
     self->priv->count = 0;
+    self->priv->addressing_mode = CL_ADDRESS_CLAMP;
     self->priv->generated = FALSE;
 }
