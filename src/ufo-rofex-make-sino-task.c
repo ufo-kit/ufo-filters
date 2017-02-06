@@ -318,7 +318,7 @@ ufo_rofex_make_sino_task_class_init (UfoRofexMakeSinoTaskClass *klass)
                g_param_spec_uint ("number-of-planes",
                                   "The number of planes",
                                   "The number of planes",
-                                  1, G_MAXUINT, 4,
+                                  1, G_MAXUINT, 1,
                                   G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
