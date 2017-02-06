@@ -123,6 +123,19 @@ ufo_rofex_average_dark_task_process (UfoTask *task,
       }
     }
 
+    // Interpolate dark average
+    gfloat valInterp = 0.0;
+    for (guint planeInd = 0; planeInd < n_planes; planeInd++) {
+        for (guint detInd = 0; detInd < n_dets; detInd++) {
+            if (h_average[detInd + planeInd * n_dets] > 300) {
+              valInterp = h_average[n_dets * planeInd + (detInd + 1)%n_dets] +
+                          h_average[n_dets * planeInd + (detInd - 1)%n_dets];
+
+              h_average[detInd + planeInd * n_dets] = 0.5 * valInterp;
+            }
+        }
+    }
+
     return TRUE;
 }
 
