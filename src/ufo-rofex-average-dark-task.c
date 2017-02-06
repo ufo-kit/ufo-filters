@@ -88,7 +88,7 @@ ufo_rofex_average_dark_task_get_num_dimensions (UfoTask *task,
 static UfoTaskMode
 ufo_rofex_average_dark_task_get_mode (UfoTask *task)
 {
-    return UFO_TASK_MODE_PROCESSOR;
+    return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_CPU;
 }
 
 static gboolean

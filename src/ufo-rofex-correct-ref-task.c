@@ -107,7 +107,7 @@ ufo_rofex_correct_ref_task_get_num_dimensions (UfoTask *task,
 static UfoTaskMode
 ufo_rofex_correct_ref_task_get_mode (UfoTask *task)
 {
-    return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
+    return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_CPU;
 }
 
 void find_defect_detectors (gfloat *ref_values,
@@ -230,7 +230,7 @@ ufo_rofex_correct_ref_task_process (UfoTask *task,
 
   for (guint i = 0; i < n_vals; i++) {
       guint *defect_detectors = g_malloc0(n_proj * n_dets * sizeof(guint));
-      
+
       find_defect_detectors (h_ref_values + i * n_dets * n_proj,
                              priv->filter_function,
                              defect_detectors,
