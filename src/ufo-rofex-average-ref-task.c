@@ -100,12 +100,16 @@ ufo_rofex_average_ref_task_process (UfoTask *task,
                          UfoBuffer *output,
                          UfoRequisition *requisition)
 {
-
+    g_warning("ufo_rofex_average_ref_task_process");
     UfoRofexAverageRefTaskPrivate *priv = UFO_ROFEX_AVERAGE_REF_TASK_GET_PRIVATE (task);
-    guint n_dets = requisition->dims[0];
-    guint n_proj = requisition->dims[1];
+
+    UfoRequisition in_req;
+    ufo_buffer_get_requisition(inputs[0], &in_req);
+
+    guint n_dets = in_req.dims[0];
+    guint n_proj = in_req.dims[1];
     guint n_planes = priv->n_planes;
-    guint n_slices = requisition->dims[2] / n_planes;
+    guint n_slices = in_req.dims[2] / n_planes;
 
     gfloat *h_sino = ufo_buffer_get_host_array(inputs[0], NULL);
     gfloat *h_average = ufo_buffer_get_host_array(output, NULL);
@@ -114,12 +118,14 @@ ufo_rofex_average_ref_task_process (UfoTask *task,
     guint n_vals = n_dets * n_proj;
     // factor = 0.0
     for (guint sliceInd = 0; sliceInd < n_slices; sliceInd++) {
-      for (guint planeInd = 0; planeInd < n_dets; planeInd++) {
+      for (guint planeInd = 0; planeInd < priv->n_planes; planeInd++) {
         for (guint index = 0; index < n_vals ; index++)
         {
           guint valInd = (sliceInd  + planeInd) * n_vals + index;
 
           gfloat val = (gfloat)h_sino[valInd];
+          guint insertInd = index + planeInd * n_vals;
+
           h_average[index + planeInd * n_vals] += val * factor;
         }
       }
