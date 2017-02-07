@@ -23,10 +23,12 @@
 #include <CL/cl.h>
 #endif
 
+#include <string.h>
 #include "ufo-rofex-make-sino-task.h"
 
 
 struct _UfoRofexMakeSinoTaskPrivate {
+    gboolean produce_stack;
     guint n_modules;
     guint n_det_per_module;
     guint n_projections;
@@ -35,6 +37,8 @@ struct _UfoRofexMakeSinoTaskPrivate {
     guint n_slices;
     guint n_processed;
     gboolean generated;
+    UfoBuffer *sinos_stack;
+    UfoRequisition req_sinos_stack;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -47,6 +51,7 @@ G_DEFINE_TYPE_WITH_CODE (UfoRofexMakeSinoTask, ufo_rofex_make_sino_task, UFO_TYP
 
 enum {
     PROP_0,
+    PROP_PRODUCE_STACK,
     PROP_N_MODULES,
     PROP_N_DET_PER_MODULE,
     PROP_N_PROJECTIONS,
@@ -71,6 +76,7 @@ ufo_rofex_make_sino_task_setup (UfoTask *task,
   priv->n_slices = 1;
   priv->n_processed = 0;
   priv->generated = FALSE;
+  priv->sinos_stack = NULL;
 }
 
 static void
@@ -93,11 +99,19 @@ ufo_rofex_make_sino_task_get_requisition (UfoTask *task,
     guint n_proj = priv->n_projections;
     priv->n_slices = in_len / (priv->n_det_per_module * n_proj * priv->n_planes);
 
-    // Specify requisition
-    requisition->n_dims = 3;
-    requisition->dims[0] = n_dets;
-    requisition->dims[1] = n_proj;
-    requisition->dims[2] = priv->n_slices * priv->n_planes;
+    // Specify requisition of stack
+    priv->req_sinos_stack.n_dims = 3;
+    priv->req_sinos_stack.dims[0] = n_dets;
+    priv->req_sinos_stack.dims[1] = n_proj;
+    priv->req_sinos_stack.dims[2] = priv->n_slices * priv->n_planes;
+
+    if (priv->produce_stack) {
+      *requisition = priv->req_sinos_stack;
+    } else {
+      requisition->n_dims = 2;
+      requisition->dims[0] = n_dets;
+      requisition->dims[1] = n_proj;
+    }
 }
 
 static guint
@@ -125,6 +139,19 @@ ufo_rofex_make_sino_task_process (UfoTask *task,
                          UfoBuffer *output,
                          UfoRequisition *requisition)
 {
+    UfoRofexMakeSinoTaskPrivate *priv = UFO_ROFEX_MAKE_SINO_TASK_GET_PRIVATE (task);
+    gfloat *h_detModValues = ufo_buffer_get_host_array(inputs[0], NULL);
+    gfloat *h_output = NULL;
+
+    if (priv->produce_stack) {
+        h_output = ufo_buffer_get_host_array(output, NULL);
+    } else {
+        if (!priv->sinos_stack) {
+          priv->sinos_stack = ufo_buffer_new(&priv->req_sinos_stack, NULL);
+        }
+        h_output = ufo_buffer_get_host_array(priv->sinos_stack, NULL);
+    }
+
     /*
       Inputs[0] - a single data buffer which contains values measured for a
         particular detector module. The values are ordered as follows:
@@ -145,10 +172,6 @@ ufo_rofex_make_sino_task_process (UfoTask *task,
 
         ] // slice 1
     */
-
-    UfoRofexMakeSinoTaskPrivate *priv = UFO_ROFEX_MAKE_SINO_TASK_GET_PRIVATE (task);
-    gfloat *h_output = ufo_buffer_get_host_array(output, NULL);
-    gfloat *h_detModValues = ufo_buffer_get_host_array(inputs[0], NULL);
 
     /*
       Go through the data buffer and copy its values on respective positions
@@ -204,23 +227,54 @@ ufo_rofex_make_sino_task_generate (UfoTask *task,
 {
     UfoRofexMakeSinoTaskPrivate *priv = UFO_ROFEX_MAKE_SINO_TASK_GET_PRIVATE (task);
 
-    if (!priv->generated) {
-      priv->generated = TRUE;
-      return TRUE;
-    }
+    if (priv->produce_stack) {
+        if (!priv->generated) {
+          priv->generated = TRUE;
+          return TRUE;
+        }
+        return FALSE;
+    } else {
+        gfloat *h_output = ufo_buffer_get_host_array(output, NULL);
+        gfloat *h_stack  = ufo_buffer_get_host_array(priv->sinos_stack, NULL);
 
-    return FALSE;
+        guint n_sinos = priv->req_sinos_stack.dims[2];
+        guint n_elements = 1.0;
+
+        for (guint i = 0; i < requisition->n_dims; ++i)
+            n_elements *= requisition->dims[i];
+
+        memcpy(h_output,
+               h_stack + priv->n_processed * n_elements,
+               n_elements * sizeof(gfloat));
+
+
+
+        GValue plane_index = {0};
+        g_value_init (&plane_index, G_TYPE_UINT);
+        g_value_set_uint (&plane_index,
+                          (guint)(priv->n_processed / priv->n_planes));
+        ufo_buffer_set_metadata(output, "plane-index", &plane_index);
+
+        priv->n_processed ++;
+        if (priv->n_processed >= n_sinos) {
+            return FALSE;
+        }
+        return TRUE;
+    }
 }
 
 static void
 ufo_rofex_make_sino_task_get_property (GObject *object,
                               guint property_id,
-                              const GValue *value,
+                              GValue *value,
                               GParamSpec *pspec)
 {
     UfoRofexMakeSinoTaskPrivate *priv = UFO_ROFEX_MAKE_SINO_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
+        case PROP_PRODUCE_STACK:
+            g_value_set_boolean (value, priv->produce_stack);
+            break;
         case PROP_N_MODULES:
             g_value_set_uint (value, priv->n_modules);
             break;
@@ -242,12 +296,15 @@ ufo_rofex_make_sino_task_get_property (GObject *object,
 static void
 ufo_rofex_make_sino_task_set_property (GObject *object,
                               guint property_id,
-                              GValue *value,
+                              const GValue *value,
                               GParamSpec *pspec)
 {
     UfoRofexMakeSinoTaskPrivate *priv = UFO_ROFEX_MAKE_SINO_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
+        case PROP_PRODUCE_STACK:
+            priv->produce_stack = g_value_get_boolean(value);
+            break;
         case PROP_N_MODULES:
             priv->n_modules = g_value_get_uint(value);
             break;
@@ -269,6 +326,10 @@ ufo_rofex_make_sino_task_set_property (GObject *object,
 static void
 ufo_rofex_make_sino_task_finalize (GObject *object)
 {
+    UfoRofexMakeSinoTaskPrivate *priv = UFO_ROFEX_MAKE_SINO_TASK_GET_PRIVATE (object);
+    if ( priv->sinos_stack )
+        g_object_unref(priv->sinos_stack);
+
     G_OBJECT_CLASS (ufo_rofex_make_sino_task_parent_class)->finalize (object);
 }
 
@@ -292,6 +353,13 @@ ufo_rofex_make_sino_task_class_init (UfoRofexMakeSinoTaskClass *klass)
     oclass->set_property = ufo_rofex_make_sino_task_set_property;
     oclass->get_property = ufo_rofex_make_sino_task_get_property;
     oclass->finalize = ufo_rofex_make_sino_task_finalize;
+
+    properties[PROP_PRODUCE_STACK] =
+        g_param_spec_boolean ("produce-stack",
+                              "Collects sinograms in a stack, which then passed forward.",
+                              "Collects sinograms in a stack, which then passed forward.",
+                               FALSE,
+                               G_PARAM_READWRITE);
 
     properties[PROP_N_MODULES] =
         g_param_spec_uint ("number-of-modules",
@@ -331,6 +399,7 @@ static void
 ufo_rofex_make_sino_task_init(UfoRofexMakeSinoTask *self)
 {
     self->priv = UFO_ROFEX_MAKE_SINO_TASK_GET_PRIVATE(self);
+    self->priv->produce_stack = FALSE;
     self->priv->n_modules = 27;
     self->priv->n_det_per_module = 16;
     self->priv->n_projections = 180;
