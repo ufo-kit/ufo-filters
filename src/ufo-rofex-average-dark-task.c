@@ -64,12 +64,14 @@ ufo_rofex_average_dark_task_get_requisition (UfoTask *task,
                                  UfoBuffer **inputs,
                                  UfoRequisition *requisition)
 {
+    UfoRofexAverageDarkTaskPrivate *priv = UFO_ROFEX_AVERAGE_DARK_TASK_GET_PRIVATE (task);
+
     UfoRequisition in_req;
     ufo_buffer_get_requisition(inputs[0], &in_req);
 
     requisition->n_dims = 2;
     requisition->dims[0] = in_req.dims[0];
-    requisition->dims[1] = in_req.dims[1];
+    requisition->dims[1] = priv->n_planes;
 }
 
 static guint
@@ -97,19 +99,25 @@ ufo_rofex_average_dark_task_process (UfoTask *task,
                          UfoBuffer *output,
                          UfoRequisition *requisition)
 {
+
     UfoRofexAverageDarkTaskPrivate *priv = UFO_ROFEX_AVERAGE_DARK_TASK_GET_PRIVATE (task);
-    guint n_dets = requisition->dims[0];
-    guint n_proj = requisition->dims[1];
+
+    UfoRequisition in_req;
+    ufo_buffer_get_requisition(inputs[0], &in_req);
+
+    guint n_dets = in_req.dims[0];
+    guint n_proj = in_req.dims[1];
     guint n_planes = priv->n_planes;
-    guint n_slices = requisition->dims[2] / n_planes;
+    guint n_slices = in_req.dims[2] / n_planes;
 
     gfloat *h_sino = ufo_buffer_get_host_array(inputs[0], NULL);
     gfloat *h_average = ufo_buffer_get_host_array(output, NULL);
 
+
     gfloat factor = 1.0 / (gfloat)(n_slices * n_proj);
     // factor = 0.0
     for (guint sliceInd = 0; sliceInd < n_slices; sliceInd++) {
-      for (guint planeInd = 0; planeInd < n_dets; planeInd++) {
+      for (guint planeInd = 0; planeInd < n_planes; planeInd++) {
         for (guint detInd = 0; detInd < n_dets; detInd++) {
           for (guint projInd = 0; projInd < n_proj; projInd++)
           {
@@ -117,7 +125,9 @@ ufo_rofex_average_dark_task_process (UfoTask *task,
                           (sliceInd * n_planes + planeInd) * n_dets * n_proj;
 
             gfloat val = (gfloat)h_sino[valInd];
-            h_average[detInd + planeInd * n_dets] += val * factor;
+
+            guint insertInd = detInd + planeInd * n_dets;
+            h_average[insertInd] += val * factor;
           }
         }
       }
