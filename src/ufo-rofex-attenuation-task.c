@@ -27,7 +27,9 @@
 
 
 struct _UfoRofexAttenuationTaskPrivate {
-    gboolean foo;
+    guint  n_planes;
+    cl_context context;
+    cl_kernel attenuation_kernel;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -40,7 +42,7 @@ G_DEFINE_TYPE_WITH_CODE (UfoRofexAttenuationTask, ufo_rofex_attenuation_task, UF
 
 enum {
     PROP_0,
-    PROP_TEST,
+    PROP_N_PLANES,
     N_PROPERTIES
 };
 
@@ -57,6 +59,16 @@ ufo_rofex_attenuation_task_setup (UfoTask *task,
                        UfoResources *resources,
                        GError **error)
 {
+  UfoRofexAttenuationTaskPrivate *priv;
+  priv = UFO_ROFEX_ATTENUATION_TASK_GET_PRIVATE (task);
+  priv->context = ufo_resources_get_context (resources);
+  UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+
+  priv->attenuation_kernel = ufo_resources_get_kernel (resources, "rofex.cl", "compute_attenuation", error);
+  if (error && *error)
+      return;
+
+  UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->attenuation_kernel));
 }
 
 static void
@@ -71,7 +83,7 @@ ufo_rofex_attenuation_task_get_requisition (UfoTask *task,
 static guint
 ufo_rofex_attenuation_task_get_num_inputs (UfoTask *task)
 {
-    return 2;
+    return 3;
 }
 
 static guint
@@ -93,26 +105,57 @@ ufo_rofex_attenuation_task_process (UfoTask *task,
                          UfoBuffer *output,
                          UfoRequisition *requisition)
 {
+
+
+    UfoRofexAttenuationTaskPrivate *priv;
+    priv = UFO_ROFEX_ATTENUATION_TASK_GET_PRIVATE (task);
+
     UfoGpuNode *node;
     cl_command_queue cmd_queue;
 
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 
-    UfoBuffer *data = inputs[0];
-    UfoBuffer *dark = inputs[1];
+    // Get data
+    UfoBuffer *data_buf = inputs[0];
+    UfoBuffer *ref_buf = inputs[2];
+    UfoBuffer *dark_buf = inputs[1];
 
-    gfloat *h_data = ufo_buffer_get_host_array(data, cmd_queue);
-    gfloat *h_dark = ufo_buffer_get_host_array(dark, cmd_queue);
-    gfloat *h_attenuation = ufo_buffer_get_host_array(output, cmd_queue);
+    //
+    guint n_dets = requisition->dims[0];
+    guint n_proj = requisition->dims[1];
 
-    for (unsigned int i = 0; i < requisition->dims[0]; ++i) {
-      for (unsigned int j = 0; j < requisition->dims[1]; ++j) {
-        unsigned int index = i*requisition->dims[1] + j;
-        h_attenuation[index] = h_data[index] + h_dark[index];
-      }
-    }
+    // Get plane ID for the sinogram
+    GValue *gv_plane_index;
+    gv_plane_index = ufo_buffer_get_metadata (data_buf, "plane-index");
+    guint plane_index = g_value_get_uint (gv_plane_index);
 
+    gfloat temp = 1E-5;
+    gpointer d_data = ufo_buffer_get_device_array (data_buf, cmd_queue);
+    gpointer d_out = ufo_buffer_get_device_array (output, cmd_queue);
+    gpointer d_ref = ufo_buffer_get_device_array (ref_buf, cmd_queue);
+    gpointer d_dark = ufo_buffer_get_device_array (dark_buf, cmd_queue);
+
+    gpointer kernel = priv->attenuation_kernel;
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 0, sizeof (cl_mem), &d_data));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 1, sizeof (cl_mem), &d_out));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 2, sizeof (cl_mem), &d_ref));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (cl_mem), &d_dark));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (gfloat), &temp));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 5, sizeof (guint),  &n_dets));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 6, sizeof (guint),  &n_proj));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 7, sizeof (guint),  &plane_index));
+
+    UfoProfiler *profiler;
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    ufo_profiler_call (profiler,
+                       cmd_queue,
+                       kernel,
+                       requisition->n_dims,
+                       requisition->dims,
+                       NULL);
+
+    g_warning("ufo_rofex_attenuation_task_processed: %p", task);
     return TRUE;
 }
 
@@ -126,7 +169,8 @@ ufo_rofex_attenuation_task_set_property (GObject *object,
     UfoRofexAttenuationTaskPrivate *priv = UFO_ROFEX_ATTENUATION_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_TEST:
+        case PROP_N_PLANES:
+            priv->n_planes = g_value_get_uint(value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -143,7 +187,8 @@ ufo_rofex_attenuation_task_get_property (GObject *object,
     UfoRofexAttenuationTaskPrivate *priv = UFO_ROFEX_ATTENUATION_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_TEST:
+        case PROP_N_PLANES:
+            g_value_set_uint(value, priv->n_planes);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -154,6 +199,18 @@ ufo_rofex_attenuation_task_get_property (GObject *object,
 static void
 ufo_rofex_attenuation_task_finalize (GObject *object)
 {
+    UfoRofexAttenuationTaskPrivate *priv;
+    priv = UFO_ROFEX_ATTENUATION_TASK_GET_PRIVATE (object);
+
+    if (priv->attenuation_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->attenuation_kernel));
+        priv->attenuation_kernel = NULL;
+    }
+
+    if (priv->context) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
+        priv->context = NULL;
+    }
     G_OBJECT_CLASS (ufo_rofex_attenuation_task_parent_class)->finalize (object);
 }
 
@@ -177,12 +234,12 @@ ufo_rofex_attenuation_task_class_init (UfoRofexAttenuationTaskClass *klass)
     oclass->get_property = ufo_rofex_attenuation_task_get_property;
     oclass->finalize = ufo_rofex_attenuation_task_finalize;
 
-    properties[PROP_TEST] =
-        g_param_spec_string ("test",
-            "Test property nick",
-            "Test property description blurb",
-            "",
-            G_PARAM_READWRITE);
+    properties[PROP_N_PLANES] =
+              g_param_spec_uint ("number-of-planes",
+                                 "The number of planes",
+                                 "The number of planes",
+                                 1, G_MAXUINT, 1,
+                                 G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
@@ -194,4 +251,5 @@ static void
 ufo_rofex_attenuation_task_init(UfoRofexAttenuationTask *self)
 {
     self->priv = UFO_ROFEX_ATTENUATION_TASK_GET_PRIVATE(self);
+    self->priv->n_planes = 1;
 }
