@@ -247,13 +247,12 @@ ufo_rofex_make_sino_task_generate (UfoTask *task,
                h_stack + priv->n_processed * n_elements,
                n_elements * sizeof(gfloat));
 
+        guint plane_index = (guint)floor(priv->n_processed / priv->n_slices);
 
-
-        GValue plane_index = {0};
-        g_value_init (&plane_index, G_TYPE_UINT);
-        g_value_set_uint (&plane_index,
-                          (guint)(priv->n_processed / priv->n_planes));
-        ufo_buffer_set_metadata(output, "plane-index", &plane_index);
+        GValue gv_plane_index = {0};
+        g_value_init (&gv_plane_index, G_TYPE_UINT);
+        g_value_set_uint (&gv_plane_index, plane_index);
+        ufo_buffer_set_metadata(output, "plane-index", &gv_plane_index);
 
         priv->n_processed ++;
         if (priv->n_processed >= n_sinos) {
