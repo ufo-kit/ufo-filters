@@ -100,7 +100,6 @@ ufo_rofex_average_ref_task_process (UfoTask *task,
                          UfoBuffer *output,
                          UfoRequisition *requisition)
 {
-    g_warning("ufo_rofex_average_ref_task_process");
     UfoRofexAverageRefTaskPrivate *priv = UFO_ROFEX_AVERAGE_REF_TASK_GET_PRIVATE (task);
 
     UfoRequisition in_req;
