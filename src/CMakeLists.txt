@@ -81,6 +81,7 @@ set(ufofilter_SRCS
     ufo-rofex-correct-ref-task.c
     ufo-rofex-make-sino-task.c
     ufo-rofex-make-mask-task.c
+    ufo-rofex-mask-sino-task.c
     )
 
 set(ufoaux_SRCS
