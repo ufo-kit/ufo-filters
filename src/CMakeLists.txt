@@ -127,6 +127,7 @@ pkg_check_modules(LIBTIFF4 libtiff-4>=4.0.0)
 pkg_check_modules(GSL gsl)
 pkg_check_modules(CLFFT clFFT)
 pkg_check_modules(CLBLAST clblast)
+pkg_check_modules(PANGOCAIRO pangocairo)
 
 
 if (OPENMP_FOUND)
@@ -221,6 +222,12 @@ if (CLBLAST_FOUND)
     include_directories(${CLBLAST_INCLUDE_DIRS})
     list(APPEND ufofilter_SRCS ufo-gemm-task.c)
     list(APPEND gemm_aux_LIBS ${CLBLAST_LIBRARIES})
+endif ()
+
+if (PANGOCAIRO_FOUND)
+    include_directories(${PANGOCAIRO_INCLUDE_DIRS})
+    list(APPEND ufofilter_SRCS ufo-stamp-task.c)
+    list(APPEND stamp_aux_LIBS ${PANGOCAIRO_LIBRARIES})
 endif ()
 
 #}}}

@@ -897,6 +897,26 @@ Buffering
         Duplicates the data in a loop manner :gobj:prop:`dup-count` times.
 
 
+Stamp
+-----
+
+.. gobj:class:: stamp
+
+    Writes the current iteration into the top-left corner.
+
+    .. gobj:prop:: font:string
+
+        Pango font description, by default set to ``Mono 9``.
+
+    .. gobj:prop:: scale:float
+
+        Scales the default brightness of 1.0.
+
+    .. note::
+
+        This filter requires Pango and Cairo for text layouting.
+
+
 Loops
 -----
 
