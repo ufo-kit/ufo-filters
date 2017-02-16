@@ -36,6 +36,7 @@ struct _UfoRofexMakeSinoTaskPrivate {
 
     guint n_slices;
     guint n_processed;
+    guint n_generated;
     gboolean generated;
     UfoBuffer *sinos_stack;
     UfoRequisition req_sinos_stack;
@@ -98,6 +99,10 @@ ufo_rofex_make_sino_task_get_requisition (UfoTask *task,
     guint n_dets = priv->n_det_per_module * priv->n_modules;
     guint n_proj = priv->n_projections;
     priv->n_slices = in_len / (priv->n_det_per_module * n_proj * priv->n_planes);
+    if (priv->n_slices == 0) {
+        g_error("The number of slices is 0. Check that the input is not 3D TIFF.");
+        return;
+    }
 
     // Specify requisition of stack
     priv->req_sinos_stack.n_dims = 3;
@@ -200,6 +205,9 @@ ufo_rofex_make_sino_task_process (UfoTask *task,
                 dst_offset = modInd * n_dets_per_mod + projInd * n_dets +
                     (planeInd + sliceInd * n_planes) * n_dets * n_proj;
 
+                //for (guint i = 0; i < n_dets_per_mod; i++) {
+                //    h_output[dst_offset+i] = h_detModValues[src_offset + i];
+                //}
                 memcpy(h_output + dst_offset,
                        h_detModValues + src_offset,
                        n_dets_per_mod * sizeof(gfloat));
@@ -213,6 +221,7 @@ ufo_rofex_make_sino_task_process (UfoTask *task,
     if (priv->n_processed >= priv->n_modules) {
       // Data has been collected and sorted. Ready for sinogram generating.
       priv->n_processed = 0;
+      priv->n_generated = 0;
       priv->generated = FALSE;
       return FALSE;
     }
@@ -226,40 +235,40 @@ ufo_rofex_make_sino_task_generate (UfoTask *task,
                                    UfoRequisition *requisition)
 {
     UfoRofexMakeSinoTaskPrivate *priv = UFO_ROFEX_MAKE_SINO_TASK_GET_PRIVATE (task);
-
-    if (priv->produce_stack) {
-        if (!priv->generated) {
-          priv->generated = TRUE;
-          return TRUE;
+    
+    if (!priv->generated) {
+        if (priv->produce_stack) {
+           priv->generated = TRUE;
+           return TRUE;
         }
-        return FALSE;
-    } else {
-        gfloat *h_output = ufo_buffer_get_host_array(output, NULL);
-        gfloat *h_stack  = ufo_buffer_get_host_array(priv->sinos_stack, NULL);
-
-        guint n_sinos = priv->req_sinos_stack.dims[2];
-        guint n_elements = 1.0;
-
-        for (guint i = 0; i < requisition->n_dims; ++i)
-            n_elements *= requisition->dims[i];
-
-        memcpy(h_output,
-               h_stack + priv->n_processed * n_elements,
-               n_elements * sizeof(gfloat));
-
-        guint plane_index = (guint)floor(priv->n_processed / priv->n_slices);
+        gfloat *h_output = (gfloat *) ufo_buffer_get_host_array(output, NULL);
+        gfloat *h_data   = (gfloat *) ufo_buffer_get_host_array(priv->sinos_stack, NULL);
+        
+        guint n_elements = requisition->dims[0] * requisition->dims[1];
+        guint plane_index = priv->n_generated % priv->n_planes;
 
         GValue gv_plane_index = {0};
         g_value_init (&gv_plane_index, G_TYPE_UINT);
         g_value_set_uint (&gv_plane_index, plane_index);
         ufo_buffer_set_metadata(output, "plane-index", &gv_plane_index);
+ 
+        memcpy(h_output,
+               h_data + priv->n_generated * n_elements,
+               ufo_buffer_get_size(output));
 
-        priv->n_processed ++;
-        if (priv->n_processed >= n_sinos) {
-            return FALSE;
+               priv->n_generated++;
+
+        guint n_sinos = priv->req_sinos_stack.dims[2];
+        if (priv->n_generated >= n_sinos) {
+            priv->n_generated = 0;
+            priv->generated = TRUE;
+            return TRUE;
         }
+
         return TRUE;
     }
+
+    return FALSE;
 }
 
 static void
