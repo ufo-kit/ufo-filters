@@ -23,6 +23,7 @@
 #include <CL/cl.h>
 #endif
 
+#include <stdio.h>
 #include "ufo-null-task.h"
 
 
@@ -37,12 +38,14 @@ G_DEFINE_TYPE_WITH_CODE (UfoNullTask, ufo_null_task, UFO_TYPE_TASK_NODE,
 struct _UfoNullTaskPrivate {
     gboolean download;
     gboolean finish;
+    gboolean durations;
 };
 
 enum {
     PROP_0,
     PROP_DOWNLOAD,
     PROP_FINISH,
+    PROP_DURATIONS,
     N_PROPERTIES
 };
 
@@ -99,6 +102,21 @@ ufo_null_task_process (UfoTask *task,
 
     priv = UFO_NULL_TASK_GET_PRIVATE (task);
 
+    if (priv->durations) {
+        GValue *timestamp;
+
+        timestamp = ufo_buffer_get_metadata (inputs[0], "ts");
+
+        if (timestamp != NULL) {
+            gint64 start;
+            gint64 now;
+
+            start = g_value_get_int64 (timestamp);
+            now = g_get_real_time ();
+            fprintf (stderr, "%f\n", (now - start) / 1000.0f);
+        }
+    }
+
     if (priv->download) {
         gfloat *host_array;
 
@@ -144,6 +162,10 @@ ufo_null_task_set_property (GObject *object,
             priv->finish = g_value_get_boolean (value);
             break;
 
+        case PROP_DURATIONS:
+            priv->durations = g_value_get_boolean (value);
+            break;
+
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -165,6 +187,10 @@ ufo_null_task_get_property (GObject *object,
 
         case PROP_FINISH:
             g_value_set_boolean (value, priv->finish);
+            break;
+
+        case PROP_DURATIONS:
+            g_value_set_boolean (value, priv->durations);
             break;
 
         default:
@@ -194,6 +220,12 @@ ufo_null_task_class_init (UfoNullTaskClass *klass)
                               "Call finish on the associated command queue",
                               FALSE, G_PARAM_READWRITE);
 
+    properties[PROP_DURATIONS] =
+        g_param_spec_boolean ("durations",
+                              "Show durations for timestamps",
+                              "Show durations for timestamps",
+                              FALSE, G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -208,4 +240,5 @@ ufo_null_task_init(UfoNullTask *self)
     self->priv = priv = UFO_NULL_TASK_GET_PRIVATE (self);
     priv->download = FALSE;
     priv->finish = FALSE;
+    priv->durations = FALSE;
 }

@@ -125,3 +125,7 @@ Null
     .. gobj:prop:: finish:boolean
 
         Call finish on the associated command queue.
+
+    .. gobj:prop:: durations:boolean
+
+        Print durations computed from timestamps on ``stderr``.
