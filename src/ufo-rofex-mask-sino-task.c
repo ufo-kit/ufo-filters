@@ -367,6 +367,8 @@ ufo_rofex_mask_sino_task_finalize (GObject *object)
         priv->context = NULL;
     }
 
+    g_object_unref(priv->mask_buf);
+
     G_OBJECT_CLASS (ufo_rofex_mask_sino_task_parent_class)->finalize (object);
 }
 

@@ -105,6 +105,11 @@ ufo_rofex_average_ref_task_process (UfoTask *task,
     UfoRequisition in_req;
     ufo_buffer_get_requisition(inputs[0], &in_req);
 
+    if (in_req.n_dims < 3) {
+        g_error("Nothing to average. Please pass 3D Data.");
+        return FALSE;
+    }
+
     guint n_dets = in_req.dims[0];
     guint n_proj = in_req.dims[1];
     guint n_planes = priv->n_planes;

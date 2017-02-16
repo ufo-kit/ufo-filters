@@ -104,14 +104,14 @@ ufo_rofex_make_mask_task_get_requisition (UfoTask *task,
 static guint
 ufo_rofex_make_mask_task_get_num_inputs (UfoTask *task)
 {
-    return 0;
+    return 1;
 }
 
 static guint
 ufo_rofex_make_mask_task_get_num_dimensions (UfoTask *task,
                                              guint input)
 {
-    return 0;
+    return 3;
 }
 
 static UfoTaskMode

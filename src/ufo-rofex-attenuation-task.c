@@ -155,7 +155,6 @@ ufo_rofex_attenuation_task_process (UfoTask *task,
                        requisition->dims,
                        NULL);
 
-    g_warning("ufo_rofex_attenuation_task_processed: %p", task);
     return TRUE;
 }
 
