@@ -23,6 +23,7 @@
 #include <CL/cl.h>
 #endif
 
+#include <stdlib.h>
 #include "ufo-rofex-dummy-detector-task.h"
 
 
@@ -32,6 +33,7 @@ struct _UfoRofexDummyDetectorTaskPrivate {
     guint n_projections;
     guint n_planes;
     guint n_frames;
+    gboolean random_values;
 
     guint current_module;
     guint current_plane;
@@ -53,6 +55,7 @@ enum {
   PROP_N_PROJECTIONS,
   PROP_N_PLANES,
   PROP_N_FRAMES,
+  PROP_RANDOM_VALUES,
   N_PROPERTIES
 };
 
@@ -131,7 +134,7 @@ ufo_rofex_dummy_detector_task_generate (UfoTask *task,
         for (guint det_ind = 0; det_ind < priv->n_det_per_module; det_ind++)
         {
             guint index = det_ind + proj_ind * priv->n_det_per_module;
-            data[index] = priv->current_module;
+            data[index] = priv->random_values ? (gfloat)(rand() % 100)/100.0  : priv->current_module;
         }
     }
 
@@ -178,6 +181,9 @@ ufo_rofex_dummy_detector_task_set_property (GObject *object,
         case PROP_N_FRAMES:
             priv->n_frames = g_value_get_uint(value);
             break;
+        case PROP_RANDOM_VALUES:
+            priv->random_values = g_value_get_boolean(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -207,6 +213,9 @@ ufo_rofex_dummy_detector_task_get_property (GObject *object,
             break;
         case PROP_N_FRAMES:
             g_value_set_uint (value, priv->n_frames);
+            break;
+        case PROP_RANDOM_VALUES:
+            g_value_set_boolean (value, priv->n_frames);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -275,6 +284,13 @@ ufo_rofex_dummy_detector_task_class_init (UfoRofexDummyDetectorTaskClass *klass)
                                    1, G_MAXUINT, 1,
                                    G_PARAM_READWRITE);
 
+    properties[PROP_RANDOM_VALUES] =
+                g_param_spec_boolean ("random-values",
+                                   "Generate random values.",
+                                   "Generate random values instead of index of the detector module.",
+                                   FALSE,
+                                   G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -290,4 +306,5 @@ ufo_rofex_dummy_detector_task_init(UfoRofexDummyDetectorTask *self)
     self->priv->n_projections = 1;
     self->priv->n_planes = 1;
     self->priv->n_frames = 1;
+    self->priv->random_values = FALSE;
 }
