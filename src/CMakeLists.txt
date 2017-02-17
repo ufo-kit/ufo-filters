@@ -82,7 +82,8 @@ set(ufofilter_SRCS
     ufo-rofex-make-sino-task.c
     ufo-rofex-make-mask-task.c
     ufo-rofex-mask-sino-task.c
-    ufo-rofex-fan2par-task.c
+    ufo-rofex-fan2para-task.c
+    ufo-rofex-fan2para-params-task.c
     ufo-rofex-dummy-detector-task.c
     ufo-rofex-dummy-ram-task.c
     )
