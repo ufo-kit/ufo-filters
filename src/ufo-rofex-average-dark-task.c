@@ -64,7 +64,8 @@ ufo_rofex_average_dark_task_get_requisition (UfoTask *task,
                                  UfoBuffer **inputs,
                                  UfoRequisition *requisition)
 {
-    UfoRofexAverageDarkTaskPrivate *priv = UFO_ROFEX_AVERAGE_DARK_TASK_GET_PRIVATE (task);
+    UfoRofexAverageDarkTaskPrivate *priv;
+    priv = UFO_ROFEX_AVERAGE_DARK_TASK_GET_PRIVATE (task);
 
     UfoRequisition in_req;
     ufo_buffer_get_requisition(inputs[0], &in_req);
@@ -99,8 +100,8 @@ ufo_rofex_average_dark_task_process (UfoTask *task,
                          UfoBuffer *output,
                          UfoRequisition *requisition)
 {
-
-    UfoRofexAverageDarkTaskPrivate *priv = UFO_ROFEX_AVERAGE_DARK_TASK_GET_PRIVATE (task);
+    UfoRofexAverageDarkTaskPrivate *priv;
+    priv = UFO_ROFEX_AVERAGE_DARK_TASK_GET_PRIVATE (task);
 
     UfoRequisition in_req;
     ufo_buffer_get_requisition(inputs[0], &in_req);
@@ -161,7 +162,8 @@ ufo_rofex_average_dark_task_set_property (GObject *object,
                               const GValue *value,
                               GParamSpec *pspec)
 {
-    UfoRofexAverageDarkTaskPrivate *priv = UFO_ROFEX_AVERAGE_DARK_TASK_GET_PRIVATE (object);
+    UfoRofexAverageDarkTaskPrivate *priv;
+    priv = UFO_ROFEX_AVERAGE_DARK_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_N_PLANES:

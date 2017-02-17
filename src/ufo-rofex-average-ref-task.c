@@ -64,15 +64,16 @@ ufo_rofex_average_ref_task_get_requisition (UfoTask *task,
                                  UfoBuffer **inputs,
                                  UfoRequisition *requisition)
 {
-  UfoRofexAverageRefTaskPrivate *priv = UFO_ROFEX_AVERAGE_REF_TASK_GET_PRIVATE (task);
+    UfoRofexAverageRefTaskPrivate *priv;
+    priv = UFO_ROFEX_AVERAGE_REF_TASK_GET_PRIVATE (task);
 
-  UfoRequisition in_req;
-  ufo_buffer_get_requisition(inputs[0], &in_req);
+    UfoRequisition in_req;
+    ufo_buffer_get_requisition(inputs[0], &in_req);
 
-  requisition->n_dims = 3;
-  requisition->dims[0] = in_req.dims[0];
-  requisition->dims[1] = in_req.dims[1];
-  requisition->dims[2] = priv->n_planes;
+    requisition->n_dims = 3;
+    requisition->dims[0] = in_req.dims[0];
+    requisition->dims[1] = in_req.dims[1];
+    requisition->dims[2] = priv->n_planes;
 }
 
 static guint
@@ -100,7 +101,8 @@ ufo_rofex_average_ref_task_process (UfoTask *task,
                          UfoBuffer *output,
                          UfoRequisition *requisition)
 {
-    UfoRofexAverageRefTaskPrivate *priv = UFO_ROFEX_AVERAGE_REF_TASK_GET_PRIVATE (task);
+    UfoRofexAverageRefTaskPrivate *priv;
+    priv = UFO_ROFEX_AVERAGE_REF_TASK_GET_PRIVATE (task);
 
     UfoRequisition in_req;
     ufo_buffer_get_requisition(inputs[0], &in_req);
@@ -145,7 +147,8 @@ ufo_rofex_average_ref_task_set_property (GObject *object,
                               const GValue *value,
                               GParamSpec *pspec)
 {
-    UfoRofexAverageRefTaskPrivate *priv = UFO_ROFEX_AVERAGE_REF_TASK_GET_PRIVATE (object);
+    UfoRofexAverageRefTaskPrivate *priv;
+    priv = UFO_ROFEX_AVERAGE_REF_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_N_PLANES:
@@ -163,7 +166,8 @@ ufo_rofex_average_ref_task_get_property (GObject *object,
                               GValue *value,
                               GParamSpec *pspec)
 {
-    UfoRofexAverageRefTaskPrivate *priv = UFO_ROFEX_AVERAGE_REF_TASK_GET_PRIVATE (object);
+    UfoRofexAverageRefTaskPrivate *priv;
+    priv = UFO_ROFEX_AVERAGE_REF_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_N_PLANES:

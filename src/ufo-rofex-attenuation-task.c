@@ -165,7 +165,8 @@ ufo_rofex_attenuation_task_set_property (GObject *object,
                               const GValue *value,
                               GParamSpec *pspec)
 {
-    UfoRofexAttenuationTaskPrivate *priv = UFO_ROFEX_ATTENUATION_TASK_GET_PRIVATE (object);
+    UfoRofexAttenuationTaskPrivate *priv;
+    priv = UFO_ROFEX_ATTENUATION_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_N_PLANES:
@@ -183,7 +184,8 @@ ufo_rofex_attenuation_task_get_property (GObject *object,
                               GValue *value,
                               GParamSpec *pspec)
 {
-    UfoRofexAttenuationTaskPrivate *priv = UFO_ROFEX_ATTENUATION_TASK_GET_PRIVATE (object);
+    UfoRofexAttenuationTaskPrivate *priv;
+    priv = UFO_ROFEX_ATTENUATION_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_N_PLANES:

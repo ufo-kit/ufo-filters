@@ -67,7 +67,8 @@ ufo_rofex_correct_ref_task_setup (UfoTask *task,
                        UfoResources *resources,
                        GError **error)
 {
-    UfoRofexCorrectRefTaskPrivate *priv = UFO_ROFEX_CORRECT_REF_TASK_GET_PRIVATE (task);
+    UfoRofexCorrectRefTaskPrivate *priv;
+    priv = UFO_ROFEX_CORRECT_REF_TASK_GET_PRIVATE (task);
 
     priv->filter_function = (gfloat*) g_malloc(sizeof(FILTER_FUNCTION));
     guint func_len = sizeof(FILTER_FUNCTION)/ sizeof(gfloat);
@@ -216,37 +217,38 @@ ufo_rofex_correct_ref_task_process (UfoTask *task,
                          UfoBuffer *output,
                          UfoRequisition *requisition)
 {
-  UfoRofexCorrectRefTaskPrivate *priv = UFO_ROFEX_CORRECT_REF_TASK_GET_PRIVATE (task);
+    UfoRofexCorrectRefTaskPrivate *priv;
+    priv = UFO_ROFEX_CORRECT_REF_TASK_GET_PRIVATE (task);
 
-  UfoRequisition in_req;
-  ufo_buffer_get_requisition(inputs[0], &in_req);
+    UfoRequisition in_req;
+    ufo_buffer_get_requisition(inputs[0], &in_req);
 
-  guint n_dets = in_req.dims[0];
-  guint n_proj = in_req.dims[1];
-  guint n_vals = in_req.dims[2];
+    guint n_dets = in_req.dims[0];
+    guint n_proj = in_req.dims[1];
+    guint n_vals = in_req.dims[2];
 
-  ufo_buffer_copy(inputs[0], output);
-  gfloat *h_ref_values = ufo_buffer_get_host_array(output, NULL);
+    ufo_buffer_copy(inputs[0], output);
+    gfloat *h_ref_values = ufo_buffer_get_host_array(output, NULL);
 
-  for (guint i = 0; i < n_vals; i++) {
-      guint *defect_detectors = g_malloc0(n_proj * n_dets * sizeof(guint));
+    for (guint i = 0; i < n_vals; i++) {
+        guint *defect_detectors = g_malloc0(n_proj * n_dets * sizeof(guint));
 
-      find_defect_detectors (h_ref_values + i * n_dets * n_proj,
-                             priv->filter_function,
-                             defect_detectors,
-                             n_dets,
-                             n_proj,
-                             priv->threshold_min,
-                             priv->threshold_max);
+        find_defect_detectors (h_ref_values + i * n_dets * n_proj,
+                               priv->filter_function,
+                               defect_detectors,
+                               n_dets,
+                               n_proj,
+                               priv->threshold_min,
+                               priv->threshold_max);
 
-      interpolate_defect_detectors (h_ref_values + i * n_dets * n_proj,
-                                    defect_detectors,
-                                    n_dets,
-                                    n_proj);
-      g_free(defect_detectors);
-  }
+        interpolate_defect_detectors (h_ref_values + i * n_dets * n_proj,
+                                      defect_detectors,
+                                      n_dets,
+                                      n_proj);
+        g_free(defect_detectors);
+    }
 
-  return TRUE;
+    return TRUE;
 }
 
 
@@ -256,7 +258,8 @@ ufo_rofex_correct_ref_task_set_property (GObject *object,
                               const GValue *value,
                               GParamSpec *pspec)
 {
-    UfoRofexCorrectRefTaskPrivate *priv = UFO_ROFEX_CORRECT_REF_TASK_GET_PRIVATE (object);
+    UfoRofexCorrectRefTaskPrivate *priv;
+    priv = UFO_ROFEX_CORRECT_REF_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_N_PLANES:

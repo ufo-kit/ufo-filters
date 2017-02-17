@@ -246,7 +246,8 @@ ufo_rofex_dummy_ram_task_set_property (GObject *object,
                               const GValue *value,
                               GParamSpec *pspec)
 {
-    UfoRofexDummyRamTaskPrivate *priv = UFO_ROFEX_DUMMY_RAM_TASK_GET_PRIVATE (object);
+    UfoRofexDummyRamTaskPrivate *priv;
+    priv = UFO_ROFEX_DUMMY_RAM_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_N_MODULES:

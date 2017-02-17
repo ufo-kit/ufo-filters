@@ -273,7 +273,8 @@ ufo_rofex_mask_sino_task_set_property (GObject *object,
                               const GValue *value,
                               GParamSpec *pspec)
 {
-    UfoRofexMaskSinoTaskPrivate *priv = UFO_ROFEX_MASK_SINO_TASK_GET_PRIVATE (object);
+    UfoRofexMaskSinoTaskPrivate *priv;
+    priv = UFO_ROFEX_MASK_SINO_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_SOURCE_OFFSET:
@@ -315,7 +316,8 @@ ufo_rofex_mask_sino_task_get_property (GObject *object,
                               GValue *value,
                               GParamSpec *pspec)
 {
-    UfoRofexMaskSinoTaskPrivate *priv = UFO_ROFEX_MASK_SINO_TASK_GET_PRIVATE (object);
+    UfoRofexMaskSinoTaskPrivate *priv;
+    priv = UFO_ROFEX_MASK_SINO_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_SOURCE_OFFSET:

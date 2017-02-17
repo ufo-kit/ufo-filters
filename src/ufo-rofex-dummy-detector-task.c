@@ -163,7 +163,8 @@ ufo_rofex_dummy_detector_task_set_property (GObject *object,
                               const GValue *value,
                               GParamSpec *pspec)
 {
-    UfoRofexDummyDetectorTaskPrivate *priv = UFO_ROFEX_DUMMY_DETECTOR_TASK_GET_PRIVATE (object);
+    UfoRofexDummyDetectorTaskPrivate *priv;
+    priv = UFO_ROFEX_DUMMY_DETECTOR_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_N_MODULES:
