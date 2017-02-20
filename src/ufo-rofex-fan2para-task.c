@@ -23,6 +23,7 @@
 #include <CL/cl.h>
 #endif
 
+#include <stdio.h>
 #include "ufo-rofex-fan2para-task.h"
 
 
@@ -31,9 +32,11 @@ struct _UfoRofexFan2paraTaskPrivate {
     guint n_par_dets;
     guint n_par_proj;
     guint detector_diameter;
+    gchar *params_path;
 
     cl_kernel interp_kernel;
     cl_kernel set_kernel;
+    cl_mem    d_params;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -50,6 +53,7 @@ enum {
     PROP_N_PAR_DETECTORS,
     PROP_N_PAR_PROJECTIONS,
     PROP_DETECTOR_DIAMETER,
+    PROP_PATH_TO_PARAMS,
     N_PROPERTIES
 };
 
@@ -80,6 +84,53 @@ ufo_rofex_fan2para_task_setup (UfoTask *task,
         return;
 
     UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->set_kernel));
+
+
+
+
+    gsize n_bytes;
+    size_t result;
+
+    g_warning("priv->params_path: %s", priv->params_path);
+    FILE * pFile = fopen ( priv->params_path , "rb" );
+    if (pFile==NULL) {fputs ("File error",stderr); exit (1);}
+
+    // obtain file size:
+    fseek (pFile , 0 , SEEK_END);
+    n_bytes = ftell (pFile);
+    rewind (pFile);
+
+    g_warning("n_bytes: %d", n_bytes);
+    // allocate memory to contain the whole file:
+    gfloat * buffer = (gfloat*) malloc (n_bytes);
+    if (buffer == NULL) {fputs ("Memory error",stderr); exit (2);}
+
+    // copy the file into the buffer:
+    result = fread (buffer, 1, n_bytes, pFile);
+    if (result != n_bytes) {fputs ("Reading error",stderr); exit (3);}
+
+    // terminate
+    fclose (pFile);
+
+    UfoGpuNode *node;
+    cl_command_queue cmd_queue;
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+    cmd_queue = ufo_gpu_node_get_cmd_queue (node);
+
+    cl_int err;
+    gpointer context = ufo_resources_get_context (resources);
+    priv->d_params = clCreateBuffer (context, CL_MEM_READ_WRITE, n_bytes, NULL, &err);
+    UFO_RESOURCES_CHECK_CLERR (err);
+
+    err = clEnqueueWriteBuffer (cmd_queue,
+                                priv->d_params,
+                                CL_TRUE,
+                                0, n_bytes,
+                                buffer,
+                                0, NULL, NULL);
+    clFinish(cmd_queue);
+    UFO_RESOURCES_CHECK_CLERR (err);
+    free(buffer);
 }
 
 static void
@@ -98,7 +149,7 @@ ufo_rofex_fan2para_task_get_requisition (UfoTask *task,
 static guint
 ufo_rofex_fan2para_task_get_num_inputs (UfoTask *task)
 {
-    return 2;
+    return 1;
 }
 
 static guint
@@ -132,18 +183,12 @@ ufo_rofex_fan2para_task_process (UfoTask *task,
     // On the first input we expect a fan-beam sinogram
     // On the second input we expect a set of parameters for the transformation
     gpointer d_fan_sino = ufo_buffer_get_device_array(inputs[0], cmd_queue);
-    gpointer d_params = ufo_buffer_get_device_array(inputs[1], cmd_queue);
     gpointer d_output = ufo_buffer_get_device_array(output, cmd_queue);
+
 
     // Compute param_offset
     guint param_offset = 0;
-    UfoRequisition params_req;
-    ufo_buffer_get_requisition(inputs[1], &params_req);
-    if (params_req.n_dims != 2) {
-        param_offset = priv->n_par_dets * priv->n_par_proj * priv->n_planes;
-    } else {
-        param_offset = params_req.dims[0];
-    }
+    param_offset = priv->n_par_dets * priv->n_par_proj * priv->n_planes;
 
     // Get plane ID for the sinogram
     GValue *gv_plane_index;
@@ -184,7 +229,7 @@ ufo_rofex_fan2para_task_process (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (\
         clSetKernelArg (priv->interp_kernel, 1, sizeof (cl_mem), &d_output));
     UFO_RESOURCES_CHECK_CLERR (\
-        clSetKernelArg (priv->interp_kernel, 2, sizeof (cl_mem), &d_params));
+        clSetKernelArg (priv->interp_kernel, 2, sizeof (cl_mem), &priv->d_params));
     UFO_RESOURCES_CHECK_CLERR (\
         clSetKernelArg (priv->interp_kernel, 3, sizeof (guint), &param_offset));
     UFO_RESOURCES_CHECK_CLERR (\
@@ -231,6 +276,9 @@ ufo_rofex_fan2para_task_set_property (GObject *object,
         case PROP_DETECTOR_DIAMETER:
             priv->detector_diameter = g_value_get_float(value);
             break;
+        case PROP_PATH_TO_PARAMS:
+            priv->params_path = g_value_dup_string(value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -258,6 +306,9 @@ ufo_rofex_fan2para_task_get_property (GObject *object,
         case PROP_DETECTOR_DIAMETER:
             g_value_set_float(value, priv->detector_diameter);
             break;
+        case PROP_PATH_TO_PARAMS:
+            g_value_set_string(value, priv->params_path);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -267,7 +318,15 @@ ufo_rofex_fan2para_task_get_property (GObject *object,
 static void
 ufo_rofex_fan2para_task_finalize (GObject *object)
 {
-    G_OBJECT_CLASS (ufo_rofex_fan2para_task_parent_class)->finalize (object);
+  UfoRofexFan2paraTaskPrivate *priv;
+  priv = UFO_ROFEX_FAN2PARA_TASK_GET_PRIVATE (object);
+
+  if (priv->d_params != NULL) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->d_params));
+        priv->d_params = NULL;
+  }
+
+  G_OBJECT_CLASS (ufo_rofex_fan2para_task_parent_class)->finalize (object);
 }
 
 static void
@@ -318,6 +377,14 @@ ufo_rofex_fan2para_task_class_init (UfoRofexFan2paraTaskClass *klass)
                                     0, G_MAXFLOAT, 216.0,
                                     G_PARAM_READWRITE);
 
+    properties[PROP_PATH_TO_PARAMS] =
+                g_param_spec_string ("path-to-params",
+                                     "Path to the raw file with parameters.",
+                                     "Path to the raw file with parameters.",
+                                     "",
+                                     G_PARAM_READWRITE);
+
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -332,4 +399,5 @@ ufo_rofex_fan2para_task_init(UfoRofexFan2paraTask *self)
     self->priv->n_par_dets = 256;
     self->priv->n_par_proj = 512;
     self->priv->detector_diameter = 216.0;
+    self->priv->params_path = g_strdup ("params.raw");
 }

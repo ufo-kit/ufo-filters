@@ -87,6 +87,8 @@ set(ufofilter_SRCS
     ufo-rofex-dummy-detector-task.c
     ufo-rofex-frame-buffer-task.c
     ufo-rofex-reorder-task.c
+
+    ufo-debug-h2d-task.c
     )
 
 set(ufoaux_SRCS

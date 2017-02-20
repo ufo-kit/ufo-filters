@@ -23,6 +23,7 @@
 #include <CL/cl.h>
 #endif
 
+#include <stdio.h>
 #include <math.h>
 #include "ufo-rofex-fan2para-params-task.h"
 
@@ -161,6 +162,15 @@ ufo_rofex_fan2para_params_task_generate (UfoTask *task,
 
     if (!priv->generated){
         compute_fan2par_transp(task, output);
+        gfloat *h_params = ufo_buffer_get_host_array(output, NULL);
+
+        // write binary
+        FILE * pFile;
+        pFile = fopen ("/home/ashkarin/ROFEX/ufotest/sim_fan2para_params/params-512.raw", "wb");
+        fwrite (h_params , sizeof(gfloat), ufo_buffer_get_size(output)/sizeof(gfloat), pFile);
+        fclose (pFile);
+        ////
+
         priv->generated = TRUE;
         return TRUE;
     }
@@ -235,7 +245,8 @@ ufo_rofex_fan2para_params_task_get_property (GObject *object,
                               GValue *value,
                               GParamSpec *pspec)
 {
-    UfoRofexFan2paraParamsTaskPrivate *priv = UFO_ROFEX_FAN2PARA_PARAMS_TASK_GET_PRIVATE (object);
+    UfoRofexFan2paraParamsTaskPrivate *priv;
+    priv = UFO_ROFEX_FAN2PARA_PARAMS_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
         case PROP_N_MODULES:
@@ -654,15 +665,15 @@ compute_angles (// theta
         //Vektor Gamma nach Wert durchsuchen für Fall 1
         for (x = 0; x < n_fan_dets; x++) {
             if (theta_goal_ray2[index] <= gamma[x]) {
-                gamma_before_ray2[index] = (x == 0) ? n_fan_dets - 1 : x - 1;
+                gamma_before_ray1[index] = (x == 0) ? n_fan_dets - 1 : x - 1;
                 gamma_after_ray2[index] = x;
                 break;
             }
         }
 
-        if (gamma_goal_ray2[index] > gamma[n_fan_dets - 1]) {
-            gamma_before_ray2[index] = n_fan_dets - 1;
-            gamma_after_ray2[index] = 0;
+        if (gamma_goal_ray1[index] > gamma[n_fan_dets - 1]) {
+            gamma_before_ray1[index] = n_fan_dets - 1;
+            gamma_after_ray1[index] = 0;
         }
     }
 }
