@@ -105,8 +105,6 @@ ufo_rofex_attenuation_task_process (UfoTask *task,
                          UfoBuffer *output,
                          UfoRequisition *requisition)
 {
-
-
     UfoRofexAttenuationTaskPrivate *priv;
     priv = UFO_ROFEX_ATTENUATION_TASK_GET_PRIVATE (task);
 
@@ -126,9 +124,12 @@ ufo_rofex_attenuation_task_process (UfoTask *task,
     guint n_proj = requisition->dims[1];
 
     // Get plane ID for the sinogram
-    GValue *gv_plane_index;
+    guint plane_index = 0;
+    GValue *gv_plane_index = NULL;
     gv_plane_index = ufo_buffer_get_metadata (data_buf, "plane-index");
-    guint plane_index = g_value_get_uint (gv_plane_index);
+    if (gv_plane_index) {
+        plane_index = g_value_get_uint (gv_plane_index);
+    }
 
     gfloat temp = 1E-5;
     gpointer d_data = ufo_buffer_get_device_array (data_buf, cmd_queue);
