@@ -175,6 +175,7 @@ void fan2par_interp (
             W_ziel1 = V1 + temp_1 * (V2 - V1);
         }
 
+
         if (ray2[index]) {
             // Interpolationspunkte nehmen fur Fall 2
             idx = theta_before_ray2[index] * n_fan_dets + gamma_before_ray2[index];
@@ -228,7 +229,8 @@ void fan2par_interp (
         index = par_det_ind + par_proj_ind * n_par_dets;
         sin_par_data[index] += W_ziel_end * 0.5;
     } else {
-        index = par_proj_ind * n_par_dets - (n_par_proj * n_par_proj) / 2 + mirror_offset;
+        index = par_proj_ind * n_par_dets - (n_par_dets * n_par_proj) / 2 + mirror_offset;
+        //index = par_det_ind + par_proj_ind * n_par_dets;
         sin_par_data[index] += W_ziel_end * 0.5;
     }
 }
