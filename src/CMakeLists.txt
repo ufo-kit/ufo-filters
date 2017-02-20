@@ -59,7 +59,6 @@ set(ufofilter_SRCS
     ufo-ring-pattern-task.c
     ufo-ringwriter-task.c
     ufo-replicate-task.c
-    ufo-segment-task.c
     ufo-sleep-task.c
     ufo-slice-task.c
     ufo-stack-task.c
@@ -132,6 +131,12 @@ pkg_check_modules(PANGOCAIRO pangocairo)
 
 if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+endif ()
+
+if (${OpenCL_VERSION_MAJOR} GREATER 1 OR
+    (${OpenCL_VERSION_MAJOR} EQUAL 1 AND ${OpenCL_VERSION_MINOR} GREATER 1))
+    # We need OpenCL > 1.1 for clEnqueueFillBuffer.
+    list(APPEND ufofilter_SRCS ufo-segment-task.c)
 endif ()
 
 if (TIFF_FOUND)
