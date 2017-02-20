@@ -654,15 +654,15 @@ compute_angles (// theta
         //Vektor Gamma nach Wert durchsuchen für Fall 1
         for (x = 0; x < n_fan_dets; x++) {
             if (theta_goal_ray2[index] <= gamma[x]) {
-                gamma_before_ray1[index] = (x == 0) ? n_fan_dets - 1 : x - 1;
+                gamma_before_ray2[index] = (x == 0) ? n_fan_dets - 1 : x - 1;
                 gamma_after_ray2[index] = x;
                 break;
             }
         }
 
-        if (gamma_goal_ray1[index] > gamma[n_fan_dets - 1]) {
-            gamma_before_ray1[index] = n_fan_dets - 1;
-            gamma_after_ray1[index] = 0;
+        if (gamma_goal_ray2[index] > gamma[n_fan_dets - 1]) {
+            gamma_before_ray2[index] = n_fan_dets - 1;
+            gamma_after_ray2[index] = 0;
         }
     }
 }

@@ -147,8 +147,9 @@ ufo_rofex_fan2para_task_process (UfoTask *task,
 
     // Get plane ID for the sinogram
     GValue *gv_plane_index;
+    guint plane_index = 0;
     gv_plane_index = ufo_buffer_get_metadata (inputs[0], "plane-index");
-    guint plane_index = g_value_get_uint (gv_plane_index);
+    plane_index = g_value_get_uint (gv_plane_index);
 
     // Other params
     UfoRequisition fan_sino_req;
@@ -160,26 +161,51 @@ ufo_rofex_fan2para_task_process (UfoTask *task,
     guint n_par_dets = requisition->dims[0];
     guint n_par_proj = requisition->dims[1];
 
+    // Run the kernels
+    UfoProfiler *profiler;
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+
     UFO_RESOURCES_CHECK_CLERR (\
-      clSetKernelArg (priv->interp_kernel, 0, sizeof (cl_mem), &d_fan_sino));
+        clSetKernelArg (priv->set_kernel, 0, sizeof (cl_mem), &d_output));
     UFO_RESOURCES_CHECK_CLERR (\
-      clSetKernelArg (priv->interp_kernel, 1, sizeof (cl_mem), &d_output));
+        clSetKernelArg (priv->set_kernel, 1, sizeof (guint), &n_par_dets));
     UFO_RESOURCES_CHECK_CLERR (\
-      clSetKernelArg (priv->interp_kernel, 2, sizeof (cl_mem), &d_params));
+        clSetKernelArg (priv->set_kernel, 2, sizeof (guint), &n_par_proj));
+
+    ufo_profiler_call (profiler,
+                       cmd_queue,
+                       priv->set_kernel,
+                       requisition->n_dims,
+                       requisition->dims,
+                       NULL);
+
     UFO_RESOURCES_CHECK_CLERR (\
-      clSetKernelArg (priv->interp_kernel, 3, sizeof (guint), &param_offset));
+        clSetKernelArg (priv->interp_kernel, 0, sizeof (cl_mem), &d_fan_sino));
     UFO_RESOURCES_CHECK_CLERR (\
-      clSetKernelArg (priv->interp_kernel, 4, sizeof (guint), &plane_index));
+        clSetKernelArg (priv->interp_kernel, 1, sizeof (cl_mem), &d_output));
     UFO_RESOURCES_CHECK_CLERR (\
-      clSetKernelArg (priv->interp_kernel, 5, sizeof (guint), &n_fan_dets));
+        clSetKernelArg (priv->interp_kernel, 2, sizeof (cl_mem), &d_params));
     UFO_RESOURCES_CHECK_CLERR (\
-      clSetKernelArg (priv->interp_kernel, 6, sizeof (guint), &n_fan_proj));
+        clSetKernelArg (priv->interp_kernel, 3, sizeof (guint), &param_offset));
     UFO_RESOURCES_CHECK_CLERR (\
-      clSetKernelArg (priv->interp_kernel, 7, sizeof (guint), &n_par_dets));
+        clSetKernelArg (priv->interp_kernel, 4, sizeof (guint), &plane_index));
     UFO_RESOURCES_CHECK_CLERR (\
-      clSetKernelArg (priv->interp_kernel, 8, sizeof (guint), &n_par_proj));
+        clSetKernelArg (priv->interp_kernel, 5, sizeof (guint), &n_fan_dets));
     UFO_RESOURCES_CHECK_CLERR (\
-      clSetKernelArg (priv->interp_kernel, 9, sizeof (gfloat), &detector_r));
+        clSetKernelArg (priv->interp_kernel, 6, sizeof (guint), &n_fan_proj));
+    UFO_RESOURCES_CHECK_CLERR (\
+        clSetKernelArg (priv->interp_kernel, 7, sizeof (guint), &n_par_dets));
+    UFO_RESOURCES_CHECK_CLERR (\
+        clSetKernelArg (priv->interp_kernel, 8, sizeof (guint), &n_par_proj));
+    UFO_RESOURCES_CHECK_CLERR (\
+        clSetKernelArg (priv->interp_kernel, 9, sizeof (gfloat), &detector_r));
+
+    ufo_profiler_call (profiler,
+                       cmd_queue,
+                       priv->interp_kernel,
+                       requisition->n_dims,
+                       requisition->dims,
+                       NULL);
 
     return TRUE;
 }
@@ -192,7 +218,6 @@ ufo_rofex_fan2para_task_set_property (GObject *object,
                               GParamSpec *pspec)
 {
     UfoRofexFan2paraTaskPrivate *priv = UFO_ROFEX_FAN2PARA_TASK_GET_PRIVATE (object);
-
     switch (property_id) {
         case PROP_N_PLANES:
             priv->n_planes = g_value_get_uint(value);
