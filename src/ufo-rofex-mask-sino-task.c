@@ -91,7 +91,11 @@ make_mask(gfloat *mask,
   gfloat lower_limit = (lower_limit_offset + source_offset)/OFFSET_DENOMINATOR;
   gfloat upper_limit = (upper_limit_offset + source_offset)/OFFSET_DENOMINATOR;
 
-  memset(mask, 1.0, mask_size);
+  for (guint proj = 0; proj < n_proj; proj++) {
+      for (guint det = 0; det < n_dets; det++) {
+          mask[det + proj * n_dets] = 1.0;
+      }
+  }
 
   ya = round(lower_limit * n_proj);
   yb = ya;
