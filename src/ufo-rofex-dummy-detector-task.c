@@ -33,10 +33,12 @@ struct _UfoRofexDummyDetectorTaskPrivate {
     guint n_projections;
     guint n_planes;
     guint n_frames;
+    guint portion_size;
     gboolean random_values;
+    gfloat fill_value;
 
+    guint orig_portion_size;
     guint current_module;
-    guint current_plane;
     guint current_frame;
 };
 
@@ -55,7 +57,9 @@ enum {
   PROP_N_PROJECTIONS,
   PROP_N_PLANES,
   PROP_N_FRAMES,
+  PROP_PORTION_SIZE,
   PROP_RANDOM_VALUES,
+  PROP_FILL_VALUE,
   N_PROPERTIES
 };
 
@@ -75,9 +79,9 @@ ufo_rofex_dummy_detector_task_setup (UfoTask *task,
     UfoRofexDummyDetectorTaskPrivate *priv;
     priv = UFO_ROFEX_DUMMY_DETECTOR_TASK_GET_PRIVATE (task);
 
-    priv->current_module = 1;
-    priv->current_plane = 1;
-    priv->current_frame = 1;
+    priv->orig_portion_size = priv->portion_size;
+    priv->current_module = 0;
+    priv->current_frame = 0;
 }
 
 static void
@@ -89,8 +93,8 @@ ufo_rofex_dummy_detector_task_get_requisition (UfoTask *task,
   priv = UFO_ROFEX_DUMMY_DETECTOR_TASK_GET_PRIVATE (task);
 
   requisition->n_dims = 2;
-  requisition->dims[0] = priv->n_det_per_module;
-  requisition->dims[1] = priv->n_projections;
+  requisition->dims[0] = priv->n_det_per_module * priv->n_projections;
+  requisition->dims[1] = priv->n_planes * priv->portion_size;
 }
 
 static guint
@@ -121,37 +125,51 @@ ufo_rofex_dummy_detector_task_generate (UfoTask *task,
     UfoRofexDummyDetectorTaskPrivate *priv;
     priv = UFO_ROFEX_DUMMY_DETECTOR_TASK_GET_PRIVATE (task);
 
-    if ( priv->current_frame > priv->n_frames ) {
-        // all frames were processed.
-        // done.
+    if (priv->current_frame >= priv->n_frames) {
+        priv->portion_size = priv->orig_portion_size;
         return FALSE;
     }
 
     gfloat *data;
     data = ufo_buffer_get_host_array(output, NULL);
 
-    for (guint proj_ind = 0; proj_ind < priv->n_projections; proj_ind++) {
-        for (guint det_ind = 0; det_ind < priv->n_det_per_module; det_ind++)
-        {
-            guint index = det_ind + proj_ind * priv->n_det_per_module;
-            data[index] = priv->random_values ? (gfloat)(rand() % 100)/100.0  : priv->current_module;
+    guint frame, plane, proj, det;
+    guint plane_size = priv->n_projections * priv->n_det_per_module;
+    guint frame_size = priv->n_planes * plane_size;
+
+    for (frame = 0; frame < priv->portion_size; frame++) {
+        for (plane = 0; plane < priv->n_planes; plane++) {
+            for (proj = 0; proj < priv->n_projections; proj++) {
+                for (det = 0; det < priv->n_det_per_module; det++) {
+                    guint index = det + proj * priv->n_det_per_module
+                                + plane * plane_size
+                                + frame * frame_size;
+
+
+                    data[index] = priv->random_values
+                                    ? (gfloat)(rand() % 100)/100.0
+                                    : priv->fill_value;
+                }
+            }
         }
     }
 
     priv->current_module++;
+    if (!(priv->current_module % priv->n_modules )) {
+        // increase only when all modules generated their portions
+        priv->current_frame += priv->portion_size;
 
-    if ( priv->current_module > priv->n_modules ) {
-      // all modules for the current plane generated a data chunk,
-      // now do next plane
-      priv->current_module = 1;
-      priv->current_plane++;
+        //g_warning("GENERATED %d of %d  used step: %d",
+        //          priv->current_frame, priv->n_frames, priv->portion_size);
+
+        guint frames_gap = priv->n_frames - priv->current_frame;
+        if (frames_gap > 0 && frames_gap < priv->portion_size) {
+            priv->portion_size = frames_gap;
+        }
     }
 
-    if ( priv->current_plane > priv->n_planes ) {
-      // all planes for current frame were processed
-      // now do next frame
-      priv->current_plane = 1;
-      priv->current_frame++;
+    if ( priv->current_module >= priv->n_modules ) {
+        priv->current_module = 0;
     }
 
     return TRUE;
@@ -182,8 +200,14 @@ ufo_rofex_dummy_detector_task_set_property (GObject *object,
         case PROP_N_FRAMES:
             priv->n_frames = g_value_get_uint(value);
             break;
+        case PROP_PORTION_SIZE:
+            priv->portion_size = g_value_get_uint(value);
+            break;
         case PROP_RANDOM_VALUES:
             priv->random_values = g_value_get_boolean(value);
+            break;
+        case PROP_FILL_VALUE:
+            priv->fill_value = g_value_get_float(value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -215,8 +239,14 @@ ufo_rofex_dummy_detector_task_get_property (GObject *object,
         case PROP_N_FRAMES:
             g_value_set_uint (value, priv->n_frames);
             break;
+        case PROP_PORTION_SIZE:
+            g_value_set_uint (value, priv->portion_size);
+            break;
         case PROP_RANDOM_VALUES:
             g_value_set_boolean (value, priv->n_frames);
+            break;
+        case PROP_FILL_VALUE:
+            g_value_set_float (value, priv->fill_value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -285,11 +315,25 @@ ufo_rofex_dummy_detector_task_class_init (UfoRofexDummyDetectorTaskClass *klass)
                                    1, G_MAXUINT, 1,
                                    G_PARAM_READWRITE);
 
+    properties[PROP_PORTION_SIZE] =
+                g_param_spec_uint ("portion-size",
+                                   "The number of frames per generation",
+                                   "The number of frames per generation",
+                                   1, G_MAXUINT, 1,
+                                   G_PARAM_READWRITE);
+
     properties[PROP_RANDOM_VALUES] =
                 g_param_spec_boolean ("random-values",
                                    "Generate random values.",
                                    "Generate random values instead of index of the detector module.",
                                    FALSE,
+                                   G_PARAM_READWRITE);
+
+    properties[PROP_FILL_VALUE] =
+                g_param_spec_float ("fill-value",
+                                   "The value to be used if not random filling.",
+                                   "The value to be used if not random filling.",
+                                   0.0, G_MAXFLOAT, 1.0,
                                    G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -307,5 +351,7 @@ ufo_rofex_dummy_detector_task_init(UfoRofexDummyDetectorTask *self)
     self->priv->n_projections = 1;
     self->priv->n_planes = 1;
     self->priv->n_frames = 1;
+    self->priv->portion_size = 1;
     self->priv->random_values = FALSE;
+    self->priv->fill_value = 1.0;
 }
