@@ -85,7 +85,8 @@ set(ufofilter_SRCS
     ufo-rofex-fan2para-task.c
     ufo-rofex-fan2para-params-task.c
     ufo-rofex-dummy-detector-task.c
-    ufo-rofex-dummy-ram-task.c
+    ufo-rofex-frame-buffer-task.c
+    ufo-rofex-reorder-task.c
     )
 
 set(ufoaux_SRCS
