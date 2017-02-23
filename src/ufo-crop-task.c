@@ -32,7 +32,8 @@ struct _UfoCropTaskPrivate {
     guint height;
     gboolean from_center;
 
-    cl_command_queue cmd_queue;
+    gsize xs;
+    gsize ys;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -63,16 +64,9 @@ ufo_crop_task_new (void)
 
 static void
 ufo_crop_task_setup (UfoTask *task,
-                       UfoResources *resources,
-                       GError **error)
+                     UfoResources *resources,
+                     GError **error)
 {
-    UfoCropTaskPrivate *priv;
-    UfoGpuNode *node;
-
-    priv = UFO_CROP_TASK_GET_PRIVATE (task);
-    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
-
-    priv->cmd_queue = ufo_gpu_node_get_cmd_queue (node);
 }
 
 static void
@@ -82,13 +76,34 @@ ufo_crop_task_get_requisition (UfoTask *task,
 {
     UfoCropTaskPrivate *priv;
     UfoRequisition in_req;
+    guint x1, x2, y1, y2;
+    guint in_width, in_height;
 
     priv = UFO_CROP_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &in_req);
+    in_width = in_req.dims[0];
+    in_height = in_req.dims[1];
 
     requisition->n_dims = 2;
-    requisition->dims[0] = MIN (priv->width, in_req.dims[0] - priv->x);
-    requisition->dims[1] = MIN (priv->height, in_req.dims[1] - priv->y);
+
+    if (priv->from_center) {
+        x1 = priv->width == G_MAXUINT ? 0 : in_width / 2 - priv->width / 2;
+        x2 = priv->width == G_MAXUINT ? in_width - 1 : x1 + priv->width;
+
+        y1 = priv->height == G_MAXUINT ? 0 : in_height / 2 - priv->height / 2;
+        y2 = priv->height == G_MAXUINT ? in_height - 1 : y1 + priv->height;
+    }
+    else {
+        x1 = priv->x;
+        x2 = priv->width == G_MAXUINT ? in_width - 1: MIN (in_width - 1, x1 + priv->width);
+        y1 = priv->y;
+        y2 = priv->height == G_MAXUINT ? in_height - 1: MIN (in_height - 1, y1 + priv->height);
+    }
+
+    requisition->dims[0] = x2 - x1;
+    requisition->dims[1] = y2 - y1;
+    priv->xs = x1;
+    priv->ys = y1;
 }
 
 static guint
@@ -118,45 +133,35 @@ ufo_crop_task_process (UfoTask *task,
                        UfoRequisition *requisition)
 {
     UfoCropTaskPrivate *priv;
+    UfoGpuNode *node;
     UfoRequisition req;
-    guint x1, y1, x2, y2;
-    guint rd_width, rd_height;
-    guint in_width, in_height;
+    cl_command_queue cmd_queue;
     cl_mem in_data;
     cl_mem out_data;
 
     priv = UFO_CROP_TASK_GET_PRIVATE (task);
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+    cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     ufo_buffer_get_requisition (inputs[0], &req);
 
-    in_width = (guint) req.dims[0];
-    in_height = (guint) req.dims[1];
-
-    x1 = priv->from_center ? in_width / 2 - priv->width / 2 : priv->x;
-    y1 = priv->from_center ? in_height / 2 - priv->height / 2 : priv->y;
-    x2 = x1 + priv->width;
-    y2 = y1 + priv->height;
-
     /* Don't do anything if we are completely out of bounds */
-    if (x1 > in_width || y1 > in_height) {
-        g_warning ("%i > %i or %i > %i", x1, in_width, y1, in_height);
+    if (priv->xs > req.dims[0] || priv->ys > req.dims[1]) {
+        g_warning ("%zu > %zu or %zu > %zu", priv->xs, req.dims[0], priv->ys, req.dims[1]);
         return FALSE;
     }
 
-    rd_width = x2 > in_width ? in_width - x1 : priv->width;
-    rd_height = y2 > in_height ? in_height - y1 : priv->height;
+    in_data = ufo_buffer_get_device_array (inputs[0], cmd_queue);
+    out_data = ufo_buffer_get_device_array (output, cmd_queue);
 
-    in_data = ufo_buffer_get_device_array (inputs[0], priv->cmd_queue);
-    out_data = ufo_buffer_get_device_array (output, priv->cmd_queue);
-
-    const size_t src_origin[3] = {x1 * sizeof(float), y1, 0};
+    const size_t src_origin[3] = {priv->xs * sizeof(float), priv->ys, 0};
     const size_t dst_origin[3] = {0, 0, 0};
-    const size_t region[3] = {rd_width * sizeof(float), rd_height, 1}; 
-    
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueCopyBufferRect (priv->cmd_queue,
+    const size_t region[3] = { requisition->dims[0] * sizeof(float), requisition->dims[1], 1};
+
+    UFO_RESOURCES_CHECK_CLERR (clEnqueueCopyBufferRect (cmd_queue,
                                                         in_data, out_data,
                                                         src_origin, dst_origin, region,
-                                                        in_width * sizeof(float), 0,
-                                                        rd_width * sizeof(float), 0,
+                                                        req.dims[0] * sizeof(float), 0,
+                                                        region[0], 0,
                                                         0, NULL, NULL));
 
     return TRUE;
@@ -248,28 +253,28 @@ ufo_crop_task_class_init (UfoCropTaskClass *klass)
     gobject_class->get_property = ufo_crop_task_get_property;
     gobject_class->finalize = ufo_crop_task_finalize;
 
-    properties[PROP_X] = 
+    properties[PROP_X] =
         g_param_spec_uint("x",
             "Horizontal coordinate",
             "Horizontal coordinate from where to read input",
             0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
-    properties[PROP_Y] = 
+    properties[PROP_Y] =
         g_param_spec_uint("y",
             "Vertical coordinate",
             "Vertical coordinate from where to read input",
             0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
-    properties[PROP_WIDTH] = 
+    properties[PROP_WIDTH] =
         g_param_spec_uint("width",
             "Width",
             "Width of the region of interest",
             1, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
-    properties[PROP_HEIGHT] = 
+    properties[PROP_HEIGHT] =
         g_param_spec_uint("height",
             "Height",
             "Height of the region of interest",
