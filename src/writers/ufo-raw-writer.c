@@ -56,7 +56,7 @@ ufo_raw_writer_open (UfoWriter *writer,
     UfoRawWriterPrivate *priv;
     
     priv = UFO_RAW_WRITER_GET_PRIVATE (writer);
-    priv->fp = fopen (filename, "wb");
+    priv->fp = filename == NULL ? stdout : fopen (filename, "wb");
 }
 
 static void

@@ -146,6 +146,13 @@ ufo_write_task_setup (UfoTask *task,
     guint num_fmt_specifiers;
 
     priv = UFO_WRITE_TASK_GET_PRIVATE (task);
+
+    /* If no filename has been specified we write to stdout */
+    if (priv->filename == NULL) {
+        priv->writer = UFO_WRITER (priv->raw_writer);
+        return;
+    }
+
     num_fmt_specifiers = count_format_specifiers (priv->filename);
     dirname = g_path_get_dirname (priv->filename);
 
@@ -474,7 +481,7 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
         g_param_spec_string ("filename",
             "Filename filename string",
             "filename string of the path and filename. If multiple files are written it must contain a '%i' specifier denoting the current count",
-            "./output-%05i.tif",
+            "",
             G_PARAM_READWRITE);
 
     properties[PROP_APPEND] =
@@ -530,13 +537,11 @@ ufo_write_task_init(UfoWriteTask *self)
     self->priv->maximum = -G_MAXFLOAT;
     self->priv->writer = NULL;
     self->priv->opened = FALSE;
+    self->priv->filename = NULL;
     self->priv->raw_writer = ufo_raw_writer_new ();
 
 #ifdef HAVE_TIFF
     self->priv->tiff_writer = ufo_tiff_writer_new ();
-    self->priv->filename = g_strdup ("./output-%05i.tif");
-#else
-    self->priv->filename = g_strdup ("./output-%05i.raw");
 #endif
 
 #ifdef HAVE_JPEG

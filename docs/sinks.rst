@@ -22,7 +22,8 @@ File writer
         that denotes the current index of a series. For example,
         ``"data-%03i.tif"`` produces ``data-001.tif``, ``data-002.tif`` and so
         on. If no specifier is given, the data is written preferably to a single
-        file (i.e. multi-tiff, HDF5 data set).
+        file (i.e. multi-tiff, HDF5 data set). If no filename is given the data
+        is written as-is to stdout.
 
     .. gobj:prop:: append:boolean
 
@@ -93,19 +94,6 @@ Memory writer
 
         Size of the pre-allocated memory area in bytes. Data is written up to
         that point only.
-
-
-stdout writer
-=============
-
-.. gobj:class:: stdout
-
-    Writes input to stdout. To chop up the data stream you can use the UNIX tool split.
-
-    .. gobj:prop:: bits:uint
-
-        Number of bits for final conversion.  Possible values are 8 and 16 which
-        are saved as integer types and 32 bit float.
 
 
 Auxiliary sink
