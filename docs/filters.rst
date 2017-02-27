@@ -89,7 +89,15 @@ Generic OpenCL
     Load an arbitrary :gobj:prop:`kernel` from :gobj:prop:`filename` or
     :gobj:prop:`source` and execute it on each input. The kernel must accept as
     many global float array parameters as connected to the filter and one
-    additional as an output.
+    additional as an output. For example, to compute the difference between two
+    images, the kernel would look like::
+
+        kernel void difference (global float *a, global float *b, global float *c)
+        {
+            size_t idx = get_global_id (1) * get_global_size (0) + get_global_id (0);
+            c[idx] = a[idx] - b[idx];
+        }
+
 
     .. gobj:prop:: filename:string
 
