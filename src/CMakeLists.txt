@@ -11,6 +11,7 @@ set(ufofilter_SRCS
     ufo-calculate-task.c
     ufo-clip-task.c
     ufo-crop-task.c
+    ufo-cut-task.c
     ufo-cut-sinogram-task.c
     ufo-center-of-rotation-task.c
     ufo-concatenate-result-task.c

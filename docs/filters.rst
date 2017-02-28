@@ -245,6 +245,20 @@ Cropping
         Start cropping from the center outwards.
 
 
+Cutting
+-------
+
+.. gobj:class:: cut
+
+    Cuts a region from the input and merges the two halves together. In a way,
+    it is the opposite of crop.
+
+    .. gobj:prop:: width:uint
+
+        Width of the region to cut out.
+
+
+
 Polar transformation
 --------------------
 
