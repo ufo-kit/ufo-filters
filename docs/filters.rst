@@ -312,6 +312,21 @@ Subtract
     Subtract data items of the second from the first stream.
 
 
+Correlate
+---------
+
+.. gobj:class:: correlate-stacks
+
+    Reads two datastreams, the first must provide a 3D stack of images that is
+    used to correlate individal 2D images from the second datastream. The
+    ``number`` property must contain the expected number of items in the second
+    stream.
+
+    .. gobj:prop:: number:uint
+
+        Number of data items in the second data stream.
+
+
 Filters
 =======
 

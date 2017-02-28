@@ -16,6 +16,7 @@ set(ufofilter_SRCS
     ufo-center-of-rotation-task.c
     ufo-concatenate-result-task.c
     ufo-contrast-task.c
+    ufo-correlate-stacks-task.c
     ufo-dfi-sinc-task.c
     ufo-denoise-task.c
     ufo-detect-edge-task.c
