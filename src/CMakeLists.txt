@@ -134,7 +134,7 @@ if (OPENMP_FOUND)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 endif ()
 
-if (${OpenCL_VERSION_MAJOR})
+if (OpenCL_VERSION_MAJOR)
     if (${OpenCL_VERSION_MAJOR} GREATER 1 OR
         (${OpenCL_VERSION_MAJOR} EQUAL 1 AND ${OpenCL_VERSION_MINOR} GREATER 1))
         # We need OpenCL > 1.1 for clEnqueueFillBuffer.
