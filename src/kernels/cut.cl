@@ -25,10 +25,10 @@ cut (global float *input, global float *output, unsigned orig_width)
     const size_t width = get_global_size (0);
     const size_t idx = y * width + x;
 
-    if (x < width / 2) {
+    if (x < width / 2 + 1) {
         output[idx] = input[y * orig_width + x];
     }
     else {
-        output[idx] = input[y * orig_width + orig_width / 2 + x];
+        output[idx] = input[y * orig_width + orig_width + x - width];
     }
 }
