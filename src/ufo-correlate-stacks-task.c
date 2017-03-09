@@ -150,7 +150,6 @@ ufo_correlate_stacks_task_process (UfoTask *task,
     UfoProfiler *profiler;
     UfoGpuNode *node;
     UfoRequisition refs_req;
-    UfoRequisition in_req;
     cl_command_queue queue;
     cl_mem in_mem;
     cl_mem ref_mem;
