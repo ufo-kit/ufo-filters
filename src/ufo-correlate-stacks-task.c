@@ -27,16 +27,20 @@
 #include "ufo-correlate-stacks-task.h"
 
 
+#define USE_GPU  0
+
+
 struct _UfoCorrelateStacksTaskPrivate {
     guint number;
     gsize num_references;
-    gfloat **references;
+    guint current;
+    gboolean generated;
+#if USE_GPU
     cl_context context;
     cl_mem result;
     cl_kernel diff_kernel;
     cl_kernel sum_kernel;
-    guint current;
-    gboolean generated;
+#endif
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -76,6 +80,7 @@ ufo_correlate_stacks_task_setup (UfoTask *task,
         return;
     }
 
+#if USE_GPU
     priv->diff_kernel = ufo_resources_get_kernel (resources, "correlate.cl", "diff", error);
     priv->sum_kernel = ufo_resources_get_kernel (resources, "correlate.cl", "sum", error);
 
@@ -87,6 +92,7 @@ ufo_correlate_stacks_task_setup (UfoTask *task,
 
     priv->context = ufo_resources_get_context (resources);
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+#endif
 
     priv->current = 0;
     priv->generated = FALSE;
@@ -98,18 +104,20 @@ ufo_correlate_stacks_task_get_requisition (UfoTask *task,
                                            UfoRequisition *requisition)
 {
     UfoCorrelateStacksTaskPrivate *priv;
+    UfoRequisition ref_req;
 
     priv = UFO_CORRELATE_STACKS_TASK_GET_PRIVATE (task);
+    ufo_buffer_get_requisition (inputs[0], &ref_req);
+    priv->num_references = ref_req.dims[2];
 
+#if USE_GPU
     if (priv->result == NULL) {
-        UfoRequisition ref_req;
         cl_int error;
 
-        ufo_buffer_get_requisition (inputs[0], &ref_req);
-        priv->num_references = ref_req.dims[2];
         priv->result = clCreateBuffer (priv->context, CL_MEM_READ_WRITE, ufo_buffer_get_size (inputs[0]), NULL, &error);
         UFO_RESOURCES_CHECK_CLERR (error);
     }
+#endif
 
     /* Output is a correlation matrix with rows being input and columns
      * references. */
@@ -147,16 +155,20 @@ ufo_correlate_stacks_task_process (UfoTask *task,
                                    UfoRequisition *requisition)
 {
     UfoCorrelateStacksTaskPrivate *priv;
+    UfoRequisition refs_req;
+#if USE_GPU
     UfoProfiler *profiler;
     UfoGpuNode *node;
-    UfoRequisition refs_req;
     cl_command_queue queue;
     cl_mem in_mem;
     cl_mem ref_mem;
     cl_mem matrix_mem;
+    gsize work_size[2];
     guint width;
     guint height;
-    gsize work_size[2];
+#else
+    UfoRequisition in_req;
+#endif
 
     priv = UFO_CORRELATE_STACKS_TASK_GET_PRIVATE (task);
 
@@ -166,6 +178,8 @@ ufo_correlate_stacks_task_process (UfoTask *task,
     }
 
     ufo_buffer_get_requisition (inputs[0], &refs_req);
+
+#if USE_GPU
     width = refs_req.dims[0];
     height = refs_req.dims[1];
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
@@ -194,12 +208,13 @@ ufo_correlate_stacks_task_process (UfoTask *task,
 
     work_size[0] = requisition->dims[0];
     ufo_profiler_call (profiler, queue, priv->sum_kernel, 1, work_size, NULL);
-
-#if 0
+#else
     gfloat *refs;
     gfloat *in_mem;
+    gfloat *out_mem;
     refs = ufo_buffer_get_host_array (inputs[0], NULL);
     in_mem = ufo_buffer_get_host_array (inputs[1], NULL);
+    out_mem = ufo_buffer_get_host_array (output, NULL);
 
     ufo_buffer_get_requisition (inputs[1], &in_req);
 
@@ -213,7 +228,7 @@ ufo_correlate_stacks_task_process (UfoTask *task,
             sum += (ref[j] - in_mem[j]) * (ref[j] - in_mem[j]);
         }
 
-        priv->correlation[i * priv->number + priv->current] = sum;
+        out_mem[i * priv->number + priv->current] = sum;
     }
 #endif
 
@@ -277,6 +292,7 @@ ufo_correlate_stacks_task_get_property (GObject *object,
 static void
 ufo_correlate_stacks_task_finalize (GObject *object)
 {
+#if USE_GPU
     UfoCorrelateStacksTaskPrivate *priv;
 
     priv = UFO_CORRELATE_STACKS_TASK_GET_PRIVATE (object);
@@ -300,6 +316,7 @@ ufo_correlate_stacks_task_finalize (GObject *object)
         UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
         priv->context = NULL;
     }
+#endif
 
     G_OBJECT_CLASS (ufo_correlate_stacks_task_parent_class)->finalize (object);
 }
@@ -344,8 +361,11 @@ ufo_correlate_stacks_task_init(UfoCorrelateStacksTask *self)
     self->priv = UFO_CORRELATE_STACKS_TASK_GET_PRIVATE(self);
     self->priv->number = 0;
     self->priv->num_references = 0;
+
+#if USE_GPU
     self->priv->result = NULL;
     self->priv->diff_kernel = NULL;
     self->priv->sum_kernel = NULL;
     self->priv->context = NULL;
+#endif
 }
