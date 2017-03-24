@@ -36,6 +36,10 @@
 #include "writers/ufo-jpeg-writer.h"
 #endif
 
+#ifdef HAVE_JPEG2000
+#include "writers/ufo-jp2-writer.h"
+#endif
+
 #ifdef WITH_HDF5
 #include "writers/ufo-hdf5-writer.h"
 #endif
@@ -64,6 +68,10 @@ struct _UfoWriteTaskPrivate {
 #ifdef HAVE_JPEG
     UfoJpegWriter *jpeg_writer;
     gint           quality;
+#endif
+
+#ifdef HAVE_JPEG2000
+    UfoJp2Writer  *jp2_writer;
 #endif
 
 #ifdef WITH_HDF5
@@ -199,6 +207,11 @@ ufo_write_task_setup (UfoTask *task,
 #ifdef HAVE_JPEG
     else if (ufo_writer_can_open (UFO_WRITER (priv->jpeg_writer), priv->filename)) {
         priv->writer = UFO_WRITER (priv->jpeg_writer);
+    }
+#endif
+#ifdef HAVE_JPEG2000
+    else if (ufo_writer_can_open (UFO_WRITER (priv->jp2_writer), priv->filename)) {
+        priv->writer = UFO_WRITER (priv->jp2_writer);
     }
 #endif
     else {
@@ -435,6 +448,11 @@ ufo_write_task_dispose (GObject *object)
         g_object_unref (priv->jpeg_writer);
 #endif
 
+#ifdef HAVE_JPEG2000
+    if (priv->jp2_writer)
+        g_object_unref (priv->jp2_writer);
+#endif
+
 #ifdef WITH_HDF5
     if (priv->hdf5_writer != NULL)
         g_object_unref (priv->hdf5_writer);
@@ -547,6 +565,10 @@ ufo_write_task_init(UfoWriteTask *self)
 #ifdef HAVE_JPEG
     self->priv->jpeg_writer = ufo_jpeg_writer_new ();
     self->priv->quality = 95;
+#endif
+
+#ifdef HAVE_JPEG2000
+    self->priv->jp2_writer = ufo_jp2_writer_new ();
 #endif
 
 #ifdef WITH_HDF5

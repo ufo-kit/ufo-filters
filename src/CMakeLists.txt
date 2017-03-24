@@ -128,6 +128,7 @@ pkg_check_modules(GSL gsl)
 pkg_check_modules(CLFFT clFFT)
 pkg_check_modules(CLBLAST clblast)
 pkg_check_modules(PANGOCAIRO pangocairo)
+# pkg_check_modules(OPENJPEG libopenjpeg1)
 
 
 if (OPENMP_FOUND)
@@ -166,6 +167,14 @@ if (JPEG_FOUND)
     include_directories(${JPEG_INCLUDE_DIRS})
     link_directories(${JPEG_LIBRARY_DIRS})
     set(HAVE_JPEG True)
+endif ()
+
+if (OPENJPEG_FOUND)
+    list(APPEND write_aux_SRCS writers/ufo-jp2-writer.c)
+    list(APPEND write_aux_LIBS ${OPENJPEG_LIBRARIES})
+    include_directories(${OPENJPEG_INCLUDE_DIRS})
+    link_directories(${OPENJPEG_LIBRARY_DIRS})
+    set(HAVE_JPEG2000 True)
 endif ()
 
 if (HDF5_FOUND)
