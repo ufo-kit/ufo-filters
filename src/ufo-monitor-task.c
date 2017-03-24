@@ -98,6 +98,44 @@ join_list (GList *list, const gchar *sep)
     return result;
 }
 
+static GList *
+get_values (UfoBuffer *buffer,
+            GList *keys)
+{
+    GList *result;
+    GList *it;
+
+    result = NULL;
+
+    g_list_for (keys, it) {
+        GValue *value;
+        GValue target = {0,};
+
+        value = ufo_buffer_get_metadata (buffer, (gchar *) it->data);
+        g_value_init (&target, G_TYPE_STRING);
+        g_value_transform (value, &target);
+        result = g_list_append (result, g_value_dup_string (&target));
+        g_value_unset (&target);
+    }
+
+    return result;
+}
+
+static GList *
+zip (GList *a, GList *b)
+{
+    GList *result;
+    guint n;
+
+    result = NULL;
+    n = MIN (g_list_length (a), g_list_length (b));
+
+    for (guint i = 0; i < n; i++)
+        result = g_list_append (result, g_strdup_printf ("%s=%s", (gchar *) g_list_nth_data (a, i), (gchar *) g_list_nth_data (b, i)));
+
+    return result;
+}
+
 static gboolean
 ufo_monitor_task_process (UfoTask *task,
                           UfoBuffer **inputs,
@@ -107,8 +145,10 @@ ufo_monitor_task_process (UfoTask *task,
     UfoMonitorTaskPrivate *priv;
     UfoBufferLocation location;
     GList *keys;
+    GList *values;
+    GList *zipped;
     GList *sizes;
-    gchar *keystring;
+    gchar *kvstring;
     gchar *dimstring;
 
     priv = UFO_MONITOR_TASK_GET_PRIVATE (task);
@@ -119,10 +159,12 @@ ufo_monitor_task_process (UfoTask *task,
     for (guint i = 0; i < requisition->n_dims; i++)
         sizes = g_list_append (sizes, g_strdup_printf ("%zu", requisition->dims[i]));
 
+    values = get_values (inputs[0], keys);
+    zipped = zip (keys, values);
     dimstring = join_list (sizes, " ");
-    keystring = join_list (keys, ", ");
+    kvstring = join_list (zipped, ", ");
 
-    g_print ("monitor: dims=[%s] keys=[%s] location=", dimstring, keystring);
+    g_print ("monitor: dims=[%s] keys=[%s] location=", dimstring, kvstring);
 
     switch (location) {
         case UFO_BUFFER_LOCATION_HOST:
@@ -163,8 +205,10 @@ ufo_monitor_task_process (UfoTask *task,
     ufo_buffer_copy (inputs[0], output);
 
     g_free (dimstring);
-    g_free (keystring);
+    g_free (kvstring);
     g_list_free (keys);
+    g_list_free_full (values, (GDestroyNotify) g_free);
+    g_list_free_full (zipped, (GDestroyNotify) g_free);
     g_list_free_full (sizes, (GDestroyNotify) g_free);
 
     return TRUE;
