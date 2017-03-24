@@ -140,7 +140,7 @@ ufo_dummy_data_task_generate (UfoTask *task,
         GValue value = {0,};
 
         g_value_init (&value, G_TYPE_UINT);
-        g_valuet_set_uint (&value, g_random_int ());
+        g_value_set_uint (&value, g_random_int ());
         ufo_buffer_set_metadata (output, "meta", &value);
     }
 
