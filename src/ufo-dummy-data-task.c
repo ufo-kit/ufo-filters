@@ -34,7 +34,7 @@ struct _UfoDummyDataTaskPrivate {
     guint current;
     gfloat init;
     gboolean use_init;
-    gboolean random_metadata;
+    gboolean metadata;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -52,7 +52,7 @@ enum {
     PROP_DEPTH,
     PROP_NUMBER,
     PROP_INIT,
-    PROP_RANDOM_METADATA,
+    PROP_METADATA,
     N_PROPERTIES
 };
 
@@ -136,11 +136,11 @@ ufo_dummy_data_task_generate (UfoTask *task,
             data[i] = priv->init;
     }
 
-    if (priv->random_metadata) {
+    if (priv->metadata) {
         GValue value = {0,};
 
         g_value_init (&value, G_TYPE_UINT);
-        g_value_set_uint (&value, g_random_int ());
+        g_value_set_uint (&value, priv->current);
         ufo_buffer_set_metadata (output, "meta", &value);
     }
 
@@ -173,8 +173,8 @@ ufo_dummy_data_task_set_property (GObject *object,
             priv->init = g_value_get_float (value);
             priv->use_init = TRUE;
             break;
-        case PROP_RANDOM_METADATA:
-            priv->random_metadata = g_value_get_boolean (value);
+        case PROP_METADATA:
+            priv->metadata = g_value_get_boolean (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -206,8 +206,8 @@ ufo_dummy_data_task_get_property (GObject *object,
         case PROP_INIT:
             g_value_set_float (value, priv->init);
             break;
-        case PROP_RANDOM_METADATA:
-            g_value_set_boolean (value, priv->random_metadata);
+        case PROP_METADATA:
+            g_value_set_boolean (value, priv->metadata);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -276,10 +276,10 @@ ufo_dummy_data_task_class_init (UfoDummyDataTaskClass *klass)
                             -G_MAXFLOAT, G_MAXFLOAT, 0,
                             G_PARAM_READWRITE);
 
-    properties[PROP_RANDOM_METADATA] =
-        g_param_spec_boolean ("random-metadata",
-                              "Generate random values for the `meta` key",
-                              "Generate random values for the `meta` key",
+    properties[PROP_METADATA] =
+        g_param_spec_boolean ("metadata",
+                              "Generate incrementing values for the `meta` key",
+                              "Generate incrementing values for the `meta` key",
                               FALSE,
                               G_PARAM_READWRITE);
 
@@ -300,5 +300,5 @@ ufo_dummy_data_task_init(UfoDummyDataTask *self)
     self->priv->current = 0;
     self->priv->init = 0.0f;
     self->priv->use_init = FALSE;
-    self->priv->random_metadata = FALSE;
+    self->priv->metadata = FALSE;
 }
