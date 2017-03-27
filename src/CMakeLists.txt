@@ -72,6 +72,15 @@ set(ufofilter_SRCS
     ufo-volume-render-task.c
     ufo-write-task.c
     ufo-zeropad-task.c
+
+    # ROFEX
+    ufo-rofex-data-aggregator-task.c
+    ufo-rofex-reorder-task.c
+    ufo-rofex-attenuation-task.c
+    ufo-rofex-process-flats-task.c
+    ufo-rofex-process-darks-task.c
+    ufo-rofex-fan2par-task.c
+    ufo-rofex-group-planes-task.c
     )
 
 set(ufoaux_SRCS
