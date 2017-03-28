@@ -18,8 +18,6 @@
  */
 
 
-#include <string.h>
-#include <math.h>
 #include "ufo-rofex-data-aggregator-task.h"
 
 /*
@@ -87,6 +85,10 @@ ufo_rofex_data_aggregator_task_setup (UfoTask *task,
 {
     UfoRofexDataAggregatorTaskPrivate *priv;
     priv = UFO_ROFEX_DATA_AGGREGATOR_TASK_GET_PRIVATE (task);
+
+    if (priv->portion_size != 1 && priv->portion_size % priv->n_planes) {
+        g_error("The portion size must be a multiple of the number of planes.");
+    }
 
     priv->module = 0;
     priv->portion = 0;

@@ -80,7 +80,8 @@ set(ufofilter_SRCS
     ufo-rofex-process-flats-task.c
     ufo-rofex-process-darks-task.c
     ufo-rofex-fan2par-task.c
-    ufo-rofex-group-planes-task.c
+    ufo-rofex-group-slices-task.c
+    ufo-rofex-slice-task.c
     )
 
 set(ufoaux_SRCS

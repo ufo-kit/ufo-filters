@@ -236,6 +236,7 @@ ufo_rofex_fan2par_task_process (UfoTask *task,
     guint param_offset;
     gfloat detector_r;
     guint plane_index;
+    gboolean single_image;
 
     priv = UFO_ROFEX_FAN2PAR_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
@@ -253,17 +254,11 @@ ufo_rofex_fan2par_task_process (UfoTask *task,
     detector_r = priv->detector_diameter / 2.0;
 
     // --- Plane index
-    // Specify the index only if a single plane passed
-    if (req.n_dims == 2 || req.n_dims == 3 && req.dims[2] == 1) {
+    single_image = req.n_dims == 2 || req.n_dims == 3 && req.dims[2] == 1;
+    if (single_image) {
         GValue *gv_plane_index = NULL;
         gv_plane_index = ufo_buffer_get_metadata(inputs[0], "plane-index");
-
-        if (gv_plane_index) {
-            plane_index = g_value_get_uint (gv_plane_index);
-            g_print("GOT index: %d (rofex-fan2par)\n", plane_index);
-        } else {
-            plane_index = 0;
-        }
+        plane_index = gv_plane_index ? g_value_get_uint (gv_plane_index) : 0;
     } else {
         plane_index = req.dims[2] % priv->n_planes;
     }
@@ -272,7 +267,7 @@ ufo_rofex_fan2par_task_process (UfoTask *task,
     d_input = ufo_buffer_get_device_array(inputs[0], cmd_queue);
     d_output = ufo_buffer_get_device_array(output, cmd_queue);
 
-    // --- Set zeros
+    // --- Set output zero
     kernel = priv->set_kernel;
 
     UFO_RESOURCES_CHECK_CLERR (\
