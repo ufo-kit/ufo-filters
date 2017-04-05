@@ -66,9 +66,13 @@ File reader
 
         Specifies the bit depth of raw files.
 
-    .. gobj:prop:: raw-offset:ulong
+    .. gobj:prop:: raw-pre-offset:ulong
 
-        Sets the offset to the beginning of raw image in bytes.
+        Offset that is skipped before reading the next frame from the current file.
+
+    .. gobj:prop:: raw-post-offset:ulong
+
+        Offset that is skipped after reading the last frame from the current file.
 
     .. gobj:prop:: type:enum
 

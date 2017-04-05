@@ -117,7 +117,8 @@ enum {
     PROP_RAW_WIDTH,
     PROP_RAW_HEIGHT,
     PROP_RAW_BITDEPTH,
-    PROP_RAW_OFFSET,
+    PROP_RAW_PRE_OFFSET,
+    PROP_RAW_POST_OFFSET,
     PROP_TYPE,
     N_PROPERTIES
 };
@@ -375,8 +376,11 @@ ufo_read_task_set_property (GObject *object,
                 g_object_set (priv->raw_reader, prop_name, g_value_get_uint (value), NULL);
             }
             break;
-        case PROP_RAW_OFFSET:
-            g_object_set (priv->raw_reader, "offset", g_value_get_ulong (value), NULL);
+        case PROP_RAW_PRE_OFFSET:
+            g_object_set (priv->raw_reader, "pre-offset", g_value_get_ulong (value), NULL);
+            break;
+        case PROP_RAW_POST_OFFSET:
+            g_object_set (priv->raw_reader, "post-offset", g_value_get_ulong (value), NULL);
             break;
         case PROP_TYPE:
             priv->type = g_value_get_enum (value);
@@ -434,11 +438,19 @@ ufo_read_task_get_property (GObject *object,
                 g_value_set_uint (value, uvalue);
             }
             break;
-        case PROP_RAW_OFFSET:
+        case PROP_RAW_PRE_OFFSET:
             {
                 gulong ulvalue;
 
-                g_object_get (priv->raw_reader, "offset", &ulvalue, NULL);
+                g_object_get (priv->raw_reader, "pre-offset", &ulvalue, NULL);
+                g_value_set_ulong (value, ulvalue);
+            }
+            break;
+        case PROP_RAW_POST_OFFSET:
+            {
+                gulong ulvalue;
+
+                g_object_get (priv->raw_reader, "post-offset", &ulvalue, NULL);
                 g_value_set_ulong (value, ulvalue);
             }
             break;
@@ -588,10 +600,17 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
             0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
-    properties[PROP_RAW_OFFSET] =
-        g_param_spec_ulong ("raw-offset",
-            "Offset to the beginning of raw image in bytes",
-            "Offset to the beginning of raw image in bytes",
+    properties[PROP_RAW_PRE_OFFSET] =
+        g_param_spec_ulong ("raw-pre-offset",
+            "Offset in bytes to skip before reading data",
+            "Offset in bytes to skip before reading data",
+            0, G_MAXULONG, 0,
+            G_PARAM_READWRITE);
+
+    properties[PROP_RAW_POST_OFFSET] =
+        g_param_spec_ulong ("raw-post-offset",
+            "Offset in bytes to skip after reading data",
+            "Offset in bytes to skip after reading data",
             0, G_MAXULONG, 0,
             G_PARAM_READWRITE);
 

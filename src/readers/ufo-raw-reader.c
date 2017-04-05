@@ -31,7 +31,8 @@ struct _UfoRawReaderPrivate {
     gsize bytes_per_pixel;
     guint width;
     guint height;
-    gulong offset;
+    gulong pre_offset;
+    gulong post_offset;
     UfoBufferDepth bitdepth;
 };
 
@@ -48,7 +49,8 @@ enum {
     PROP_WIDTH,
     PROP_HEIGHT,
     PROP_BITDEPTH,
-    PROP_OFFSET,
+    PROP_PRE_OFFSET,
+    PROP_POST_OFFSET,
     N_PROPERTIES
 };
 
@@ -116,7 +118,7 @@ ufo_raw_reader_data_available (UfoReader *reader)
 
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
     pos = ftell (priv->fp);
-    return priv->fp != NULL && pos >= 0 && (((gulong) pos) + priv->offset + priv->frame_size) <= priv->total_size;
+    return priv->fp != NULL && pos >= 0 && (((gulong) pos) + priv->pre_offset + priv->frame_size) <= priv->total_size;
 }
 
 static void
@@ -133,11 +135,13 @@ ufo_raw_reader_read (UfoReader *reader,
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
     data = (gchar *) ufo_buffer_get_host_array (buffer, NULL);
 
-    fseek (priv->fp, priv->offset, SEEK_CUR);
+    fseek (priv->fp, priv->pre_offset, SEEK_CUR);
 
     /* We never read more than we can store */
     if (fread (data, 1, priv->frame_size, priv->fp) != ((gsize) priv->frame_size))
         g_warning ("Could not read enough data");
+
+    fseek (priv->fp, priv->post_offset, SEEK_CUR);
 }
 
 static void
@@ -187,8 +191,11 @@ ufo_raw_reader_set_property (GObject *object,
                     g_warning ("Cannot set bitdepth other than 8, 16 or 32.");
             }
             break;
-        case PROP_OFFSET:
-            priv->offset = g_value_get_ulong (value);
+        case PROP_PRE_OFFSET:
+            priv->pre_offset = g_value_get_ulong (value);
+            break;
+        case PROP_POST_OFFSET:
+            priv->post_offset = g_value_get_ulong (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -214,8 +221,11 @@ ufo_raw_reader_get_property (GObject *object,
         case PROP_BITDEPTH:
             g_value_set_uint (value, priv->bitdepth);
             break;
-        case PROP_OFFSET:
-            g_value_set_ulong (value, priv->offset);
+        case PROP_PRE_OFFSET:
+            g_value_set_ulong (value, priv->pre_offset);
+            break;
+        case PROP_POST_OFFSET:
+            g_value_set_ulong (value, priv->post_offset);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -279,10 +289,17 @@ ufo_raw_reader_class_init (UfoRawReaderClass *klass)
             0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
-    properties[PROP_OFFSET] =
-        g_param_spec_ulong("offset",
-            "Offset to the beginning of image in bytes",
-            "Offset to the beginning of image in bytes",
+    properties[PROP_PRE_OFFSET] =
+        g_param_spec_ulong("pre-offset",
+            "Offset in bytes to skip before reading data",
+            "Offset in bytes to skip before reading data",
+            0, G_MAXULONG, 0,
+            G_PARAM_READWRITE);
+
+    properties[PROP_POST_OFFSET] =
+        g_param_spec_ulong("post-offset",
+            "Offset in bytes to skip after reading data",
+            "Offset in bytes to skip after reading data",
             0, G_MAXULONG, 0,
             G_PARAM_READWRITE);
 
@@ -302,5 +319,6 @@ ufo_raw_reader_init (UfoRawReader *self)
     priv->width = 0;
     priv->height = 0;
     priv->bitdepth = UFO_BUFFER_DEPTH_INVALID;
-    priv->offset = 0L;
+    priv->pre_offset = 0L;
+    priv->post_offset = 0L;
 }
