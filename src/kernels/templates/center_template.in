@@ -4,10 +4,9 @@
         result {2}= read_imagef (projection_{0}, sampler, pixel).x;
 %nl
         float x_center_current = mad((float) idz, x_center.y, x_center.x);
-        tmp = 0.5f + ((int) x_center_current) - x_center_current;
-        voxel.x = mad((float) idx, x_region.y, x_region.x + tmp);
-        voxel.y = mad((float) idy, y_region.y, y_region.x + tmp);
-        tmp = mad(z_region.x + 0.5f + ((int) y_center) - y_center, sin_lamino, y_center);
+        voxel.x = mad((float) idx, x_region.y, x_region.x);
+        voxel.y = mad((float) idy, y_region.y, y_region.x);
+        tmp = mad(z_region.x, sin_lamino, y_center);
         tmp_x = voxel.x * cos_lamino;
         tmp_y = -voxel.y * cos_lamino;
 

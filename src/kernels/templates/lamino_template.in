@@ -3,11 +3,10 @@
         rotate ();
         result {2}= read_imagef (projection_{0}, sampler, pixel).x;
 %nl
-        tmp = 0.5f + ((int) x_center.x) - x_center.x;
-        voxel.x = mad((float) idx, x_region.y, x_region.x + tmp);
-        voxel.y = mad((float) idy, y_region.y, y_region.x + tmp);
+        voxel.x = mad((float) idx, x_region.y, x_region.x);
+        voxel.y = mad((float) idy, y_region.y, y_region.x);
         sin_lamino = sincos (mad((float) idz, lamino_region.y, lamino_region.x), &cos_lamino);
-        tmp = mad(z_region.x + 0.5f + ((int) y_center) - y_center, sin_lamino, y_center);
+        tmp = mad(z_region.x, sin_lamino, y_center);
         tmp_x = voxel.x * cos_lamino;
         tmp_y = -voxel.y * cos_lamino;
 
