@@ -3,15 +3,9 @@
         rotate ();
         result {2}= read_imagef (projection_{0}, sampler, pixel).x;
 %nl
-        /* Pixel interval is (0, 1), so it is evaluated at 0.5. The volume is */
-        /* shifted so that the pixel is rotated with the +0.5 offset if the axis */
-        /* falls between two pixels and with 0 offset if the axis is in the middle */
-        /* of a pixel */
-        /* Simple arithmetic faster than modf */
-        tmp = 0.5f + ((int) x_center.x) - x_center.x;
-        voxel.x = mad((float) idx, x_region.y, x_region.x + tmp);
-        voxel.y = mad((float) idy, y_region.y, y_region.x + tmp);
-        voxel.z = mad((float) idz, z_region.y, z_region.x + 0.5f + ((int) y_center) - y_center);
+        voxel.x = mad((float) idx, x_region.y, x_region.x);
+        voxel.y = mad((float) idy, y_region.y, y_region.x);
+        voxel.z = mad((float) idz, z_region.y, z_region.x);
         tmp = mad(voxel.z, sin_lamino, y_center);
         tmp_x = voxel.x * cos_lamino;
         tmp_y = -voxel.y * cos_lamino;
