@@ -1,106 +1,223 @@
-/*
- * Copyright (C) 2013-2017 Karlsruhe Institute of Technology
- *
- * This file is part of Ufo.
- *
- * This library is free software: you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public
- * License as published by the Free Software Foundation, either
- * version 3 of the License, or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
- */
-
 kernel void
-reorder (global const float *input,
-         global float *output,
-         global const unsigned int *schema,
-         const unsigned int n_fan_dets,
-         const unsigned int n_fan_proj,
-         const unsigned int n_images)
+fill_zeros(global float *data,
+           const unsigned int width,
+           const unsigned int height,
+           const unsigned int depth)
 {
-    const unsigned long det = get_global_id(0);
-    const unsigned long proj = get_global_id(1);
-    const unsigned long img = get_global_id(2);
+    const unsigned long x = get_global_id(0);
+    const unsigned long y = get_global_id(1);
+    const unsigned long z = get_global_id(2);
 
-    if (det >= n_fan_dets || proj >= n_fan_proj || img >= n_images) {
-      return;
+    if (x >= width || y >= height || z >= depth) {
+        return;
     }
 
-    unsigned long out_idx, in_idx;
-    out_idx = det + proj * n_fan_dets + img * (n_fan_dets * n_fan_proj);
-    in_idx = schema[det + proj * n_fan_dets] + img * (n_fan_dets * n_fan_proj);
-
-    output[out_idx] = input[in_idx];
+    const unsigned long idx = x + y * width + z * (width * height);
+    data[idx] = 0;
 }
 
 kernel void
-compute_attenuation (global float *sino_in,
-                     global float *sino_out,
-                     global float *avg_flats,
-                     global float *avg_darks,
-                     const unsigned int n_fan_dets,
-                     const unsigned int n_fan_proj,
-                     const unsigned int n_planes,
-                     const unsigned int plane_index)
+amplif (global const float *input,
+        global float *output,
+        const unsigned int n_vals,
+        const unsigned int n_trans_per_portion,
+        const unsigned int n_modpairs,
+        const ushort amp_bit15,
+        const ushort amp_bit16)
 {
-    #define EPS 1E-5
-    const unsigned long det = get_global_id(0);
-    const unsigned long proj = get_global_id(1);
-    const unsigned long img = get_global_id(2);
+    const unsigned long val_id = get_global_id(0);
+    const unsigned long trans_local = get_global_id(1);
+    const unsigned long modpair = get_global_id(2);
 
-    if (det >= n_fan_dets || proj >= n_fan_proj)
-        return;
-
-    unsigned long idx_sino, idx_data, idx_darks, idx_flats;
-
-    idx_sino = det + n_fan_dets * proj;
-    idx_data = idx_sino + img * (n_fan_proj * n_fan_dets);
-    idx_darks = det + plane_index * n_fan_dets;
-    idx_flats = idx_sino + plane_index * (n_fan_proj * n_fan_dets);
-
-    float numerator = sino_in[idx_data] - avg_darks[idx_darks];
-    float denominator = avg_flats[idx_flats] - avg_darks[idx_darks];
-
-    numerator = (numerator < EPS) ? EPS : numerator;
-    denominator = (denominator < EPS) ? EPS : denominator;
-
-    sino_out[idx_data] = -log (numerator / denominator);
-    #undef EPS
-}
-
-kernel
-void fan2par_set (global float *sino_out,
-                  const unsigned int n_par_dets,
-                  const unsigned int n_par_proj)
-{
-    const long det = get_global_id(0);
-    const long proj = get_global_id(1);
-    const long img = get_global_id(2);
-
-    // TODO: Fixed logic sign. Was &&
-    if (det >= n_par_dets || proj >= n_par_proj) {
+    if (val_id >= n_vals ||
+        trans_local >= n_trans_per_portion ||
+        modpair >= n_modpairs)
+    {
         return;
     }
 
     unsigned long index;
-    index = det + proj * n_par_dets + img * (n_par_proj * n_par_dets);
-    sino_out[index] = 0;
+    ushort val, bit15, bit16;
+    bool is_amp_bit15, is_amp_bit16;
+
+    index = val_id + trans_local * n_vals + modpair * (n_vals * n_trans_per_portion);
+
+    val = input[index];
+    bit15 = 0x01 << 14;
+    bit16 = 0x01 << 15;
+
+    is_amp_bit15 = val & bit15;
+    is_amp_bit16 = val & bit16;
+
+    // Get the value using only 14 bits
+    val ^= bit15;
+    val ^= bit16;
+
+    // Correct the value
+    val += is_amp_bit15 ? amp_bit15 : 0;
+    val += is_amp_bit16 ? amp_bit16 : 0;
+
+    // Set the value
+    output[index] = val;
 }
 
-// --- Fan 2 par
 
+kernel void
+reorder(global const float *input,
+        global float *output,
+        const unsigned int portion,
+        const unsigned int n_trans_per_portion,
+        const unsigned int n_fan_dets,
+        const unsigned int n_fan_proj,
+        // ROFEX parameters
+        const unsigned int n_rings,
+        const unsigned int n_dets_per_module,
+        const unsigned int n_mods_per_ring,
+        global const unsigned int *beam_positions,
+        const unsigned int n_beam_positions,
+        global const int *rings_selection_mask,
+        const unsigned int rings_selection_mask_size,
+        // Precomputed
+        global const unsigned int *dets_map)
+{
+    const unsigned long det = get_global_id(0);
+    const unsigned long proj = get_global_id(1);
+    const unsigned long trans_local = get_global_id(2);
+    const unsigned int n_modpairs_per_ring = n_mods_per_ring / 2;
+
+    if (det >= n_fan_dets ||
+        proj >= n_fan_proj ||
+        trans_local >= n_trans_per_portion)
+    {
+        return;
+    }
+
+    long trans_global, beam_position, ring;
+    unsigned int modpair, idx_sino_val, idx_sino, idx_in, idx_out;
+    unsigned int offset_per_modpair, offset_per_ring, offset_per_trans;
+    unsigned int modpair_offset, proj_offset, ring_offset, trans_local_offset;
+    unsigned int sino_offset;
+
+    // Compute the ring which is hitted by the beam at current transition.
+    trans_global = portion * n_trans_per_portion + trans_local;
+    beam_position = beam_positions[trans_global % n_beam_positions];
+
+    // Compute the pair of modules that correspond to the current detector
+    // pixel at the given transition.
+    modpair = (det / n_dets_per_module) % n_modpairs_per_ring;
+
+    // Compute the index of the value in a sinogram.
+    idx_sino_val = det + proj * n_fan_dets;
+
+    // Compute offsets in the input data per modpair, ring and transition.
+    offset_per_modpair = n_dets_per_module * n_fan_proj * n_trans_per_portion;
+    offset_per_ring = n_modpairs_per_ring * offset_per_modpair;
+    offset_per_trans = n_dets_per_module * n_fan_proj;
+
+    // Compute offsets independent on generated sinogram.
+    modpair_offset = modpair * offset_per_modpair;
+    proj_offset = proj * n_dets_per_module;
+
+    // Go through the rings in the neighborhood and create sinograms for
+    // each of those rings using the data measured at the specific ring at
+    // this transition.
+    for (unsigned int i = 0; i < rings_selection_mask_size; ++i) {
+        ring = beam_position + rings_selection_mask[i];
+        if (ring < 0 || ring >= n_rings) {
+            continue;
+        }
+
+        ring_offset = ring * offset_per_ring;
+        trans_local_offset = trans_local * offset_per_trans;
+
+        idx_in = ring_offset
+                 + modpair_offset
+                 + trans_local_offset
+                 + proj_offset
+                 + (dets_map[idx_sino_val] - 1);
+
+        // Output data is organized as data chunks describing each transition
+        idx_sino = trans_local * rings_selection_mask_size + i;
+        sino_offset = idx_sino * (n_fan_dets * n_fan_proj);
+
+        idx_out = sino_offset + idx_sino_val;
+        if (dets_map[idx_sino_val]) {
+            output[idx_out] = input[idx_in];
+        }
+    }
+}
+
+kernel void
+attenuation(global const float *input,
+            global float *output,
+            const unsigned int portion,
+            const unsigned int n_trans_per_portion,
+            const unsigned int n_fan_dets,
+            const unsigned int n_fan_proj,
+            // ROFEX parameters
+            const unsigned int n_rings,
+            global const int *beam_positions,
+            const unsigned int n_beam_positions,
+            global const int *rings_selection_mask,
+            const unsigned int rings_selection_mask_size,
+            // Precomputed
+            global const float *avg_flats,
+            global const float *avg_darks)
+{
+    const float eps = 1E-5;
+    const unsigned long det = get_global_id(0);
+    const unsigned long proj = get_global_id(1);
+    const unsigned long trans_local = get_global_id(2);
+
+    if (det >= n_fan_dets ||
+        proj >= n_fan_proj ||
+        trans_local >= n_trans_per_portion)
+    {
+        return;
+    }
+
+    long trans_global, beam_position, ring;
+    float numerator, denominator;
+    unsigned long idx_sino_val, idx_flats, idx_darks, idx_sino, idx_data;
+
+    // Compute the ring which is hitted by the beam at current transition.
+    trans_global = portion * n_trans_per_portion + trans_local;
+    beam_position = beam_positions[trans_global % n_beam_positions];
+
+    // Compute the index of the value in a sinogram.
+    idx_sino_val = det + proj * n_fan_dets;
+
+    for (unsigned int i = 0; i < rings_selection_mask_size; ++i) {
+        ring = beam_position + rings_selection_mask[i];
+        if (ring < 0 || ring >= n_rings) {
+            continue;
+        }
+
+        idx_flats = idx_sino_val + ring * (n_fan_dets * n_fan_proj);
+        idx_darks = det + ring * n_fan_dets;
+
+        idx_sino = trans_local * rings_selection_mask_size + i;
+        idx_data  = idx_sino_val + idx_sino * (n_fan_dets * n_fan_proj);
+
+        numerator = input[idx_data] - avg_darks[idx_darks];
+        denominator = avg_flats[idx_flats] - avg_darks[idx_darks];
+
+        numerator = (numerator < eps) ? eps : numerator;
+        denominator = (denominator < eps) ? eps : denominator;
+
+        output[idx_data] = -log (numerator / denominator);
+    }
+}
+
+
+// Fan 2 Par
 float
 interp_ray (unsigned long index,
+            // Input
+            global const float *sino_fan,
             unsigned int n_fan_dets,
             unsigned long sino_fan_offset,
-            global const float *sino_fan,
+            // parameters
             global const float *gamma,
             global const float *gamma_before,
             global const float *gamma_after,
@@ -110,44 +227,55 @@ interp_ray (unsigned long index,
             global const float *theta_after,
             global const float *theta_goal)
 {
-    unsigned long idxA, idxB;
+    unsigned long idx_a, idx_b;
     float factor;
-    float W1, W2, W3, W4;
-    float V1, V2;
+    float w1, w2, w3, w4;
+    float v1, v2;
+    float tb, ta, tg, gb, ga, gg;
 
-    idxA = gamma_before[index] + theta_before[index] * n_fan_dets;
-    W1 = sino_fan[idxA + sino_fan_offset];
+    tb = theta_before[index];
+    ta = theta_after[index];
+    tg = theta_goal[index];
 
-    idxA = gamma_after[index] + theta_before[index] * n_fan_dets;
-    W2 = sino_fan[idxA + sino_fan_offset];
+    gb = gamma_before[index];
+    ga = gamma_after[index];
+    gg = gamma_goal[index];
 
-    idxA = gamma_before[index] + theta_after[index] * n_fan_dets;
-    W3 = sino_fan[idxA + sino_fan_offset];
+    idx_a = gb + tb * n_fan_dets + sino_fan_offset;
+    w1 = sino_fan[idx_a];
 
-    idxA = gamma_after[index] + theta_after[index] * n_fan_dets;
-    W4 = sino_fan[idxA + sino_fan_offset];
+    idx_a = ga + tb * n_fan_dets + sino_fan_offset;
+    w2 = sino_fan[idx_a];
 
-    idxA = (unsigned long) theta_before[index];
-    idxB = (unsigned long) theta_after[index];
+    idx_a = gb + ta * n_fan_dets + sino_fan_offset;
+    w3 = sino_fan[idx_a];
 
-    factor = theta_goal[index] - theta[idxA];
-    factor = factor / (theta[idxB] - theta[idxA]);
-    V1 = W1 + factor * (W3 - W1);
-    V2 = W2 + factor * (W4 - W2);
+    idx_a = ga + ta * n_fan_dets + sino_fan_offset;
+    w4 = sino_fan[idx_a];
 
-    idxA = (unsigned long) gamma_before[index];
-    idxB = (unsigned long) gamma_after[index];
-    factor = gamma_goal[index] - gamma[idxA];
-    factor = factor / (gamma[idxB] - gamma[idxA]);
+    idx_a = (unsigned long) tb;
+    idx_b = (unsigned long) ta;
 
-    return V1 + factor * (V2 - V1);
+    factor = tg - theta[idx_a];
+    factor = factor / (theta[idx_b] - theta[idx_a]);
+    v1 = w1 + factor * (w3 - w1);
+    v2 = w2 + factor * (w4 - w2);
+
+    idx_a = (unsigned long) gb;
+    idx_b = (unsigned long) ga;
+    factor = gg - gamma[idx_a];
+    factor = factor / (gamma[idx_b] - gamma[idx_a]);
+
+    return v1 + factor * (v2 - v1);
 }
 
 float
 comp_val (unsigned long index,
-          unsigned int n_fan_dets,
-          unsigned long sino_fan_offset,
+          // Input
           global const float *sino_fan,
+          unsigned int  n_fan_dets,
+          unsigned long sino_fan_offset,
+          // Params
           global const float **ray,
           global const float *gamma,
           global const float **gamma_before,
@@ -163,8 +291,9 @@ comp_val (unsigned long index,
     res = 0;
 
     for (int i = 0; i < 2; i++) {
-        if (ray[i][index]) {
-            v = interp_ray(index, n_fan_dets, sino_fan_offset, sino_fan,
+        // Type conversion to avoid false positive cases.
+        if ((int)ray[i][index]) {
+            v = interp_ray(index, sino_fan, n_fan_dets, sino_fan_offset,
                         gamma, gamma_before[i], gamma_after[i], gamma_goal[i],
                         theta, theta_before[i], theta_after[i], theta_goal[i]);
 
@@ -178,27 +307,35 @@ comp_val (unsigned long index,
 kernel
 void fan2par_interp (global const float *sino_fan,
                      global float *sino_par,
-                     global const float *params,
-                     const unsigned int param_offset,
+                     const unsigned int portion,
+                     const unsigned int trans_per_portion,
                      const unsigned int n_fan_dets,
                      const unsigned int n_fan_proj,
                      const unsigned int n_par_dets,
                      const unsigned int n_par_proj,
-                     const unsigned int n_planes,
+                     // ROFEX parameters
                      const float detector_r,
-                     const int p_idx)
+                     const unsigned int n_rings,
+                     global const int *beam_positions,
+                     const unsigned int n_beam_positions,
+                     global const int *rings_selection_mask,
+                     const unsigned int rings_selection_mask_size,
+                     // Precomputed
+                     global const float *params,
+                     const unsigned int param_offset)
 {
-    unsigned long det = get_global_id(0);
-    unsigned long proj = get_global_id(1);
-    const unsigned long img = get_global_id(2);
+    const unsigned long det = get_global_id(0);
+    const unsigned long proj = get_global_id(1);
+    const unsigned long trans_local = get_global_id(2);
 
-    if (det >= n_par_dets || proj >= n_par_proj)
+    if (det >= n_par_dets ||
+        proj >= n_par_proj ||
+        trans_local >= trans_per_portion)
+    {
         return;
+    }
 
-    const unsigned long sino_fan_offset = img * n_fan_dets * n_fan_proj;
-
-    unsigned long plane_index = (p_idx < 0) ? img % n_planes : p_idx;
-
+    // Parameters
     global const float *theta = params + 0;
     global const float *gamma = theta + param_offset;
     global const float *s = gamma + param_offset;
@@ -225,37 +362,60 @@ void fan2par_interp (global const float *sino_fan,
     global const float *ray[2] =
       { alpha_circle + 13 * param_offset, alpha_circle + 14 * param_offset };
 
-    // Output index
-    float factor, res;
-    unsigned long n_par_dets2;
-    unsigned long out_idx, index;
+    //
+    float factor1, factor2, res;
+    long trans_global, beam_position, ring;
+    unsigned long det2, proj2;
+    unsigned long idx_sino, idx_out, index;
+    unsigned long sino_fan_offset, sino_par_offset, ring_par_offset;
 
-    res = 0;
-    n_par_dets2 = n_par_dets / 2;
-    out_idx = det + proj * n_par_dets + img * (n_par_proj * n_par_dets);
+    // Compute
+    unsigned long half_par_dets;
 
-    // First part
-    factor = s[det] / detector_r;
-    index = det + proj * n_par_dets + plane_index * (n_par_proj * n_par_dets);
+    half_par_dets = n_par_dets / 2;
+    proj2 = n_par_proj + proj;
+    det2 = (det < half_par_dets) ? n_par_dets - det - 1 :
+                                   half_par_dets - (det % half_par_dets) - 1;
 
-    if (factor >= - 1 && factor <= 1) {
-         res += comp_val(index, n_fan_dets, sino_fan_offset, sino_fan, ray,
-                         gamma, gamma_after, gamma_before, gamma_goal,
-                         theta, theta_after, theta_before, theta_goal);
+    factor1 = s[det] / detector_r;
+    factor2 = s[det2] / detector_r;
+
+
+    // Compute the ring which is hitted by the beam at current transition.
+    trans_global = portion * trans_per_portion + trans_local;
+    beam_position = beam_positions[trans_global % n_beam_positions];
+
+    // Compute the index of the value in a sinogram.
+    for (unsigned int i = 0; i < rings_selection_mask_size; ++i) {
+        ring = beam_position + rings_selection_mask[i];
+        if (ring < 0 || ring >= n_rings) {
+            continue;
+        }
+
+        res = 0;
+        idx_sino = trans_local * rings_selection_mask_size + i;
+        sino_fan_offset = idx_sino * (n_fan_dets * n_fan_proj);
+        sino_par_offset = idx_sino * (n_par_proj * n_par_dets);
+        ring_par_offset = ring * (n_par_proj * n_par_dets);
+
+        idx_out = det + proj * n_par_dets + sino_par_offset;
+
+        // Part one
+        if (factor1 >= - 1 && factor1 <= 1) {
+            index = det + proj * n_par_dets + ring_par_offset;
+            res += comp_val(index, sino_fan, n_fan_dets, sino_fan_offset, ray,
+                            gamma, gamma_after, gamma_before, gamma_goal,
+                            theta, theta_after, theta_before, theta_goal);
+        }
+
+        // Second part
+        if (factor2 >= - 1 && factor2 <= 1) {
+            index = det2 + proj2 * n_par_dets + ring_par_offset;
+            res += comp_val(index, sino_fan, n_fan_dets, sino_fan_offset, ray,
+                            gamma, gamma_after, gamma_before, gamma_goal,
+                            theta, theta_after, theta_before, theta_goal);
+        }
+
+        sino_par[idx_out] = res;
     }
-
-    // Second part
-    proj = n_par_proj + proj;
-    det = (det < n_par_dets2) ? n_par_dets - det - 1 :
-                                n_par_dets2 - (det % n_par_dets2) - 1;
-
-    factor = s[det] / detector_r;
-    index = det + proj * n_par_dets + plane_index * (n_par_proj * n_par_dets);
-    if (factor >= - 1 && factor <= 1) {
-        res += comp_val(index, n_fan_dets, sino_fan_offset, sino_fan, ray,
-                        gamma, gamma_after, gamma_before, gamma_goal,
-                        theta, theta_after, theta_before, theta_goal);
-    }
-
-    sino_par[out_idx] = res;
 }

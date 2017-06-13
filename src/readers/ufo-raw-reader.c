@@ -69,7 +69,7 @@ ufo_raw_reader_can_open (UfoReader *reader,
 
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
 
-    if (!g_str_has_suffix (filename, ".raw"))
+    if (!(g_str_has_suffix (filename, ".raw") || g_str_has_suffix(filename, ".dat")))
         return FALSE;
 
     if (priv->width == 0 || priv->height == 0 || priv->bitdepth == UFO_BUFFER_DEPTH_INVALID) {

@@ -74,14 +74,13 @@ set(ufofilter_SRCS
     ufo-zeropad-task.c
 
     # ROFEX
-    ufo-rofex-data-aggregator-task.c
+    ufo-rofex-aggregate-task.c
+    ufo-rofex-convert-task.c
     ufo-rofex-reorder-task.c
-    ufo-rofex-attenuation-task.c
     ufo-rofex-process-flats-task.c
     ufo-rofex-process-darks-task.c
+    ufo-rofex-attenuation-task.c
     ufo-rofex-fan2par-task.c
-    ufo-rofex-group-slices-task.c
-    ufo-rofex-slice-task.c
     )
 
 set(ufoaux_SRCS
@@ -113,6 +112,21 @@ set(retrieve_phase_aux_SRCS
 
 set(lamino_backproject_aux_SRCS
     lamino-roi.c)
+
+set(rofex_reorder_aux_SRCS
+    rofex.c)
+
+set(rofex_attenuation_flats_aux_SRCS
+    rofex.c)
+
+set(rofex_process_flats_aux_SRCS
+    rofex.c)
+
+set(rofex_process_darks_aux_SRCS
+    rofex.c)
+
+set(rofex_fan2par_aux_SRCS
+    rofex.c)
 
 file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}

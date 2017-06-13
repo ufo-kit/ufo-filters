@@ -5,7 +5,7 @@ set(rofex_configure_LIBS
     ${UFO_LIBRARIES}
    )
 #{{{ Binaries
-add_executable(rofex-configure rofex-configure.c rofex.c)
+add_executable(rofex-configure rofex-configure.c)
 
 target_link_libraries(rofex-configure ${rofex_configure_LIBS})
 
