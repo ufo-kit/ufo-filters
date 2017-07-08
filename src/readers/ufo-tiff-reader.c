@@ -197,4 +197,5 @@ ufo_tiff_reader_init (UfoTiffReader *self)
     self->priv = priv = UFO_TIFF_READER_GET_PRIVATE (self);
     priv->tiff = NULL;
     priv->more = FALSE;
+    TIFFSetWarningHandler(NULL);
 }
