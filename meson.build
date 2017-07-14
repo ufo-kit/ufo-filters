@@ -26,6 +26,7 @@ opencl_dep = declare_dependency(dependencies: cc.find_library('OpenCL'))
 ufo_dep = dependency('ufo', version: '>= 0.12')
 
 plugin_install_dir = ufo_dep.get_pkgconfig_variable('plugindir')
+kernel_install_dir = ufo_dep.get_pkgconfig_variable('kerneldir')
 
 deps = [
     ufo_dep,

@@ -71,6 +71,9 @@ fft_plugins = [
     'retrieve-phase',
 ]
 
+kernels = [
+]
+
 read_sources = [
     'ufo-read-task.c',
     'readers/ufo-reader.c',
@@ -197,3 +200,5 @@ if gsl_dep.found()
         install_dir: plugin_install_dir,
     )
 endif
+
+subdir('kernels')
