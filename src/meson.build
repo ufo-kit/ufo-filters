@@ -161,10 +161,10 @@ if tiff_dep.found()
 endif
 
 if hdf5_dep.found()
-    read_sources += ['readers/ufo-hdf5-reader.c']
+    read_sources += ['readers/ufo-hdf5-reader.c', 'common/hdf5.c']
     read_deps += [hdf5_dep]
 
-    write_sources += ['writers/ufo-hdf5-writer.c']
+    write_sources += ['writers/ufo-hdf5-writer.c', 'common/hdf5.c']
     write_deps += [hdf5_dep]
 endif
 
