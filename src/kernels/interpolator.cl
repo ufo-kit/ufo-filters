@@ -21,10 +21,8 @@ kernel void
 interpolate (global float *a,
              global float *b,
              global float *output,
-             int current,
-             int total)
+             float alpha)
 {
-    const int index = get_global_id(1)*get_global_size(0) + get_global_id(0);
-    float fraction = (float) current / (float) (total - 1);
-    output[index] = (1.0f - fraction) * a[index] + fraction*b[index];
+    const int index = get_global_id(1) * get_global_size(0) + get_global_id(0);
+    output[index] = (1.0f - alpha) * a[index] + alpha * b[index];
 }

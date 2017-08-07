@@ -17,13 +17,20 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <string.h>
+#ifdef __APPLE__
+#include <OpenCL/cl.h>
+#else
+#include <CL/cl.h>
+#endif
+
 #include "ufo-interpolate-task.h"
 
 
 struct _UfoInterpolateTaskPrivate {
-    gfloat *x;
-    gfloat *y;
+    cl_mem x;
+    cl_mem y;
+    cl_context context;
+    cl_kernel kernel;
     guint number;
     guint current;
 };
@@ -59,6 +66,11 @@ ufo_interpolate_task_setup (UfoTask *task,
 
     priv = UFO_INTERPOLATE_TASK_GET_PRIVATE (task);
     priv->current = 0;
+    priv->context = ufo_resources_get_context (resources);
+    priv->kernel = ufo_resources_get_kernel (resources, "interpolator.cl", "interpolate", error);
+
+    if (priv->kernel != NULL)
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
 }
 
 static void
@@ -86,7 +98,7 @@ ufo_interpolate_task_get_num_dimensions (UfoTask *task,
 static UfoTaskMode
 ufo_interpolate_task_get_mode (UfoTask *task)
 {
-    return UFO_TASK_MODE_REDUCTOR | UFO_TASK_MODE_CPU;
+    return UFO_TASK_MODE_REDUCTOR | UFO_TASK_MODE_GPU;
 }
 
 static gboolean
@@ -96,20 +108,23 @@ ufo_interpolate_task_process (UfoTask *task,
                               UfoRequisition *requisition)
 {
     UfoInterpolateTaskPrivate *priv;
-    gsize size;
+    cl_int error;
 
     priv = UFO_INTERPOLATE_TASK_GET_PRIVATE (task);
 
     if (priv->x != NULL || priv->y != NULL)
         return FALSE;
 
-    size = ufo_buffer_get_size (inputs[0]);
-
     if (priv->x == NULL && priv->y == NULL) {
-        priv->x = g_malloc (size);
-        priv->y = g_malloc (size);
-        memcpy (priv->x, (gpointer) ufo_buffer_get_host_array (inputs[0], NULL), size);
-        memcpy (priv->y, (gpointer) ufo_buffer_get_host_array (inputs[1], NULL), size);
+        priv->x = clCreateBuffer (priv->context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY,
+                                  ufo_buffer_get_size (inputs[0]),
+                                  ufo_buffer_get_host_array (inputs[0], NULL), &error);
+        UFO_RESOURCES_CHECK_CLERR (error);
+
+        priv->y = clCreateBuffer (priv->context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY,
+                                  ufo_buffer_get_size (inputs[1]),
+                                  ufo_buffer_get_host_array (inputs[1], NULL), &error);
+        UFO_RESOURCES_CHECK_CLERR (error);
 
         return TRUE;
     }
@@ -123,34 +138,31 @@ ufo_interpolate_task_generate (UfoTask *task,
                                UfoRequisition *requisition)
 {
     UfoInterpolateTaskPrivate *priv;
-    gfloat *x_mem;
-    gfloat *y_mem;
-    gfloat *out_mem;
+    UfoGpuNode *node;
+    UfoProfiler *profiler;
+    cl_command_queue cmd_queue;
+    cl_mem out_mem;
     gfloat alpha;
-    gsize width;
-    gsize height;
 
     priv = UFO_INTERPOLATE_TASK_GET_PRIVATE (task);
 
     if (priv->current == priv->number)
         return FALSE;
 
-    x_mem = priv->x;
-    y_mem = priv->y;
-    out_mem = ufo_buffer_get_host_array (output, NULL);
+    node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+    cmd_queue = ufo_gpu_node_get_cmd_queue (node);
+    out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     alpha = priv->number > 1 ? ((gfloat) priv->current) / (priv->number - 1) : 0;
-    width = requisition->dims[0];
-    height = requisition->dims[1];
 
-#pragma omp parallel for
-    for (gsize i = 0; i < width; i++) {
-        for (gsize j = 0; j < height; j++) {
-            gsize idx = j * width + i;
-            out_mem[idx] = (1.0f - alpha) * x_mem[idx] + alpha * y_mem[idx];
-        }
-    }
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &priv->x));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &priv->y));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (gfloat), &alpha));
 
+    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+    ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
     priv->current++;
+
     return TRUE;
 }
 
@@ -198,12 +210,12 @@ ufo_interpolate_task_finalize (GObject *object)
     priv = UFO_INTERPOLATE_TASK_GET_PRIVATE (UFO_INTERPOLATE_TASK (object));
 
     if (priv->x != NULL) {
-        g_free (priv->x);
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->x));
         priv->x = NULL;
     }
 
     if (priv->y != NULL) {
-        g_free (priv->y);
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->y));
         priv->y = NULL;
     }
 
