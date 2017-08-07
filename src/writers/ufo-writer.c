@@ -102,9 +102,30 @@ convert_to_8bit (UfoWriterImage *image)
     src = (gfloat *) image->data;
     get_min_max (image, &min, &max);
     scale = 255.0f / (max - min);
+
     n_elements = get_num_elements (image->requisition);
+
+    /* first clip */
+    if (min < max) {
+        for (gsize i = 0; i < n_elements; i++) {
+            if (src[i] < min)
+                src[i] = min;
+            else if (src[i] > max)
+                src[i] = max;
+        }
+    }
+    else {
+        for (gsize i = 0; i < n_elements; i++) {
+            if (src[i] < max)
+                src[i] = max;
+            else if (src[i] > min)
+                src[i] = min;
+        }
+    }
+
     dst = (guint8 *) src;
 
+    /* then rescale */
     for (gsize i = 0; i < n_elements; i++)
         dst[i] = (guint8) ((src[i] - min) * scale);
 }
@@ -122,6 +143,23 @@ convert_to_16bit (UfoWriterImage *image)
     scale = 65535.0f / (max - min);
     n_elements = get_num_elements (image->requisition);
     dst = (guint16 *) src;
+
+    if (min < max) {
+        for (gsize i = 0; i < n_elements; i++) {
+            if (src[i] < min)
+                src[i] = min;
+            else if (src[i] > max)
+                src[i] = max;
+        }
+    }
+    else {
+        for (gsize i = 0; i < n_elements; i++) {
+            if (src[i] < max)
+                src[i] = max;
+            else if (src[i] > min)
+                src[i] = min;
+        }
+    }
 
     /* TODO: good opportunity for some SSE acceleration */
     for (gsize i = 0; i < n_elements; i++)
