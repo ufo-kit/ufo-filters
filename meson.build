@@ -20,6 +20,7 @@ add_global_arguments(
 
 if cc.get_id() == 'gcc'
     add_global_arguments('-fopenmp', language: 'c')
+    add_global_link_arguments('-fopenmp', language: 'c')
 endif
 
 opencl_dep = declare_dependency(dependencies: cc.find_library('OpenCL'))
