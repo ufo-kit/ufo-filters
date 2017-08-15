@@ -301,7 +301,16 @@ Interpolation
 
     .. gobj:prop:: number:uint
 
-        Number of total input stream length.
+        Number of total output stream length.
+
+
+.. gobj:class:: interpolate-stream
+
+    Interpolates between elements from an incoming stream.
+
+    .. gobj:prop:: number:uint
+
+        Number of total output stream length.
 
 
 Subtract

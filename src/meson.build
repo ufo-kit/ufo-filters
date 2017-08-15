@@ -33,6 +33,7 @@ plugins = [
     'forwardproject',
     'get-dup-circ',
     'interpolate',
+    'interpolate-stream',
     'loop',
     'map-slice',
     'measure-sharpness',
