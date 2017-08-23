@@ -29,3 +29,22 @@ kernel void pad (read_only image2d_t in_image,
 
     result[pixel.y * get_global_size(0) + pixel.x] = read_imagef(in_image, sampler, norm_pixel).x;
 }
+
+
+/*
+ * Pad *output* with *input*. *weight* is used by stitching to normalize one
+ * image's mean to the other.
+ */
+kernel void pad_with_image (global float *input,
+                            global float *output,
+                            const int input_offset,
+                            const int output_offset,
+                            const int input_width,
+                            const int output_width,
+                            const float weight)
+{
+    int idx = get_global_id (0);
+    int idy = get_global_id (1);
+
+    output[idy * output_width + idx + output_offset] = weight * input[idy * input_width + idx + input_offset];
+}
