@@ -21,7 +21,7 @@
 #define UFO_ADDRESSING_H
 
 #include <CL/cl.h>
-#include <glib.h>
+#include <glib-object.h>
 
 typedef enum {
     ADDRESS_NONE = CL_ADDRESS_NONE,
