@@ -31,6 +31,7 @@ kernel_files = [
     'polar.cl',
     'rescale.cl',
     'reductor.cl',
+    'rotate.cl',
     'segment.cl',
     'swap-quadrants.cl',
     'zeropad.cl'
