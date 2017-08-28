@@ -285,6 +285,52 @@ Polar transformation
 
 
 
+Stitching
+---------
+
+.. gobj:class:: stitch
+
+    Stitches two images horizontally based on their relative given
+    :gobj:prop:`shift`, which indicates how much is the second image shifted
+    with respect to the first one, i.e. there is an overlapping region given by
+    :math:`first\_width - shift`. First image is inserted to the stitched image
+    from its left edge and the second image is inserted after the overlapping
+    region. If shift is negative, the two images are swapped and stitched as
+    described above with shift made positive.
+
+    If you are stitching a 360-degree off-centered tomographic data set and
+    know the axis of rotation, shift can be computed as :math:`2axis -
+    second\_width` for the case the axis of rotation is greater than half of the
+    first image. If it is less, then the shift is :math:`first\_width - 2 axis`.
+    Moreover, you need to horizontally flip one of the images because this task
+    expects images which can be stitched directly, without additional needed
+    transformations.
+
+    Stitching requires two inputs. If you want to stitch a 360-degree
+    off-centered tomographic data set you can use:
+
+    .. code-block:: bash
+
+        ufo-launch [read path=projections_left/, read path=projections_right/ ! flip direction=horizontal] ! stitch shift=N ! write filename=foo.tif
+
+    .. gobj:prop:: shift:int
+
+        How much is second image shifted with respect to the first one. For
+        example, shift 0 means that both images overlap perfectly and the
+        stitching doesn't actually broaden the image. Shift corresponding to
+        image width makes for a stitched image with twice the width of the
+        respective images (if they have equal width).
+
+    .. gobj:prop:: adjust-mean:boolean
+
+        Compute the mean of the overlapping region in the two images and adjust
+        the second image to match the mean of the first one.
+
+    .. gobj:prop:: blend:boolean
+
+        Linearly interpolate between the two images in the overlapping region.
+
+
 Multi-stream
 ============
 

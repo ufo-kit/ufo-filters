@@ -26,3 +26,26 @@ interpolate (global float *a,
     const int index = get_global_id(1) * get_global_size(0) + get_global_id(0);
     output[index] = (1.0f - alpha) * a[index] + alpha * b[index];
 }
+
+/*
+ * Interpolate two arrays along the horizontal direction, *offset* is a linear
+ * offset to the first and the output arrays. In stitching, *weight* is used to
+ * match the mean of the second buffer's overlapping region to the first one's.
+ */
+kernel void
+interpolate_horizontally (global float *a,
+                          global float *b,
+                          global float *output,
+                          const int width,
+                          const int left_width,
+                          const int right_width,
+                          const int offset,
+                          const float weight)
+{
+    const int idx = get_global_id(0);
+    const int idy = get_global_id(1);
+    const float alpha = ((float) idx) / (get_global_size (0) - 1.0f);
+
+    output[idy * width + idx + offset] = (1.0f - alpha) * a[idy * left_width + idx + offset] +
+                                         alpha * weight * b[idy * right_width + idx];
+}

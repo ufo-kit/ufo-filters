@@ -30,6 +30,7 @@ kernel_files = [
     'piv.cl',
     'polar.cl',
     'rescale.cl',
+    'reductor.cl',
     'segment.cl',
     'swap-quadrants.cl',
     'zeropad.cl'
