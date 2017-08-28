@@ -127,6 +127,41 @@ Transposition
     Transpose images from (x, y) to (y, x).
 
 
+Rotation
+--------
+
+Rotates images clockwise by an :gobj:prop:`angle` around a :gobj:prop:`center`
+(x, y).  When :gobj:prop:`reshape` is ``True``, the rotated image is not
+cropped, i.e.  the output image size can be larger that the input size.
+Moreover, this mode makes sure that the original coordinates of the input are
+all contained in the output so that it is easier to see the rotation in the
+output.  Try e.g.  rotation with :gobj:prop:`center` equal to :math:`(0, 0)` and
+angle :math:`\pi / 2`.
+
+    .. gobj:prop:: angle:float
+
+        Rotation angle in radians.
+
+    .. gobj:prop:: reshape:boolean
+
+        Reshape the result to encompass the complete input image and input
+        indices.
+
+    .. gobj:prop:: center:GValueArray
+
+        Center of rotation (x, y)
+
+    .. gobj:prop:: addressing-mode:enum
+
+        Addressing mode specifies the behavior for pixels falling outside the
+        original image. See OpenCL ``sampler_t`` documentation for more information.
+
+    .. gobj:prop:: interpolation:enum
+
+        Specifies interpolation when a computed pixel coordinate falls between
+        pixels, can be `nearest` or `linear`.
+        
+
 Flipping
 --------
 
