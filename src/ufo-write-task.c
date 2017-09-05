@@ -43,6 +43,8 @@
 struct _UfoWriteTaskPrivate {
     gchar *filename;
     guint counter;
+    guint counter_start;
+    guint counter_step;
     gboolean append;
     gsize width;
     gsize height;
@@ -82,6 +84,8 @@ G_DEFINE_TYPE_WITH_CODE (UfoWriteTask, ufo_write_task, UFO_TYPE_TASK_NODE,
 enum {
     PROP_0,
     PROP_FILENAME,
+    PROP_COUNTER_START,
+    PROP_COUNTER_STEP,
     PROP_APPEND,
     PROP_BITS,
     PROP_MINIMUM,
@@ -217,7 +221,7 @@ ufo_write_task_setup (UfoTask *task,
         }
     }
 
-    priv->counter = 0;
+    priv->counter = priv->counter_start;
 
     if (priv->append && !priv->multi_file) {
         gboolean exists = TRUE;
@@ -298,7 +302,7 @@ retry:
                 g_warning ("%s", error->message);
                 g_free (filename);
                 g_error_free (error);
-                priv->counter++;
+                priv->counter += priv->counter_step;
                 goto retry;
             }
 
@@ -315,7 +319,7 @@ retry:
             priv->opened = FALSE;
         }
 
-        priv->counter++;
+        priv->counter += priv->counter_step;
     }
 
     return TRUE;
@@ -333,6 +337,12 @@ ufo_write_task_set_property (GObject *object,
         case PROP_FILENAME:
             g_free (priv->filename);
             priv->filename = g_value_dup_string (value);
+            break;
+        case PROP_COUNTER_START:
+            priv->counter_start = g_value_get_uint (value);
+            break;
+        case PROP_COUNTER_STEP:
+            priv->counter_step = g_value_get_uint (value);
             break;
         case PROP_APPEND:
             priv->append = g_value_get_boolean (value);
@@ -385,6 +395,12 @@ ufo_write_task_get_property (GObject *object,
     switch (property_id) {
         case PROP_FILENAME:
             g_value_set_string (value, priv->filename);
+            break;
+        case PROP_COUNTER_START:
+            g_value_set_uint (value, priv->counter_start);
+            break;
+        case PROP_COUNTER_STEP:
+            g_value_set_uint (value, priv->counter_step);
             break;
         case PROP_APPEND:
             g_value_set_boolean (value, priv->append);
@@ -485,6 +501,20 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
             "",
             G_PARAM_READWRITE);
 
+    properties[PROP_COUNTER_START] =
+        g_param_spec_uint ("counter-start",
+            "Start of filename counter",
+            "Start of filename counter",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
+
+    properties[PROP_COUNTER_STEP] =
+        g_param_spec_uint ("counter-step",
+            "Step of filename counter",
+            "Step of filename counter",
+            1, G_MAXUINT, 1,
+            G_PARAM_READWRITE);
+
     properties[PROP_APPEND] =
         g_param_spec_boolean ("append",
             "If true the data is appended, otherwise overwritten",
@@ -531,6 +561,8 @@ ufo_write_task_init(UfoWriteTask *self)
 {
     self->priv = UFO_WRITE_TASK_GET_PRIVATE(self);
     self->priv->counter = 0;
+    self->priv->counter_start = 0;
+    self->priv->counter_step = 0;
     self->priv->append = FALSE;
     self->priv->multi_file = FALSE;
     self->priv->depth = UFO_BUFFER_DEPTH_32F;

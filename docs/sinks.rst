@@ -25,6 +25,16 @@ File writer
         file (i.e. multi-tiff, HDF5 data set). If no filename is given the data
         is written as-is to stdout.
 
+    .. gobj:prop:: counter-start:uint
+
+        Sets the counter that replaces the format specifier. Initially, it is
+        set to 0.
+
+    .. gobj:prop:: counter-step:uint
+
+        Determines the number of steps the counter replacing the format
+        specifier is incremented. Initially, it is set to 1.
+
     .. gobj:prop:: append:boolean
 
         Append rather than overwrite if ``TRUE``.
