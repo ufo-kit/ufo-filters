@@ -1,3 +1,39 @@
+Version 0.14.0
+==============
+
+Enhancements:
+
+- Support meson build system alongside CMake
+- Suppress tiff writing warnings
+- dummy-data: add random-metadata flag
+- interpolate: use GPU instead of OpenMP which is an order of magnitude faster
+- lamino: allow setting addressing mode
+- monitor: output metadata values as well
+- raw-read: split offset in pre and post offsets
+- write: add counter-start and counter-step
+- write: add minimum/maximum to control conversion
+- null: allow printing durations from timestamps
+
+Fixes:
+
+- lamino: prevent volume shifting in center kernel
+- Fix #133: allow crop position with specifying dims
+
+Breaks:
+
+- Replaced stdout filter with standard write module
+- write: rename quality property to jpeg-quality
+
+New filters:
+
+- Add rotate filter
+- Add stitch task
+- Add interpolate-stream task
+- Add correlate-stacks task
+- Add cut task
+- Add stamp filter to print current iteration into output buffer
+
+
 Version 0.13.0
 ==============
 
