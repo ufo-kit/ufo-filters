@@ -271,11 +271,11 @@ ufo_filter_stripes1d_task_class_init (UfoFilterStripes1dTaskClass *klass)
 
     properties[PROP_STRENGTH] =
         g_param_spec_float ("strength",
-                            "Filter strength",
-                            "Filter strength, it is the full width at half maximum of a Gaussian "\
-                            "in the frequency domain. The real filter is then 1 - Gaussian",
-                            1e-3f, G_MAXFLOAT, 1.0f,
-                            G_PARAM_READWRITE);
+            "Filter strength",
+            "Filter strength, it is the full width at half maximum of a Gaussian "\
+            "in the frequency domain. The real filter is then 1 - Gaussian",
+            1e-3f, G_MAXFLOAT, 1.0f,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

@@ -243,45 +243,45 @@ ufo_dummy_data_task_class_init (UfoDummyDataTaskClass *klass)
 
     properties[PROP_WIDTH] =
         g_param_spec_uint ("width",
-                           "Width of the buffer",
-                           "Width of the buffer",
-                           1, 2 << 16, 1,
-                           G_PARAM_READWRITE);
+            "Width of the buffer",
+            "Width of the buffer",
+            1, 2 << 16, 1,
+            G_PARAM_READWRITE);
 
     properties[PROP_HEIGHT] =
         g_param_spec_uint ("height",
-                           "Height of the buffer",
-                           "Height of the buffer",
-                           1, 2 << 16, 1,
-                           G_PARAM_READWRITE);
+            "Height of the buffer",
+            "Height of the buffer",
+            1, 2 << 16, 1,
+            G_PARAM_READWRITE);
 
     properties[PROP_DEPTH] =
         g_param_spec_uint ("depth",
-                           "Depth of the buffer",
-                           "Depth of the buffer",
-                           1, 2 << 16, 1,
-                           G_PARAM_READWRITE);
+            "Depth of the buffer",
+            "Depth of the buffer",
+            1, 2 << 16, 1,
+            G_PARAM_READWRITE);
 
     properties[PROP_NUMBER] =
         g_param_spec_uint ("number",
-                           "Number of buffers",
-                           "Number of buffers",
-                           1, 2 << 16, 1,
-                           G_PARAM_READWRITE);
+            "Number of buffers",
+            "Number of buffers",
+            1, 2 << 16, 1,
+            G_PARAM_READWRITE);
 
     properties[PROP_INIT] =
         g_param_spec_float ("init",
-                            "Initial float value",
-                            "Initial float value",
-                            -G_MAXFLOAT, G_MAXFLOAT, 0,
-                            G_PARAM_READWRITE);
+            "Initial float value",
+            "Initial float value",
+            -G_MAXFLOAT, G_MAXFLOAT, 0,
+            G_PARAM_READWRITE);
 
     properties[PROP_METADATA] =
         g_param_spec_boolean ("metadata",
-                              "Generate incrementing values for the `meta` key",
-                              "Generate incrementing values for the `meta` key",
-                              FALSE,
-                              G_PARAM_READWRITE);
+            "Generate incrementing values for the `meta` key",
+            "Generate incrementing values for the `meta` key",
+            FALSE,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);

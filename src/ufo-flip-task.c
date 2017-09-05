@@ -196,10 +196,10 @@ ufo_flip_task_class_init (UfoFlipTaskClass *klass)
 
     properties[PROP_DIRECTION] =
         g_param_spec_enum ("direction",
-                           "Flip direction (`horizontal' or `vertical')",
-                           "Flip direction (`horizontal' or `vertical')",
-                           g_enum_register_static ("direction", direction_values),
-                           DIRECTION_HORIZONTAL,
+            "Flip direction (`horizontal' or `vertical')",
+            "Flip direction (`horizontal' or `vertical')",
+            g_enum_register_static ("direction", direction_values),
+            DIRECTION_HORIZONTAL,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)

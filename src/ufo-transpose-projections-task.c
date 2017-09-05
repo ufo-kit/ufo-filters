@@ -252,10 +252,10 @@ ufo_transpose_projections_task_class_init (UfoTransposeProjectionsTaskClass *kla
 
     properties[PROP_NUM_PROJECTIONS] = 
         g_param_spec_uint ("number",
-                           "Number of projections",
-                           "Number of projections",
-                           1, G_MAXUINT, 1,
-                           G_PARAM_READWRITE);
+            "Number of projections",
+            "Number of projections",
+            1, G_MAXUINT, 1,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

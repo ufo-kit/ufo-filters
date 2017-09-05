@@ -241,11 +241,11 @@ ufo_detect_edge_task_class_init (UfoDetectEdgeTaskClass *klass)
 
     properties[PROP_TYPE] =
         g_param_spec_enum ("type",
-                           "Filter type (\"sobel\", \"laplace\", \"prewitt\")",
-                           "Filter type (\"sobel\", \"laplace\", \"prewitt\")",
-                           g_enum_register_static ("type", filter_values),
-                           FILTER_SOBEL,
-                           G_PARAM_READWRITE);
+            "Filter type (\"sobel\", \"laplace\", \"prewitt\")",
+            "Filter type (\"sobel\", \"laplace\", \"prewitt\")",
+            g_enum_register_static ("type", filter_values),
+            FILTER_SOBEL,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

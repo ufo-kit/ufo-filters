@@ -298,45 +298,45 @@ ufo_rescale_task_class_init (UfoRescaleTaskClass *klass)
 
     properties[PROP_FACTOR] =
         g_param_spec_float ("factor",
-                            "Rescale factor",
-                            "Rescale factor for both dimensions, e.g. 0.5 reduces width and height by half",
-                            1e-3, G_MAXFLOAT, 2.0f,
-                            G_PARAM_READWRITE);
+            "Rescale factor",
+            "Rescale factor for both dimensions, e.g. 0.5 reduces width and height by half",
+            1e-3, G_MAXFLOAT, 2.0f,
+            G_PARAM_READWRITE);
 
     properties[PROP_X_FACTOR] =
         g_param_spec_float ("x-factor",
-                            "Rescale x-factor",
-                            "Rescale x-factor, e.g. 0.5 reduces width by half",
-                            1e-3, G_MAXFLOAT, 2.0f,
-                            G_PARAM_READWRITE);
+            "Rescale x-factor",
+            "Rescale x-factor, e.g. 0.5 reduces width by half",
+            1e-3, G_MAXFLOAT, 2.0f,
+            G_PARAM_READWRITE);
 
     properties[PROP_Y_FACTOR] =
         g_param_spec_float ("y-factor",
-                            "Rescale y-factor",
-                            "Rescale y-factor, e.g. 0.5 reduces height by half",
-                            1e-3, G_MAXFLOAT, 2.0f,
-                            G_PARAM_READWRITE);
+            "Rescale y-factor",
+            "Rescale y-factor, e.g. 0.5 reduces height by half",
+            1e-3, G_MAXFLOAT, 2.0f,
+            G_PARAM_READWRITE);
 
     properties[PROP_INTERPOLATION] =
         g_param_spec_enum ("interpolation",
-                           "Interpolation mode (\"nearest\", \"linear\")",
-                           "Interpolation mode (\"nearest\", \"linear\")",
-                           g_enum_register_static ("interpolation", interpolation_values),
-                           INTERPOLATION_LINEAR, G_PARAM_READWRITE);
+            "Interpolation mode (\"nearest\", \"linear\")",
+            "Interpolation mode (\"nearest\", \"linear\")",
+            g_enum_register_static ("interpolation", interpolation_values),
+            INTERPOLATION_LINEAR, G_PARAM_READWRITE);
 
     properties[PROP_WIDTH] =
         g_param_spec_uint ("width",
-                           "Ignore x-factor and use specified width",
-                           "Ignore x-factor and use specified width",
-                           0, G_MAXUINT, 0,
-                           G_PARAM_READWRITE);
+            "Ignore x-factor and use specified width",
+            "Ignore x-factor and use specified width",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
 
     properties[PROP_HEIGHT] =
         g_param_spec_uint ("height",
-                           "Ignore y-factor and use specified height",
-                           "Ignore y-factor and use specified height",
-                           0, G_MAXUINT, 0,
-                           G_PARAM_READWRITE);
+            "Ignore y-factor and use specified height",
+            "Ignore y-factor and use specified height",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);

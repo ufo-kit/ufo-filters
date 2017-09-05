@@ -299,24 +299,24 @@ ufo_ifft_task_class_init (UfoIfftTaskClass *klass)
 
     properties[PROP_DIMENSIONS] =
         g_param_spec_uint ("dimensions",
-                           "Number of IFFT dimensions from 1 to 3",
-                           "Number of IFFT dimensions from 1 to 3",
-                           1, 3, 1,
-                           G_PARAM_READWRITE);
+            "Number of IFFT dimensions from 1 to 3",
+            "Number of IFFT dimensions from 1 to 3",
+            1, 3, 1,
+            G_PARAM_READWRITE);
 
     properties[PROP_CROP_WIDTH] =
         g_param_spec_int ("crop-width",
-                          "Width of cropped output",
-                          "Width of cropped output",
-                          -1, G_MAXINT, -1,
-                          G_PARAM_READWRITE);
+            "Width of cropped output",
+            "Width of cropped output",
+            -1, G_MAXINT, -1,
+            G_PARAM_READWRITE);
 
     properties[PROP_CROP_HEIGHT] =
         g_param_spec_int ("crop-height",
-                          "Height of cropped output",
-                          "Height of cropped output",
-                          -1, G_MAXINT, -1,
-                          G_PARAM_READWRITE);
+            "Height of cropped output",
+            "Height of cropped output",
+            -1, G_MAXINT, -1,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

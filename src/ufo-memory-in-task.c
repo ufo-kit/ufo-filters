@@ -208,24 +208,24 @@ ufo_memory_in_task_class_init (UfoMemoryInTaskClass *klass)
 
     properties[PROP_WIDTH] =
         g_param_spec_uint ("width",
-                           "Width of the buffer",
-                           "Width of the buffer",
-                           1, 2 << 16, 1,
-                           G_PARAM_READWRITE);
+            "Width of the buffer",
+            "Width of the buffer",
+            1, 2 << 16, 1,
+            G_PARAM_READWRITE);
 
     properties[PROP_HEIGHT] =
         g_param_spec_uint ("height",
-                           "Height of the buffer",
-                           "Height of the buffer",
-                           1, 2 << 16, 1,
-                           G_PARAM_READWRITE);
+            "Height of the buffer",
+            "Height of the buffer",
+            1, 2 << 16, 1,
+            G_PARAM_READWRITE);
 
     properties[PROP_NUMBER] =
         g_param_spec_uint ("number",
-                           "Number of buffers",
-                           "Number of buffers",
-                           1, 2 << 16, 1,
-                           G_PARAM_READWRITE);
+            "Number of buffers",
+            "Number of buffers",
+            1, 2 << 16, 1,
+            G_PARAM_READWRITE);
 
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)

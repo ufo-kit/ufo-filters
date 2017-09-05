@@ -437,73 +437,73 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
 
     properties[PROP_NUM_PROJECTIONS] =
         g_param_spec_uint ("num-projections",
-                           "Number of projections between 0 and 180 degrees",
-                           "Number of projections between 0 and 180 degrees",
-                           0, +8192, 0,
-                           G_PARAM_READWRITE);
+            "Number of projections between 0 and 180 degrees",
+            "Number of projections between 0 and 180 degrees",
+            0, +8192, 0,
+            G_PARAM_READWRITE);
 
     properties[PROP_OFFSET] =
         g_param_spec_uint ("offset",
-                           "Offset to the first projection",
-                           "Offset to the first projection",
-                           0, +8192, 0,
-                           G_PARAM_READWRITE);
+            "Offset to the first projection",
+            "Offset to the first projection",
+            0, +8192, 0,
+            G_PARAM_READWRITE);
 
     properties[PROP_AXIS_POSITION] =
         g_param_spec_double ("axis-pos",
-                             "Position of rotation axis",
-                             "Position of rotation axis",
-                             -1.0, +8192.0, 0.0,
-                             G_PARAM_READWRITE);
+            "Position of rotation axis",
+            "Position of rotation axis",
+            -1.0, +8192.0, 0.0,
+            G_PARAM_READWRITE);
 
     properties[PROP_ANGLE_STEP] =
         g_param_spec_double ("angle-step",
-                             "Increment of angle in radians",
-                             "Increment of angle in radians",
-                             -limit, +limit, 0.0,
-                             G_PARAM_READWRITE);
+            "Increment of angle in radians",
+            "Increment of angle in radians",
+            -limit, +limit, 0.0,
+            G_PARAM_READWRITE);
 
     properties[PROP_ANGLE_OFFSET] =
         g_param_spec_double ("angle-offset",
-                             "Angle offset in radians",
-                             "Angle offset in radians determining the first angle position",
-                             0.0, +limit, 0.0,
-                             G_PARAM_READWRITE);
+            "Angle offset in radians",
+            "Angle offset in radians determining the first angle position",
+            0.0, +limit, 0.0,
+            G_PARAM_READWRITE);
 
     properties[PROP_MODE] =
         g_param_spec_enum ("mode",
-                           "Backprojection mode (\"nearest\", \"texture\")",
-                           "Backprojection mode (\"nearest\", \"texture\")",
-                           g_enum_register_static ("mode", mode_values),
-                           MODE_TEXTURE, G_PARAM_READWRITE);
+            "Backprojection mode (\"nearest\", \"texture\")",
+            "Backprojection mode (\"nearest\", \"texture\")",
+            g_enum_register_static ("mode", mode_values),
+            MODE_TEXTURE, G_PARAM_READWRITE);
 
     properties[PROP_ROI_X] =
         g_param_spec_uint ("roi-x",
-                           "X coordinate of region of interest",
-                           "X coordinate of region of interest",
-                           0, G_MAXUINT, 0,
-                           G_PARAM_READWRITE);
+            "X coordinate of region of interest",
+            "X coordinate of region of interest",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
 
     properties[PROP_ROI_Y] =
         g_param_spec_uint ("roi-y",
-                           "Y coordinate of region of interest",
-                           "Y coordinate of region of interest",
-                           0, G_MAXUINT, 0,
-                           G_PARAM_READWRITE);
+            "Y coordinate of region of interest",
+            "Y coordinate of region of interest",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
 
     properties[PROP_ROI_WIDTH] =
         g_param_spec_uint ("roi-width",
-                           "Width of region of interest",
-                           "Width of region of interest",
-                           0, G_MAXUINT, 0,
-                           G_PARAM_READWRITE);
+            "Width of region of interest",
+            "Width of region of interest",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
 
     properties[PROP_ROI_HEIGHT] =
         g_param_spec_uint ("roi-height",
-                           "Height of region of interest",
-                           "Height of region of interest",
-                           0, G_MAXUINT, 0,
-                           G_PARAM_READWRITE);
+            "Height of region of interest",
+            "Height of region of interest",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

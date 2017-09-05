@@ -359,42 +359,40 @@ ufo_rotate_task_class_init (UfoRotateTaskClass *klass)
 
     properties[PROP_ANGLE] =
         g_param_spec_float ("angle",
-                            "Rotation angle in radians",
-                            "Rotation angle in radians",
-                            -G_MAXFLOAT,
-                            G_MAXFLOAT,
-                            0.0f,
-                            G_PARAM_READWRITE);
+            "Rotation angle in radians",
+            "Rotation angle in radians",
+            -G_MAXFLOAT, G_MAXFLOAT, 0.0f,
+            G_PARAM_READWRITE);
 
     properties[PROP_RESHAPE] =
         g_param_spec_boolean ("reshape",
-                            "Reshape the image to fit the rotated original",
-                            "Reshape the image to fit the rotated original",
-                            FALSE,
-                            G_PARAM_READWRITE);
+            "Reshape the image to fit the rotated original",
+            "Reshape the image to fit the rotated original",
+            FALSE,
+            G_PARAM_READWRITE);
 
     properties[PROP_CENTER] =
         g_param_spec_value_array ("center",
-                                  "Center of rotation (x, y)",
-                                  "Center of rotation (x, y)",
-                                  region_vals,
-                                  G_PARAM_READWRITE);
+            "Center of rotation (x, y)",
+            "Center of rotation (x, y)",
+            region_vals,
+            G_PARAM_READWRITE);
 
     properties[PROP_ADDRESSING_MODE] =
         g_param_spec_enum ("addressing-mode",
-                           "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
-                           "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
-                           g_enum_register_static ("rot_addressing_mode", addressing_values),
-                           CL_ADDRESS_CLAMP,
-                           G_PARAM_READWRITE);
+            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
+            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
+            g_enum_register_static ("rot_addressing_mode", addressing_values),
+            CL_ADDRESS_CLAMP,
+            G_PARAM_READWRITE);
 
     properties[PROP_INTERPOLATION] =
         g_param_spec_enum ("interpolation",
-                           "Interpolation (\"nearest\" or \"linear\")",
-                           "Interpolation (\"nearest\" or \"linear\")",
-                           g_enum_register_static ("rot_interpolation", interpolation_values),
-                           CL_FILTER_LINEAR,
-                           G_PARAM_READWRITE);
+            "Interpolation (\"nearest\" or \"linear\")",
+            "Interpolation (\"nearest\" or \"linear\")",
+            g_enum_register_static ("rot_interpolation", interpolation_values),
+            CL_FILTER_LINEAR,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

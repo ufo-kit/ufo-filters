@@ -214,10 +214,10 @@ ufo_get_dup_circ_task_class_init (UfoGetDupCircTaskClass *klass)
 
     properties[PROP_THRESHOLD] =
         g_param_spec_float ("threshold",
-                            "Give maximum ring distance, and radius difference",
-                            "Give maximum ring distance, and radius difference",
-                            1, G_MAXFLOAT, 10,
-                            G_PARAM_READWRITE);
+            "Give maximum ring distance, and radius difference",
+            "Give maximum ring distance, and radius difference",
+            1, G_MAXFLOAT, 10,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);

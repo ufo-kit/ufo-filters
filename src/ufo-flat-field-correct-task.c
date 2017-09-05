@@ -245,10 +245,10 @@ ufo_flat_field_correct_task_class_init (UfoFlatFieldCorrectTaskClass *klass)
 
     properties[PROP_FIX_NAN_AND_INF] =
         g_param_spec_boolean("fix-nan-and-inf",
-                             "Replace NAN and INF values with 0.0",
-                             "Replace NAN and INF values with 0.0",
-                             FALSE,
-                             G_PARAM_READWRITE);
+            "Replace NAN and INF values with 0.0",
+            "Replace NAN and INF values with 0.0",
+            FALSE,
+            G_PARAM_READWRITE);
 
     properties[PROP_ABSORPTIVITY] =
         g_param_spec_boolean ("absorption-correct",

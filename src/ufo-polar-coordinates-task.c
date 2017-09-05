@@ -332,24 +332,24 @@ ufo_polar_coordinates_task_class_init (UfoPolarCoordinatesTaskClass *klass)
 
     properties[PROP_WIDTH] =
         g_param_spec_uint ("width",
-                           "Final width",
-                           "Final width after transformation",
-                           0, 8192, 0,
-                           G_PARAM_READWRITE);
+            "Final width",
+            "Final width after transformation",
+            0, 8192, 0,
+            G_PARAM_READWRITE);
 
     properties[PROP_HEIGHT] =
         g_param_spec_uint ("height",
-                           "Final height",
-                           "Final height after transformation",
-                           0, 8192, 0,
-                           G_PARAM_READWRITE);
+            "Final height",
+            "Final height after transformation",
+            0, 8192, 0,
+            G_PARAM_READWRITE);
 
     properties[PROP_DIRECTION] =
         g_param_spec_string ("direction",
-                             "Conversion direction",
-                             "Conversion direction from: \"polar_to_cartesian\", \"cartesian_to_polar\"",
-                             "polar_to_cartesian",
-                             G_PARAM_READWRITE);
+            "Conversion direction",
+            "Conversion direction from: \"polar_to_cartesian\", \"cartesian_to_polar\"",
+            "polar_to_cartesian",
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

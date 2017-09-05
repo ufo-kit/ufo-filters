@@ -480,7 +480,8 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
     properties[PROP_FILENAME] =
         g_param_spec_string ("filename",
             "Filename filename string",
-            "filename string of the path and filename. If multiple files are written it must contain a '%i' specifier denoting the current count",
+            "filename string of the path and filename. "
+                "If multiple files are written it must contain a '%i' specifier denoting the current count",
             "",
             G_PARAM_READWRITE);
 
@@ -493,30 +494,30 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
 
     properties[PROP_BITS] =
         g_param_spec_uint ("bits",
-                           "Number of bits per sample",
-                           "Number of bits per sample. Possible values in [8, 16, 32].",
-                           8, 32, 32, G_PARAM_READWRITE);
+            "Number of bits per sample",
+            "Number of bits per sample. Possible values in [8, 16, 32].",
+            8, 32, 32, G_PARAM_READWRITE);
 
     properties[PROP_MINIMUM] =
         g_param_spec_float ("minimum",
-                            "Lowest value to be used for spreading",
-                            "Lowest value to be used for spreading",
-                            -G_MAXFLOAT, G_MAXFLOAT, G_MAXFLOAT,
-                            G_PARAM_READWRITE);
+            "Lowest value to be used for spreading",
+            "Lowest value to be used for spreading",
+            -G_MAXFLOAT, G_MAXFLOAT, G_MAXFLOAT,
+            G_PARAM_READWRITE);
 
     properties[PROP_MAXIMUM] =
         g_param_spec_float ("maximum",
-                            "Highest value to be used for spreading",
-                            "Highest value to be used for spreading",
-                            -G_MAXFLOAT, G_MAXFLOAT, -G_MAXFLOAT,
-                            G_PARAM_READWRITE);
+            "Highest value to be used for spreading",
+            "Highest value to be used for spreading",
+            -G_MAXFLOAT, G_MAXFLOAT, -G_MAXFLOAT,
+            G_PARAM_READWRITE);
 
 #ifdef HAVE_JPEG
     properties[PROP_QUALITY] =
         g_param_spec_uint ("quality",
-                           "JPEG quality",
-                           "JPEG quality between 0 and 100",
-                           0, 100, 95, G_PARAM_READWRITE);
+            "JPEG quality",
+            "JPEG quality between 0 and 100",
+            0, 100, 95, G_PARAM_READWRITE);
 #endif
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)

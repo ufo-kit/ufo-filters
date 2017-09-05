@@ -243,12 +243,12 @@ ufo_calculate_task_class_init (UfoCalculateTaskClass *klass)
 
     properties[PROP_EXPRESSION] =
         g_param_spec_string ("expression",
-                             "Arithmetic expression to calculate",
-                             "Arithmetic expression to calculate, you can use \"v\""\
-                             "to access the values in the input and \"x\""\
-                             "to access the indices of the input values",
-                             "0.0f",
-                             G_PARAM_READWRITE);
+            "Arithmetic expression to calculate",
+            "Arithmetic expression to calculate, you can use \"v\""
+                "to access the values in the input and \"x\""
+                "to access the indices of the input values",
+            "0.0f",
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

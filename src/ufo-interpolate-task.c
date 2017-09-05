@@ -248,10 +248,10 @@ ufo_interpolate_task_class_init (UfoInterpolateTaskClass *klass)
 
     properties[PROP_NUMBER] =
         g_param_spec_uint ("number",
-                           "Number of interpolated images",
-                           "Number of interpolated images",
-                           1, G_MAXUINT, 1,
-                           G_PARAM_READWRITE);
+            "Number of interpolated images",
+            "Number of interpolated images",
+            1, G_MAXUINT, 1,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

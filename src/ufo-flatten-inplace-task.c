@@ -216,10 +216,10 @@ ufo_flatten_inplace_task_class_init (UfoFlattenInplaceTaskClass *klass)
 
     properties[PROP_MODE] =
         g_param_spec_enum ("mode",
-                           "Mode (min, max, sum)",
-                           "Mode (min, max, sum)",
-                           g_enum_register_static ("mode", mode_values),
-                           MODE_SUM, G_PARAM_READWRITE);
+            "Mode (min, max, sum)",
+            "Mode (min, max, sum)",
+            g_enum_register_static ("mode", mode_values),
+            MODE_SUM, G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

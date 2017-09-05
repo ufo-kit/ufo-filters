@@ -223,10 +223,10 @@ ufo_average_task_class_init (UfoAverageTaskClass *klass)
 
     properties[PROP_NUM_GENERATE] =
         g_param_spec_uint ("number",
-                           "Number of averaged images to generate",
-                           "Number of averaged images to generate",
-                           1, G_MAXUINT, 1,
-                           G_PARAM_READWRITE);
+            "Number of averaged images to generate",
+            "Number of averaged images to generate",
+            1, G_MAXUINT, 1,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

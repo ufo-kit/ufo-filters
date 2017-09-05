@@ -158,10 +158,10 @@ ufo_sleep_task_class_init (UfoSleepTaskClass *klass)
 
     properties[PROP_TIME] =
         g_param_spec_double ("time",
-                             "Time to sleep in seconds",
-                             "Time to sleep in seconds",
-                             0.0, G_MAXDOUBLE, 1.0,
-                             G_PARAM_READWRITE);
+            "Time to sleep in seconds",
+            "Time to sleep in seconds",
+            0.0, G_MAXDOUBLE, 1.0,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);

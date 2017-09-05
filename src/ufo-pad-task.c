@@ -312,39 +312,39 @@ ufo_pad_task_class_init (UfoPadTaskClass *klass)
 
     properties[PROP_WIDTH] =
         g_param_spec_uint ("width",
-                           "Padded width",
-                           "Padded width",
-                           0, +8192, 0,
-                           G_PARAM_READWRITE);
+            "Padded width",
+            "Padded width",
+            0, +8192, 0,
+            G_PARAM_READWRITE);
 
     properties[PROP_HEIGHT] =
         g_param_spec_uint ("height",
-                           "Padded height",
-                           "Padded height",
-                           0, +8192, 0,
-                           G_PARAM_READWRITE);
+            "Padded height",
+            "Padded height",
+            0, +8192, 0,
+            G_PARAM_READWRITE);
 
     properties[PROP_X] =
         g_param_spec_int ("x",
-                           "X start index",
-                           "X index for input's 0th column",
-                           -8192, +8192, 0,
-                           G_PARAM_READWRITE);
+            "X start index",
+            "X index for input's 0th column",
+            -8192, +8192, 0,
+            G_PARAM_READWRITE);
 
     properties[PROP_Y] =
         g_param_spec_int ("y",
-                           "Y start index",
-                           "Y index for input's 0th row",
-                           -8192, +8192, 0,
-                           G_PARAM_READWRITE);
+            "Y start index",
+            "Y index for input's 0th row",
+            -8192, +8192, 0,
+            G_PARAM_READWRITE);
 
     properties[PROP_ADDRESSING_MODE] =
         g_param_spec_enum ("addressing-mode",
-                           "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
-                           "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
-                           g_enum_register_static ("addressing_mode", addressing_values),
-                           CL_ADDRESS_CLAMP,
-                           G_PARAM_READWRITE);
+            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
+            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
+            g_enum_register_static ("addressing_mode", addressing_values),
+            CL_ADDRESS_CLAMP,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);

@@ -220,10 +220,10 @@ ufo_dump_ring_task_class_init (UfoDumpRingTaskClass *klass)
 
     properties[PROP_SCALE] =
         g_param_spec_uint ("scale",
-                           "Says by how much rings should be increased",
-                           "Says by how much rings should be increased",
-                           1, G_MAXUINT, 1,
-                           G_PARAM_READWRITE);
+            "Says by how much rings should be increased",
+            "Says by how much rings should be increased",
+            1, G_MAXUINT, 1,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);

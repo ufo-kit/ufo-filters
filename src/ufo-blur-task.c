@@ -299,17 +299,17 @@ ufo_blur_task_class_init (UfoBlurTaskClass *klass)
 
     properties[PROP_SIZE] =
         g_param_spec_uint("size",
-                          "Size of the kernel",
-                          "Size of the kernel",
-                          3, 1000, 5,
-                          G_PARAM_READWRITE);
+            "Size of the kernel",
+            "Size of the kernel",
+            3, 1000, 5,
+            G_PARAM_READWRITE);
 
     properties[PROP_SIGMA] =
         g_param_spec_float("sigma",
-                           "sigma",
-                           "sigma",
-                           1.0f, 1000.0f, 1.0f,
-                           G_PARAM_READWRITE);
+            "sigma",
+            "sigma",
+            1.0f, 1000.0f, 1.0f,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);

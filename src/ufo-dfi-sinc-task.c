@@ -455,10 +455,10 @@ ufo_dfi_sinc_task_class_init (UfoDfiSincTaskClass *klass)
 
     properties[PROP_ANGLE_STEP] =
         g_param_spec_double ("angle-step",
-                             "Increment of angle in radians",
-                             "Increment of angle in radians",
-                             -limit, +limit, 0.0,
-                             G_PARAM_READWRITE);
+            "Increment of angle in radians",
+            "Increment of angle in radians",
+            -limit, +limit, 0.0,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);

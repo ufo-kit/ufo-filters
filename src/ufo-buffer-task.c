@@ -346,24 +346,24 @@ ufo_buffer_task_class_init (UfoBufferTaskClass *klass)
 
     properties[PROP_NUM_PREALLOC] =
         g_param_spec_uint ("number",
-                           "Number of pre-allocated \"pages\"",
-                           "Number of pre-allocated \"pages\"",
-                           1, 4096, 4,
-                           G_PARAM_READWRITE);
+            "Number of pre-allocated \"pages\"",
+            "Number of pre-allocated \"pages\"",
+            1, 4096, 4,
+            G_PARAM_READWRITE);
 
     properties[PROP_DUP_COUNT] =
         g_param_spec_uint ("dup-count",
-                           "Number of times each image should be duplicated",
-                           "Number of times each image should be duplicated",
-                           1, 4096, 1,
-                           G_PARAM_READWRITE);
+            "Number of times each image should be duplicated",
+            "Number of times each image should be duplicated",
+            1, 4096, 1,
+            G_PARAM_READWRITE);
 
     properties[PROP_LOOP] =
         g_param_spec_boolean ("loop",
-                              "Duplicated the data in a loop manner dup-count times",
-                              "Duplicated the data in a loop manner dup-count times",
-                              0,
-                              G_PARAM_READWRITE);
+            "Duplicated the data in a loop manner dup-count times",
+            "Duplicated the data in a loop manner dup-count times",
+            0,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

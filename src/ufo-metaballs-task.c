@@ -286,31 +286,31 @@ ufo_metaballs_task_class_init (UfoMetaballsTaskClass *klass)
 
     properties[PROP_WIDTH] =
         g_param_spec_uint("width",
-                "Width of the output",
-                "Width of the output",
-                1, 8192, 512,
-                G_PARAM_READWRITE);
+            "Width of the output",
+            "Width of the output",
+            1, 8192, 512,
+            G_PARAM_READWRITE);
 
     properties[PROP_HEIGHT] =
         g_param_spec_uint("height",
-                "Height of the output",
-                "Height of the output",
-                1, 8192, 512,
-                G_PARAM_READWRITE);
+            "Height of the output",
+            "Height of the output",
+            1, 8192, 512,
+            G_PARAM_READWRITE);
 
     properties[PROP_NUM_BALLS] =
         g_param_spec_uint("number-balls",
-                "Number of meta balls",
-                "Number of meta balls",
-                1, 256, 1,
-                G_PARAM_READWRITE);
+            "Number of meta balls",
+            "Number of meta balls",
+            1, 256, 1,
+            G_PARAM_READWRITE);
 
     properties[PROP_NUM_ITERATIONS] =
         g_param_spec_uint("number",
-                "Number of iterations",
-                "Number of iterations",
-                1, G_MAXUINT, 1,
-                G_PARAM_READWRITE);
+            "Number of iterations",
+            "Number of iterations",
+            1, G_MAXUINT, 1,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);

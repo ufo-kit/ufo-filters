@@ -250,17 +250,17 @@ ufo_ringwriter_task_class_init (UfoRingwriterTaskClass *klass)
 
     properties[PROP_SCALE] =
         g_param_spec_uint ("scale",
-                           "Says by how much rings should be increased",
-                           "Says by how much rings should be increased",
-                           1, G_MAXUINT, 1,
-                           G_PARAM_READWRITE);
+            "Says by how much rings should be increased",
+            "Says by how much rings should be increased",
+            1, G_MAXUINT, 1,
+            G_PARAM_READWRITE);
 
     properties[PROP_PATH] =
         g_param_spec_string ("filename",
-                             "Path for the output file to write data",
-                             "Path for the output file to write data",
-                             "results",
-                             G_PARAM_READWRITE);
+            "Path for the output file to write data",
+            "Path for the output file to write data",
+            "results",
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

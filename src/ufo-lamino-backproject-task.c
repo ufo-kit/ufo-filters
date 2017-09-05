@@ -691,111 +691,99 @@ ufo_lamino_backproject_task_class_init (UfoLaminoBackprojectTaskClass *klass)
 
     properties[PROP_X_REGION] =
         g_param_spec_value_array ("x-region",
-                                  "X region for reconstruction as (from, to, step)",
-                                  "X region for reconstruction as (from, to, step)",
-                                  region_vals,
-                                  G_PARAM_READWRITE);
+            "X region for reconstruction as (from, to, step)",
+            "X region for reconstruction as (from, to, step)",
+            region_vals,
+            G_PARAM_READWRITE);
 
     properties[PROP_Y_REGION] =
         g_param_spec_value_array ("y-region",
-                                  "Y region for reconstruction as (from, to, step)",
-                                  "Y region for reconstruction as (from, to, step)",
-                                  region_vals,
-                                  G_PARAM_READWRITE);
+            "Y region for reconstruction as (from, to, step)",
+            "Y region for reconstruction as (from, to, step)",
+            region_vals,
+            G_PARAM_READWRITE);
 
     properties[PROP_Z] =
         g_param_spec_float ("z",
-                            "Z coordinate of the reconstructed slice",
-                            "Z coordinate of the reconstructed slice",
-                            -G_MAXFLOAT,
-                            G_MAXFLOAT,
-                            0.0f,
-                            G_PARAM_READWRITE);
+            "Z coordinate of the reconstructed slice",
+            "Z coordinate of the reconstructed slice",
+            -G_MAXFLOAT, G_MAXFLOAT, 0.0f,
+            G_PARAM_READWRITE);
 
     properties[PROP_REGION] =
         g_param_spec_value_array ("region",
-                                  "Region for the parameter along z-axis as (from, to, step)",
-                                  "Region for the parameter along z-axis as (from, to, step)",
-                                  float_region_vals,
-                                  G_PARAM_READWRITE);
+            "Region for the parameter along z-axis as (from, to, step)",
+            "Region for the parameter along z-axis as (from, to, step)",
+            float_region_vals,
+            G_PARAM_READWRITE);
 
     properties[PROP_PROJECTION_OFFSET] =
         g_param_spec_value_array ("projection-offset",
-                                  "Offset to projection data as (x, y)",
-                                  "Offset to projection data as (x, y) for the case input data \
-                                  is cropped to the necessary range of interest",
-                                  region_vals,
-                                  G_PARAM_READWRITE);
+            "Offset to projection data as (x, y)",
+            "Offset to projection data as (x, y) for the case input data "
+                "is cropped to the necessary range of interest",
+            region_vals,
+            G_PARAM_READWRITE);
 
     properties[PROP_CENTER] =
         g_param_spec_value_array ("center",
-                                  "Center of the volume with respect to projections (x, y)",
-                                  "Center of the volume with respect to projections (x, y), (rotation axes)",
-                                  float_region_vals,
-                                  G_PARAM_READWRITE);
+            "Center of the volume with respect to projections (x, y)",
+            "Center of the volume with respect to projections (x, y), (rotation axes)",
+            float_region_vals,
+            G_PARAM_READWRITE);
 
     properties[PROP_OVERALL_ANGLE] =
         g_param_spec_float ("overall-angle",
-                            "Angle covered by all projections",
-                            "Angle covered by all projections (can be negative for negative steps "
-                            "in case only num-projections is specified",
-                            -G_MAXFLOAT,
-                            G_MAXFLOAT,
-                            G_PI,
-                            G_PARAM_READWRITE);
+            "Angle covered by all projections",
+            "Angle covered by all projections (can be negative for negative steps "
+            "in case only num-projections is specified",
+            -G_MAXFLOAT, G_MAXFLOAT, G_PI,
+            G_PARAM_READWRITE);
 
     properties[PROP_NUM_PROJECTIONS] =
         g_param_spec_uint ("num-projections",
-                          "Number of projections",
-                          "Number of projections",
-                          0,
-                          16384,
-                          0,
-                          G_PARAM_READWRITE);
+            "Number of projections",
+            "Number of projections",
+            0, 16384, 0,
+            G_PARAM_READWRITE);
 
     properties[PROP_TOMO_ANGLE] =
         g_param_spec_float ("tomo-angle",
-                            "Tomographic rotation angle in radians",
-                            "Tomographic rotation angle in radians (used for acquiring projections)",
-                            -G_MAXFLOAT,
-                            G_MAXFLOAT,
-                            0.0f,
-                            G_PARAM_READWRITE);
+            "Tomographic rotation angle in radians",
+            "Tomographic rotation angle in radians (used for acquiring projections)",
+            -G_MAXFLOAT, G_MAXFLOAT, 0.0f,
+            G_PARAM_READWRITE);
 
     properties[PROP_LAMINO_ANGLE] =
         g_param_spec_float ("lamino-angle",
-                            "Absolute laminogrpahic angle in radians",
-                            "Absolute laminogrpahic angle in radians determining the sample tilt",
-                            -G_MAXFLOAT,
-                            G_MAXFLOAT,
-                            0.0f,
-                            G_PARAM_READWRITE);
+            "Absolute laminogrpahic angle in radians",
+            "Absolute laminogrpahic angle in radians determining the sample tilt",
+            -G_MAXFLOAT, G_MAXFLOAT, 0.0f,
+            G_PARAM_READWRITE);
 
     properties[PROP_ROLL_ANGLE] =
         g_param_spec_float ("roll-angle",
-                            "Sample angular misalignment to the side (roll) in radians",
-                            "Sample angular misalignment to the side (roll) in radians (CW is positive)",
-                            -G_MAXFLOAT,
-                            G_MAXFLOAT,
-                            0.0f,
-                            G_PARAM_READWRITE);
+            "Sample angular misalignment to the side (roll) in radians",
+            "Sample angular misalignment to the side (roll) in radians (CW is positive)",
+            -G_MAXFLOAT, G_MAXFLOAT, 0.0f,
+            G_PARAM_READWRITE);
 
     properties[PROP_PARAMETER] =
         g_param_spec_enum ("parameter",
-                           "Which parameter will be varied along the z-axis",
-                           "Which parameter will be varied along the z-axis (\"z\", \"x-center\", \"lamino-angle\",\
-                           \"roll-angle\")",
-                           g_enum_register_static ("parameter", parameter_values),
-                           PARAMETER_Z,
-                           G_PARAM_READWRITE);
+            "Which parameter will be varied along the z-axis",
+            "Which parameter will be varied along the z-axis "
+                "(\"z\", \"x-center\", \"lamino-angle\",\ \"roll-angle\")",
+            g_enum_register_static ("parameter", parameter_values),
+            PARAMETER_Z,
+            G_PARAM_READWRITE);
 
     properties[PROP_ADDRESSING_MODE] =
         g_param_spec_enum ("addressing-mode",
-                           "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
-                           "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
-                           g_enum_register_static ("bp_addressing_mode", addressing_values),
-                           CL_ADDRESS_CLAMP,
-                           G_PARAM_READWRITE);
+            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
+            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
+            g_enum_register_static ("bp_addressing_mode", addressing_values),
+            CL_ADDRESS_CLAMP,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

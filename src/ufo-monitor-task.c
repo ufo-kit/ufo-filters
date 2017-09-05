@@ -276,10 +276,10 @@ ufo_monitor_task_class_init (UfoMonitorTaskClass *klass)
 
     properties[PROP_NUM_ITEMS] =
         g_param_spec_uint ("print",
-                           "Number of items to print",
-                           "Number of items to print",
-                           0, G_MAXUINT, 0,
-                           G_PARAM_READWRITE);
+            "Number of items to print",
+            "Number of items to print",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

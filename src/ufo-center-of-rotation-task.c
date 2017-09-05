@@ -230,17 +230,17 @@ ufo_center_of_rotation_task_class_init (UfoCenterOfRotationTaskClass *klass)
 
     properties[PROP_ANGLE_STEP] =
         g_param_spec_double("angle-step",
-                            "Step between two successive projections",
-                            "Step between two successive projections",
-                            0.00001f, 180.0f, 1.0f,
-                            G_PARAM_READWRITE);
+            "Step between two successive projections",
+            "Step between two successive projections",
+            0.00001f, 180.0f, 1.0f,
+            G_PARAM_READWRITE);
 
     properties[PROP_CENTER] =
         g_param_spec_double("center",
-                            "Center of rotation",
-                            "The calculated center of rotation",
-                            -G_MAXDOUBLE, G_MAXDOUBLE, 0.0,
-                            G_PARAM_READABLE);
+            "Center of rotation",
+            "The calculated center of rotation",
+            -G_MAXDOUBLE, G_MAXDOUBLE, 0.0,
+            G_PARAM_READABLE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);

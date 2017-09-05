@@ -255,45 +255,45 @@ ufo_ring_pattern_task_class_init (UfoRingPatternTaskClass *klass)
 
     properties[PROP_RING_START] =
         g_param_spec_uint ("ring-start",
-                           "give starting radius size",
-                           "give starting radius size",
-                           1, G_MAXUINT, 5,
-                           G_PARAM_READWRITE);
+            "give starting radius size",
+            "give starting radius size",
+            1, G_MAXUINT, 5,
+            G_PARAM_READWRITE);
 
     properties[PROP_RING_STEP] =
         g_param_spec_uint ("ring-step",
-                           "Gives ring step",
-                           "Gives ring step",
-                           1, G_MAXUINT, 2,
-                           G_PARAM_READWRITE);
+            "Gives ring step",
+            "Gives ring step",
+            1, G_MAXUINT, 2,
+            G_PARAM_READWRITE);
 
     properties[PROP_RING_END] =
         g_param_spec_uint ("ring-end",
-                           "give ending radius size",
-                           "give ending radius size",
-                           1, G_MAXUINT, 5,
-                           G_PARAM_READWRITE);
+            "give ending radius size",
+            "give ending radius size",
+            1, G_MAXUINT, 5,
+            G_PARAM_READWRITE);
 
     properties[PROP_RING_THICKNESS] =
         g_param_spec_uint ("ring-thickness",
-                           "give desired ring thickness",
-                           "give desired ring thickness",
-                           1, G_MAXUINT, 13,
-                           G_PARAM_READWRITE);
+            "give desired ring thickness",
+            "give desired ring thickness",
+            1, G_MAXUINT, 13,
+            G_PARAM_READWRITE);
 
     properties[PROP_WIDTH] =
         g_param_spec_uint ("width",
-                           "Give x size of output image",
-                           "Give x size of output image",
-                           1, G_MAXUINT, 1024,
-                           G_PARAM_READWRITE);
+            "Give x size of output image",
+            "Give x size of output image",
+            1, G_MAXUINT, 1024,
+            G_PARAM_READWRITE);
 
     properties[PROP_HEIGHT] =
         g_param_spec_uint ("height",
-                           "Give y size of output image",
-                           "Give y size of output image",
-                           1, G_MAXUINT, 1024,
-                           G_PARAM_READWRITE);
+            "Give y size of output image",
+            "Give y size of output image",
+            1, G_MAXUINT, 1024,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);

@@ -532,10 +532,10 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
 
     properties[PROP_STEP] =
         g_param_spec_uint ("step",
-        "Read every \"step\" file",
-        "Read every \"step\" file",
-        1, G_MAXUINT, 1,
-        G_PARAM_READWRITE);
+            "Read every \"step\" file",
+            "Read every \"step\" file",
+            1, G_MAXUINT, 1,
+            G_PARAM_READWRITE);
 
     properties[PROP_ROI_Y] =
         g_param_spec_uint ("y",

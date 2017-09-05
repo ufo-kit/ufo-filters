@@ -210,21 +210,21 @@ ufo_null_task_class_init (UfoNullTaskClass *klass)
 
     properties[PROP_DOWNLOAD] =
         g_param_spec_boolean ("download",
-                              "Force data to be transferred from device to host",
-                              "Force data to be transferred from device to host",
-                              FALSE, G_PARAM_READWRITE);
+            "Force data to be transferred from device to host",
+            "Force data to be transferred from device to host",
+            FALSE, G_PARAM_READWRITE);
 
     properties[PROP_FINISH] =
         g_param_spec_boolean ("finish",
-                              "Call finish on the associated command queue",
-                              "Call finish on the associated command queue",
-                              FALSE, G_PARAM_READWRITE);
+            "Call finish on the associated command queue",
+            "Call finish on the associated command queue",
+            FALSE, G_PARAM_READWRITE);
 
     properties[PROP_DURATIONS] =
         g_param_spec_boolean ("durations",
-                              "Show durations for timestamps",
-                              "Show durations for timestamps",
-                              FALSE, G_PARAM_READWRITE);
+            "Show durations for timestamps",
+            "Show durations for timestamps",
+            FALSE, G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);

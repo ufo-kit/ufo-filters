@@ -311,10 +311,10 @@ ufo_remove_circle_task_class_init (UfoRemoveCircleTaskClass *klass)
 
     properties[PROP_THRESHOLD] =
         g_param_spec_float ("threshold",
-                            "Set maximum Inner and outer ring radii size difference",
-                            "Set maximum inner and outer ring radii size difference",
-                            1, G_MAXFLOAT, 5,
-                            G_PARAM_READWRITE);
+            "Set maximum Inner and outer ring radii size difference",
+            "Set maximum inner and outer ring radii size difference",
+            1, G_MAXFLOAT, 5,
+            G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
