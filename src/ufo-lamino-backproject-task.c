@@ -772,7 +772,7 @@ ufo_lamino_backproject_task_class_init (UfoLaminoBackprojectTaskClass *klass)
         g_param_spec_enum ("parameter",
             "Which parameter will be varied along the z-axis",
             "Which parameter will be varied along the z-axis "
-                "(\"z\", \"x-center\", \"lamino-angle\",\ \"roll-angle\")",
+                "(\"z\", \"x-center\", \"lamino-angle\", \"roll-angle\")",
             g_enum_register_static ("parameter", parameter_values),
             PARAMETER_Z,
             G_PARAM_READWRITE);
