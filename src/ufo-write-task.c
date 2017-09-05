@@ -63,7 +63,7 @@ struct _UfoWriteTaskPrivate {
 
 #ifdef HAVE_JPEG
     UfoJpegWriter *jpeg_writer;
-    gint           quality;
+    gint           jpeg_quality;
 #endif
 
 #ifdef WITH_HDF5
@@ -87,7 +87,7 @@ enum {
     PROP_MINIMUM,
     PROP_MAXIMUM,
 #ifdef HAVE_JPEG
-    PROP_QUALITY,
+    PROP_JPEG_QUALITY,
 #endif
     N_PROPERTIES
 };
@@ -363,9 +363,9 @@ ufo_write_task_set_property (GObject *object,
             priv->minimum = g_value_get_float (value);
             break;
 #ifdef HAVE_JPEG
-        case PROP_QUALITY:
-            priv->quality = g_value_get_uint (value);
-            ufo_jpeg_writer_set_quality (priv->jpeg_writer, priv->quality);
+        case PROP_JPEG_QUALITY:
+            priv->jpeg_quality = g_value_get_uint (value);
+            ufo_jpeg_writer_set_quality (priv->jpeg_writer, priv->jpeg_quality);
             break;
 #endif
         default:
@@ -406,8 +406,8 @@ ufo_write_task_get_property (GObject *object,
             g_value_set_float (value, priv->minimum);
             break;
 #ifdef HAVE_JPEG
-        case PROP_QUALITY:
-            g_value_set_uint (value, priv->quality);
+        case PROP_JPEG_QUALITY:
+            g_value_set_uint (value, priv->jpeg_quality);
             break;
 #endif
         default:
@@ -513,8 +513,8 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
             G_PARAM_READWRITE);
 
 #ifdef HAVE_JPEG
-    properties[PROP_QUALITY] =
-        g_param_spec_uint ("quality",
+    properties[PROP_JPEG_QUALITY] =
+        g_param_spec_uint ("jpeg-quality",
             "JPEG quality",
             "JPEG quality between 0 and 100",
             0, 100, 95, G_PARAM_READWRITE);
@@ -547,7 +547,7 @@ ufo_write_task_init(UfoWriteTask *self)
 
 #ifdef HAVE_JPEG
     self->priv->jpeg_writer = ufo_jpeg_writer_new ();
-    self->priv->quality = 95;
+    self->priv->jpeg_quality = 95;
 #endif
 
 #ifdef WITH_HDF5
