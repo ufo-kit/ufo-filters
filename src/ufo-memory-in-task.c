@@ -24,6 +24,8 @@ struct _UfoMemoryInTaskPrivate {
     gfloat *pointer;
     guint   width;
     guint   height;
+	gsize 	bytes_per_pixel;
+	UfoBufferDepth   bitdepth;
     guint   number;
     guint   read;
 };
@@ -41,6 +43,7 @@ enum {
     PROP_POINTER,
     PROP_WIDTH,
     PROP_HEIGHT,
+	PROP_BITDEPTH,
     PROP_NUMBER,
     N_PROPERTIES
 };
@@ -108,12 +111,21 @@ ufo_memory_in_task_generate (UfoTask *task,
     UfoMemoryInTaskPrivate *priv;
 
     priv = UFO_MEMORY_IN_TASK_GET_PRIVATE (task);
-
+	
     if (priv->read == priv->number)
         return FALSE;
 
     /* FIXME: user should have the possibility of copying instead of setting */
-    ufo_buffer_set_host_array (output, &priv->pointer[priv->read * priv->width * priv->height], FALSE);
+    //ufo_buffer_set_host_array (output, &priv->pointer[priv->read * priv->width * priv->height], FALSE);
+
+	// Changes from Raphael Pour
+	float *data = ufo_buffer_get_host_array(output,NULL);
+	memcpy((guint8*)data, &priv->pointer[priv->read * priv->width * priv->height], priv->width * priv->height * priv->bytes_per_pixel );
+
+	if(priv->bitdepth != UFO_BUFFER_DEPTH_32F)
+		ufo_buffer_convert(output, priv->bitdepth);
+	// End Changes from Raphael Pour
+
     priv->read++;
 
     return TRUE;
@@ -140,6 +152,24 @@ ufo_memory_in_task_set_property (GObject *object,
         case PROP_NUMBER:
             priv->number = g_value_get_uint (value);
             break;
+		case PROP_BITDEPTH:
+			switch(g_value_get_uint(value)){
+				case 8:
+					priv->bitdepth = UFO_BUFFER_DEPTH_8U;
+					priv->bytes_per_pixel = 1;
+					break;
+				case 16:
+					priv->bitdepth = UFO_BUFFER_DEPTH_16U;
+					priv->bytes_per_pixel = 2;
+					break;
+				case 32:
+					priv->bitdepth = UFO_BUFFER_DEPTH_32F;
+					priv->bytes_per_pixel = 4;
+					break;
+				default:
+					g_warning("Cannot set bitdepth other than 8, 16, 32.");
+			}
+			break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -164,6 +194,8 @@ ufo_memory_in_task_get_property (GObject *object,
         case PROP_HEIGHT:
             g_value_set_uint (value, priv->height);
             break;
+		case PROP_BITDEPTH:
+			g_value_set_uint (value, priv->bitdepth);
         case PROP_NUMBER:
             g_value_set_uint (value, priv->number);
             break;
@@ -220,6 +252,13 @@ ufo_memory_in_task_class_init (UfoMemoryInTaskClass *klass)
             1, 2 << 16, 1,
             G_PARAM_READWRITE);
 
+	properties[PROP_BITDEPTH] = 
+		g_param_spec_uint("bitdepth",
+			"Bitdepth of the buffer",
+			"Bitdepth of the buffer",
+			0, G_MAXUINT, G_MAXUINT,
+			G_PARAM_READWRITE);
+
     properties[PROP_NUMBER] =
         g_param_spec_uint ("number",
             "Number of buffers",
@@ -241,5 +280,6 @@ ufo_memory_in_task_init(UfoMemoryInTask *self)
     self->priv->pointer = NULL;
     self->priv->width = 1;
     self->priv->height = 1;
+	self->priv->bitdepth = UFO_BUFFER_DEPTH_32F;
     self->priv->number = 0;
 }
