@@ -118,13 +118,11 @@ ufo_memory_in_task_generate (UfoTask *task,
     /* FIXME: user should have the possibility of copying instead of setting */
     //ufo_buffer_set_host_array (output, &priv->pointer[priv->read * priv->width * priv->height], FALSE);
 
-	// Changes from Raphael Pour
 	float *data = ufo_buffer_get_host_array(output,NULL);
 	memcpy((guint8*)data, &priv->pointer[priv->read * priv->width * priv->height], priv->width * priv->height * priv->bytes_per_pixel );
 
 	if(priv->bitdepth != UFO_BUFFER_DEPTH_32F)
 		ufo_buffer_convert(output, priv->bitdepth);
-	// End Changes from Raphael Pour
 
     priv->read++;
 
