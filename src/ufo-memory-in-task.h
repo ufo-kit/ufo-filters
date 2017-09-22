@@ -21,7 +21,7 @@
 #define __UFO_MEMORY_IN_TASK_H
 
 #include <ufo/ufo.h>
-
+#include <string.h>
 G_BEGIN_DECLS
 
 #define UFO_TYPE_MEMORY_IN_TASK             (ufo_memory_in_task_get_type())
