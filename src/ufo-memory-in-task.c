@@ -116,7 +116,7 @@ ufo_memory_in_task_generate (UfoTask *task,
     if (priv->read == priv->number)
         return FALSE;
 
-    data = ufo_buffer_get_host_array (output,NULL);
+    data = (guint8 *) ufo_buffer_get_host_array (output, NULL);
     memcpy (data, &priv->pointer[priv->read * priv->width * priv->height], priv->width * priv->height * priv->bytes_per_pixel);
 
     if (priv->bitdepth != UFO_BUFFER_DEPTH_32F)
