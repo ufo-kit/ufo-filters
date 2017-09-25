@@ -20,7 +20,11 @@
 #ifndef UFO_ADDRESSING_H
 #define UFO_ADDRESSING_H
 
+#ifdef __APPLE__
+#include <OpenCL/cl.h>
+#else
 #include <CL/cl.h>
+#endif
 #include <glib-object.h>
 
 typedef enum {

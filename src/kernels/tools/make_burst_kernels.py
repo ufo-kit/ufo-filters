@@ -73,7 +73,7 @@ def main():
             raise ValueError('Burst mode `{}` must be one of `{}`'.format(burst, allowed_bursts))
         kernels += fill_kernel_template(in_tmpl, comp_tmpl, kernel_outer, kernel_inner, burst)
 
-    print kernels
+    print(kernels)
 
 
 if __name__ == '__main__':
