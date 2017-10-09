@@ -140,16 +140,22 @@ endforeach
 
 # lamino plugin
 
-shared_module('lamino_backproject',
-    sources: ['ufo-lamino-backproject-task.c'],
-    dependencies: deps,
-    name_prefix: 'libufofilter',
-    install: true,
-    install_dir: plugin_install_dir,
-    c_args: [
-        '-DBURST=@0@'.format(get_option('lamino_backproject_burst_mode')),
-    ],
-)
+python = find_program('python', required: false)
+
+if python.found()
+    shared_module('lamino_backproject',
+        sources: ['ufo-lamino-backproject-task.c'],
+        dependencies: deps,
+        name_prefix: 'libufofilter',
+        install: true,
+        install_dir: plugin_install_dir,
+        c_args: [
+            '-DBURST=@0@'.format(get_option('lamino_backproject_burst_mode')),
+        ],
+    )
+else
+    message('Python not found, cannot generate kernels for lamino_backproject')
+endif
 
 # i/o plugins
 
