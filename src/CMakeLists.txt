@@ -117,7 +117,7 @@ set(ufofilter_LIBS
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -pedantic -Wall -Wextra -fPIC -Wno-unused-parameter -Wno-deprecated-declarations")
 
-add_definitions (-DBURST=${BP_BURST} -D_FILE_OFFSET_BITS=64 -D_LARGE_FILES)
+add_definitions(-D_FILE_OFFSET_BITS=64 -D_LARGE_FILES)
 #}}}
 #{{{ Dependency checks
 find_package(TIFF)

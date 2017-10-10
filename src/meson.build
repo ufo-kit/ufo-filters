@@ -97,6 +97,7 @@ conf = configuration_data()
 conf.set('HAVE_TIFF', tiff_dep.found())
 conf.set('HAVE_JPEG', jpeg_dep.found())
 conf.set('WITH_HDF5', hdf5_dep.found())
+conf.set('BURST', get_option('lamino_backproject_burst_mode'))
 
 configure_file(
     input: 'config.h.meson.in',
@@ -149,9 +150,6 @@ if python.found()
         name_prefix: 'libufofilter',
         install: true,
         install_dir: plugin_install_dir,
-        c_args: [
-            '-DBURST=@0@'.format(get_option('lamino_backproject_burst_mode')),
-        ],
     )
 else
     message('Python not found, cannot generate kernels for lamino_backproject')

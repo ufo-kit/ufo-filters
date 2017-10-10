@@ -2,3 +2,4 @@
 #mesondefine HAVE_TIFF
 #mesondefine HAVE_JPEG
 #mesondefine WITH_HDF5
+#mesondefine BURST

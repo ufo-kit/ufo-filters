@@ -3,3 +3,4 @@
 #cmakedefine HAVE_TIFF
 #cmakedefine HAVE_JPEG
 #cmakedefine WITH_HDF5
+#define BURST   ${BP_BURST}

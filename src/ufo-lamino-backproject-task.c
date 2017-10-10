@@ -28,6 +28,7 @@
 #include <CL/cl.h>
 #endif
 
+#include "config.h"
 #include "ufo-lamino-backproject-task.h"
 #include "lamino-roi.h"
 #include "common/ufo-addressing.h"
