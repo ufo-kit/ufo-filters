@@ -140,8 +140,8 @@ compute_mean (UfoStitchTaskPrivate *priv,
               gint offset)
 {
     gfloat mean = 0.0f, *summed_blocks;
-    gsize global_work_size[2], num_blocks;
-    gint groups_per_roi_width, i;
+    gsize global_work_size[2], num_blocks, i;
+    gint groups_per_roi_width;
     cl_int cl_error;
 
     groups_per_roi_width = (priv->overlap + work_group_size - 1) / work_group_size;
@@ -159,6 +159,7 @@ compute_mean (UfoStitchTaskPrivate *priv,
                                         &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
     }
+
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 0, sizeof (cl_mem), &input));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 1, sizeof (cl_mem), &priv->sum_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 2, sizeof (float) * work_group_size, NULL));
@@ -173,15 +174,12 @@ compute_mean (UfoStitchTaskPrivate *priv,
                                                     0,
                                                     num_blocks * sizeof (float),
                                                     (void *) summed_blocks,
-                                                    0,
-                                                    NULL,
-                                                    NULL));
-    for (i = 0; i < num_blocks; i++) {
-        mean += summed_blocks[i];
-    }
-    mean /= priv->overlap * height;
+                                                    0, NULL, NULL));
 
-    return mean;
+    for (i = 0; i < num_blocks; i++)
+        mean += summed_blocks[i];
+
+    return mean / priv->overlap * height;
 }
 
 static gboolean
