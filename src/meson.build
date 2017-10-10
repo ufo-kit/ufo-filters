@@ -54,6 +54,8 @@ plugins = [
     'ring-pattern',
     'ringwriter',
     'replicate',
+    'rotate',
+    'segment',
     'sleep',
     'slice',
     'stack',
@@ -93,6 +95,7 @@ tiff_dep = dependency('libtiff-4', required: false)
 hdf5_dep = dependency('hdf5', required: false)
 jpeg_dep = dependency('libjpeg', required: false)
 gsl_dep = dependency('gsl', required: false)
+pangocairo_dep = dependency('pangocairo', required: false)
 
 conf = configuration_data()
 conf.set('HAVE_TIFF', tiff_dep.found())
@@ -145,7 +148,7 @@ endforeach
 python = find_program('python', required: false)
 
 if python.found()
-    shared_module('lamino_backproject',
+    shared_module('laminobackproject',
         sources: ['ufo-lamino-backproject-task.c'],
         dependencies: deps,
         name_prefix: 'libufofilter',
@@ -198,9 +201,22 @@ shared_module('write',
     install_dir: plugin_install_dir,
 )
 
+# measure
+
 if gsl_dep.found()
     shared_module('measure', 'ufo-measure-task.c',
         dependencies: deps + [gsl_dep],
+        name_prefix: 'libufofilter',
+        install: true,
+        install_dir: plugin_install_dir,
+    )
+endif
+
+# stamp
+
+if pangocairo_dep.found()
+    shared_module('stamp', 'ufo-stamp-task.c',
+        dependencies: deps + [pangocairo_dep],
         name_prefix: 'libufofilter',
         install: true,
         install_dir: plugin_install_dir,
