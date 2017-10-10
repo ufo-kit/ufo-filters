@@ -57,6 +57,7 @@ plugins = [
     'sleep',
     'slice',
     'stack',
+    'stitch',
     'stdin',
     'transpose',
     'transpose-projections',
