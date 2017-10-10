@@ -19,7 +19,10 @@ add_global_arguments(
 )
 
 if cc.get_id() == 'gcc'
-    add_global_arguments('-fopenmp', language: 'c')
+    add_global_arguments(
+        '-Wno-unused-parameter',
+        '-fopenmp',
+        language: ['c', 'cpp'])
     add_global_link_arguments('-fopenmp', language: 'c')
 endif
 
