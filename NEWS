@@ -1,3 +1,16 @@
+Version 0.14.1
+==============
+
+Fixes:
+
+- Let meson build all the tasks that CMake could before
+- Check if Python is actually available in order to generate lamino kernels
+- Fix install documentation
+- Fix compilation with MacOS compilation and Python 3
+- memory-in: cast pointer to target type
+- write: fix problem with generated filenames that are not incremented
+
+
 Version 0.14.0
 ==============
 
