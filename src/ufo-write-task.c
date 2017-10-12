@@ -207,7 +207,7 @@ ufo_write_task_setup (UfoTask *task,
 #endif
     else {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                     "`%s' does not have a valid file extension", priv->filename);
+                     "`%s' does not have a valid file extension or requires format specifiers", priv->filename);
         return;
     }
 
