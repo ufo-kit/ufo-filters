@@ -562,7 +562,7 @@ ufo_write_task_init(UfoWriteTask *self)
     self->priv = UFO_WRITE_TASK_GET_PRIVATE(self);
     self->priv->counter = 0;
     self->priv->counter_start = 0;
-    self->priv->counter_step = 0;
+    self->priv->counter_step = 1;
     self->priv->append = FALSE;
     self->priv->multi_file = FALSE;
     self->priv->depth = UFO_BUFFER_DEPTH_32F;
