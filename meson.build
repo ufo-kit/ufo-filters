@@ -39,3 +39,4 @@ deps = [
 
 subdir('deps')
 subdir('src')
+subdir('tests')
