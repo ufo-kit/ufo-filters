@@ -73,9 +73,12 @@ if (CMAKE_COMPILER_IS_GNUCC OR ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang"))
 endif ()
 #}}}
 #{{{ Subdirectories
+enable_testing()
+
 add_subdirectory(docs)
 add_subdirectory(deps)
 add_subdirectory(src)
+add_subdirectory(tests)
 if (WITH_CONTRIB)
     add_subdirectory(contrib)
 endif ()
