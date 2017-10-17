@@ -84,7 +84,9 @@ File reader
 
         Set the number of retries in case files do not exist yet and are being
         written. If you set this, you *must* also set ``number`` otherwise you
-        would have to wait basically forever for the execution to finish.
+        would have to wait basically forever for the execution to finish. Note,
+        that only files are considered which come after the last successful
+        filename.
 
     .. gobj:prop:: retry-timeout:uint
 
