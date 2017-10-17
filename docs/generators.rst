@@ -80,6 +80,16 @@ File reader
         example, to load `.foo` files as raw files, set the ``type`` property to
         `raw`.
 
+    .. gobj:prop:: retries:uint
+
+        Set the number of retries in case files do not exist yet and are being
+        written. If you set this, you *must* also set ``number`` otherwise you
+        would have to wait basically forever for the execution to finish.
+
+    .. gobj:prop:: retry-timeout:uint
+
+        Seconds to wait before reading new files.
+
 
 Memory reader
 =============
