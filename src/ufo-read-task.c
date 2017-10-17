@@ -166,15 +166,21 @@ read_filenames (UfoReadTaskPrivate *priv)
         const gchar *filename = filenames.gl_pathv[i];
 
 #ifdef HAVE_TIFF
-        if (ufo_reader_can_open (UFO_READER (priv->tiff_reader), filename) || priv->type == TYPE_TIFF)
+        if (ufo_reader_can_open (UFO_READER (priv->tiff_reader), filename) || priv->type == TYPE_TIFF) {
             result = g_list_append (result, g_strdup (filename));
+            continue;
+        }
 #endif
 
-        if (ufo_reader_can_open (UFO_READER (priv->edf_reader), filename) || priv->type == TYPE_EDF)
+        if (ufo_reader_can_open (UFO_READER (priv->edf_reader), filename) || priv->type == TYPE_EDF) {
             result = g_list_append (result, g_strdup (filename));
+            continue;
+        }
 
-        if (ufo_reader_can_open (UFO_READER (priv->raw_reader), filename) || priv->type == TYPE_RAW)
+        if (ufo_reader_can_open (UFO_READER (priv->raw_reader), filename) || priv->type == TYPE_RAW) {
             result = g_list_append (result, g_strdup (filename));
+            continue;
+        }
     }
 
     globfree (&filenames);
