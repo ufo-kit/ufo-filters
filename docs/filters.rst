@@ -36,6 +36,14 @@ Clipping
         Maximum value, all values higher than `max` are set to `max`.
 
 
+Masking
+-------
+
+.. gobj:class:: mask
+
+    Mask the circular outer region by setting values to zero.
+
+
 Arithmetic expressions
 ----------------------
 

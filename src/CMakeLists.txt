@@ -42,6 +42,7 @@ set(ufofilter_SRCS
     ufo-lamino-backproject-task.c
     ufo-loop-task.c
     ufo-map-slice-task.c
+    ufo-mask-task.c
     ufo-measure-sharpness-task.c
     ufo-median-filter-task.c
     ufo-memory-in-task.c

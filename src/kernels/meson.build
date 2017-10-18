@@ -21,6 +21,7 @@ kernel_files = [
     'gaussian.cl',
     'histthreshold.cl',
     'interpolator.cl',
+    'mask.cl',
     'median.cl',
     'metaballs.cl',
     'nlm.cl',
