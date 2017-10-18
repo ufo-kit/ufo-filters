@@ -131,6 +131,7 @@ pkg_check_modules(GSL gsl)
 pkg_check_modules(CLFFT clFFT)
 pkg_check_modules(CLBLAST clblast)
 pkg_check_modules(PANGOCAIRO pangocairo)
+pkg_check_modules(OPENCV opencv)
 
 
 if (OPENMP_FOUND)
@@ -241,6 +242,12 @@ if (PANGOCAIRO_FOUND)
     list(APPEND stamp_aux_LIBS ${PANGOCAIRO_LIBRARIES})
 endif ()
 
+if (OPENCV_FOUND)
+    include_directories(${OPENCV_INCLUDE_DIRS})
+    list(APPEND ufofilter_SRCS ufo-cv-show-task.cpp)
+    list(APPEND cv_show_aux_LIBS ${OPENCV_LIBRARIES})
+    list(APPEND cv_show_aux_SRCS writers/ufo-writer.c)
+endif ()
 #}}}
 #{{{ Plugin targets
 include_directories(${CMAKE_CURRENT_BINARY_DIR}

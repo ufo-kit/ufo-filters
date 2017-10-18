@@ -96,6 +96,7 @@ hdf5_dep = dependency('hdf5', required: false)
 jpeg_dep = dependency('libjpeg', required: false)
 gsl_dep = dependency('gsl', required: false)
 pangocairo_dep = dependency('pangocairo', required: false)
+opencv_dep = dependency('opencv', required: false)
 
 conf = configuration_data()
 conf.set('HAVE_TIFF', tiff_dep.found())
@@ -200,6 +201,19 @@ shared_module('write',
     install: true,
     install_dir: plugin_install_dir,
 )
+
+# cvshow
+
+if opencv_dep.found()
+    shared_module('cvshow',
+        sources: ['writers/ufo-writer.c', 'ufo-cv-show-task.cpp'],
+        #c_args: ['-x', 'c++'],
+        dependencies: deps + [opencv_dep],
+        name_prefix: 'libufofilter',
+        install: true,
+        install_dir: plugin_install_dir,
+    )
+endif
 
 # measure
 

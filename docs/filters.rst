@@ -1084,3 +1084,20 @@ Sleep
 
         Time to sleep in seconds.
 
+
+Display
+-------
+
+.. gobj:class:: cv-show
+
+    Shows the input using an OpenCV window.
+
+    .. gobj:prop:: min:float
+
+        Minimum for display value scaling. If not set, will be determined at
+        run-time.
+
+    .. gobj:prop:: max:float
+
+        Maximum for display value scaling. If not set, will be determined at
+        run-time.

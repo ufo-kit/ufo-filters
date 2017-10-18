@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 2.8)
 
+if (POLICY CMP0018)
+cmake_policy(SET CMP0018 OLD)
+endif ()
+
 if (POLICY CMP0046)
 cmake_policy(SET CMP0046 OLD)
 endif ()
@@ -12,7 +16,7 @@ if (POLICY CMP0054)
 cmake_policy(SET CMP0054 OLD)
 endif ()
 
-project(ufo C)
+project(ufo C CXX)
 
 set(TARNAME "ufo-filters")
 
