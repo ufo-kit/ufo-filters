@@ -207,7 +207,6 @@ shared_module('write',
 if opencv_dep.found()
     shared_module('cvshow',
         sources: ['writers/ufo-writer.c', 'ufo-cv-show-task.cpp'],
-        #c_args: ['-x', 'c++'],
         dependencies: deps + [opencv_dep],
         name_prefix: 'libufofilter',
         install: true,
