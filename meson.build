@@ -40,3 +40,7 @@ deps = [
 subdir('deps')
 subdir('src')
 subdir('tests')
+
+if get_option('with_contrib')
+  subdir('contrib')
+endif
