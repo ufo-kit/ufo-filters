@@ -195,7 +195,7 @@ endif ()
 
 if (UCA_INCLUDE_DIRS AND UCA_LIBRARIES)
     list(APPEND ufofilter_SRCS ufo-camera-task.c)
-    list(APPEND uca_aux_LIBS ${UCA_LIBRARIES})
+    list(APPEND camera_aux_LIBS ${UCA_LIBRARIES})
     include_directories(${UCA_INCLUDE_DIRS})
     link_directories(${UCA_LIBRARY_DIRS})
 endif ()
