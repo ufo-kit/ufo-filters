@@ -99,6 +99,7 @@ gsl_dep = dependency('gsl', required: false)
 pangocairo_dep = dependency('pangocairo', required: false)
 opencv_dep = dependency('opencv', required: false)
 uca_dep = dependency('libuca', required: false)
+clblast_dep = dependency('clblast', required: false)
 
 conf = configuration_data()
 conf.set('HAVE_TIFF', tiff_dep.found())
@@ -244,6 +245,17 @@ endif
 if pangocairo_dep.found()
     shared_module('stamp', 'ufo-stamp-task.c',
         dependencies: deps + [pangocairo_dep],
+        name_prefix: 'libufofilter',
+        install: true,
+        install_dir: plugin_install_dir,
+    )
+endif
+
+# gemm
+
+if clblast_dep.found()
+    shared_module('gemm', 'ufo-gemm-task.c',
+        dependencies: deps + [clblast_dep],
         name_prefix: 'libufofilter',
         install: true,
         install_dir: plugin_install_dir,
