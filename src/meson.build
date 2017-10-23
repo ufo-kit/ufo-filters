@@ -98,6 +98,7 @@ jpeg_dep = dependency('libjpeg', required: false)
 gsl_dep = dependency('gsl', required: false)
 pangocairo_dep = dependency('pangocairo', required: false)
 opencv_dep = dependency('opencv', required: false)
+uca_dep = dependency('libuca', required: false)
 
 conf = configuration_data()
 conf.set('HAVE_TIFF', tiff_dep.found())
@@ -202,6 +203,18 @@ shared_module('write',
     install: true,
     install_dir: plugin_install_dir,
 )
+
+# camera
+
+if uca_dep.found()
+    shared_module('camera',
+        sources: ['ufo-camera-task.c'],
+        dependencies: deps + [uca_dep],
+        name_prefix: 'libufofilter',
+        install: true,
+        install_dir: plugin_install_dir,
+    )
+endif
 
 # cvshow
 
