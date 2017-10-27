@@ -2,7 +2,7 @@
 
 ufo-launch dummy-data width=512 height=512 number=3 ! write filename=foo-%02i.tif
 
-files=("*.tif")
+files=("foo-*.tif")
 files=$(echo ${files[*]})
 
 # cleanup
