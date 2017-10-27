@@ -138,13 +138,15 @@ Transposition
 Rotation
 --------
 
-Rotates images clockwise by an :gobj:prop:`angle` around a :gobj:prop:`center`
-(x, y).  When :gobj:prop:`reshape` is ``True``, the rotated image is not
-cropped, i.e.  the output image size can be larger that the input size.
-Moreover, this mode makes sure that the original coordinates of the input are
-all contained in the output so that it is easier to see the rotation in the
-output.  Try e.g.  rotation with :gobj:prop:`center` equal to :math:`(0, 0)` and
-angle :math:`\pi / 2`.
+.. gobj:class:: rotate
+
+    Rotates images clockwise by an :gobj:prop:`angle` around a :gobj:prop:`center`
+    (x, y).  When :gobj:prop:`reshape` is ``True``, the rotated image is not
+    cropped, i.e.  the output image size can be larger that the input size.
+    Moreover, this mode makes sure that the original coordinates of the input are
+    all contained in the output so that it is easier to see the rotation in the
+    output.  Try e.g.  rotation with :gobj:prop:`center` equal to :math:`(0, 0)` and
+    angle :math:`\pi / 2`.
 
     .. gobj:prop:: angle:float
 
