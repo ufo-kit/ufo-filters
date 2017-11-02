@@ -41,6 +41,6 @@ subdir('deps')
 subdir('src')
 subdir('tests')
 
-if get_option('with_contrib')
+if get_option('contrib_filters')
   subdir('contrib')
 endif
