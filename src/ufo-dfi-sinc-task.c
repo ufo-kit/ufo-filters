@@ -337,7 +337,7 @@ ufo_dfi_sinc_task_set_property (GObject *object,
 
                 v = g_value_get_uint (value);
 
-                if (v % 2)
+                if (v % 2 == 0)
                     g_warning ("::number-presampled-values cannot be even");
                 else
                     priv->number_presampled_values = v;
