@@ -97,7 +97,8 @@ class GObjectDomain(Domain):
         if target[0] == '~':
             target = target[1:]
 
-        doc, _ = self.data['objects'].get(target, (None, None))
+        rtarget = '{}-{}'.format(target, target)
+        doc, _ = self.data['objects'].get(rtarget, (None, None))
 
         if doc:
-            return make_refnode(builder, fromdocname, doc, target, contnode, target)
+            return make_refnode(builder, fromdocname, doc, rtarget, contnode, target)
