@@ -21,8 +21,8 @@ constant sampler_t image_sampler_ktbl = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRES
 constant sampler_t image_sampler_data = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;
 
 typedef struct {
-        float real;
-        float imag;
+    float real;
+    float imag;
 } clFFT_Complex;
 
 kernel void
@@ -134,17 +134,12 @@ dfi_sinc_kernel(read_only image2d_t input,
         }
     }
 
+    output[out_idx].real = res_real;
+    output[out_idx].imag = sgn * res_imag;
+
     /* Point reflection mirroring / Hermitian symmetry */
-
-    if (out_coord.y == 0 && out_coord.x <= raster_size) {
-        output[out_idx].real = res_real;
-        output[out_idx].imag = sgn * res_imag;
-    }
-    else {
+    if (out_coord.y != 0 || out_coord.x > raster_size) {
         if (out_coord.x == 0 && 0 < out_coord.y <= raster_size_half) {
-            output[out_idx].real = res_real;
-            output[out_idx].imag = sgn * res_imag;
-
             out_idx = ((raster_size_half + 2) + y_offset) * raster_size;
 
             output[out_idx].real = res_real;
@@ -152,16 +147,10 @@ dfi_sinc_kernel(read_only image2d_t input,
         }
         else {
             if (res_imag == 0.0f) {
-                output[out_idx].real = res_real;
-                output[out_idx].imag = sgn * res_imag;
-
                 output[out_idx_mirror].real = res_real;
                 output[out_idx_mirror].imag = sgn * res_imag;
             }
             else {
-                output[out_idx].real = res_real;
-                output[out_idx].imag = sgn * res_imag;
-
                 output[out_idx_mirror].real = res_real;
                 output[out_idx_mirror].imag = -sgn * res_imag;
             }
