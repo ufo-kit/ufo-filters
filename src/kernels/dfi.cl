@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2011-2013 Karlsruhe Institute of Technology
  *
  * This file is part of Ufo.
@@ -26,7 +26,8 @@ typedef struct {
 } clFFT_Complex;
 
 kernel void
-clear_kernel(global clFFT_Complex *output) {
+clear_kernel(global clFFT_Complex *output)
+{
     int global_x_size = get_global_size(0);
     int local_x_id = get_global_id(0);
     int local_y_id = get_global_id(1);
@@ -50,65 +51,67 @@ dfi_sinc_kernel(read_only image2d_t input,
                 global clFFT_Complex *output)
 {
     float2 out_coord, norm_gl_coord, in_coord, ktbl_coord, id_data_coord;
-    int iul, iuh, ivl, ivh, sign, i, j, k;
+    int iul, iuh, ivl, ivh, sgn, i, j, k;
     float res_real, res_imag, weight, kernel_x_val;
     long out_idx;
     const int raster_size_half = raster_size / 2;
 
     ktbl_coord.y = 0.5f;
-    sign = 1;
+    sgn = 1;
     res_real = 0.0f, res_imag = 0.0f;
     out_idx = 0;
 
     out_coord.x = get_global_id(0) + spectrum_offset;
     out_coord.y = get_global_id(1) + spectrum_offset;
-	
-	if (out_coord.y > raster_size_half) 
-    return; 
-	
+
+    if (out_coord.y > raster_size_half)
+        return;
+
     out_idx = out_coord.y * raster_size + out_coord.x;
 
     norm_gl_coord.x = out_coord.x - raster_size_half;
     norm_gl_coord.y = out_coord.y - raster_size_half;
 
-    //calculate coordinates
-    float radius = sqrt(norm_gl_coord.x * norm_gl_coord.x + norm_gl_coord.y * norm_gl_coord.y);
+    // calculate coordinates
+    const float radius = sqrt(norm_gl_coord.x * norm_gl_coord.x + norm_gl_coord.y * norm_gl_coord.y);
+
     if (radius > max_radius)
         return;
-		
+
 	long x_offset = (raster_size_half) - out_coord.x;
 	long y_offset = (raster_size_half) - out_coord.y;
-		
+
 	long out_idx_mirror = 0;
 
-	out_idx_mirror = (((raster_size_half)+y_offset) * raster_size + ((raster_size_half)+x_offset));
-	if (out_idx_mirror < 0 || out_idx_mirror > (raster_size*raster_size)-1)
-	{return;}
-		
+	out_idx_mirror = (raster_size_half + y_offset) * raster_size + (raster_size_half + x_offset);
+
+	if (out_idx_mirror < 0 || out_idx_mirror > (raster_size * raster_size) - 1)
+	    return;
+
     in_coord.y = atan2(norm_gl_coord.y,norm_gl_coord.x);
     in_coord.y = -in_coord.y; // spike here! (mirroring along y-axis)
 
-    sign = (in_coord.y < 0.0f) ? -1 : 1;
+    sgn = (in_coord.y < 0.0f) ? -1 : 1;
 
-    in_coord.y = (in_coord.y < 0.0f) ? in_coord.y+= M_PI_F : in_coord.y;
-    in_coord.y = (float) min(1.0f + in_coord.y/angle_step_rad, theta_max - 1);
-
+    in_coord.y = (in_coord.y < 0.0f) ? in_coord.y += M_PI_F : in_coord.y;
+    in_coord.y = (float) min(1.0f + in_coord.y / angle_step_rad, theta_max - 1);
     in_coord.x = (float) min(radius, (float) raster_size_half);
 
-    //sinc interpoaltion
-    iul = (int)ceil(in_coord.x - L2);
+    //sinc interpolation
+    iul = (int) ceil(in_coord.x - L2);
     iul = (iul < 0) ? 0 : iul;
 
-    iuh = (int)floor(in_coord.x + L2);
+    iuh = (int) floor(in_coord.x + L2);
     iuh = (iuh > rho_max - 1) ? iuh = rho_max - 1 : iuh;
 
-    ivl = (int)ceil(in_coord.y - L2);
+    ivl = (int) ceil(in_coord.y - L2);
     ivl = (ivl < 0) ? 0 : ivl;
 
-    ivh = (int)floor(in_coord.y + L2);
+    ivh = (int) floor(in_coord.y + L2);
     ivh = (ivh > theta_max - 1) ? ivh = theta_max - 1 : ivh;
 
     float kernel_y[20];
+
     for (i = ivl, j = 0; i <= ivh; ++i, ++j) {
         ktbl_coord.x = ktbl_len2 + (in_coord.y - (float)i) * table_spacing;
         kernel_y[j] = read_imagef(ktbl, image_sampler_ktbl, ktbl_coord).s0;
@@ -131,37 +134,37 @@ dfi_sinc_kernel(read_only image2d_t input,
         }
     }
 
-//Point reflection mirroring / Hermitian symmetry//
+    /* Point reflection mirroring / Hermitian symmetry */
 
-if (out_coord.y == 0 && out_coord.x <=raster_size){
-	output[out_idx].real = res_real;
-	output[out_idx].imag =  sign*res_imag; 
-	}
-else{
-	if(out_coord.x == 0 && 0 < out_coord.y <=raster_size_half){
-		output[out_idx].real = res_real;
-		output[out_idx].imag =  sign*res_imag; 
+    if (out_coord.y == 0 && out_coord.x <= raster_size) {
+        output[out_idx].real = res_real;
+        output[out_idx].imag = sgn * res_imag;
+    }
+    else {
+        if (out_coord.x == 0 && 0 < out_coord.y <= raster_size_half) {
+            output[out_idx].real = res_real;
+            output[out_idx].imag = sgn * res_imag;
 
-		out_idx = (((raster_size_half+2)+y_offset) * raster_size);
+            out_idx = ((raster_size_half + 2) + y_offset) * raster_size;
 
-		output[out_idx].real = res_real;
-		output[out_idx].imag =  -sign*res_imag;
-		}
-	else{
-		if(res_imag == 0.0f){ 
-			output[out_idx].real = res_real;
-			output[out_idx].imag =  sign*res_imag;
-  
-			output[out_idx_mirror].real = res_real;
-			output[out_idx_mirror].imag =  sign*res_imag;
-			}
-		else{
-			output[out_idx].real = res_real;
-			output[out_idx].imag =  sign*res_imag;
-  
-			output[out_idx_mirror].real = res_real;
-			output[out_idx_mirror].imag =  -sign*res_imag;
-			}       
-		} 
-	}
+            output[out_idx].real = res_real;
+            output[out_idx].imag = -sgn * res_imag;
+        }
+        else {
+            if (res_imag == 0.0f) {
+                output[out_idx].real = res_real;
+                output[out_idx].imag = sgn * res_imag;
+
+                output[out_idx_mirror].real = res_real;
+                output[out_idx_mirror].imag = sgn * res_imag;
+            }
+            else {
+                output[out_idx].real = res_real;
+                output[out_idx].imag = sgn * res_imag;
+
+                output[out_idx_mirror].real = res_real;
+                output[out_idx_mirror].imag = -sgn * res_imag;
+            }
+        }
+    }
 }
