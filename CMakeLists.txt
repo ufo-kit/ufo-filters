@@ -79,6 +79,7 @@ endif ()
 #{{{ Subdirectories
 enable_testing()
 
+add_subdirectory(bin)
 add_subdirectory(docs)
 add_subdirectory(deps)
 add_subdirectory(src)

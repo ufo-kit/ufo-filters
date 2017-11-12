@@ -37,6 +37,7 @@ deps = [
     opencl_dep,
 ]
 
+subdir('bin')
 subdir('deps')
 subdir('src')
 subdir('tests')
