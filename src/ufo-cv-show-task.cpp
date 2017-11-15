@@ -31,6 +31,7 @@
 struct _UfoCvShowTaskPrivate {
     gfloat min;
     gfloat max;
+    gchar *name;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -61,7 +62,7 @@ ufo_cv_show_task_setup (UfoTask *task,
                         UfoResources *resources,
                         GError **error)
 {
-    cv::namedWindow("cvshow", 1);
+    cv::namedWindow(UFO_CV_SHOW_TASK_GET_PRIVATE (task)->name, 1);
 }
 
 static void
@@ -116,7 +117,7 @@ ufo_cv_show_task_process (UfoTask *task,
     ufo_writer_convert_inplace (&image);
 
     cv::Mat frame (requisition->dims[1], requisition->dims[0], CV_8UC1, image.data);
-    cv::imshow ("cvshow", frame);
+    cv::imshow (priv->name, frame);
     cv::waitKey (1);
 
     return TRUE;
@@ -167,6 +168,7 @@ ufo_cv_show_task_get_property (GObject *object,
 static void
 ufo_cv_show_task_finalize (GObject *object)
 {
+    g_free (UFO_CV_SHOW_TASK_GET_PRIVATE (object)->name);
     G_OBJECT_CLASS (ufo_cv_show_task_parent_class)->finalize (object);
 }
 
@@ -221,4 +223,5 @@ ufo_cv_show_task_init(UfoCvShowTask *self)
      */
     self->priv->min = +G_MAXFLOAT;
     self->priv->max = -G_MAXFLOAT;
+    self->priv->name = g_strdup_printf ("cvshow-%p", self);
 }
