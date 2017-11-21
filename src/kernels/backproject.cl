@@ -64,6 +64,9 @@ backproject_tex (read_only image2d_t sinogram,
     const float by = idy - axis_pos + y_offset + 0.5f;
     float sum = 0.0f;
 
+#ifdef DEVICE_TESLA_K20XM
+#pragma unroll 4
+#endif
 #ifdef DEVICE_GEFORCE_GTX_TITAN_BLACK
 #pragma unroll 8
 #endif
