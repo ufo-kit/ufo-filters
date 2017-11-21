@@ -197,14 +197,14 @@ ufo_cv_show_task_class_init (UfoCvShowTaskClass *klass)
             "Minimum value for data conversion",
             "Minimum value for data conversion",
             -G_MAXFLOAT, +G_MAXFLOAT, +G_MAXFLOAT,
-            G_PARAM_READWRITE);
+            (GParamFlags) G_PARAM_READWRITE);
 
     properties[PROP_MAXIMUM] =
         g_param_spec_float ("max",
             "Minimum value for data conversion",
             "Minimum value for data conversion",
             -G_MAXFLOAT, +G_MAXFLOAT, -G_MAXFLOAT,
-            G_PARAM_READWRITE);
+            (GParamFlags) G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
