@@ -73,6 +73,9 @@ backproject_tex (read_only image2d_t sinogram,
 #ifdef DEVICE_GEFORCE_GTX_TITAN
 #pragma unroll 14
 #endif
+#ifdef DEVICE_GEFORCE_GTX_1080_TI
+#pragma unroll 10
+#endif
     for(int proj = 0; proj < n_projections; proj++) {
         float h = by * sin_lut[angle_offset + proj] + bx * cos_lut[angle_offset + proj] + axis_pos;
         sum += read_imagef (sinogram, volumeSampler, (float2)(h, proj + 0.5f)).x;
