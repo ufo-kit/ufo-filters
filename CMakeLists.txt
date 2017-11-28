@@ -70,8 +70,6 @@ link_directories(${UFO_LIBRARY_DIRS})
 add_definitions("-Wall -Wextra -fPIC")
 add_definitions(-DG_LOG_DOMAIN="Ufo")
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
-
 if (CMAKE_COMPILER_IS_GNUCC OR ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang"))
     add_definitions("-Wno-unused-parameter")
 endif ()
