@@ -145,6 +145,21 @@ Memory reader
         Specifies the number of items to read.
 
 
+ZeroMQ subscriber
+=================
+
+.. gobj:class:: zmq-sub
+
+    Generates a stream from a compatible ZeroMQ data stream, for example
+    published by the :gobj:class:`zmq-pub` task.
+
+    .. gobj:prop:: address:string
+
+        Host address of the ZeroMQ publisher. Note, that as of now the publisher
+        binds to a ``tcp`` endpoint, thus you have to use that as well. By
+        default, the address is set to the local host address 127.0.0.1.
+
+
 UcaCamera reader
 ================
 

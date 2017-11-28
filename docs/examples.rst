@@ -128,6 +128,35 @@ space. To reconstruct, you have to feed the sinograms into :gobj:class:`zeropad`
         null
 
 
+=================
+Data distribution
+=================
+
+To distribute data in a compute network you can use the :gobj:class:`zmq-pub`
+sink and :gobj:class:`zmq-sub` generator. For example, to read data on machine A
+and store it on machine B, you would run
+
+.. code-block:: bash
+
+    ufo-launch read path=/data ! zmq-pub
+
+on machine A and
+
+.. code-block:: bash
+
+    ufo-launch zmq-sub address=tcp://hostname-of-machine-a ! write
+
+on machine B. Note that by default :gobj:class:`zmq-pub` publishes data as soon
+as it receives it, thus some of the data will get lost if the
+:gobj:class:`zmq-sub` is run after :gobj:class:`zmq-pub`. You can prevent this
+by telling the :gobj:class:`zmq-pub` task to wait for a certain number of
+subscribers to subscribe:
+
+.. code-block:: bash
+
+    ufo-launch read path=/data ! zmq-pub expected-subscribers=1
+
+
 .. rubric:: References
 
 .. [KaSl01] Kak, A. C., & Slaney, M. (2001). Principles of Computerized Tomographic Imaging (Philadelphia, PA: SIAM).

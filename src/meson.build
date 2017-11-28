@@ -78,6 +78,11 @@ fft_plugins = [
     'retrieve-phase',
 ]
 
+zmq_plugins = [
+    'zmq-pub',
+    'zmq-sub',
+]
+
 kernels = [
 ]
 
@@ -103,6 +108,8 @@ opencv_dep = dependency('opencv', required: false)
 uca_dep = dependency('libuca', required: false)
 clblast_dep = dependency('clblast', required: false)
 clfft_dep = dependency('clFFT', required: false)
+zmq_dep = dependency('libzmq', required: false)
+json_dep = dependency('json-glib-1.0', required: false)
 
 conf = configuration_data()
 conf.set('HAVE_AMD', clfft_dep.found())
@@ -272,6 +279,22 @@ if clblast_dep.found()
         install: true,
         install_dir: plugin_install_dir,
     )
+endif
+
+# zmq-sub/zmq-pub
+
+if zmq_dep.found() and json_dep.found()
+    foreach plugin: zmq_plugins
+        name = ''.join(plugin.split('-'))
+
+        shared_module(name,
+            'ufo-@0@-task.c'.format(plugin),
+            dependencies: deps + [zmq_dep, json_dep],
+            name_prefix: 'libufofilter',
+            install: true,
+            install_dir: plugin_install_dir,
+        )
+    endforeach
 endif
 
 subdir('kernels')

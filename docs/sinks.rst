@@ -106,6 +106,20 @@ Memory writer
         that point only.
 
 
+ZeroMQ publisher
+================
+
+.. gobj:class:: zmq-pub
+
+    Publishes the stream as a ZeroMQ data stream to compatible ZeroMQ
+    subscribers such as the :gobj:class:`zmq-sub` source.
+
+    .. gobj:prop:: expected-subscribers:uint
+
+        If set, the publisher will wait until the number of expected subscribers
+        have connected.
+
+
 Auxiliary sink
 ==============
 
