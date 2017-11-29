@@ -34,7 +34,7 @@ field to input 1 and the flat field to input 2 of
 
 If you have a stream of flats and darks you have to reduce them either by
 connection them to :gobj:class:`average` or :gobj:class:`stack` →
-gobj:class:`flatten` with the mode set to ``median``. Suppose, we want to
+:gobj:class:`flatten` with the mode set to ``median``. Suppose, we want to
 average the darks and remove extreme outliers from the flats, we would call
 
 .. code-block:: bash
@@ -66,6 +66,10 @@ expected projections:
         ] ! \
         flat-field-correct !
         write filename=corrected-%05i.tif
+
+If you want to avoid the automatic absorption correction you have to set
+``absorption-correct`` to FALSE and if you want to ignore NaN and Inf values in
+the data, set ``fix-nan-and-inf`` to FALSE.
 
 
 Reconstruction
