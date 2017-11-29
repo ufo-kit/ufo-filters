@@ -72,6 +72,18 @@ If you want to avoid the automatic absorption correction you have to set
 the data, set ``fix-nan-and-inf`` to FALSE.
 
 
+Sinograms
+---------
+
+The reconstruction pipelines presented in the following section assume sinograms
+as input in order to parallelize along slices. To transpose a stream of
+(corrected) projections connect it to :gobj:class:`transpose-projections` and
+set ``number`` to the number of expected projections. Note, that the
+transposition happens in main memory and thus may exhaust your system resources
+for a larger number of big projections. For example, to transpose 2048
+projections, each at a size of 2048 by 2048 pixels requires 32 GB of RAM.
+
+
 Reconstruction
 ==============
 
