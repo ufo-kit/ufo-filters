@@ -2,6 +2,72 @@
 Computed Tomography
 ===================
 
+Pre-processing
+==============
+
+Flat field correction
+---------------------
+
+To remove fixed pattern noise that stems from the optical system caused by
+imperfections in the scintillator screen or an inhomogeneous beam and
+thermal noise from the detector sensor, you can use *flat field correction*.
+This assumes that you have a set of dark fields acquired with the shutter
+closed, a set of flat fields acquired without the sample in the beam and the
+projections with samples. If the beam intensity shifts over time it can be
+beneficial to acquire flat fields before and after the projections and
+interpolate between them.
+
+In the simplest case you connect the projection stream to input 0, the dark
+field to input 1 and the flat field to input 2 of
+:gobj:class:`flat-field-correct`:
+
+.. code-block:: bash
+
+    ufo-launch \
+        [ \
+            read path=projections*.tif, \
+            read path=dark.tif, \
+            read path=flat.tif \
+        ] ! \
+        flat-field-correct !
+        write filename=corrected-%05i.tif
+
+If you have a stream of flats and darks you have to reduce them either by
+connection them to :gobj:class:`average` or :gobj:class:`stack` →
+gobj:class:`flatten` with the mode set to ``median``. Suppose, we want to
+average the darks and remove extreme outliers from the flats, we would call
+
+.. code-block:: bash
+
+    ufo-launch \
+        [ \
+            read path=projections*.tif, \
+            read path=darks/ ! average, \
+            read path=flats/ ! stack number=11 ! flatten mode=median \
+        ] ! \
+        flat-field-correct !
+        write filename=corrected-%05i.tif
+
+If you have to interpolate between the flats taken before and after the sample
+scan, you would connect the first flat to input 0 and the second to input 1 of
+:gobj:class:`interpolate` and set the ``number`` property to the number of
+expected projections:
+
+.. code-block:: bash
+
+    ufo-launch \
+        [ \
+            read path=projections*.tif, \
+            read path=darks/ ! average, \
+            [ \
+                read path=flat-before.tif, \
+                read path=flat-after.tif \
+            ] ! interpolate number=2000
+        ] ! \
+        flat-field-correct !
+        write filename=corrected-%05i.tif
+
+
 Reconstruction
 ==============
 
