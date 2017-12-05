@@ -266,7 +266,7 @@ ufo_dummy_data_task_class_init (UfoDummyDataTaskClass *klass)
         g_param_spec_uint ("number",
             "Number of buffers",
             "Number of buffers",
-            1, 2 << 16, 1,
+            1, G_MAXUINT, 1,
             G_PARAM_READWRITE);
 
     properties[PROP_INIT] =
