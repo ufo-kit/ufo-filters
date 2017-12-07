@@ -336,16 +336,27 @@ ufo_stitch_task_finalize (GObject *object)
     UfoStitchTaskPrivate *priv;
 
     priv = UFO_STITCH_TASK_GET_PRIVATE (object);
-    UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
-    UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->sum_kernel));
-    UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->pad_kernel));
-    priv->kernel = NULL;
-    priv->sum_kernel = NULL;
-    priv->pad_kernel = NULL;
+
+    if (priv->kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
+        priv->kernel = NULL;
+    }
+
+    if (priv->sum_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->sum_kernel));
+        priv->sum_kernel = NULL;
+    }
+
+    if (priv->pad_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->pad_kernel));
+        priv->pad_kernel = NULL;
+    }
+
     if (priv->sum_mem) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->sum_mem));
         priv->sum_mem = NULL;
     }
+
     if (priv->context) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
         priv->context = NULL;
