@@ -78,15 +78,16 @@ ufo_stitch_task_setup (UfoTask *task,
     priv->pad_kernel = ufo_resources_get_kernel (resources, "pad.cl", "pad_with_image", error);
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
-    if (priv->kernel != NULL) {
+
+    if (priv->kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
-    }
-    if (priv->sum_kernel != NULL) {
+
+    if (priv->sum_kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->sum_kernel));
-    }
-    if (priv->pad_kernel != NULL) {
+
+    if (priv->pad_kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->pad_kernel));
-    }
+
     priv->sum_mem = NULL;
 }
 
@@ -101,9 +102,10 @@ ufo_stitch_task_get_requisition (UfoTask *task,
     priv = UFO_STITCH_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &left_req);
     ufo_buffer_get_requisition (inputs[1], &right_req);
-    if (left_req.dims[1] != right_req.dims[1]) {
+
+    if (left_req.dims[1] != right_req.dims[1])
         g_warning ("Both inputs must have the same height");
-    }
+
     priv->overlap = (priv->shift >= 0) ? left_req.dims[0] - priv->shift : right_req.dims[0] + priv->shift;
     requisition->n_dims = 2;
     requisition->dims[0] = left_req.dims[0] + right_req.dims[0] - (gsize) priv->overlap;
@@ -214,9 +216,11 @@ ufo_stitch_task_process (UfoTask *task,
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     work_group_size = g_value_get_ulong (ufo_gpu_node_get_info (node, UFO_GPU_NODE_INFO_MAX_WORK_GROUP_SIZE));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
+
     left_mem = ufo_buffer_get_device_array (inputs[left], cmd_queue);
     right_mem = ufo_buffer_get_device_array (inputs[right], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
+
     ufo_buffer_get_requisition (inputs[left], &left_req);
     ufo_buffer_get_requisition (inputs[right], &right_req);
     left_width = (gint) left_req.dims[0];
@@ -280,7 +284,6 @@ ufo_stitch_task_process (UfoTask *task,
 
     return TRUE;
 }
-
 
 static void
 ufo_stitch_task_set_property (GObject *object,
