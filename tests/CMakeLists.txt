@@ -5,3 +5,6 @@ add_test(test_file_write_regression
 
 add_test(test_142
          ${BASH} "${CMAKE_CURRENT_SOURCE_DIR}/test-142.sh")
+
+add_test(test_149
+         ${BASH} "${CMAKE_CURRENT_SOURCE_DIR}/test-149.sh")
