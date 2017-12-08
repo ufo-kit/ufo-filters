@@ -17,20 +17,22 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-kernel void rotate_image (global image2d_t input,
-                          global float *output,
-                          const sampler_t sampler,
-                          const float2 sincos,
-                          const float2 center,
-                          const float2 padded_center,
-                          const int2 input_shape)
+kernel void
+rotate_image (image2d_t input,
+              global float *output,
+              const sampler_t sampler,
+              const float2 sincos,
+              const float2 center,
+              const float2 padded_center,
+              const int2 input_shape)
 {
     int idx = get_global_id (0);
     int idy = get_global_id (1);
     float x = idx - padded_center.x + 0.5f;
     float y = idy - padded_center.y + 0.5f;
 
-    output[idy * get_global_size (0) + idx] = read_imagef (input, sampler,
-                                                           (float2) ((sincos.y * x - sincos.x * y + center.x) / input_shape.x,
-                                                                     (sincos.x * x + sincos.y * y + center.y) / input_shape.y)).x;
+    output[idy * get_global_size (0) + idx] =
+        read_imagef (input, sampler,
+                     (float2) ((sincos.y * x - sincos.x * y + center.x) / input_shape.x,
+                               (sincos.x * x + sincos.y * y + center.y) / input_shape.y)).x;
 }
