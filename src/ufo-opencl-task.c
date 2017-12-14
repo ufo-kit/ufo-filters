@@ -323,8 +323,8 @@ ufo_opencl_task_class_init (UfoOpenCLTaskClass *klass)
 
     properties[PROP_KERNEL] =
         g_param_spec_string ("kernel",
-            "Kernel name or NULL",
-            "Name of the kernel that should be computed with this task or NULL",
+            "Kernel name",
+            "Name of the kernel that should be computed with this task",
             "",
             G_PARAM_READWRITE);
 
