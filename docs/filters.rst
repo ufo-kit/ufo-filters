@@ -489,6 +489,67 @@ Averaging
         Number of averaged images to output. By default one image is generated.
 
 
+Reducing with OpenCL
+--------------------
+
+.. gobj:class:: opencl-reduce
+
+    Reduces or folds the input stream using a generic OpenCL kernel by loading
+    an arbitrary :gobj:prop:`kernel` from :gobj:prop:`filename` or
+    :gobj:prop:`source`. The kernel must accept exactly two global float arrays,
+    one for the input and one for the output. Additionally a second
+    :gobj:prop:`finish` kernel can be specified which is called once when the
+    processing finished. This kernel must have two arguments as well, the global
+    float array and an unsigned integer count. Folding (i.e. setting the initial
+    data to a known value) is enabled by setting the :gobj:prop:`fold-value`.
+
+    Here is an OpenCL example how to compute the average::
+
+        kernel void sum (global float *in, global float *out)
+        {
+            size_t idx = get_global_id (1) * get_global_size (0) + get_global_id (0);
+            in[idx] += out[idx];
+        }
+
+        kernel void divide (global float *out, uint count)
+        {
+            size_t idx = get_global_id (1) * get_global_size (0) + get_global_id (0);
+            out[idx] /= count;
+        }
+
+    And this is how you would use it with ``ufo-launch``::
+
+        ufo-launch ... ! opencl-reduce kernel=sum finish=divide ! ...
+
+    .. gobj:prop:: filename:string
+
+        Filename with kernel sources to load.
+
+    .. gobj:prop:: source:string
+
+        String with OpenCL kernel code.
+
+    .. gobj:prop:: kernel:string
+
+        Name of the kernel that is called on each iteration. Must have two
+        global float array arguments, the first being the input, the second the
+        output.
+
+    .. gobj:prop:: finish:string
+
+        Name of the kernel that is called at the end after all iterations. Must
+        have a global float array and an unsigned integer arguments, the first
+        being the data, the second the iteration counter.
+
+    .. gobj:prop:: fold-value:float
+
+        If given, the initial data is filled with this value, otherwise the
+        first input element is used.
+
+    .. gobj:prop:: dimensions:uint
+
+        Number of dimensions the kernel works on. Must be in [1, 3].
+
 Statistics
 ----------
 

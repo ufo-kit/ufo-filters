@@ -52,6 +52,7 @@ set(ufofilter_SRCS
     ufo-monitor-task.c
     ufo-null-task.c
     ufo-opencl-task.c
+    ufo-opencl-reduce-task.c
     ufo-ordfilt-task.c
     ufo-pad-task.c
     ufo-polar-coordinates-task.c

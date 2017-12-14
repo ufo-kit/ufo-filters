@@ -46,6 +46,7 @@ plugins = [
     'monitor',
     'null',
     'opencl',
+    'opencl-reduce',
     'ordfilt',
     'pad',
     'polar-coordinates',
