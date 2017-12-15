@@ -45,6 +45,7 @@ static void compute_real_space_ramp_coefficients (UfoFilterTaskPrivate *, gfloat
 static void compute_butterworth_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
 static void compute_faris_byer_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
 static void compute_hamming_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
+static void compute_bh3_coefficients (UfoFilterTaskPrivate *, gfloat *, guint);
 
 typedef enum {
     FILTER_RAMP = 0,
@@ -52,6 +53,7 @@ typedef enum {
     FILTER_BUTTERWORTH,
     FILTER_FARIS_BYER,
     FILTER_HAMMING,
+    FILTER_BH3,
 } Filter;
 
 static GEnumValue filter_values[] = {
@@ -60,6 +62,7 @@ static GEnumValue filter_values[] = {
     { FILTER_BUTTERWORTH,   "FILTER_BUTTERWORTH",   "butterworth"},
     { FILTER_FARIS_BYER,    "FILTER_FARIS_BYER",    "faris-byer"},
     { FILTER_HAMMING,       "FILTER_HAMMING",       "hamming"},
+    { FILTER_BH3,           "FILTER_BH3",           "bh3" },
     { 0, NULL, NULL}
 };
 
@@ -69,6 +72,7 @@ static SetupFunc filter_funcs[] = {
     &compute_butterworth_coefficients,
     &compute_faris_byer_coefficients,
     &compute_hamming_coefficients,
+    &compute_bh3_coefficients,
 };
 
 struct _UfoFilterTaskPrivate {
@@ -215,6 +219,22 @@ compute_hamming_coefficients (UfoFilterTaskPrivate *priv,
 
         filter[2*k] = f < priv->cutoff ? f * (0.54 + 0.46 * cos (G_PI * f / priv->cutoff)) * priv->scale : 0;
         filter[2*k+1] = filter[2*k];
+    }
+}
+
+static void
+compute_bh3_coefficients (UfoFilterTaskPrivate *priv,
+                           gfloat *filter,
+                           guint width)
+{
+    const gdouble step = 2.0 / width;
+    const gdouble a0 = 0.42;
+    const gdouble a1 = 0.5;
+    const gdouble a2 = 0.08;
+    for (guint k = 1; k < width / 4 + 1; k++) {
+        const gdouble f = k * step;
+        filter[2*k] = f * ( a0 + a1 * cos(f * G_PI) + a2 * cos(2.0 * f * G_PI ) ) * priv->scale;
+        filter[2*k + 1] = filter[2*k];
     }
 }
 
@@ -452,8 +472,8 @@ ufo_filter_task_class_init (UfoFilterTaskClass *klass)
 
     properties[PROP_FILTER] =
         g_param_spec_enum ("filter",
-            "Type of filter (\"ramp\", \"ramp-fromreal\", \"butterworth\", \"faris-byer\", \"hamming\")",
-            "Type of filter (\"ramp\", \"ramp-fromreal\", \"butterworth\", \"faris-byer\", \"hamming\")",
+            "Type of filter (\"ramp\", \"ramp-fromreal\", \"butterworth\", \"faris-byer\", \"hamming\",\"bh3\")",
+            "Type of filter (\"ramp\", \"ramp-fromreal\", \"butterworth\", \"faris-byer\", \"hamming\",\"bh3\")",
             g_enum_register_static ("filter", filter_values),
             0, G_PARAM_READWRITE);
 
