@@ -60,6 +60,7 @@ set(ufofilter_SRCS
     ufo-reduce-task.c
     ufo-refeed-task.c
     ufo-remove-circle-task.c
+    ufo-remove-outliers-task.c
     ufo-retrieve-phase-task.c
     ufo-ring-pattern-task.c
     ufo-ringwriter-task.c
