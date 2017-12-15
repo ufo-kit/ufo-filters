@@ -1,20 +1,35 @@
+sudo: required
+dist: trusty
 language: c
+env:
+  - UFO_DEVICE_TYPE=cpu
 
-before_script:
-  - sudo apt-get install opencl-headers ocl-icd-opencl-dev libjson-glib-dev libzmq3-dev autoconf-archive
-  - sudo apt-get install libtiff4-dev libhdf5-serial-dev libjpeg-dev libgsl0-dev
+before_install:
+  - sudo apt-get install opencl-headers ocl-icd-opencl-dev libjson-glib-dev libzmq3-dev autoconf-archive libgl1-mesa-dev
+  - sudo apt-get install libtiff4-dev libhdf5-serial-dev libjpeg-dev libgsl0-dev libtiff-tools
+  - wget http://s3.amazonaws.com/omnia-ci/AMD-APP-SDKInstaller-v3.0.130.135-GA-linux64.tar.bz2;
+  - tar -xjf AMD-APP-SDK*.tar.bz2;
+  - AMDAPPSDK=${HOME}/AMDAPPSDK;
+  - export OPENCL_VENDOR_PATH=${AMDAPPSDK}/etc/OpenCL/vendors;
+  - mkdir -p ${OPENCL_VENDOR_PATH};
+  - sh AMD-APP-SDK*.sh --tar -xf -C ${AMDAPPSDK};
+  - echo libamdocl64.so > ${OPENCL_VENDOR_PATH}/amdocl64.icd;
+  - export LD_LIBRARY_PATH=${AMDAPPSDK}/lib/x86_64:${LD_LIBRARY_PATH};
+  - chmod +x ${AMDAPPSDK}/bin/x86_64/clinfo;
+  - ${AMDAPPSDK}/bin/x86_64/clinfo;
 
-  # build ufo-core first
+install:
+  # build and install ufo-core first
   - mkdir core
   - cd core
   - git clone https://github.com/ufo-kit/ufo-core
   - cd ufo-core
-  - cmake -DCMAKE_INSTALL_PREFIX=$HOME/usr -DWITH_GIR=OFF -DWITH_GTK_DOC=OFF -DWITH_PYTHON=OFF .
-  - make install
+  - cmake -DCMAKE_INSTALL_PREFIX=/usr -DWITH_GIR=OFF -DWITH_GTK_DOC=OFF -DWITH_PYTHON=OFF .
+  - sudo make install
   - cd ../..
 
 script:
-  - export LD_LIBRARY_PATH=$HOME/usr/lib
-  - export PKG_CONFIG_PATH=$HOME/usr/lib/pkgconfig
-  - cmake .
+  - cmake . -DCMAKE_INSTALL_PREFIX=/usr
   - make
+  - sudo make install
+  - make test

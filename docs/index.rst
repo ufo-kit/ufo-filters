@@ -25,6 +25,15 @@ Reference
     contrib/index
 
 
+Examples
+========
+
+.. toctree::
+    :maxdepth: 2
+
+    examples
+
+
 Additional notes
 ================
 

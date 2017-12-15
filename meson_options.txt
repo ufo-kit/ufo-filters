@@ -1,4 +1,7 @@
+option('contrib_filters', type: 'boolean', value: false,
+    description: 'Enable to build contributed filters')
+
 option('lamino_backproject_burst_mode',
-       type: 'combo',
-       choices: ['1', '2', '4', '8', '16'],
-       value: '16')
+    type: 'combo',
+    choices: ['1', '2', '4', '8', '16'],
+    value: '16')

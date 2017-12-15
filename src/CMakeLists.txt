@@ -42,6 +42,7 @@ set(ufofilter_SRCS
     ufo-lamino-backproject-task.c
     ufo-loop-task.c
     ufo-map-slice-task.c
+    ufo-mask-task.c
     ufo-measure-sharpness-task.c
     ufo-median-filter-task.c
     ufo-memory-in-task.c
@@ -51,6 +52,7 @@ set(ufofilter_SRCS
     ufo-monitor-task.c
     ufo-null-task.c
     ufo-opencl-task.c
+    ufo-opencl-reduce-task.c
     ufo-ordfilt-task.c
     ufo-pad-task.c
     ufo-polar-coordinates-task.c
@@ -115,9 +117,9 @@ set(ufofilter_LIBS
     ${UFO_LIBRARIES}
     ${OpenCL_LIBRARIES})
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99 -pedantic -Wall -Wextra -fPIC -Wno-unused-parameter -Wno-deprecated-declarations")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -pedantic -Wall -Wextra -fPIC -Wno-unused-parameter -Wno-deprecated-declarations")
 
-add_definitions (-DBURST=${BP_BURST} -D_FILE_OFFSET_BITS=64 -D_LARGE_FILES)
+add_definitions(-D_FILE_OFFSET_BITS=64 -D_LARGE_FILES)
 #}}}
 #{{{ Dependency checks
 find_package(TIFF)
@@ -131,6 +133,7 @@ pkg_check_modules(GSL gsl)
 pkg_check_modules(CLFFT clFFT)
 pkg_check_modules(CLBLAST clblast)
 pkg_check_modules(PANGOCAIRO pangocairo)
+pkg_check_modules(OPENCV opencv)
 
 
 if (OPENMP_FOUND)
@@ -193,7 +196,7 @@ endif ()
 
 if (UCA_INCLUDE_DIRS AND UCA_LIBRARIES)
     list(APPEND ufofilter_SRCS ufo-camera-task.c)
-    list(APPEND uca_aux_LIBS ${UCA_LIBRARIES})
+    list(APPEND camera_aux_LIBS ${UCA_LIBRARIES})
     include_directories(${UCA_INCLUDE_DIRS})
     link_directories(${UCA_LIBRARY_DIRS})
 endif ()
@@ -241,6 +244,12 @@ if (PANGOCAIRO_FOUND)
     list(APPEND stamp_aux_LIBS ${PANGOCAIRO_LIBRARIES})
 endif ()
 
+if (OPENCV_FOUND)
+    include_directories(${OPENCV_INCLUDE_DIRS})
+    list(APPEND ufofilter_SRCS ufo-cv-show-task.cpp)
+    list(APPEND cv_show_aux_LIBS ${OPENCV_LIBRARIES})
+    list(APPEND cv_show_aux_SRCS writers/ufo-writer.c)
+endif ()
 #}}}
 #{{{ Plugin targets
 include_directories(${CMAKE_CURRENT_BINARY_DIR}

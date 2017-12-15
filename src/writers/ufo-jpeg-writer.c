@@ -57,7 +57,8 @@ static gboolean
 ufo_jpeg_writer_can_open (UfoWriter *writer,
                           const gchar *filename)
 {
-    return g_str_has_suffix (filename, ".jpg") || g_str_has_suffix (filename, ".jpeg");
+    return g_regex_match_simple ("%[0-9]*[ui]", filename, 0, 0) &&
+        (g_str_has_suffix (filename, ".jpg") || g_str_has_suffix (filename, ".jpeg"));
 }
 
 static void
@@ -65,7 +66,7 @@ ufo_jpeg_writer_open (UfoWriter *writer,
                       const gchar *filename)
 {
     UfoJpegWriterPrivate *priv;
-    
+
     priv = UFO_JPEG_WRITER_GET_PRIVATE (writer);
     priv->fp = fopen (filename, "wb");
 }
@@ -74,7 +75,7 @@ static void
 ufo_jpeg_writer_close (UfoWriter *writer)
 {
     UfoJpegWriterPrivate *priv;
-    
+
     priv = UFO_JPEG_WRITER_GET_PRIVATE (writer);
     g_assert (priv->fp != NULL);
     fclose (priv->fp);
@@ -122,7 +123,7 @@ static void
 ufo_jpeg_writer_finalize (GObject *object)
 {
     UfoJpegWriterPrivate *priv;
-    
+
     priv = UFO_JPEG_WRITER_GET_PRIVATE (object);
 
     jpeg_destroy_compress (&priv->cinfo);

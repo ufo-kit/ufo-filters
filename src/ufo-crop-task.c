@@ -95,9 +95,9 @@ ufo_crop_task_get_requisition (UfoTask *task,
     }
     else {
         x1 = priv->x;
-        x2 = priv->width == G_MAXUINT ? in_width - 1: MIN (in_width - 1, x1 + priv->width);
+        x2 = priv->width == G_MAXUINT ? in_width : MIN (in_width, x1 + priv->width);
         y1 = priv->y;
-        y2 = priv->height == G_MAXUINT ? in_height - 1: MIN (in_height - 1, y1 + priv->height);
+        y2 = priv->height == G_MAXUINT ? in_height : MIN (in_height, y1 + priv->height);
     }
 
     requisition->dims[0] = x2 - x1;

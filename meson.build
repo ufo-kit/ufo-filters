@@ -1,6 +1,6 @@
 project('ufo-filters', 
     ['c', 'cpp'],
-    version: '0.14.0'
+    version: '0.14.1'
 )
 
 version = meson.project_version()
@@ -19,7 +19,10 @@ add_global_arguments(
 )
 
 if cc.get_id() == 'gcc'
-    add_global_arguments('-fopenmp', language: 'c')
+    add_global_arguments(
+        '-Wno-unused-parameter',
+        '-fopenmp',
+        language: ['c', 'cpp'])
     add_global_link_arguments('-fopenmp', language: 'c')
 endif
 
@@ -36,3 +39,8 @@ deps = [
 
 subdir('deps')
 subdir('src')
+subdir('tests')
+
+if get_option('contrib_filters')
+  subdir('contrib')
+endif

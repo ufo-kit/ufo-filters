@@ -56,7 +56,6 @@ struct _UfoRetrievePhaseTaskPrivate {
     gfloat binary_filter;
 
     gfloat prefac;
-    gint normalize;
     cl_kernel *kernels;
     cl_kernel mult_by_value_kernel;
     cl_context context;
@@ -195,11 +194,10 @@ ufo_retrieve_phase_task_process (UfoTask *task,
 
         method_kernel = priv->kernels[(gint)priv->method];
 
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 0, sizeof (gint), &priv->normalize));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 1, sizeof (gfloat), &priv->prefac));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 2, sizeof (gfloat), &priv->regularization_rate));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 3, sizeof (gfloat), &priv->binary_filter));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 4, sizeof (cl_mem), &filter_mem));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 0, sizeof (gfloat), &priv->prefac));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 1, sizeof (gfloat), &priv->regularization_rate));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 2, sizeof (gfloat), &priv->binary_filter));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 3, sizeof (cl_mem), &filter_mem));
         ufo_profiler_call (profiler, cmd_queue, method_kernel, requisition->n_dims, requisition->dims, NULL);
     }
     else {
@@ -394,7 +392,6 @@ ufo_retrieve_phase_task_init(UfoRetrievePhaseTask *self)
     priv->pixel_size = 0.75e-6f;
     priv->regularization_rate = 2.5f;
     priv->binary_filter = 0.1f;
-    priv->normalize = 1;
     priv->kernels = (cl_kernel *) g_malloc0(N_METHODS * sizeof(cl_kernel));
     priv->filter_buffer = NULL;
 }

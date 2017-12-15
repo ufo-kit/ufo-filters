@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 2.8)
 
+if (POLICY CMP0018)
+cmake_policy(SET CMP0018 OLD)
+endif ()
+
 if (POLICY CMP0046)
 cmake_policy(SET CMP0046 OLD)
 endif ()
@@ -12,13 +16,13 @@ if (POLICY CMP0054)
 cmake_policy(SET CMP0054 OLD)
 endif ()
 
-project(ufo C)
+project(ufo C CXX)
 
 set(TARNAME "ufo-filters")
 
 set(UFO_FILTERS_VERSION_MAJOR "0")
 set(UFO_FILTERS_VERSION_MINOR "14")
-set(UFO_FILTERS_VERSION_PATCH "0")
+set(UFO_FILTERS_VERSION_PATCH "1")
 set(UFO_FILTERS_VERSION_STRING_LONG "${UFO_FILTERS_VERSION_MAJOR}.${UFO_FILTERS_VERSION_MINOR}.${UFO_FILTERS_VERSION_PATCH}")
 set(UFO_FILTERS_VERSION_STRING_SHORT "${UFO_FILTERS_VERSION_MAJOR}.${UFO_FILTERS_VERSION_MINOR}")
 
@@ -66,16 +70,17 @@ link_directories(${UFO_LIBRARY_DIRS})
 add_definitions("-Wall -Wextra -fPIC")
 add_definitions(-DG_LOG_DOMAIN="Ufo")
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
-
 if (CMAKE_COMPILER_IS_GNUCC OR ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang"))
     add_definitions("-Wno-unused-parameter")
 endif ()
 #}}}
 #{{{ Subdirectories
+enable_testing()
+
 add_subdirectory(docs)
 add_subdirectory(deps)
 add_subdirectory(src)
+add_subdirectory(tests)
 if (WITH_CONTRIB)
     add_subdirectory(contrib)
 endif ()

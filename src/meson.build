@@ -36,6 +36,7 @@ plugins = [
     'interpolate-stream',
     'loop',
     'map-slice',
+    'mask',
     'measure-sharpness',
     'median-filter',
     'memory-in',
@@ -45,6 +46,7 @@ plugins = [
     'monitor',
     'null',
     'opencl',
+    'opencl-reduce',
     'ordfilt',
     'pad',
     'polar-coordinates',
@@ -54,9 +56,12 @@ plugins = [
     'ring-pattern',
     'ringwriter',
     'replicate',
+    'rotate',
+    'segment',
     'sleep',
     'slice',
     'stack',
+    'stitch',
     'stdin',
     'transpose',
     'transpose-projections',
@@ -92,11 +97,16 @@ tiff_dep = dependency('libtiff-4', required: false)
 hdf5_dep = dependency('hdf5', required: false)
 jpeg_dep = dependency('libjpeg', required: false)
 gsl_dep = dependency('gsl', required: false)
+pangocairo_dep = dependency('pangocairo', required: false)
+opencv_dep = dependency('opencv', required: false)
+uca_dep = dependency('libuca', required: false)
+clblast_dep = dependency('clblast', required: false)
 
 conf = configuration_data()
 conf.set('HAVE_TIFF', tiff_dep.found())
 conf.set('HAVE_JPEG', jpeg_dep.found())
 conf.set('WITH_HDF5', hdf5_dep.found())
+conf.set('BURST', get_option('lamino_backproject_burst_mode'))
 
 configure_file(
     input: 'config.h.meson.in',
@@ -140,16 +150,19 @@ endforeach
 
 # lamino plugin
 
-shared_module('lamino_backproject',
-    sources: ['ufo-lamino-backproject-task.c'],
-    dependencies: deps,
-    name_prefix: 'libufofilter',
-    install: true,
-    install_dir: plugin_install_dir,
-    c_args: [
-        '-DBURST=@0@'.format(get_option('lamino_backproject_burst_mode')),
-    ],
-)
+python = find_program('python', required: false)
+
+if python.found()
+    shared_module('laminobackproject',
+        sources: ['ufo-lamino-backproject-task.c'],
+        dependencies: deps,
+        name_prefix: 'libufofilter',
+        install: true,
+        install_dir: plugin_install_dir,
+    )
+else
+    message('Python not found, cannot generate kernels for lamino_backproject')
+endif
 
 # i/o plugins
 
@@ -193,9 +206,57 @@ shared_module('write',
     install_dir: plugin_install_dir,
 )
 
+# camera
+
+if uca_dep.found()
+    shared_module('camera',
+        sources: ['ufo-camera-task.c'],
+        dependencies: deps + [uca_dep],
+        name_prefix: 'libufofilter',
+        install: true,
+        install_dir: plugin_install_dir,
+    )
+endif
+
+# cvshow
+
+if opencv_dep.found()
+    shared_module('cvshow',
+        sources: ['writers/ufo-writer.c', 'ufo-cv-show-task.cpp'],
+        dependencies: deps + [opencv_dep],
+        name_prefix: 'libufofilter',
+        install: true,
+        install_dir: plugin_install_dir,
+    )
+endif
+
+# measure
+
 if gsl_dep.found()
     shared_module('measure', 'ufo-measure-task.c',
         dependencies: deps + [gsl_dep],
+        name_prefix: 'libufofilter',
+        install: true,
+        install_dir: plugin_install_dir,
+    )
+endif
+
+# stamp
+
+if pangocairo_dep.found()
+    shared_module('stamp', 'ufo-stamp-task.c',
+        dependencies: deps + [pangocairo_dep],
+        name_prefix: 'libufofilter',
+        install: true,
+        install_dir: plugin_install_dir,
+    )
+endif
+
+# gemm
+
+if clblast_dep.found()
+    shared_module('gemm', 'ufo-gemm-task.c',
+        dependencies: deps + [clblast_dep],
         name_prefix: 'libufofilter',
         install: true,
         install_dir: plugin_install_dir,
