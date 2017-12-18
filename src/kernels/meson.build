@@ -26,6 +26,7 @@ kernel_files = [
     'metaballs.cl',
     'nlm.cl',
     'ordfilt.cl',
+    'opencl.cl',
     'pad.cl',
     'phase-retrieval.cl',
     'piv.cl',

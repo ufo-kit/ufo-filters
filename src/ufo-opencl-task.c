@@ -123,7 +123,7 @@ ufo_opencl_task_setup (UfoTask *task,
     else {
         const gchar *filename;
 
-        filename = priv->filename != NULL ? priv->filename : "default.cl";
+        filename = priv->filename != NULL ? priv->filename : "opencl.cl";
 
         priv->kernel = ufo_resources_get_kernel (resources,
                                                  filename,
