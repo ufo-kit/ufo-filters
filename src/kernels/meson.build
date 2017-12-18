@@ -32,6 +32,7 @@ kernel_files = [
     'polar.cl',
     'rescale.cl',
     'reductor.cl',
+    'rm-outliers.cl',
     'rotate.cl',
     'segment.cl',
     'swap-quadrants.cl',

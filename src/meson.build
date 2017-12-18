@@ -56,6 +56,7 @@ plugins = [
     'ring-pattern',
     'ringwriter',
     'replicate',
+    'remove-outliers',
     'rotate',
     'segment',
     'sleep',
