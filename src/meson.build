@@ -102,8 +102,10 @@ pangocairo_dep = dependency('pangocairo', required: false)
 opencv_dep = dependency('opencv', required: false)
 uca_dep = dependency('libuca', required: false)
 clblast_dep = dependency('clblast', required: false)
+clfft_dep = dependency('clFFT', required: false)
 
 conf = configuration_data()
+conf.set('HAVE_AMD', clfft_dep.found())
 conf.set('HAVE_TIFF', tiff_dep.found())
 conf.set('HAVE_JPEG', jpeg_dep.found())
 conf.set('WITH_HDF5', hdf5_dep.found())
@@ -131,9 +133,17 @@ endforeach
 
 # fft plugins
 
+fft_deps = deps
+
+if clfft_dep.found()
+    fft_deps += [clfft_dep]
+else
+    fft_deps += [oclfft_dep]
+endif
+
 common_fft = static_library('commonfft',
     'common/ufo-fft.c',
-    dependencies: deps + [oclfft_dep]
+    dependencies: fft_deps,
 )
 
 foreach plugin: fft_plugins

@@ -1,4 +1,4 @@
-#define HAVE_OCLFFT
+#mesondefine HAVE_AMD
 #mesondefine HAVE_TIFF
 #mesondefine HAVE_JPEG
 #mesondefine WITH_HDF5
