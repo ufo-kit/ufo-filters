@@ -34,7 +34,7 @@ maximum (global float *input,
 }
 
 kernel void
-average (global float *input,
+sum (global float *input,
          global float *output)
 {
     size_t idx = get_global_id (1) * get_global_size (0) + get_global_id (0);

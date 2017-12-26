@@ -518,7 +518,7 @@ Reducing with OpenCL
         kernel void sum (global float *in, global float *out)
         {
             size_t idx = get_global_id (1) * get_global_size (0) + get_global_id (0);
-            in[idx] += out[idx];
+            out[idx] += in[idx];
         }
 
         kernel void divide (global float *out, uint count)
@@ -530,6 +530,9 @@ Reducing with OpenCL
     And this is how you would use it with ``ufo-launch``::
 
         ufo-launch ... ! opencl-reduce kernel=sum finish=divide ! ...
+
+    If :gobj:prop:`filename` is not set, a default kernel file is loaded. See
+    :ref:`opencl-reduction-default-kernels` for a list of possible kernels.
 
     .. gobj:prop:: filename:string
 
