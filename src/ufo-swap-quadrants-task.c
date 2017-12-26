@@ -28,15 +28,7 @@
 
 #include "ufo-swap-quadrants-task.h"
 
-/**
- * SECTION:ufo-swap_quadrants-task
- * @Short_description: Write TIFF files
- * @Title: swap_quadrants
- *
- */
-
 struct _UfoSwapQuadrantsTaskPrivate {
-    UfoResources *resources;
     cl_kernel swap_quadrants_kernel_real;
     cl_kernel swap_quadrants_kernel_complex;
 };
@@ -48,13 +40,6 @@ G_DEFINE_TYPE_WITH_CODE (UfoSwapQuadrantsTask, ufo_swap_quadrants_task, UFO_TYPE
                                                 ufo_task_interface_init))
 
 #define UFO_SWAP_QUADRANTS_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_SWAP_QUADRANTS_TASK, UfoSwapQuadrantsTaskPrivate))
-
-enum {
-    PROP_0,
-    N_PROPERTIES
-};
-
-static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
 ufo_swap_quadrants_task_new (void)
@@ -68,9 +53,15 @@ ufo_swap_quadrants_task_setup (UfoTask *task,
                                GError **error)
 {
     UfoSwapQuadrantsTaskPrivate *priv = UFO_SWAP_QUADRANTS_TASK_GET_PRIVATE (task);
-    priv->resources = resources;
-    priv->swap_quadrants_kernel_real = ufo_resources_get_kernel(resources, "swap-quadrants.cl", "swap_quadrants_kernel_real", error);
-    priv->swap_quadrants_kernel_complex = ufo_resources_get_kernel(resources, "swap-quadrants.cl", "swap_quadrants_kernel_complex", error);
+
+    priv->swap_quadrants_kernel_real = ufo_resources_get_kernel (resources, "swap-quadrants.cl", "swap_quadrants_kernel_real", error);
+    priv->swap_quadrants_kernel_complex = ufo_resources_get_kernel (resources, "swap-quadrants.cl", "swap_quadrants_kernel_complex", error);
+
+    if (priv->swap_quadrants_kernel_complex)
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->swap_quadrants_kernel_complex));
+
+    if (priv->swap_quadrants_kernel_real)
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->swap_quadrants_kernel_real));
 }
 
 static void
@@ -155,42 +146,22 @@ ufo_swap_quadrants_task_process (UfoTask *task,
 }
 
 static void
-ufo_swap_quadrants_task_set_property (GObject *object,
-                                      guint property_id,
-                                      const GValue *value,
-                                      GParamSpec *pspec)
-{
-    switch (property_id) {    /*
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (cmd_queue,
-                                            priv->dfi_sinc_kernel,
-                                            requisition->n_dims,
-                                            NULL,
-                                            working_size,
-                                            local_work_size,
-                                            0, NULL, NULL));
-    */
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-            break;
-    }
-}
-
-static void
-ufo_swap_quadrants_task_get_property (GObject *object,
-                                      guint property_id,
-                                      GValue *value,
-                                      GParamSpec *pspec)
-{
-    switch (property_id) {
-        default:
-            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-            break;
-    }
-}
-
-static void
 ufo_swap_quadrants_task_finalize (GObject *object)
 {
+    UfoSwapQuadrantsTaskPrivate *priv;
+
+    priv = UFO_SWAP_QUADRANTS_TASK_GET_PRIVATE (object);
+
+    if (priv->swap_quadrants_kernel_complex) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->swap_quadrants_kernel_complex));
+        priv->swap_quadrants_kernel_complex = NULL;
+    }
+
+    if (priv->swap_quadrants_kernel_real) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->swap_quadrants_kernel_real));
+        priv->swap_quadrants_kernel_real = NULL;
+    }
+
     G_OBJECT_CLASS (ufo_swap_quadrants_task_parent_class)->finalize (object);
 }
 
@@ -210,12 +181,7 @@ ufo_swap_quadrants_task_class_init (UfoSwapQuadrantsTaskClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
-    gobject_class->set_property = ufo_swap_quadrants_task_set_property;
-    gobject_class->get_property = ufo_swap_quadrants_task_get_property;
     gobject_class->finalize = ufo_swap_quadrants_task_finalize;
-
-    for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
-        g_object_class_install_property (gobject_class, i, properties[i]);
 
     g_type_class_add_private (gobject_class, sizeof(UfoSwapQuadrantsTaskPrivate));
 }
@@ -224,4 +190,6 @@ static void
 ufo_swap_quadrants_task_init(UfoSwapQuadrantsTask *self)
 {
     self->priv = UFO_SWAP_QUADRANTS_TASK_GET_PRIVATE(self);
+    self->priv->swap_quadrants_kernel_complex = NULL;
+    self->priv->swap_quadrants_kernel_real = NULL;
 }
