@@ -305,6 +305,14 @@ Cutting
         Width of the region to cut out.
 
 
+Swapping quadrants
+------------------
+
+.. gobj:class:: swap-quadrants
+
+    Cuts the input into four quadrants and swaps the lower right with the upper
+    left and the lower left with the upper right quadrant.
+
 
 Polar transformation
 --------------------
