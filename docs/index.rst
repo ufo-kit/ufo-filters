@@ -22,6 +22,7 @@ Reference
     filters
     sinks
     piv
+    kernels
     contrib/index
 
 

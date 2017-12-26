@@ -106,6 +106,8 @@ Generic OpenCL
             c[idx] = a[idx] - b[idx];
         }
 
+    If :gobj:prop:`filename` is not set, a default kernel file is loaded. See
+    :ref:`opencl-default-kernels` for a list of possible kernels.
 
     .. gobj:prop:: filename:string
 
