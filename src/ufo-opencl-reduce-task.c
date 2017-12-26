@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2015 Karlsruhe Institute of Technology
+ * Copyright (C) 2017 Karlsruhe Institute of Technology
  *
  * This file is part of Ufo.
  *
@@ -99,7 +99,7 @@ ufo_opencl_reduce_task_setup (UfoTask *task,
     else {
         const gchar *filename;
 
-        filename = priv->filename != NULL ? priv->filename : "default.cl";
+        filename = priv->filename != NULL ? priv->filename : "opencl-reduce.cl";
         priv->kernel = ufo_resources_get_kernel (resources, filename, priv->kernel_name, error);
 
         if (priv->finish_name)
