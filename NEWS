@@ -1,3 +1,49 @@
+Version 0.15.0
+==============
+
+Enhancements:
+
+- Added a manual section showing basic image processing examples
+- Added a manual section to list default kernels usable with opencl and
+  opencl-reduce
+- backproject: unroll loop for P100, Quadro M6000, GTX 1080 TI and Tesla K20XM
+- cv-show: use unique window name to allow multiple viewers
+- dfi: clean up and simplify reflection code
+- read: avoid file open check if successful
+- read: add lazy timeout-based reading
+- retrieve-phase: remove unused normalize parameter
+- retrieve-phase: untangle macro and ?: mess
+- stat-monitor: clean up and remove dead code
+- stitch: minor cleanups and correct kernel release
+- swap-quadrants: simplified code
+- write: warn if no format spec is given for jpeg
+- Fix #144: document swap-quadrants
+
+Fixes:
+
+- camera: fix linking with libuca
+- cv-show: fix compilation with older g++ compilers
+- dfi: fix wrong warning about even sample number
+- dummy-data: lift number limit
+- opencl: kernel name cannot be NULL
+- Fix #149: image2d_t is always global
+- Fix #146: use gnu99 instead of c99
+- Fix #133: off-by-one cropping is bad
+
+Breaks:
+
+- Moved nlm kernel from nlm.cl to opencl.cl
+- Remove unused default.cl
+
+New filters:
+
+- Added cv-show viewer
+- Added circular mask filter
+- Added opencl-reduce
+- Added projection filter bh3
+- Added filter to remove outliers
+
+
 Version 0.14.1
 ==============
 
