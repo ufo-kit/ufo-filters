@@ -87,6 +87,55 @@ ufo_tiff_reader_data_available (UfoReader *reader)
 }
 
 static void
+read_data (UfoTiffReaderPrivate *priv,
+           UfoBuffer *buffer,
+           UfoRequisition *requisition,
+           guint16 bits,
+           guint roi_y,
+           guint roi_height,
+           guint roi_step)
+{
+    gchar *dst;
+    gsize step;
+    gsize offset;
+
+    step = requisition->dims[0] * bits / 8;
+    dst = (gchar *) ufo_buffer_get_host_array (buffer, NULL);
+    offset = 0;
+
+    for (guint i = roi_y; i < roi_y + roi_height; i += roi_step) {
+        TIFFReadScanline (priv->tiff, dst + offset, i, 0);
+        offset += step;
+    }
+}
+
+static void
+read_64_bit_data (UfoTiffReaderPrivate *priv,
+                  UfoBuffer *buffer,
+                  UfoRequisition *requisition,
+                  guint roi_y,
+                  guint roi_height,
+                  guint roi_step)
+{
+    gdouble *src;
+    gfloat *dst;
+
+    dst = ufo_buffer_get_host_array (buffer, NULL);
+    src = g_new0 (gdouble, requisition->dims[0]);
+
+    for (guint i = roi_y; i < roi_y + roi_height; i += roi_step) {
+        TIFFReadScanline (priv->tiff, src, i, 0);
+
+        for (guint j = 0; j < requisition->dims[0]; j++)
+            dst[j] = (gfloat) src[j];
+
+        dst += requisition->dims[0];
+    }
+
+    g_free (src);
+}
+
+static void
 ufo_tiff_reader_read (UfoReader *reader,
                       UfoBuffer *buffer,
                       UfoRequisition *requisition,
@@ -95,29 +144,16 @@ ufo_tiff_reader_read (UfoReader *reader,
                       guint roi_step)
 {
     UfoTiffReaderPrivate *priv;
-    gchar *data;
-    tsize_t result;
-    gsize offset;
     guint16 bits;
-    gsize step;
 
     priv = UFO_TIFF_READER_GET_PRIVATE (reader);
 
     TIFFGetField (priv->tiff, TIFFTAG_BITSPERSAMPLE, &bits);
-    step = requisition->dims[0] * bits / 8;
-    data = (gchar *) ufo_buffer_get_host_array (buffer, NULL);
-    offset = 0;
 
-    for (guint i = roi_y; i < roi_y + roi_height; i += roi_step) {
-        result = TIFFReadScanline (priv->tiff, data + offset, i, 0);
-
-        if (result == -1) {
-            g_warning ("Cannot read scanline");
-            return;
-        }
-
-        offset += step;
-    }
+    if (bits == 64)
+        read_64_bit_data (priv, buffer, requisition, roi_y, roi_height, roi_step);
+    else
+        read_data (priv, buffer, requisition, bits, roi_y, roi_height, roi_step);
 
     priv->more = TIFFReadDirectory (priv->tiff) == 1;
 }

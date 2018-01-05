@@ -8,3 +8,6 @@ add_test(test_142
 
 add_test(test_149
          ${BASH} "${CMAKE_CURRENT_SOURCE_DIR}/test-149.sh")
+
+add_test(test_153
+         ${BASH} "${CMAKE_CURRENT_SOURCE_DIR}/test-153.sh")

@@ -317,6 +317,13 @@ ufo_read_task_get_requisition (UfoTask *task,
 
     ufo_reader_get_meta (priv->reader, &width, &height, &priv->depth);
 
+    if (priv->depth > 32)
+        /*
+         * We have to take care of this in the writers, because we cannot
+         * allocate larger buffers than those with float elements.
+         */
+        priv->depth = UFO_BUFFER_DEPTH_32F;
+
     if (priv->roi_y >= height) {
         g_warning ("read: vertical ROI start %i >= height %zu", priv->roi_y, height);
         priv->roi_y = 0;

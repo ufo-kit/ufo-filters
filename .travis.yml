@@ -6,7 +6,7 @@ env:
 
 before_install:
   - sudo apt-get install opencl-headers ocl-icd-opencl-dev libjson-glib-dev libzmq3-dev autoconf-archive libgl1-mesa-dev
-  - sudo apt-get install libtiff4-dev libhdf5-serial-dev libjpeg-dev libgsl0-dev libtiff-tools
+  - sudo apt-get install libtiff4-dev libhdf5-serial-dev libjpeg-dev libgsl0-dev libtiff-tools python-numpy python-tifffile
   - wget http://s3.amazonaws.com/omnia-ci/AMD-APP-SDKInstaller-v3.0.130.135-GA-linux64.tar.bz2;
   - tar -xjf AMD-APP-SDK*.tar.bz2;
   - AMDAPPSDK=${HOME}/AMDAPPSDK;
