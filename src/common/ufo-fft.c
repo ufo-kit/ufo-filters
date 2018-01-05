@@ -59,6 +59,9 @@ ufo_fft_new (void)
     g_mutex_lock (&amd_mutex);
     ffts_created = g_list_append (ffts_created, fft);
     g_mutex_unlock (&amd_mutex);
+    g_debug ("INFO Create new plan using AMD FFT");
+#else
+    g_debug ("INFO Create new plan using Apple FFT");
 #endif
 
     return fft;
