@@ -20,7 +20,7 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define COMMON_SETUP \
+#define COMMON_SETUP_TIE                                \
     const int width = get_global_size(0);               \
     const int height = get_global_size(1);              \
     int idx = get_global_id(0);                         \
@@ -36,12 +36,15 @@
     n_idx = n_idx / width; \
     n_idy = n_idy / height; \
     float sin_arg = prefac * (n_idy * n_idy + n_idx * n_idx) / 2.0f; \
+
+#define COMMON_SETUP    \
+    COMMON_SETUP_TIE;   \
     float sin_value = sin(sin_arg);
 
 kernel void
 tie_method(float prefac, float regularize_rate, float binary_filter_rate, global float *output)
 {
-    COMMON_SETUP;
+    COMMON_SETUP_TIE;
     output[idy * width + idx] = 0.5f / (sin_arg + pow(10, -regularize_rate));
 }
 
