@@ -698,10 +698,10 @@ Frequency filtering
 
     .. gobj:prop:: filter :enum
 
-        Any of ``ramp``, ``ramp-fromreal``, ``butterworth``, ``faris-byer`` and
-        ``hamming``. The default filter is ``ramp-fromreal`` which computes a
-        correct ramp filter avoiding offset issues encountered with naive
-        implementations.
+        Any of ``ramp``, ``ramp-fromreal``, ``butterworth``, ``faris-byer``,
+        ``hamming`` and ``bh3`` (Blackman-Harris-3). The default filter is
+        ``ramp-fromreal`` which computes a correct ramp filter avoiding offset
+        issues encountered with naive implementations.
 
     .. gobj:prop:: scale:float
 
