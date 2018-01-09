@@ -94,7 +94,7 @@ Generic OpenCL
 
 .. gobj:class:: opencl
 
-    Load an arbitrary :gobj:prop:`kernel` from :gobj:prop:`filename` or
+    Load an arbitrary OpenCL :gobj:prop:`kernel` from :gobj:prop:`filename` or
     :gobj:prop:`source` and execute it on each input. The kernel must accept as
     many global float array parameters as connected to the filter and one
     additional as an output. For example, to compute the difference between two
@@ -106,8 +106,13 @@ Generic OpenCL
             c[idx] = a[idx] - b[idx];
         }
 
-    If :gobj:prop:`filename` is not set, a default kernel file is loaded. See
-    :ref:`opencl-default-kernels` for a list of possible kernels.
+    and could be used like so if defined in a file named ``diff.cl``::
+
+        $ ufo-launch [read, read] ! opencl kernel=difference filename=diff.cl !  null
+
+    If :gobj:prop:`filename` is not set, a default kernel file (``opencl.cl``)
+    is loaded. See :ref:`opencl-default-kernels` for a list of kernel names
+    defined in that file.
 
     .. gobj:prop:: filename:string
 
