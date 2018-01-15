@@ -101,3 +101,12 @@ absorptivity (global float *input,
     const size_t idx = get_global_id (1) * get_global_size (0) + get_global_id (0);
     output[idx] = -log (input[idx]);
 }
+
+kernel void
+diff (global float *x,
+      global float *y,
+      global float *output)
+{
+    const size_t idx = get_global_id (1) * get_global_size (0) + get_global_id (0);
+    output[idx] = x[idx] - y[idx];
+}

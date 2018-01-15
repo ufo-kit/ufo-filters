@@ -18,9 +18,12 @@ This section lists all kernel functions that are available to the
 
     Smooths data within a local neighbourhood.
 
+.. c:function:: void diff ()
+
+    Computes :math:`f(x, y) = x - y`.
+
 
 .. _opencl-reduction-default-kernels:
-
 
 OpenCL reduction default kernels
 ================================
