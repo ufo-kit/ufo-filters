@@ -28,7 +28,8 @@
 
 struct _UfoBinTaskPrivate {
     guint size;
-    cl_kernel kernel;
+    cl_kernel kernel_2d;
+    cl_kernel kernel_3d;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -62,10 +63,15 @@ ufo_bin_task_setup (UfoTask *task,
 
     priv = UFO_BIN_TASK_GET_PRIVATE (task);
 
-    priv->kernel = ufo_resources_get_kernel (resources, "bin.cl", "binning", error);
+    priv->kernel_2d = ufo_resources_get_kernel (resources, "bin.cl", "binning_2d", error);
 
-    if (priv->kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+    if (priv->kernel_2d != NULL)
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel_2d));
+
+    priv->kernel_3d = ufo_resources_get_kernel (resources, "bin.cl", "binning_3d", error);
+
+    if (priv->kernel_3d != NULL)
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel_3d));
 }
 
 static void
@@ -78,9 +84,11 @@ ufo_bin_task_get_requisition (UfoTask *task,
 
     priv = UFO_BIN_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &in_req);
-    requisition->n_dims = 2;
+
+    requisition->n_dims = in_req.n_dims;
     requisition->dims[0] = in_req.dims[0] / priv->size;
     requisition->dims[1] = in_req.dims[1] / priv->size;
+    requisition->dims[2] = in_req.dims[2] / priv->size;
 }
 
 static guint
@@ -115,6 +123,7 @@ ufo_bin_task_process (UfoTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
+    cl_kernel kernel;
 
     priv = UFO_BIN_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
@@ -123,15 +132,16 @@ ufo_bin_task_process (UfoTask *task,
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     ufo_buffer_get_requisition (inputs[0], &in_req);
+    kernel = in_req.n_dims == 2 ? priv->kernel_2d : priv->kernel_3d;
 
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (guint), &priv->size));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (guint), &in_req.dims[0]));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (guint), &in_req.dims[1]));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 0, sizeof (cl_mem), &in_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 1, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 2, sizeof (guint), &priv->size));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (guint), &in_req.dims[0]));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (guint), &in_req.dims[1]));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-    ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
+    ufo_profiler_call (profiler, cmd_queue, kernel, in_req.n_dims, requisition->dims, NULL);
 
     return TRUE;
 }
@@ -179,9 +189,14 @@ ufo_bin_task_finalize (GObject *object)
     
     priv = UFO_BIN_TASK_GET_PRIVATE (object);
 
-    if (priv->kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
-        priv->kernel = NULL;
+    if (priv->kernel_2d) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel_2d));
+        priv->kernel_2d = NULL;
+    }
+
+    if (priv->kernel_3d) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel_3d));
+        priv->kernel_3d = NULL;
     }
 
     G_OBJECT_CLASS (ufo_bin_task_parent_class)->finalize (object);
