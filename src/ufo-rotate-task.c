@@ -214,7 +214,6 @@ ufo_rotate_task_process (UfoTask *task,
 
     priv = UFO_ROTATE_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
-    profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
