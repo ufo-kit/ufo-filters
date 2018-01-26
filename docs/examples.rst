@@ -1,9 +1,9 @@
-===================
-Computed Tomography
-===================
+========
+Examples
+========
 
-Pre-processing
-==============
+CT Pre-processing
+=================
 
 Flat field correction
 ---------------------
@@ -84,8 +84,8 @@ for a larger number of big projections. For example, to transpose 2048
 projections, each at a size of 2048 by 2048 pixels requires 32 GB of RAM.
 
 
-Reconstruction
-==============
+CT Reconstruction
+=================
 
 Filtered backprojection
 -----------------------
@@ -128,7 +128,6 @@ space. To reconstruct, you have to feed the sinograms into :gobj:class:`zeropad`
         null
 
 
-=================
 Data distribution
 =================
 
