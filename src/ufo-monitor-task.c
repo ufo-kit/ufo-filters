@@ -201,8 +201,7 @@ ufo_monitor_task_process (UfoTask *task,
             g_print ("\n");
     }
 
-
-    ufo_buffer_copy (inputs[0], output);
+    ufo_buffer_swap_data (inputs[0], output);
 
     g_free (dimstring);
     g_free (kvstring);
