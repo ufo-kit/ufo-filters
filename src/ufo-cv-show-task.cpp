@@ -23,7 +23,7 @@
 #include <CL/cl.h>
 #endif
 
-#include <highgui.h>
+#include <opencv2/highgui/highgui.hpp>
 #include "ufo-cv-show-task.h"
 #include "writers/ufo-writer.h"
 
