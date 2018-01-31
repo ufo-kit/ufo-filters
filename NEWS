@@ -1,3 +1,12 @@
+Version 0.15.1
+==============
+
+Fixes:
+
+- #153: do not crash with 64 bit floating point TIFFs
+- Use specific OpenCV 2 header file in an OpenCV 3 environment
+
+
 Version 0.15.0
 ==============
 
