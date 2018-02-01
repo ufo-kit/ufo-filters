@@ -109,7 +109,7 @@ uca_dep = dependency('libuca', required: false)
 clblast_dep = dependency('clblast', required: false)
 clfft_dep = dependency('clFFT', required: false)
 zmq_dep = dependency('libzmq', required: false)
-json_dep = dependency('json-glib-1.0', required: false)
+json_dep = dependency('json-glib-1.0', version: '>=1.1.0', required: false)
 
 conf = configuration_data()
 conf.set('HAVE_AMD', clfft_dep.found())

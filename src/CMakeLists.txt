@@ -136,6 +136,7 @@ pkg_check_modules(CLBLAST clblast)
 pkg_check_modules(PANGOCAIRO pangocairo)
 pkg_check_modules(OPENCV opencv)
 pkg_check_modules(ZMQ libzmq)
+pkg_check_modules(JSON_GLIB lib-json-glib-1.0>=1.1.0)
 
 
 if (OPENMP_FOUND)
@@ -253,11 +254,11 @@ if (OPENCV_FOUND)
     list(APPEND cv_show_aux_SRCS writers/ufo-writer.c)
 endif ()
 
-if (ZMQ_FOUND)
-    include_directories(${ZMQ_INCLUDE_DIRS})
-    link_directories(${ZMQ_LIBRARY_DIRS})
+if (ZMQ_FOUND AND JSON_GLIB_FOUND)
+    include_directories(${ZMQ_INCLUDE_DIRS} ${JSON_GLIB_INCLUDE_DIRS})
+    link_directories(${ZMQ_LIBRARY_DIRS} ${JSON_GLIB_LIBRARY_DIRS})
     list(APPEND ufofilter_SRCS ufo-zmq-pub-task.c ufo-zmq-sub-task.c)
-    list(APPEND zmq_pub_aux_LIBS ${ZMQ_LIBRARIES})
+    list(APPEND zmq_pub_aux_LIBS ${ZMQ_LIBRARIES} ${JSON_GLIB_LIBRARIES})
 endif ()
 #}}}
 #{{{ Plugin targets
