@@ -34,8 +34,8 @@
 struct _UfoRotateTaskPrivate {
     gfloat angle;
     gboolean reshape;
-    GValueArray *center;
-    gfloat compute_center[2], padded_center[2];
+    gfloat center[2];
+    gfloat padded_center[2];
     AddressingMode addressing_mode;
     Interpolation interpolation;
 
@@ -132,11 +132,12 @@ ufo_rotate_task_setup (UfoTask *task,
     priv->kernel = ufo_resources_get_kernel (resources, "rotate.cl", "rotate_image", error);
     /* Normalized coordinates are necessary for repeat addressing mode */
     priv->sampler = clCreateSampler (priv->context, (cl_bool) TRUE, priv->addressing_mode, priv->interpolation, &cl_error);
+
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
     UFO_RESOURCES_CHECK_CLERR (cl_error);
-    if (priv->kernel) {
+
+    if (priv->kernel)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
-    }
 }
 
 static void
@@ -151,14 +152,14 @@ ufo_rotate_task_get_requisition (UfoTask *task,
 
     priv = UFO_ROTATE_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &in_req);
-    priv->compute_center[0] = g_value_get_float (g_value_array_get_nth (priv->center, 0));
-    priv->compute_center[1] = g_value_get_float (g_value_array_get_nth (priv->center, 1));
-    if (priv->compute_center[0] == G_MAXFLOAT || priv->compute_center[1] == G_MAXFLOAT) {
-        priv->compute_center[0] = in_req.dims[0] / 2.0f;
-        priv->compute_center[1] = in_req.dims[1] / 2.0f;
+
+    if (priv->center[0] == G_MAXFLOAT || priv->center[1] == G_MAXFLOAT) {
+        priv->center[0] = in_req.dims[0] / 2.0f;
+        priv->center[1] = in_req.dims[1] / 2.0f;
     }
-    priv->padded_center[0] = priv->compute_center[0];
-    priv->padded_center[1] = priv->compute_center[1];
+
+    priv->padded_center[0] = priv->center[0];
+    priv->padded_center[1] = priv->center[1];
 
     if (priv->reshape) {
         /* Make sure the complete original image stays in the field of view and
@@ -166,13 +167,14 @@ ufo_rotate_task_get_requisition (UfoTask *task,
         sincos[0] = sin (priv->angle);
         sincos[1] = cos (priv->angle);
         compute_extrema (sincos, (gint) in_req.dims[0], (gint) in_req.dims[1],
-                         priv->compute_center[0], priv->compute_center[1], extrema);
+                         priv->center[0], priv->center[1], extrema);
         requisition->n_dims = 2;
         requisition->dims[0] = extrema[1] - extrema[0];
         requisition->dims[1] = extrema[3] - extrema[2];
         priv->padded_center[0] -= extrema[0];
         priv->padded_center[1] -= extrema[2];
-    } else {
+    }
+    else {
         ufo_buffer_get_requisition (inputs[0], requisition);
     }
 }
@@ -230,7 +232,7 @@ ufo_rotate_task_process (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_sampler), &priv->sampler));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_float2), sincos));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (cl_float2), priv->compute_center));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (cl_float2), priv->center));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 5, sizeof (cl_float2), priv->padded_center));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 6, sizeof (cl_int2), input_shape));
 
@@ -259,8 +261,8 @@ ufo_rotate_task_set_property (GObject *object,
             break;
         case PROP_CENTER:
             array = (GValueArray *) g_value_get_boxed (value);
-            g_value_array_free (priv->center);
-            priv->center = g_value_array_copy (array);
+            priv->center[0] = g_value_get_float (g_value_array_get_nth (array, 0));
+            priv->center[1] = g_value_get_float (g_value_array_get_nth (array, 1));
             break;
         case PROP_INTERPOLATION:
             priv->interpolation = g_value_get_enum (value);
@@ -281,6 +283,8 @@ ufo_rotate_task_get_property (GObject *object,
                               GParamSpec *pspec)
 {
     UfoRotateTaskPrivate *priv = UFO_ROTATE_TASK_GET_PRIVATE (object);
+    GValueArray *array;
+    GValue x = G_VALUE_INIT;
 
     switch (property_id) {
         case PROP_ANGLE:
@@ -290,7 +294,13 @@ ufo_rotate_task_get_property (GObject *object,
             g_value_set_boolean (value, priv->reshape);
             break;
         case PROP_CENTER:
-            g_value_set_boxed (value, priv->center);
+            array = g_value_array_new (2);
+            g_value_init (&x, G_TYPE_FLOAT);
+            g_value_set_float (&x, priv->center[0]);
+            g_value_array_append (array, &x);
+            g_value_set_float (&x, priv->center[1]);
+            g_value_array_append (array, &x);
+            g_value_take_boxed (value, array);
             break;
         case PROP_INTERPOLATION:
             g_value_set_enum (value, priv->interpolation);
@@ -310,16 +320,17 @@ ufo_rotate_task_finalize (GObject *object)
     UfoRotateTaskPrivate *priv;
 
     priv = UFO_ROTATE_TASK_GET_PRIVATE (object);
-    g_value_array_free (priv->center);
 
     if (priv->kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
         priv->kernel = NULL;
     }
+
     if (priv->sampler) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseSampler (priv->sampler));
         priv->sampler = NULL;
     }
+
     if (priv->context) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
         priv->context = NULL;
@@ -402,19 +413,11 @@ ufo_rotate_task_class_init (UfoRotateTaskClass *klass)
 static void
 ufo_rotate_task_init(UfoRotateTask *self)
 {
-    GValue max_float = G_VALUE_INIT;
-    gint i;
-
     self->priv = UFO_ROTATE_TASK_GET_PRIVATE (self);
-    g_value_init (&max_float, G_TYPE_FLOAT);
-    g_value_set_float (&max_float, G_MAXFLOAT);
     self->priv->angle = 0;
     self->priv->reshape = FALSE;
     self->priv->addressing_mode = CL_ADDRESS_CLAMP;
     self->priv->interpolation = CL_FILTER_LINEAR;
-    self->priv->center = g_value_array_new (2);
-
-    for (i = 0; i < 2; i++) {
-        g_value_array_insert (self->priv->center, i, &max_float);
-    }
+    self->priv->center[0] = G_MAXFLOAT;
+    self->priv->center[1] = G_MAXFLOAT;
 }
