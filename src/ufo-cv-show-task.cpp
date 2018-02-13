@@ -62,7 +62,6 @@ ufo_cv_show_task_setup (UfoTask *task,
                         UfoResources *resources,
                         GError **error)
 {
-    cv::namedWindow(UFO_CV_SHOW_TASK_GET_PRIVATE (task)->name, 1);
 }
 
 static void
