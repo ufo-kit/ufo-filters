@@ -57,8 +57,7 @@ static gboolean
 ufo_jpeg_writer_can_open (UfoWriter *writer,
                           const gchar *filename)
 {
-    return g_regex_match_simple ("%[0-9]*[ui]", filename, 0, 0) &&
-        (g_str_has_suffix (filename, ".jpg") || g_str_has_suffix (filename, ".jpeg"));
+    return g_str_has_suffix (filename, ".jpg") || g_str_has_suffix (filename, ".jpeg");
 }
 
 static void
