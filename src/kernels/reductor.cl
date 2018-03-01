@@ -17,6 +17,48 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define MODE_SUM(a, b) ((a) + (b))
+#define MODE_MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MODE_MAX(a, b) (((a) > (b)) ? (a) : (b))
+
+#define DEFINE_PARALLEL_KERNEL(operation)                                                    \
+kernel void reduce_##operation (global float *input,                                         \
+                                global float *output,                                        \
+                                local float *cache,                                          \
+                                const int real_size,                                         \
+                                const int pixels_per_thread)                                 \
+{                                                                                            \
+    int lid = get_local_id (0);                                                              \
+    int gid = get_global_id (0);                                                             \
+    int global_size = get_global_size (0);                                                   \
+    float value = 0.0f;                                                                      \
+                                                                                             \
+    for (int i = 0; i < pixels_per_thread; i++) {                                            \
+        if (gid < real_size) {                                                               \
+            value = operation(value, input[gid]);                                            \
+        }                                                                                    \
+        gid += global_size;                                                                  \
+    }                                                                                        \
+                                                                                             \
+    cache[lid] = value;                                                                      \
+    barrier (CLK_LOCAL_MEM_FENCE);                                                           \
+                                                                                             \
+    for (int block = get_local_size (0) >> 1; block > 0; block >>= 1) {                      \
+        if (lid < block) {                                                                   \
+            cache[lid] = operation(cache[lid], cache[lid + block]);                          \
+        }                                                                                    \
+        barrier (CLK_LOCAL_MEM_FENCE);                                                       \
+    }                                                                                        \
+                                                                                             \
+    if (lid == 0) {                                                                          \
+        output[get_group_id (0)] = cache[0];                                                 \
+    }                                                                                        \
+}                                                                                            \
+
+DEFINE_PARALLEL_KERNEL(MODE_SUM)
+DEFINE_PARALLEL_KERNEL(MODE_MIN)
+DEFINE_PARALLEL_KERNEL(MODE_MAX)
+
 kernel void parallel_sum_2D (global float *input,  
                              global float *output,
                              local float *cache,
