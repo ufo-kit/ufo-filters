@@ -115,7 +115,7 @@ static guint
 ufo_reduce_task_get_num_dimensions (UfoTask *task,
                                     guint input)
 {
-    return 2;
+    return -1;
 }
 
 static UfoTaskMode
