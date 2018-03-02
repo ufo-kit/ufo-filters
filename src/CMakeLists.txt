@@ -45,6 +45,7 @@ set(ufofilter_SRCS
     ufo-map-color-task.c
     ufo-map-slice-task.c
     ufo-mask-task.c
+    ufo-measure-task.c
     ufo-measure-sharpness-task.c
     ufo-median-filter-task.c
     ufo-memory-in-task.c
@@ -133,7 +134,6 @@ find_package(OpenCV)
 
 pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(LIBTIFF4 libtiff-4>=4.0.0)
-pkg_check_modules(GSL gsl)
 pkg_check_modules(CLFFT clFFT)
 pkg_check_modules(CLBLAST clblast)
 pkg_check_modules(PANGOCAIRO pangocairo)
@@ -205,12 +205,6 @@ if (UCA_INCLUDE_DIRS AND UCA_LIBRARIES)
     list(APPEND camera_aux_LIBS ${UCA_LIBRARIES})
     include_directories(${UCA_INCLUDE_DIRS})
     link_directories(${UCA_LIBRARY_DIRS})
-endif ()
-
-if (GSL_FOUND)
-    include_directories(${GSL_INCLUDE_DIRS})
-    list(APPEND measure_aux_LIBS ${GSL_LIBRARIES})
-    list(APPEND ufofilter_SRCS ufo-measure-task.c)
 endif ()
 
 if (TARGET oclfft)

@@ -39,6 +39,7 @@ plugins = [
     'map-slice',
     'map-color',
     'mask',
+    'measure',
     'measure-sharpness',
     'median-filter',
     'memory-in',
@@ -105,7 +106,6 @@ write_sources = [
 tiff_dep = dependency('libtiff-4', required: false)
 hdf5_dep = dependency('hdf5', required: false)
 jpeg_dep = dependency('libjpeg', required: false)
-gsl_dep = dependency('gsl', required: false)
 pangocairo_dep = dependency('pangocairo', required: false)
 opencv_dep = dependency('opencv', required: false)
 uca_dep = dependency('libuca', required: false)
@@ -245,17 +245,6 @@ if opencv_dep.found()
     shared_module('cvshow',
         sources: ['writers/ufo-writer.c', 'ufo-cv-show-task.cpp'],
         dependencies: deps + [opencv_dep],
-        name_prefix: 'libufofilter',
-        install: true,
-        install_dir: plugin_install_dir,
-    )
-endif
-
-# measure
-
-if gsl_dep.found()
-    shared_module('measure', 'ufo-measure-task.c',
-        dependencies: deps + [gsl_dep],
         name_prefix: 'libufofilter',
         install: true,
         install_dir: plugin_install_dir,
