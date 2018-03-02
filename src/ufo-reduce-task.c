@@ -44,7 +44,7 @@ static GEnumValue mode_values[] = {
 };
 
 struct _UfoReduceTaskPrivate {
-    gsize local_size;
+    size_t local_size;
     Mode mode;
     cl_context context;
     cl_kernel kernel;
@@ -130,12 +130,13 @@ reduce (UfoProfiler *profiler,
         cl_kernel kernel,
         cl_mem input,
         cl_mem output,
-        gint size,
-        gsize local_size)
+        cl_ulong size,
+        size_t local_size)
 {
-    gint real_size, num_groups, pixels_per_thread;
-    gsize global_work_size;
-    gfloat result;
+    cl_ulong real_size, num_groups;
+    cl_int pixels_per_thread;
+    size_t global_work_size;
+    cl_float result;
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 1, sizeof (cl_mem), &output));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 2, local_size * sizeof (cl_float), NULL));
@@ -158,10 +159,10 @@ reduce (UfoProfiler *profiler,
         pixels_per_thread = (gint) (ceil (sqrt (num_groups)));
         num_groups = (num_groups - 1) / pixels_per_thread + 1;
         global_work_size = num_groups * local_size;
-        g_debug ("real size: %d global size: %lu d G: %d PPT: %d",
+        g_debug ("real size: %lu global size: %lu d G: %lu PPT: %d",
                  real_size, global_work_size, num_groups, pixels_per_thread);
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 0, sizeof (cl_mem), &input));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (cl_int), &real_size));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (cl_ulong), &real_size));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (cl_int), &pixels_per_thread));
         ufo_profiler_call (profiler, cmd_queue, kernel, 1, &global_work_size, &local_size);
         input = output;
@@ -192,8 +193,9 @@ ufo_reduce_task_process (UfoTask *task,
     cl_mem in_mem;
     cl_int error;
     guint i;
-    gint num_groups, pixels_per_thread, input_size = 1;
-    gfloat result;
+    cl_ulong num_groups, input_size = 1;
+    cl_int pixels_per_thread;
+    cl_float result;
     GValue meta = G_VALUE_INIT;
 
     priv = UFO_REDUCE_TASK_GET_PRIVATE (task);
@@ -204,12 +206,12 @@ ufo_reduce_task_process (UfoTask *task,
 
     /* Arbitrary input dimensions are allowed */
     for (i = 0; i < requisition->n_dims; i++) {
-        input_size *= requisition->dims[i]; 
+        input_size *= (cl_ulong) requisition->dims[i];
     }
 
     if (!priv->result) {
         num_groups = (input_size - 1) / priv->local_size + 1;
-        pixels_per_thread = (gint) (ceil (sqrt (num_groups)));
+        pixels_per_thread = (cl_int) (ceil (sqrt (num_groups)));
         num_groups = (num_groups - 1) / pixels_per_thread + 1;
         priv->result = clCreateBuffer (priv->context,
                                        CL_MEM_READ_WRITE,

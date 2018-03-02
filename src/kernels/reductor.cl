@@ -25,12 +25,12 @@
 kernel void reduce_##operation (global float *input,                                         \
                                 global float *output,                                        \
                                 local float *cache,                                          \
-                                const int real_size,                                         \
+                                const ulong real_size,                                       \
                                 const int pixels_per_thread)                                 \
 {                                                                                            \
     int lid = get_local_id (0);                                                              \
-    int gid = get_global_id (0);                                                             \
-    int global_size = get_global_size (0);                                                   \
+    size_t gid = get_global_id (0);                                                          \
+    size_t global_size = get_global_size (0);                                                \
     float value = 0.0f;                                                                      \
                                                                                              \
     for (int i = 0; i < pixels_per_thread; i++) {                                            \
