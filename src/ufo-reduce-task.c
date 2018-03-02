@@ -124,6 +124,61 @@ ufo_reduce_task_get_mode (UfoTask *task)
     return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
+static gfloat
+reduce (UfoProfiler *profiler,
+        cl_command_queue cmd_queue,
+        cl_kernel kernel,
+        cl_mem input,
+        cl_mem output,
+        gint size,
+        gsize local_size)
+{
+    gint real_size, num_groups, pixels_per_thread;
+    gsize global_work_size;
+    gfloat result;
+
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 1, sizeof (cl_mem), &output));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 2, local_size * sizeof (cl_float), NULL));
+
+    /* Balance the load and process multiple times until the global reduction
+     * result is stored in the first pixel. One work item in the kernel
+     * processes more pixels (global work size is thus less than the input
+     * size). At the same time, we try to have many groups in order to have good
+     * occupancy. */
+    num_groups = size;
+    while (num_groups > 1) {
+        real_size = num_groups;
+        /* Make sure global work size divides the local work size */
+        /* Number of groups processing *real_size* data */
+        num_groups = (real_size - 1) / local_size + 1;
+        /* Balance the load, i.e. half of the work goes to work items, half to
+         * groups. This way the GPU is busy on the work item level (because
+         * every work item processes more input pixels) and occupancy is good
+         * because there are many groups. */
+        pixels_per_thread = (gint) (ceil (sqrt (num_groups)));
+        num_groups = (num_groups - 1) / pixels_per_thread + 1;
+        global_work_size = num_groups * local_size;
+        g_debug ("real size: %d global size: %lu d G: %d PPT: %d",
+                 real_size, global_work_size, num_groups, pixels_per_thread);
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 0, sizeof (cl_mem), &input));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (cl_int), &real_size));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (cl_int), &pixels_per_thread));
+        ufo_profiler_call (profiler, cmd_queue, kernel, 1, &global_work_size, &local_size);
+        input = output;
+    }
+
+    /* Result is stored in the first pixel */
+    UFO_RESOURCES_CHECK_CLERR (clEnqueueReadBuffer (cmd_queue,
+                                                    output,
+                                                    CL_TRUE,
+                                                    0,
+                                                    sizeof (cl_float),
+                                                    &result,
+                                                    0, NULL, NULL));
+
+    return result;
+}
+
 static gboolean
 ufo_reduce_task_process (UfoTask *task,
                          UfoBuffer **inputs,
@@ -136,9 +191,8 @@ ufo_reduce_task_process (UfoTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_int error;
-    gsize global_work_size;
     guint i;
-    gint n, num_groups, pixels_per_thread, real_size, input_size = 1;
+    gint num_groups, pixels_per_thread, input_size = 1;
     gfloat result;
     GValue meta = G_VALUE_INIT;
 
@@ -153,55 +207,20 @@ ufo_reduce_task_process (UfoTask *task,
         input_size *= requisition->dims[i]; 
     }
 
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, priv->local_size * sizeof (cl_float), NULL));
-
-    /* Balance the load and process multiple times until the global reduction
-     * result is stored in the first pixel. One work item in the kernel
-     * processes more pixels (global work size is thus less than the input
-     * size). At the same time, we try to have many groups in order to have good
-     * occupancy. */
-    num_groups = input_size;
-    while (num_groups > 1) {
-        real_size = num_groups;
-        /* Make sure global work size divides the local work size */
-        /* Number of groups processing *real_size* data */
-        num_groups = (real_size - 1) / priv->local_size + 1;
-        /* Balance the load, i.e. half of the work goes to work items, half to
-         * groups. This way the GPU is busy on the work item level (because
-         * every work item processes more input pixels) and occupancy is good
-         * because there are many groups. */
+    if (!priv->result) {
+        num_groups = (input_size - 1) / priv->local_size + 1;
         pixels_per_thread = (gint) (ceil (sqrt (num_groups)));
         num_groups = (num_groups - 1) / pixels_per_thread + 1;
-        global_work_size = num_groups * priv->local_size;
-        if (!priv->result) {
-            priv->result = clCreateBuffer (priv->context,
-                                           CL_MEM_READ_WRITE,
-                                           num_groups * sizeof (cl_float),
-                                           NULL,
-                                           &error);
-            UFO_RESOURCES_CHECK_CLERR (error);
-            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &priv->result));
-        } else {
-            in_mem = priv->result;
-        }
-
-        g_debug ("real size: %d global size: %lu padded n: %d G: %d PPT: %d",
-                 real_size, global_work_size, n, num_groups, pixels_per_thread);
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_int), &real_size));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (cl_int), &pixels_per_thread));
-        ufo_profiler_call (profiler, cmd_queue, priv->kernel, 1, &global_work_size, &priv->local_size);
+        priv->result = clCreateBuffer (priv->context,
+                                       CL_MEM_READ_WRITE,
+                                       num_groups * sizeof (cl_float),
+                                       NULL,
+                                       &error);
+        UFO_RESOURCES_CHECK_CLERR (error);
     }
 
+    result = reduce (profiler, cmd_queue, priv->kernel, in_mem, priv->result, input_size, priv->local_size);
 
-    /* Result is stored in the first pixel */
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueReadBuffer (cmd_queue,
-                                                    priv->result,
-                                                    CL_TRUE,
-                                                    0,
-                                                    sizeof (cl_float),
-                                                    &result,
-                                                    0, NULL, NULL));
     if (priv->mode == MODE_MEAN) {
         result /= input_size;
     }
