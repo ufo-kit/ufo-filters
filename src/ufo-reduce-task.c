@@ -207,7 +207,7 @@ ufo_reduce_task_process (UfoTask *task,
     }
 
     /* Pass the original data on intact */
-    ufo_buffer_copy (inputs[0], output);
+    ufo_buffer_swap_data (inputs[0], output);
 
     /* Set metadata */
     g_value_init (&meta, G_TYPE_FLOAT);
