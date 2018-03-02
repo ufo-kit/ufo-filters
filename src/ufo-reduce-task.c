@@ -231,7 +231,7 @@ ufo_reduce_task_process (UfoTask *task,
     /* Set metadata */
     g_value_init (&meta, G_TYPE_FLOAT);
     g_value_set_float (&meta, result);
-    ufo_buffer_set_metadata (output, mode_values[priv->mode].value_name, &meta);
+    ufo_buffer_set_metadata (output, mode_values[priv->mode].value_nick, &meta);
     g_value_unset (&meta);
 
     return TRUE;
