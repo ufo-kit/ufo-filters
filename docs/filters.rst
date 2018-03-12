@@ -488,6 +488,18 @@ Gaussian blur
         Sigma of the kernel.
 
 
+Gradient
+--------
+
+.. gobj:class:: gradient
+
+    Compute gradient.
+
+    .. gobj:prop:: direction:enum
+
+         Direction of the gradient, can be either ``horizontal``, ``vertical``,
+         ``both`` or ``both_abs``.
+
 
 Stream transformations
 ======================
