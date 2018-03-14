@@ -36,6 +36,7 @@ kernel_files = [
     'rotate.cl',
     'segment.cl',
     'swap-quadrants.cl',
+    'transpose.cl',
     'zeropad.cl'
 ]
 
