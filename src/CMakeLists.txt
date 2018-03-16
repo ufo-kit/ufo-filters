@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 
 #{{{ Sources
 set(ufofilter_SRCS
+    ufo-absorptivity-task.c
     ufo-average-task.c
     ufo-backproject-task.c
     ufo-bin-task.c
@@ -25,6 +26,7 @@ set(ufofilter_SRCS
     ufo-dump-ring-task.c
     ufo-duplicate-task.c
     ufo-filter-task.c
+    ufo-fix-nan-and-inf-task.c
     ufo-flatten-task.c
     ufo-flatten-inplace-task.c
     ufo-flat-field-correct-task.c
