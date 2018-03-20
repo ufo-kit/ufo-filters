@@ -56,7 +56,7 @@ ufo_tiff_reader_open (UfoReader *reader,
                       guint start)
 {
     UfoTiffReaderPrivate *priv;
-    
+
     priv = UFO_TIFF_READER_GET_PRIVATE (reader);
     priv->tiff = TIFFOpen (filename, "r");
     priv->more = TRUE;
@@ -69,7 +69,7 @@ static void
 ufo_tiff_reader_close (UfoReader *reader)
 {
     UfoTiffReaderPrivate *priv;
-    
+
     priv = UFO_TIFF_READER_GET_PRIVATE (reader);
     g_assert (priv->tiff != NULL);
     TIFFClose (priv->tiff);
@@ -80,7 +80,7 @@ static gboolean
 ufo_tiff_reader_data_available (UfoReader *reader)
 {
     UfoTiffReaderPrivate *priv;
-    
+
     priv = UFO_TIFF_READER_GET_PRIVATE (reader);
 
     return priv->more && priv->tiff != NULL;
@@ -103,9 +103,36 @@ read_data (UfoTiffReaderPrivate *priv,
     dst = (gchar *) ufo_buffer_get_host_array (buffer, NULL);
     offset = 0;
 
-    for (guint i = roi_y; i < roi_y + roi_height; i += roi_step) {
-        TIFFReadScanline (priv->tiff, dst + offset, i, 0);
-        offset += step;
+    if (requisition->n_dims == 3) {
+        /* RGB data */
+        gchar *src;
+        gsize plane_size;
+
+        plane_size = step * roi_height / roi_step;
+        src = g_new0 (gchar, step * 3);
+
+        for (guint i = roi_y; i < roi_y + roi_height; i += roi_step) {
+            guint xd = 0;
+            guint xs = 0;
+
+            TIFFReadScanline (priv->tiff, src, i, 0);
+
+            for (; xd < requisition->dims[0]; xd += 1, xs += 3) {
+                dst[offset + xd] = src[xs];
+                dst[offset + plane_size + xd] = src[xs + 1];
+                dst[offset + 2 * plane_size + xd] = src[xs + 2];
+            }
+
+            offset += step;
+        }
+
+        g_free (src);
+    }
+    else {
+        for (guint i = roi_y; i < roi_y + roi_height; i += roi_step) {
+            TIFFReadScanline (priv->tiff, dst + offset, i, 0);
+            offset += step;
+        }
     }
 }
 
@@ -164,23 +191,26 @@ ufo_tiff_reader_get_meta (UfoReader *reader,
                           UfoBufferDepth *bitdepth)
 {
     UfoTiffReaderPrivate *priv;
-    guint32 tiff_width;
-    guint32 tiff_height;
+    guint32 width;
+    guint32 height;
+    guint32 samples;
     guint16 bits_per_sample;
-    
+
     priv = UFO_TIFF_READER_GET_PRIVATE (reader);
     g_assert (priv->tiff != NULL);
 
-    TIFFGetField (priv->tiff, TIFFTAG_IMAGEWIDTH, &tiff_width);
-    TIFFGetField (priv->tiff, TIFFTAG_IMAGELENGTH, &tiff_height);
+    TIFFGetField (priv->tiff, TIFFTAG_IMAGEWIDTH, &width);
+    TIFFGetField (priv->tiff, TIFFTAG_IMAGELENGTH, &height);
+    TIFFGetField (priv->tiff, TIFFTAG_SAMPLESPERPIXEL, &samples);
     TIFFGetField (priv->tiff, TIFFTAG_BITSPERSAMPLE, &bits_per_sample);
 
-    requisition->n_dims = 2;
-    requisition->dims[0] = (gsize) tiff_width;
-    requisition->dims[1] = (gsize) tiff_height;
+    requisition->n_dims = samples == 3 ? 3 : 2;
+    requisition->dims[0] = (gsize) width;
+    requisition->dims[1] = (gsize) height;
+    requisition->dims[2] = samples == 3 ? 3 : 0;
 
     switch (bits_per_sample) {
-        case 8: 
+        case 8:
             *bitdepth = UFO_BUFFER_DEPTH_8U;
             break;
         case 16:
@@ -195,7 +225,7 @@ static void
 ufo_tiff_reader_finalize (GObject *object)
 {
     UfoTiffReaderPrivate *priv;
-    
+
     priv = UFO_TIFF_READER_GET_PRIVATE (object);
 
     if (priv->tiff != NULL)
