@@ -146,6 +146,7 @@ ufo_raw_reader_read (UfoReader *reader,
 
 static void
 ufo_raw_reader_get_meta (UfoReader *reader,
+                         UfoRequisition *requisition,
                          gsize *width,
                          gsize *height,
                          UfoBufferDepth *bitdepth)
@@ -153,8 +154,9 @@ ufo_raw_reader_get_meta (UfoReader *reader,
     UfoRawReaderPrivate *priv;
 
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
-    *width = (gsize) priv->width;
-    *height = (gsize) priv->height;
+    requisition->n_dims = 2;
+    requisition->dims[0] = priv->width;
+    requisition->dims[0] = priv->height;
     *bitdepth = priv->bitdepth;
 }
 

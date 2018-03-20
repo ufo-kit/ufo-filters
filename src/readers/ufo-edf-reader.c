@@ -188,8 +188,7 @@ ufo_edf_reader_get_depth (const gchar *value, UfoBufferDepth *depth, guint *byte
 
 static void
 ufo_edf_reader_get_meta (UfoReader *reader,
-                         gsize *width,
-                         gsize *height,
+                         UfoRequisition *requisition,
                          UfoBufferDepth *bitdepth)
 {
     UfoEdfReaderPrivate *priv;
@@ -223,6 +222,7 @@ ufo_edf_reader_get_meta (UfoReader *reader,
 
     tokens = g_strsplit (header, ";", 0);
     priv->big_endian = FALSE;
+    requisition->n_dims = 2;
 
     for (guint i = 0; tokens[i] != NULL; i++) {
         gchar **key_value;
@@ -238,10 +238,10 @@ ufo_edf_reader_get_meta (UfoReader *reader,
         value = g_strstrip (key_value[1]);
 
         if (!g_strcmp0 (key, "Dim_1")) {
-            *width = (guint) atoi (value);
+            requisition->dims[0] = (guint) atoi (value);
         }
         else if (!g_strcmp0 (key, "Dim_2")) {
-            *height = priv->height = atoi (value);
+            requisition->dims[1] = priv->height = atoi (value);
         }
         else if (!g_strcmp0 (key, "DataType")) {
             ufo_edf_reader_get_depth (value, bitdepth, &priv->bytes_per_sample);

@@ -256,8 +256,6 @@ ufo_read_task_get_requisition (UfoTask *task,
                                UfoRequisition *requisition)
 {
     UfoReadTaskPrivate *priv;
-    gsize width;
-    gsize height;
     const gchar *filename;
 
     priv = UFO_READ_TASK_GET_PRIVATE (UFO_READ_TASK (task));
@@ -315,7 +313,7 @@ ufo_read_task_get_requisition (UfoTask *task,
         ufo_reader_open (priv->reader, filename, 0);
     }
 
-    ufo_reader_get_meta (priv->reader, &width, &height, &priv->depth);
+    ufo_reader_get_meta (priv->reader, requisition, &priv->depth);
 
     if (priv->depth > 32)
         /*
@@ -324,23 +322,24 @@ ufo_read_task_get_requisition (UfoTask *task,
          */
         priv->depth = UFO_BUFFER_DEPTH_32F;
 
-    if (priv->roi_y >= height) {
-        g_warning ("read: vertical ROI start %i >= height %zu", priv->roi_y, height);
+    if (priv->roi_y >= requisition->dims[1]) {
+        g_warning ("read: vertical ROI start %i >= height %zu",
+                   priv->roi_y, requisition->dims[1]);
         priv->roi_y = 0;
     }
 
     if (!priv->roi_height) {
-        priv->roi_height = height - priv->roi_y;
+        priv->roi_height = requisition->dims[1] - priv->roi_y;
     }
     else {
-        if (priv->roi_y + priv->roi_height > height) {
-            g_warning ("read: vertical ROI height %i >= height %zu", priv->roi_height, height);
-            priv->roi_height = height - priv->roi_y;
+        if (priv->roi_y + priv->roi_height > requisition->dims[1]) {
+            g_warning ("read: vertical ROI height %i >= height %zu",
+                       priv->roi_height, requisition->dims[1]);
+            priv->roi_height = requisition->dims[1] - priv->roi_y;
         }
     }
 
-    requisition->n_dims = 2;
-    requisition->dims[0] = width;
+    /* update height for reduced vertical ROI */
     requisition->dims[1] = priv->roi_height / priv->roi_step;
 }
 

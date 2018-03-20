@@ -53,11 +53,10 @@ ufo_reader_data_available (UfoReader *reader)
 
 void
 ufo_reader_get_meta (UfoReader *reader,
-                     gsize *width,
-                     gsize *height,
+                     UfoRequisition *requisition,
                      UfoBufferDepth *bitdepth)
 {
-    UFO_READER_GET_IFACE (reader)->get_meta (reader, width, height, bitdepth);
+    UFO_READER_GET_IFACE (reader)->get_meta (reader, requisition, bitdepth);
 }
 
 void

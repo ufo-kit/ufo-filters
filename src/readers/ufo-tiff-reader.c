@@ -160,8 +160,7 @@ ufo_tiff_reader_read (UfoReader *reader,
 
 static void
 ufo_tiff_reader_get_meta (UfoReader *reader,
-                          gsize *width,
-                          gsize *height,
+                          UfoRequisition *requisition,
                           UfoBufferDepth *bitdepth)
 {
     UfoTiffReaderPrivate *priv;
@@ -176,8 +175,9 @@ ufo_tiff_reader_get_meta (UfoReader *reader,
     TIFFGetField (priv->tiff, TIFFTAG_IMAGELENGTH, &tiff_height);
     TIFFGetField (priv->tiff, TIFFTAG_BITSPERSAMPLE, &bits_per_sample);
 
-    *width = (gsize) tiff_width;
-    *height = (gsize) tiff_height;
+    requisition->n_dims = 2;
+    requisition->dims[0] = (gsize) tiff_width;
+    requisition->dims[1] = (gsize) tiff_height;
 
     switch (bits_per_sample) {
         case 8: 

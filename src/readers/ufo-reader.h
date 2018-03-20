@@ -46,8 +46,7 @@ struct _UfoReaderIface {
     void        (*close)                (UfoReader      *reader);
     gboolean    (*data_available)       (UfoReader      *reader);
     void        (*get_meta)             (UfoReader      *reader,
-                                         gsize          *width,
-                                         gsize          *height,
+                                         UfoRequisition *requisition,
                                          guint          *bitdepth);
     void        (*read)                 (UfoReader      *reader,
                                          UfoBuffer      *buffer,
@@ -65,8 +64,7 @@ void        ufo_reader_open             (UfoReader      *reader,
 void        ufo_reader_close            (UfoReader      *reader);
 gboolean    ufo_reader_data_available   (UfoReader      *reader);
 void        ufo_reader_get_meta         (UfoReader      *reader,
-                                         gsize          *width,
-                                         gsize          *height,
+                                         UfoRequisition *requisition,
                                          UfoBufferDepth *bitdepth);
 void        ufo_reader_read             (UfoReader      *reader,
                                          UfoBuffer      *buffer,

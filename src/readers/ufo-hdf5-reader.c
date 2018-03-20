@@ -142,16 +142,16 @@ ufo_hdf5_reader_read (UfoReader *reader,
 
 static void
 ufo_hdf5_reader_get_meta (UfoReader *reader,
-                          gsize *width,
-                          gsize *height,
+                          UfoRequisition *requisition,
                           UfoBufferDepth *bitdepth)
 {
     UfoHdf5ReaderPrivate *priv;
 
     priv = UFO_HDF5_READER_GET_PRIVATE (reader);
 
-    *width = priv->dims[2];
-    *height = priv->dims[1];
+    requisition->n_dims = 2;
+    requisition->dims[0] = priv->dims[2];
+    requisition->dims[1] = priv->dims[1];
     *bitdepth = UFO_BUFFER_DEPTH_32F;
 }
 
