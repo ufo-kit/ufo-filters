@@ -18,6 +18,7 @@
  */
 
 #include <tiffio.h>
+#include <string.h>
 
 #include "writers/ufo-writer.h"
 #include "writers/ufo-tiff-writer.h"
@@ -80,15 +81,18 @@ ufo_tiff_writer_write (UfoWriter *writer,
     guint bits_per_sample;
     gsize stride;
     gchar *buff;
+    gboolean is_rgb;
 
     priv = UFO_TIFF_WRITER_GET_PRIVATE (writer);
     g_assert (priv->tiff != NULL);
+
+    is_rgb = image->requisition->n_dims == 3 && image->requisition->dims[2] == 3;
 
     TIFFSetField (priv->tiff, TIFFTAG_SUBFILETYPE, FILETYPE_PAGE);
     TIFFSetField (priv->tiff, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
     TIFFSetField (priv->tiff, TIFFTAG_IMAGEWIDTH, image->requisition->dims[0]);
     TIFFSetField (priv->tiff, TIFFTAG_IMAGELENGTH, image->requisition->dims[1]);
-    TIFFSetField (priv->tiff, TIFFTAG_SAMPLESPERPIXEL, 1);
+    TIFFSetField (priv->tiff, TIFFTAG_SAMPLESPERPIXEL, is_rgb ? 3 : 1);
     TIFFSetField (priv->tiff, TIFFTAG_ROWSPERSTRIP, TIFFDefaultStripSize (priv->tiff, (guint32) - 1));
 
     /*
@@ -114,12 +118,39 @@ ufo_tiff_writer_write (UfoWriter *writer,
     }
 
     TIFFSetField (priv->tiff, TIFFTAG_BITSPERSAMPLE, bits_per_sample);
-    stride = image->requisition->dims[0] * bits_per_sample / 8;
-    buff = (gchar *) image->data;
 
-    for (guint y = 0; y < image->requisition->dims[1]; y++) {
-        TIFFWriteScanline (priv->tiff, buff, y, 0);
-        buff += stride;
+    if (is_rgb) {
+        gchar *scanline;
+        gsize size;
+        gsize offset;
+
+        size = bits_per_sample / 8;
+        stride = image->requisition->dims[0] * size;
+        scanline = g_malloc (stride * 3);
+        offset = image->requisition->dims[0] * image->requisition->dims[1] * sizeof (gfloat);
+
+        for (guint y = 0; y < image->requisition->dims[1]; y++) {
+            guint xs = 0;
+            guint xd = 0;
+
+            /* TODO: copy more efficient */
+            for (; xs < image->requisition->dims[0]; xs += 1, xd += 3) {
+                memcpy (scanline + xd * size, image->data + y * stride + xs * size, size);
+                memcpy (scanline + xd * size + 1 * size, image->data + offset + y * stride + xs * size, size);
+                memcpy (scanline + xd * size + 2 * size, image->data + 2 * offset + y * stride + xs * size, size);
+            }
+
+            TIFFWriteScanline (priv->tiff, scanline, y, 0);
+        }
+    }
+    else {
+        stride = image->requisition->dims[0] * bits_per_sample / 8;
+        buff = (gchar *) image->data;
+
+        for (guint y = 0; y < image->requisition->dims[1]; y++) {
+            TIFFWriteScanline (priv->tiff, buff, y, 0);
+            buff += stride;
+        }
     }
 
     TIFFWriteDirectory (priv->tiff);
