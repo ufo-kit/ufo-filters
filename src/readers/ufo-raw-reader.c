@@ -147,8 +147,6 @@ ufo_raw_reader_read (UfoReader *reader,
 static void
 ufo_raw_reader_get_meta (UfoReader *reader,
                          UfoRequisition *requisition,
-                         gsize *width,
-                         gsize *height,
                          UfoBufferDepth *bitdepth)
 {
     UfoRawReaderPrivate *priv;
