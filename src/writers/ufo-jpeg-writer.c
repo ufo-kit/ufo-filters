@@ -139,8 +139,8 @@ write_rgb (UfoJpegWriterPrivate *priv,
         /* Re-order RGB data */
         for (; xs < image->requisition->dims[0]; xs += 1, xd += 3) {
             scanline[xd] = ((guint8 *) image->data)[row + xs];
-            scanline[xd + 1] = ((guint8 *) (image->data + offset))[row + xs];
-            scanline[xd + 2] = ((guint8 *) (image->data + 2 * offset))[row + xs];
+            scanline[xd + 1] = (((guint8 *) image->data) + offset)[row + xs];
+            scanline[xd + 2] = (((guint8 *) image->data) + 2 * offset)[row + xs];
         }
 
         row += image->requisition->dims[0];
