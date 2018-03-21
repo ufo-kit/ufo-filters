@@ -63,10 +63,8 @@ get_min_max (UfoWriterImage *image, gfloat *src, gsize n_elements, gfloat *min, 
     /* TODO: We should issue a warning if only one of max or min was set by the
      * user ... */
 
-    /* gsize n_elements = get_num_elements (image->requisition); */
     gfloat cmax = -G_MAXFLOAT;
     gfloat cmin = G_MAXFLOAT;
-    /* gfloat *src = (gfloat *) image->data; */
 
     for (gsize i = 0; i < n_elements; i++) {
         if (src[i] < cmin)
