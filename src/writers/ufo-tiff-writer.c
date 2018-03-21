@@ -88,6 +88,7 @@ ufo_tiff_writer_write (UfoWriter *writer,
     TIFFSetField (priv->tiff, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
     TIFFSetField (priv->tiff, TIFFTAG_IMAGEWIDTH, image->requisition->dims[0]);
     TIFFSetField (priv->tiff, TIFFTAG_IMAGELENGTH, image->requisition->dims[1]);
+    TIFFSetField (priv->tiff, TIFFTAG_SAMPLESPERPIXEL, 1);
     TIFFSetField (priv->tiff, TIFFTAG_ROWSPERSTRIP, TIFFDefaultStripSize (priv->tiff, (guint32) - 1));
 
     /*
