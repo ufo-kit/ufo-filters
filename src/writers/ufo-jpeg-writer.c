@@ -112,7 +112,6 @@ write_rgb (UfoJpegWriterPrivate *priv,
            UfoWriterImage *image)
 {
     guint8 *scanline;
-    gint row_stride;
     gsize row = 0;
     gsize offset;
 
@@ -124,7 +123,6 @@ write_rgb (UfoJpegWriterPrivate *priv,
     jpeg_set_quality (&priv->cinfo, priv->quality, 1);
     jpeg_start_compress (&priv->cinfo, TRUE);
 
-    row_stride = (gint) image->requisition->dims[0] * 3;
     scanline = g_malloc (image->requisition->dims[0] * 3);
 
     /*
