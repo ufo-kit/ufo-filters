@@ -51,19 +51,8 @@ ufo_writer_write (UfoWriter *writer,
     UFO_WRITER_GET_IFACE (writer)->write (writer, image);
 }
 
-static gsize
-get_num_elements (UfoRequisition *requisition)
-{
-    gsize count = 1;
-
-    for (guint i = 0; i < requisition->n_dims; i++)
-        count *= requisition->dims[i];
-
-    return count;
-}
-
 static void
-get_min_max (UfoWriterImage *image, gfloat *min, gfloat *max)
+get_min_max (UfoWriterImage *image, gfloat *src, gsize n_elements, gfloat *min, gfloat *max)
 {
     if (image->max > -G_MAXFLOAT && image->min < G_MAXFLOAT) {
         *max = image->max;
@@ -74,10 +63,10 @@ get_min_max (UfoWriterImage *image, gfloat *min, gfloat *max)
     /* TODO: We should issue a warning if only one of max or min was set by the
      * user ... */
 
-    gsize n_elements = get_num_elements (image->requisition);
+    /* gsize n_elements = get_num_elements (image->requisition); */
     gfloat cmax = -G_MAXFLOAT;
     gfloat cmin = G_MAXFLOAT;
-    gfloat *src = (gfloat *) image->data;
+    /* gfloat *src = (gfloat *) image->data; */
 
     for (gsize i = 0; i < n_elements; i++) {
         if (src[i] < cmin)
@@ -97,37 +86,40 @@ convert_to_8bit (UfoWriterImage *image)
     gfloat *src;
     guint8 *dst;
     gfloat max, min, scale;
-    gsize n_elements;
+    guint n_planes;
+    gsize plane_size;
 
-    src = (gfloat *) image->data;
-    get_min_max (image, &min, &max);
-    scale = 255.0f / (max - min);
+    n_planes = image->requisition->n_dims == 3 ? image->requisition->dims[2] : 1;
+    plane_size = image->requisition->dims[0] * image->requisition->dims[1];
 
-    n_elements = get_num_elements (image->requisition);
+    for (guint plane = 0; plane < n_planes; plane++) {
+        src = ((gfloat *) image->data) + plane * plane_size;
+        dst = (guint8 *) src;
+        get_min_max (image, src, plane_size, &min, &max);
+        scale = 255.0f / (max - min);
 
-    /* first clip */
-    if (min < max) {
-        for (gsize i = 0; i < n_elements; i++) {
-            if (src[i] < min)
-                src[i] = min;
-            else if (src[i] > max)
-                src[i] = max;
+        /* first clip */
+        if (min < max) {
+            for (gsize i = 0; i < plane_size; i++) {
+                if (src[i] < min)
+                    src[i] = min;
+                else if (src[i] > max)
+                    src[i] = max;
+            }
         }
-    }
-    else {
-        for (gsize i = 0; i < n_elements; i++) {
-            if (src[i] < max)
-                src[i] = max;
-            else if (src[i] > min)
-                src[i] = min;
+        else {
+            for (gsize i = 0; i < plane_size; i++) {
+                if (src[i] < max)
+                    src[i] = max;
+                else if (src[i] > min)
+                    src[i] = min;
+            }
         }
+
+        /* then rescale */
+        for (gsize i = 0; i < plane_size; i++)
+            dst[i] = (guint8) ((src[i] - min) * scale);
     }
-
-    dst = (guint8 *) src;
-
-    /* then rescale */
-    for (gsize i = 0; i < n_elements; i++)
-        dst[i] = (guint8) ((src[i] - min) * scale);
 }
 
 static void
@@ -136,34 +128,39 @@ convert_to_16bit (UfoWriterImage *image)
     gfloat *src;
     guint16 *dst;
     gfloat max, min, scale;
-    gsize n_elements;
+    guint n_planes;
+    gsize plane_size;
 
-    src = (gfloat *) image->data;
-    get_min_max (image, &min, &max);
-    scale = 65535.0f / (max - min);
-    n_elements = get_num_elements (image->requisition);
-    dst = (guint16 *) src;
+    n_planes = image->requisition->n_dims == 3 ? image->requisition->dims[2] : 1;
+    plane_size = image->requisition->dims[0] * image->requisition->dims[1];
 
-    if (min < max) {
-        for (gsize i = 0; i < n_elements; i++) {
-            if (src[i] < min)
-                src[i] = min;
-            else if (src[i] > max)
-                src[i] = max;
+    for (guint plane = 0; plane < n_planes; plane++) {
+        src = ((gfloat *) image->data) + plane * plane_size;
+        dst = (guint16 *) src;
+        get_min_max (image, src, plane_size, &min, &max);
+        scale = 65535.0f / (max - min);
+
+        if (min < max) {
+            for (gsize i = 0; i < plane_size; i++) {
+                if (src[i] < min)
+                    src[i] = min;
+                else if (src[i] > max)
+                    src[i] = max;
+            }
         }
-    }
-    else {
-        for (gsize i = 0; i < n_elements; i++) {
-            if (src[i] < max)
-                src[i] = max;
-            else if (src[i] > min)
-                src[i] = min;
+        else {
+            for (gsize i = 0; i < plane_size; i++) {
+                if (src[i] < max)
+                    src[i] = max;
+                else if (src[i] > min)
+                    src[i] = min;
+            }
         }
-    }
 
-    /* TODO: good opportunity for some SSE acceleration */
-    for (gsize i = 0; i < n_elements; i++)
-        dst[i] = (guint16) ((src[i] - min) * scale);
+        /* TODO: good opportunity for some SSE acceleration */
+        for (gsize i = 0; i < plane_size; i++)
+            dst[i] = (guint16) ((src[i] - min) * scale);
+    }
 }
 
 void

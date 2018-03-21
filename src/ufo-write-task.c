@@ -284,7 +284,12 @@ ufo_write_task_process (UfoTask *task,
     data = (guint8 *) ufo_buffer_get_host_array (inputs[0], NULL);
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
-    num_frames = in_req.n_dims == 3 ? in_req.dims[2] : 1;
+    /* 
+     * If we have a cube with a depth of three planes we try to write color
+     * images further down the line otherwise split it up and write the planes
+     * as single files.
+     */
+    num_frames = in_req.n_dims == 3 && in_req.dims[2] != 3 ? in_req.dims[2] : 1;
     offset = ufo_buffer_get_size (inputs[0]) / num_frames;
 
     image.requisition = &in_req;

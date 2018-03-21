@@ -82,16 +82,11 @@ ufo_jpeg_writer_close (UfoWriter *writer)
 }
 
 static void
-ufo_jpeg_writer_write (UfoWriter *writer,
-                       UfoWriterImage *image)
+write_grayscale (UfoJpegWriterPrivate *priv,
+                 UfoWriterImage *image)
 {
-    UfoJpegWriterPrivate *priv;
     gint row_stride;
 
-    priv = UFO_JPEG_WRITER_GET_PRIVATE (writer);
-
-    priv->cinfo.image_width = image->requisition->dims[0];
-    priv->cinfo.image_height = image->requisition->dims[1];
     priv->cinfo.input_components = 1;
     priv->cinfo.in_color_space = JCS_GRAYSCALE;
 
@@ -99,12 +94,6 @@ ufo_jpeg_writer_write (UfoWriter *writer,
     jpeg_set_defaults (&priv->cinfo);
     jpeg_set_quality (&priv->cinfo, priv->quality, 1);
     jpeg_start_compress (&priv->cinfo, TRUE);
-
-    /* We have to ignore the given bit depth for JPEG. Note that this way, we
-     * might convert data twice because the parent ufo_writer_write already
-     * converts to the given bit depth. */
-    image->depth = UFO_BUFFER_DEPTH_8U;
-    ufo_writer_convert_inplace (image);
 
     row_stride = (gint) image->requisition->dims[0];
 
@@ -116,6 +105,76 @@ ufo_jpeg_writer_write (UfoWriter *writer,
 
     jpeg_finish_compress (&priv->cinfo);
     jpeg_abort_compress (&priv->cinfo);
+}
+
+static void
+write_rgb (UfoJpegWriterPrivate *priv,
+           UfoWriterImage *image)
+{
+    guint8 *scanline;
+    gint row_stride;
+    gsize row = 0;
+    gsize offset;
+
+    priv->cinfo.input_components = 3;
+    priv->cinfo.in_color_space = JCS_RGB;
+
+    jpeg_stdio_dest (&priv->cinfo, priv->fp);
+    jpeg_set_defaults (&priv->cinfo);
+    jpeg_set_quality (&priv->cinfo, priv->quality, 1);
+    jpeg_start_compress (&priv->cinfo, TRUE);
+
+    row_stride = (gint) image->requisition->dims[0] * 3;
+    scanline = g_malloc (image->requisition->dims[0] * 3);
+
+    /*
+     * 8 bit R, G and B channels are not adjacent but start where the original
+     * float values began.
+     */
+    offset = image->requisition->dims[0] * image->requisition->dims[1] * sizeof (gfloat);
+
+    while (priv->cinfo.next_scanline < priv->cinfo.image_height) {
+        JSAMPROW row_pointer[1];
+        guint xs = 0;
+        guint xd = 0;
+
+        /* Re-order RGB data */
+        for (; xs < image->requisition->dims[0]; xs += 1, xd += 3) {
+            scanline[xd] = ((guint8 *) image->data)[row + xs];
+            scanline[xd + 1] = ((guint8 *) (image->data + offset))[row + xs];
+            scanline[xd + 2] = ((guint8 *) (image->data + 2 * offset))[row + xs];
+        }
+
+        row += image->requisition->dims[0];
+        row_pointer[0] = (JSAMPROW) scanline;
+        jpeg_write_scanlines (&priv->cinfo, row_pointer, 1);
+    }
+
+    g_free (scanline);
+}
+
+static void
+ufo_jpeg_writer_write (UfoWriter *writer,
+                       UfoWriterImage *image)
+{
+    UfoJpegWriterPrivate *priv;
+
+    priv = UFO_JPEG_WRITER_GET_PRIVATE (writer);
+    priv->cinfo.image_width = image->requisition->dims[0];
+    priv->cinfo.image_height = image->requisition->dims[1];
+
+    /*
+     * We have to ignore the given bit depth for JPEG. Note that this way, we
+     * might convert data twice because the parent ufo_writer_write already
+     * converts to the given bit depth.
+     */
+    image->depth = UFO_BUFFER_DEPTH_8U;
+    ufo_writer_convert_inplace (image);
+
+    if (image->requisition->n_dims == 3 && image->requisition->dims[2] == 3)
+        write_rgb (priv, image);
+    else
+        write_grayscale (priv, image);
 }
 
 static void
