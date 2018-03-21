@@ -649,6 +649,15 @@ Slice mapping
         mapper, warnings are issued.
 
 
+Color mapping
+-------------
+
+.. gobj:class:: map-color
+
+    Receives a two-dimensional image and maps its gray values to three red,
+    green and blue color channels using the Viridis color map.
+
+
 Fourier domain
 ==============
 

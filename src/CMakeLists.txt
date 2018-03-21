@@ -42,6 +42,7 @@ set(ufofilter_SRCS
     ufo-interpolate-stream-task.c
     ufo-lamino-backproject-task.c
     ufo-loop-task.c
+    ufo-map-color-task.c
     ufo-map-slice-task.c
     ufo-mask-task.c
     ufo-measure-sharpness-task.c
