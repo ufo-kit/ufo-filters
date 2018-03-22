@@ -35,6 +35,7 @@ kernel_files = [
     'rm-outliers.cl',
     'rotate.cl',
     'segment.cl',
+    'split.cl',
     'swap-quadrants.cl',
     'transpose.cl',
     'zeropad.cl'

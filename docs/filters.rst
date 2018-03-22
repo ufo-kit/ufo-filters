@@ -658,6 +658,20 @@ Color mapping
     green and blue color channels using the Viridis color map.
 
 
+Splitting channels
+------------------
+
+.. gobj:class:: unsplit
+
+    Turns a three-dimensional image into two-dimensional image by interleaving
+    the third dimension, i.e. [[[XXX],[YYY],[ZZZ]]] is turned into
+    [[XYZ],[XYZ],[XYZ]]. This is useful to merge a separate multi-channel RGB
+    image into a "regular" RGB image that can be shown with ``cv-show``.
+
+    This task adds the ``channels`` key to the output buffer containing the
+    original depth of the input buffer.
+
+
 Fourier domain
 ==============
 

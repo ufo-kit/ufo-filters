@@ -70,6 +70,7 @@ plugins = [
     'transpose-projections',
     'swap-quadrants',
     'subtract',
+    'unsplit',
     'volume-render',
     'zeropad',
 ]
