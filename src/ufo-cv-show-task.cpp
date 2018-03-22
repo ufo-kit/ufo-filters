@@ -99,9 +99,12 @@ ufo_cv_show_task_process (UfoTask *task,
 {
     UfoCvShowTaskPrivate *priv;
     UfoWriterImage image;
+    GValue *channels;
+    guint width;
 
     priv = UFO_CV_SHOW_TASK_GET_PRIVATE (task);
     ufo_buffer_copy (inputs[0], output);
+    channels = ufo_buffer_get_metadata (inputs[0], "channels");
 
     /* 
      * We do the conversion ourselves because OpenCV would just map [0.0, 1.0]
@@ -115,7 +118,9 @@ ufo_cv_show_task_process (UfoTask *task,
 
     ufo_writer_convert_inplace (&image);
 
-    cv::Mat frame (requisition->dims[1], requisition->dims[0], CV_8UC1, image.data);
+    /* FIXME: we assume to have three channels */
+    width = channels ? requisition->dims[0] / g_value_get_uint (channels) : requisition->dims[0];
+    cv::Mat frame (requisition->dims[1], width, channels ? CV_8UC3 : CV_8UC1, image.data);
     cv::imshow (priv->name, frame);
     cv::waitKey (1);
 
