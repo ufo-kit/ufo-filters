@@ -17,6 +17,12 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifdef __APPLE__
+#include <OpenCL/cl.h>
+#else
+#include <CL/cl.h>
+#endif
+
 #include <glib/gstdio.h>
 #include <gmodule.h>
 #include <string.h>
@@ -55,6 +61,10 @@ struct _UfoWriteTaskPrivate {
 
     gboolean multi_file;
     gboolean opened;
+
+    cl_context context;
+    cl_kernel kernel;
+    UfoBuffer *tmp;
 
     UfoWriter     *writer;
     UfoRawWriter  *raw_writer;
@@ -237,6 +247,14 @@ ufo_write_task_setup (UfoTask *task,
     }
 
     g_free (dirname);
+
+    priv->context = ufo_resources_get_context (resources);
+    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+
+    priv->kernel = ufo_resources_get_kernel (resources, "split.cl", "unsplit", error);
+
+    if (priv->kernel != NULL)
+        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
 }
 
 static void
@@ -264,7 +282,7 @@ ufo_write_task_get_num_dimensions (UfoTask *task,
 static UfoTaskMode
 ufo_write_task_get_mode (UfoTask *task)
 {
-    return UFO_TASK_MODE_SINK | UFO_TASK_MODE_CPU;
+    return UFO_TASK_MODE_SINK | UFO_TASK_MODE_GPU;
 }
 
 static gboolean
@@ -281,7 +299,6 @@ ufo_write_task_process (UfoTask *task,
     gsize offset;
 
     priv = UFO_WRITE_TASK_GET_PRIVATE (UFO_WRITE_TASK (task));
-    data = (guint8 *) ufo_buffer_get_host_array (inputs[0], NULL);
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
     /* 
@@ -289,7 +306,34 @@ ufo_write_task_process (UfoTask *task,
      * images further down the line otherwise split it up and write the planes
      * as single files.
      */
-    num_frames = in_req.n_dims == 3 && in_req.dims[2] != 3 ? in_req.dims[2] : 1;
+    if (in_req.n_dims == 3 && in_req.dims[2] == 3) {
+        UfoGpuNode *node;
+        UfoProfiler *profiler;
+        cl_command_queue cmd_queue;
+        cl_mem in_mem;
+        cl_mem out_mem;
+
+        if (!priv->tmp)
+            priv->tmp = ufo_buffer_new (&in_req, priv->context);
+
+        node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+        cmd_queue = ufo_gpu_node_get_cmd_queue (node);
+        in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
+        out_mem = ufo_buffer_get_device_array (priv->tmp, cmd_queue);
+
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
+        profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+        ufo_profiler_call (profiler, cmd_queue, priv->kernel, 3, in_req.dims, NULL);
+
+        num_frames = 1;
+        data = (guint8 *) ufo_buffer_get_host_array (priv->tmp, NULL);
+    }
+    else {
+        num_frames = in_req.n_dims == 3 ? in_req.dims[2] : 1;
+        data = (guint8 *) ufo_buffer_get_host_array (inputs[0], NULL);
+    }
+
     offset = ufo_buffer_get_size (inputs[0]) / num_frames;
 
     image.requisition = &in_req;
@@ -474,6 +518,21 @@ ufo_write_task_finalize (GObject *object)
     g_free (priv->filename);
     priv->filename= NULL;
 
+    if (priv->kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
+        priv->kernel = NULL;
+    }
+
+    if (priv->tmp) {
+        g_object_unref (priv->tmp);
+        priv->tmp = NULL;
+    }
+
+    if (priv->context) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
+        priv->context = NULL;
+    }
+
     G_OBJECT_CLASS (ufo_write_task_parent_class)->finalize (object);
 }
 
@@ -577,6 +636,9 @@ ufo_write_task_init(UfoWriteTask *self)
     self->priv->opened = FALSE;
     self->priv->filename = NULL;
     self->priv->raw_writer = ufo_raw_writer_new ();
+    self->priv->context = NULL;
+    self->priv->kernel = NULL;
+    self->priv->tmp = NULL;
 
 #ifdef HAVE_TIFF
     self->priv->tiff_writer = ufo_tiff_writer_new ();

@@ -84,40 +84,39 @@ convert_to_8bit (UfoWriterImage *image)
     gfloat *src;
     guint8 *dst;
     gfloat max, min, scale;
-    guint n_planes;
-    gsize plane_size;
+    gsize size;
 
-    n_planes = image->requisition->n_dims == 3 ? image->requisition->dims[2] : 1;
-    plane_size = image->requisition->dims[0] * image->requisition->dims[1];
+    size = image->requisition->dims[0] * image->requisition->dims[1];
 
-    for (guint plane = 0; plane < n_planes; plane++) {
-        src = ((gfloat *) image->data) + plane * plane_size;
-        dst = (guint8 *) src;
-        get_min_max (image, src, plane_size, &min, &max);
-        scale = 255.0f / (max - min);
+    if (image->requisition->n_dims == 3 && image->requisition->dims[2] == 3)
+        size *= image->requisition->dims[2];
 
-        /* first clip */
-        if (min < max) {
-            for (gsize i = 0; i < plane_size; i++) {
-                if (src[i] < min)
-                    src[i] = min;
-                else if (src[i] > max)
-                    src[i] = max;
-            }
+    src = (gfloat *) image->data;
+    dst = (guint8 *) src;
+    get_min_max (image, src, size, &min, &max);
+    scale = 255.0f / (max - min);
+
+    /* first clip */
+    if (min < max) {
+        for (gsize i = 0; i < size; i++) {
+            if (src[i] < min)
+                src[i] = min;
+            else if (src[i] > max)
+                src[i] = max;
         }
-        else {
-            for (gsize i = 0; i < plane_size; i++) {
-                if (src[i] < max)
-                    src[i] = max;
-                else if (src[i] > min)
-                    src[i] = min;
-            }
-        }
-
-        /* then rescale */
-        for (gsize i = 0; i < plane_size; i++)
-            dst[i] = (guint8) ((src[i] - min) * scale);
     }
+    else {
+        for (gsize i = 0; i < size; i++) {
+            if (src[i] < max)
+                src[i] = max;
+            else if (src[i] > min)
+                src[i] = min;
+        }
+    }
+
+    /* then rescale */
+    for (gsize i = 0; i < size; i++)
+        dst[i] = (guint8) ((src[i] - min) * scale);
 }
 
 static void
@@ -126,39 +125,38 @@ convert_to_16bit (UfoWriterImage *image)
     gfloat *src;
     guint16 *dst;
     gfloat max, min, scale;
-    guint n_planes;
-    gsize plane_size;
+    gsize size;
 
-    n_planes = image->requisition->n_dims == 3 ? image->requisition->dims[2] : 1;
-    plane_size = image->requisition->dims[0] * image->requisition->dims[1];
+    size = image->requisition->dims[0] * image->requisition->dims[1];
 
-    for (guint plane = 0; plane < n_planes; plane++) {
-        src = ((gfloat *) image->data) + plane * plane_size;
-        dst = (guint16 *) src;
-        get_min_max (image, src, plane_size, &min, &max);
-        scale = 65535.0f / (max - min);
+    if (image->requisition->n_dims == 3 && image->requisition->dims[2] == 3)
+        size *= image->requisition->dims[2];
 
-        if (min < max) {
-            for (gsize i = 0; i < plane_size; i++) {
-                if (src[i] < min)
-                    src[i] = min;
-                else if (src[i] > max)
-                    src[i] = max;
-            }
+    src = (gfloat *) image->data;
+    dst = (guint16 *) src;
+    get_min_max (image, src, size, &min, &max);
+    scale = 65535.0f / (max - min);
+
+    if (min < max) {
+        for (gsize i = 0; i < size; i++) {
+            if (src[i] < min)
+                src[i] = min;
+            else if (src[i] > max)
+                src[i] = max;
         }
-        else {
-            for (gsize i = 0; i < plane_size; i++) {
-                if (src[i] < max)
-                    src[i] = max;
-                else if (src[i] > min)
-                    src[i] = min;
-            }
-        }
-
-        /* TODO: good opportunity for some SSE acceleration */
-        for (gsize i = 0; i < plane_size; i++)
-            dst[i] = (guint16) ((src[i] - min) * scale);
     }
+    else {
+        for (gsize i = 0; i < size; i++) {
+            if (src[i] < max)
+                src[i] = max;
+            else if (src[i] > min)
+                src[i] = min;
+        }
+    }
+
+    /* TODO: good opportunity for some SSE acceleration */
+    for (gsize i = 0; i < size; i++)
+        dst[i] = (guint16) ((src[i] - min) * scale);
 }
 
 void

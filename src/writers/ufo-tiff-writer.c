@@ -119,38 +119,13 @@ ufo_tiff_writer_write (UfoWriter *writer,
 
     TIFFSetField (priv->tiff, TIFFTAG_BITSPERSAMPLE, bits_per_sample);
 
-    if (is_rgb) {
-        gchar *scanline;
-        gsize size;
-        gsize offset;
+    stride = image->requisition->dims[0] * bits_per_sample / 8;
+    stride *= is_rgb ? image->requisition->dims[2] : 1;
+    buff = (gchar *) image->data;
 
-        size = bits_per_sample / 8;
-        stride = image->requisition->dims[0] * size;
-        scanline = g_malloc (stride * 3);
-        offset = image->requisition->dims[0] * image->requisition->dims[1] * sizeof (gfloat);
-
-        for (guint y = 0; y < image->requisition->dims[1]; y++) {
-            guint xs = 0;
-            guint xd = 0;
-
-            /* TODO: copy more efficient */
-            for (; xs < image->requisition->dims[0]; xs += 1, xd += 3) {
-                memcpy (scanline + xd * size, image->data + y * stride + xs * size, size);
-                memcpy (scanline + xd * size + 1 * size, image->data + offset + y * stride + xs * size, size);
-                memcpy (scanline + xd * size + 2 * size, image->data + 2 * offset + y * stride + xs * size, size);
-            }
-
-            TIFFWriteScanline (priv->tiff, scanline, y, 0);
-        }
-    }
-    else {
-        stride = image->requisition->dims[0] * bits_per_sample / 8;
-        buff = (gchar *) image->data;
-
-        for (guint y = 0; y < image->requisition->dims[1]; y++) {
-            TIFFWriteScanline (priv->tiff, buff, y, 0);
-            buff += stride;
-        }
+    for (guint y = 0; y < image->requisition->dims[1]; y++) {
+        TIFFWriteScanline (priv->tiff, buff, y, 0);
+        buff += stride;
     }
 
     TIFFWriteDirectory (priv->tiff);
