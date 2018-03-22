@@ -117,6 +117,8 @@ convert_to_8bit (UfoWriterImage *image)
     /* then rescale */
     for (gsize i = 0; i < size; i++)
         dst[i] = (guint8) ((src[i] - min) * scale);
+
+    image->depth = UFO_BUFFER_DEPTH_8U;
 }
 
 static void
@@ -157,6 +159,8 @@ convert_to_16bit (UfoWriterImage *image)
     /* TODO: good opportunity for some SSE acceleration */
     for (gsize i = 0; i < size; i++)
         dst[i] = (guint16) ((src[i] - min) * scale);
+
+    image->depth = UFO_BUFFER_DEPTH_16U;
 }
 
 void

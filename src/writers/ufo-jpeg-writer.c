@@ -102,8 +102,11 @@ ufo_jpeg_writer_write (UfoWriter *writer,
      * might convert data twice because the parent ufo_writer_write already
      * converts to the given bit depth.
      */
-    image->depth = UFO_BUFFER_DEPTH_8U;
-    ufo_writer_convert_inplace (image);
+
+    if (image->depth != UFO_BUFFER_DEPTH_8U) {
+        image->depth = UFO_BUFFER_DEPTH_8U;
+        ufo_writer_convert_inplace (image);
+    }
 
     jpeg_stdio_dest (&priv->cinfo, priv->fp);
     jpeg_set_defaults (&priv->cinfo);
