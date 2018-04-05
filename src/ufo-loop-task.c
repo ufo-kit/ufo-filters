@@ -24,7 +24,6 @@ struct _UfoLoopTaskPrivate {
     guint number;
     guint current;
     UfoBuffer *temporary;
-    GList *filled;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -93,15 +92,11 @@ ufo_loop_task_process (UfoTask *task,
 
     priv = UFO_LOOP_TASK_GET_PRIVATE (task);
 
-    if (priv->temporary != NULL)
-        g_object_unref (priv->temporary);
+    if (priv->temporary == NULL)
+        priv->temporary = ufo_buffer_dup (inputs[0]);
 
-    g_list_free (priv->filled);
-    priv->filled = NULL;
-
-    priv->current = 0;
-    priv->temporary = ufo_buffer_dup (inputs[0]);
     ufo_buffer_copy (inputs[0], priv->temporary);
+    priv->current = 0;
 
     /*
      * We processed the item but have to return FALSE to trigger the generate
@@ -123,16 +118,7 @@ ufo_loop_task_generate (UfoTask *task,
     if (priv->current == priv->number)
         return FALSE;
 
-    /*
-     * Since there may be more than one distinct output buffer we will keep a
-     * list of those output buffers which we filled already. If it is filled we
-     * do nothing.
-     */
-    if (g_list_find (priv->filled, output) == NULL) {
-        priv->filled = g_list_append (priv->filled, output);
-        ufo_buffer_copy (priv->temporary, output);
-    }
-
+    ufo_buffer_copy (priv->temporary, output);
     priv->current++;
     return TRUE;
 }
@@ -174,14 +160,14 @@ ufo_loop_task_get_property (GObject *object,
 }
 
 static void
-ufo_loop_task_finalize (GObject *object)
+ufo_loop_task_dispose (GObject *object)
 {
     UfoLoopTaskPrivate *priv;
 
     priv = UFO_LOOP_TASK_GET_PRIVATE (object);
-    g_list_free (priv->filled);
+    g_object_unref (priv->temporary);
 
-    G_OBJECT_CLASS (ufo_loop_task_parent_class)->finalize (object);
+    G_OBJECT_CLASS (ufo_loop_task_parent_class)->dispose (object);
 }
 
 static void
@@ -203,7 +189,7 @@ ufo_loop_task_class_init (UfoLoopTaskClass *klass)
 
     oclass->set_property = ufo_loop_task_set_property;
     oclass->get_property = ufo_loop_task_get_property;
-    oclass->finalize = ufo_loop_task_finalize;
+    oclass->dispose = ufo_loop_task_dispose;
 
     properties[PROP_NUMBER] =
         g_param_spec_uint ("number",
@@ -223,5 +209,5 @@ ufo_loop_task_init(UfoLoopTask *self)
 {
     self->priv = UFO_LOOP_TASK_GET_PRIVATE(self);
     self->priv->number = 1;
-    self->priv->filled = NULL;
+    self->priv->temporary = NULL;
 }
