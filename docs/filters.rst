@@ -465,7 +465,7 @@ Edge detection
     Detect edges by computing the power gradient image using different edge
     filters.
 
-    .. gobj:prop:: type:enum
+    .. gobj:prop:: filter:enum
 
         Edge filter (or operator) which is one of ``sobel``, ``laplace`` and
         ``prewitt``. By default, the ``sobel`` operator is used.
