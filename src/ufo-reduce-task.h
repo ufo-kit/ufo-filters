@@ -35,26 +35,13 @@ typedef struct _UfoReduceTask           UfoReduceTask;
 typedef struct _UfoReduceTaskClass      UfoReduceTaskClass;
 typedef struct _UfoReduceTaskPrivate    UfoReduceTaskPrivate;
 
-/**
- * UfoReduceTask:
- *
- * [ADD DESCRIPTION HERE]. The contents of the #UfoReduceTask structure
- * are private and should only be accessed via the provided API.
- */
 struct _UfoReduceTask {
-    /*< private >*/
     UfoTaskNode parent_instance;
 
     UfoReduceTaskPrivate *priv;
 };
 
-/**
- * UfoReduceTaskClass:
- *
- * #UfoReduceTask class
- */
 struct _UfoReduceTaskClass {
-    /*< private >*/
     UfoTaskNodeClass parent_class;
 };
 
@@ -64,4 +51,3 @@ GType     ufo_reduce_task_get_type  (void);
 G_END_DECLS
 
 #endif
-
