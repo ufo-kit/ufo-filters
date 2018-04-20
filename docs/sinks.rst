@@ -59,7 +59,7 @@ File writer
 
     For JPEG files the following property applies:
 
-    .. gobj:prop:: quality:uint
+    .. gobj:prop:: jpeg-quality:uint
 
         JPEG quality value between 0 and 100. Higher values correspond to higher
         quality and larger file sizes.
