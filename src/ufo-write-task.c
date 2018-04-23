@@ -58,6 +58,7 @@ struct _UfoWriteTaskPrivate {
     UfoBufferDepth depth;
     gfloat minimum;
     gfloat maximum;
+    gboolean rescale;
 
     gboolean multi_file;
     gboolean opened;
@@ -100,6 +101,7 @@ enum {
     PROP_BITS,
     PROP_MINIMUM,
     PROP_MAXIMUM,
+    PROP_RESCALE,
 #ifdef HAVE_JPEG
     PROP_JPEG_QUALITY,
 #endif
@@ -340,6 +342,7 @@ ufo_write_task_process (UfoTask *task,
     image.depth = priv->depth;
     image.min = priv->minimum;
     image.max = priv->maximum;
+    image.rescale = priv->rescale;
 
     for (guint i = 0; i < num_frames; i++) {
 retry:
@@ -420,6 +423,9 @@ ufo_write_task_set_property (GObject *object,
             break;
         case PROP_MINIMUM:
             priv->minimum = g_value_get_float (value);
+            break;
+        case PROP_RESCALE:
+            priv->rescale = g_value_get_boolean (value);
             break;
 #ifdef HAVE_JPEG
         case PROP_JPEG_QUALITY:
@@ -606,6 +612,13 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
             -G_MAXFLOAT, G_MAXFLOAT, -G_MAXFLOAT,
             G_PARAM_READWRITE);
 
+    properties[PROP_RESCALE] =
+        g_param_spec_boolean ("rescale",
+            "If true rescale values automatically or according to set min and max",
+            "If true rescale values automatically or according to set min and max",
+            TRUE,
+            G_PARAM_READWRITE);
+
 #ifdef HAVE_JPEG
     properties[PROP_JPEG_QUALITY] =
         g_param_spec_uint ("jpeg-quality",
@@ -632,6 +645,7 @@ ufo_write_task_init(UfoWriteTask *self)
     self->priv->depth = UFO_BUFFER_DEPTH_32F;
     self->priv->minimum = G_MAXFLOAT;
     self->priv->maximum = -G_MAXFLOAT;
+    self->priv->rescale = TRUE;
     self->priv->writer = NULL;
     self->priv->opened = FALSE;
     self->priv->filename = NULL;
