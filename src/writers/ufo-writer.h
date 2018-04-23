@@ -39,6 +39,7 @@ typedef struct {
     UfoBufferDepth depth;
     gfloat min;
     gfloat max;
+    gboolean rescale;
 } UfoWriterImage;
 
 struct _UfoWriterIface {

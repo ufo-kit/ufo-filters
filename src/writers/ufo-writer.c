@@ -78,12 +78,9 @@ get_min_max (UfoWriterImage *image, gfloat *src, gsize n_elements, gfloat *min, 
     *min = cmin;
 }
 
-static void
-convert_to_8bit (UfoWriterImage *image)
+static gsize
+get_number_of_pixels (UfoWriterImage *image)
 {
-    gfloat *src;
-    guint8 *dst;
-    gfloat max, min, scale;
     gsize size;
 
     size = image->requisition->dims[0] * image->requisition->dims[1];
@@ -91,6 +88,18 @@ convert_to_8bit (UfoWriterImage *image)
     if (image->requisition->n_dims == 3 && image->requisition->dims[2] == 3)
         size *= image->requisition->dims[2];
 
+    return size;
+}
+
+static void
+convert_and_rescale_to_8bit (UfoWriterImage *image)
+{
+    gfloat *src;
+    guint8 *dst;
+    gfloat max, min, scale;
+    gsize size;
+
+    size = get_number_of_pixels (image);
     src = (gfloat *) image->data;
     dst = (guint8 *) src;
     get_min_max (image, src, size, &min, &max);
@@ -122,18 +131,31 @@ convert_to_8bit (UfoWriterImage *image)
 }
 
 static void
-convert_to_16bit (UfoWriterImage *image)
+convert_to_8bit (UfoWriterImage *image)
+{
+    gfloat *src;
+    guint8 *dst;
+    gsize size;
+
+    size = get_number_of_pixels (image);
+    src = (gfloat *) image->data;
+    dst = (guint8 *) src;
+
+    for (gsize i = 0; i < size; i++)
+        dst[i] = (guint8) src[i];
+
+    image->depth = UFO_BUFFER_DEPTH_8U;
+}
+
+static void
+convert_and_rescale_to_16bit (UfoWriterImage *image)
 {
     gfloat *src;
     guint16 *dst;
     gfloat max, min, scale;
     gsize size;
 
-    size = image->requisition->dims[0] * image->requisition->dims[1];
-
-    if (image->requisition->n_dims == 3 && image->requisition->dims[2] == 3)
-        size *= image->requisition->dims[2];
-
+    size = get_number_of_pixels (image);
     src = (gfloat *) image->data;
     dst = (guint16 *) src;
     get_min_max (image, src, size, &min, &max);
@@ -163,6 +185,23 @@ convert_to_16bit (UfoWriterImage *image)
     image->depth = UFO_BUFFER_DEPTH_16U;
 }
 
+static void
+convert_to_16bit (UfoWriterImage *image)
+{
+    gfloat *src;
+    guint16 *dst;
+    gsize size;
+
+    size = get_number_of_pixels (image);
+    src = (gfloat *) image->data;
+    dst = (guint16 *) src;
+
+    for (gsize i = 0; i < size; i++)
+        dst[i] = (guint16) src[i];
+
+    image->depth = UFO_BUFFER_DEPTH_16U;
+}
+
 void
 ufo_writer_convert_inplace (UfoWriterImage *image)
 {
@@ -172,11 +211,17 @@ ufo_writer_convert_inplace (UfoWriterImage *image)
      */
     switch (image->depth) {
         case UFO_BUFFER_DEPTH_8U:
-            convert_to_8bit (image);
+            if (image->rescale)
+                convert_and_rescale_to_8bit (image);
+            else
+                convert_to_8bit (image);
             break;
         case UFO_BUFFER_DEPTH_16U:
         case UFO_BUFFER_DEPTH_16S:
-            convert_to_16bit (image);
+            if (image->rescale)
+                convert_and_rescale_to_16bit (image);
+            else
+                convert_to_16bit (image);
             break;
         default:
             break;

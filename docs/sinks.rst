@@ -45,7 +45,8 @@ File writer
         Possible values are 8 and 16 which are saved as integer types and 32 bit
         float. By default, the minimum and maximum for scaling is determined
         automatically, however depending on the use case you should override
-        this with the ``minimum`` and ``maximum`` properties.
+        this with the ``minimum`` and ``maximum`` properties. To avoid
+        rescaling, set the ``rescale`` property to ``FALSE``.
 
     .. gobj:prop:: minimum:float
 
@@ -56,6 +57,12 @@ File writer
 
         This value will represent the largest possible value for discrete bit
         depths, i.e. 8 and 16 bit.
+
+    .. gobj:prop:: rescale:boolean
+
+        If ``TRUE`` and ``bits`` is set to a value less than 32, rescale values
+        either by looking for minimum and maximum values or using the values
+        provided by the user.
 
     For JPEG files the following property applies:
 
