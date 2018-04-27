@@ -14,3 +14,6 @@ add_test(test_153
 
 add_test(test_161
          ${BASH} "${CMAKE_CURRENT_SOURCE_DIR}/test-161.sh")
+
+add_test(test_core_149
+         ${BASH} "${CMAKE_CURRENT_SOURCE_DIR}/test-core-149.sh")

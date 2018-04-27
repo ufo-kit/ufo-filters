@@ -287,16 +287,16 @@ ufo_opencl_reduce_task_get_property (GObject *object,
 
     switch (property_id) {
         case PROP_FILENAME:
-            g_value_set_string (value, priv->filename);
+            g_value_set_string (value, priv->filename ? priv->filename : "");
             break;
         case PROP_SOURCE:
-            g_value_set_string (value, priv->source);
+            g_value_set_string (value, priv->source ? priv->source : "");
             break;
         case PROP_KERNEL:
-            g_value_set_string (value, priv->kernel_name);
+            g_value_set_string (value, priv->kernel_name ? priv->kernel_name : "");
             break;
         case PROP_FINISH:
-            g_value_set_string (value, priv->finish_name);
+            g_value_set_string (value, priv->finish_name ? priv->finish_name : "");
             break;
         case PROP_NUM_DIMS:
             g_value_set_uint (value, priv->n_dims);

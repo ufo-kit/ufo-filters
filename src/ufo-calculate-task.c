@@ -194,7 +194,7 @@ ufo_calculate_task_get_property (GObject *object,
 
     switch (property_id) {
         case PROP_EXPRESSION:
-            g_value_set_string (value, priv->expression);
+            g_value_set_string (value, priv->expression ? priv->expression : "");
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);

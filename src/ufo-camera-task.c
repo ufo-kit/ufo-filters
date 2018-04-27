@@ -262,13 +262,13 @@ ufo_camera_task_get_property (GObject *object,
             g_value_set_object (value, priv->camera);
             break;
         case PROP_CAMERA_NAME:
-            g_value_set_string (value, priv->name);
+            g_value_set_string (value, priv->name ? priv->name : "");
             break;
         case PROP_COUNT:
             g_value_set_uint (value, priv->count);
             break;
         case PROP_PROPERTIES:
-            g_value_set_string (value, priv->properties);
+            g_value_set_string (value, priv->properties ? priv->properties : "");
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -334,14 +334,14 @@ ufo_camera_task_class_init(UfoCameraTaskClass *klass)
             G_PARAM_READWRITE);
 
     properties[PROP_CAMERA_NAME] =
-        g_param_spec_string("name",
+        g_param_spec_string ("name",
             "Name of the used camera",
             "Name of the used camera, if none is specified take the first one",
             "",
             G_PARAM_READWRITE);
 
     properties[PROP_COUNT] =
-        g_param_spec_uint("number",
+        g_param_spec_uint ("number",
             "Number of frames to record",
             "Number of frames to record",
             0, G_MAXUINT, 0,

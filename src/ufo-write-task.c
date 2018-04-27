@@ -449,7 +449,7 @@ ufo_write_task_get_property (GObject *object,
 
     switch (property_id) {
         case PROP_FILENAME:
-            g_value_set_string (value, priv->filename);
+            g_value_set_string (value, priv->filename ? priv->filename : "");
             break;
         case PROP_COUNTER_START:
             g_value_set_uint (value, priv->counter_start);
