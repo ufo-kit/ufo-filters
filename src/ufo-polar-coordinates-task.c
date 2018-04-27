@@ -26,20 +26,18 @@
 #include <math.h>
 #include "ufo-polar-coordinates-task.h"
 
-/**
- * SECTION:ufo-polar-coordinates-task
- * @Short_description: Transformation between polar and cartesian coordinate systems
- * @Title: polar_coordinates
- *
- * When transforming from cartesian to polar coordinates the origin is in the
- * image center (width / 2, height / 2). When transforming from polar to
- * cartesian coordinates the origin is in the image corner (0, 0).
- */
+
 
 typedef enum {
     DIRECTION_POLAR_TO_CARTESIAN,
     DIRECTION_CARTESIAN_TO_POLAR
 } Direction;
+
+static GEnumValue direction_values[] = {
+    { DIRECTION_POLAR_TO_CARTESIAN, "DIRECTION_POLAR_TO_CARTESIAN", "polar_to_cartesian" },
+    { DIRECTION_CARTESIAN_TO_POLAR, "DIRECTION_CARTESIAN_TO_POLAR", "cartesian_to_polar" },
+    { 0, NULL, NULL }
+};
 
 struct _UfoPolarCoordinatesTaskPrivate {
     /* OpenCL */
@@ -234,15 +232,7 @@ ufo_polar_coordinates_task_set_property (GObject *object,
             priv->height = g_value_get_uint (value);
             break;
         case PROP_DIRECTION:
-            if (!g_strcmp0 (g_value_get_string (value), "polar_to_cartesian")) {
-                priv->direction = DIRECTION_POLAR_TO_CARTESIAN;
-            } else if (!g_strcmp0 (g_value_get_string (value), "cartesian_to_polar")) {
-                priv->direction = DIRECTION_CARTESIAN_TO_POLAR;
-            } else {
-                g_warning ("Invalid direction \"%s\", "\
-                           "it has to be one of [\"polar_to_cartesian\", \"cartesian_to_polar\"]",
-                           g_value_get_string (value));
-            }
+            priv->direction = g_value_get_enum (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -268,14 +258,7 @@ ufo_polar_coordinates_task_get_property (GObject *object,
             g_value_set_uint (value, priv->height);
             break;
         case PROP_DIRECTION:
-            switch (priv->direction) {
-                case DIRECTION_POLAR_TO_CARTESIAN:
-                    g_value_set_string (value, "polar_to_cartesian");
-                    break;
-                case DIRECTION_CARTESIAN_TO_POLAR:
-                    g_value_set_string (value, "cartesian_to_polar");
-                    break;
-            }
+            g_value_set_enum (value, priv->direction);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -345,11 +328,11 @@ ufo_polar_coordinates_task_class_init (UfoPolarCoordinatesTaskClass *klass)
             G_PARAM_READWRITE);
 
     properties[PROP_DIRECTION] =
-        g_param_spec_string ("direction",
+        g_param_spec_enum ("direction",
             "Conversion direction",
             "Conversion direction from: \"polar_to_cartesian\", \"cartesian_to_polar\"",
-            "polar_to_cartesian",
-            G_PARAM_READWRITE);
+            g_enum_register_static ("direction", direction_values),
+            DIRECTION_CARTESIAN_TO_POLAR, G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
