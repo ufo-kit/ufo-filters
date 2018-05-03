@@ -168,6 +168,9 @@ ufo_ifft_task_process (UfoTask *task,
     in_mem = ufo_buffer_get_device_array (inputs[0], queue);
     out_mem = ufo_buffer_get_device_array (output, queue);
 
+    if (ufo_buffer_get_layout (inputs[0]) != UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED)
+        g_warning ("ifft: input is not complex");
+
     /* In-place IFFT */
     UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (priv->fft, queue, profiler, in_mem, in_mem, UFO_FFT_BACKWARD,
                                                 0, NULL, NULL));
@@ -183,6 +186,7 @@ ufo_ifft_task_process (UfoTask *task,
     height = (cl_int) requisition->dims[1];
 
     ufo_buffer_get_requisition (inputs[0], &in_req);
+    ufo_buffer_set_layout (output, UFO_BUFFER_LAYOUT_REAL);
 
     global_work_size[0] = in_req.dims[0] >> 1;
     global_work_size[1] = in_req.dims[1];

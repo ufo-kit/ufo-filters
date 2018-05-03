@@ -144,15 +144,18 @@ ufo_monitor_task_process (UfoTask *task,
 {
     UfoMonitorTaskPrivate *priv;
     UfoBufferLocation location;
+    UfoBufferLayout layout;
     GList *keys;
     GList *values;
     GList *zipped;
     GList *sizes;
     gchar *kvstring;
     gchar *dimstring;
+    gchar *layout_info[] = {"R", "CI"};
 
     priv = UFO_MONITOR_TASK_GET_PRIVATE (task);
     location = ufo_buffer_get_location (inputs[0]);
+    layout = ufo_buffer_get_layout (inputs[0]);
     keys = ufo_buffer_get_metadata_keys (inputs[0]);
     sizes = NULL;
 
@@ -164,7 +167,8 @@ ufo_monitor_task_process (UfoTask *task,
     dimstring = join_list (sizes, " ");
     kvstring = join_list (zipped, ", ");
 
-    g_print ("monitor: dims=[%s] keys=[%s] location=", dimstring, kvstring);
+    g_print ("monitor: dims=[%s] layout=[%s] keys=[%s] location=",
+             dimstring, layout_info[layout], kvstring);
 
     switch (location) {
         case UFO_BUFFER_LOCATION_HOST:

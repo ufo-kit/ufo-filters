@@ -186,6 +186,7 @@ ufo_fft_task_process (UfoTask *task,
     out_mem = ufo_buffer_get_device_array (output, queue);
 
     ufo_buffer_get_requisition (inputs[0], &in_req);
+    ufo_buffer_set_layout (output, UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED);
 
     if (priv->zeropad){
         width = (cl_int) in_req.dims[0];

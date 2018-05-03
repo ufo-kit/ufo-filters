@@ -71,6 +71,7 @@ ufo_opencl_task_process (UfoTask *task,
     UfoProfiler *profiler;
     cl_command_queue cmd_queue;
     cl_mem out_mem;
+    UfoBufferLayout layout = UFO_BUFFER_LAYOUT_REAL;
 
     priv = UFO_OPENCL_TASK (task)->priv;
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
@@ -78,10 +79,21 @@ ufo_opencl_task_process (UfoTask *task,
 
     for (guint i = 0; i < priv->n_inputs; i++) {
         cl_mem in_mem;
+        UfoBufferLayout current;
 
+        current = ufo_buffer_get_layout (inputs[i]);
         in_mem = ufo_buffer_get_device_array (inputs[i], cmd_queue);
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, i, sizeof (cl_mem), &in_mem));
+
+        if (i > 0 && current != layout)
+            g_warning ("Input buffer %i has different layout than %i", i, i - 1);
+
+        layout = current;
     }
+
+    /* reduce global work size in x-direction for complex numbers */
+    if (layout == UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED)
+        requisition->dims[0] /= 2;
 
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, priv->n_inputs, sizeof (cl_mem), &out_mem));
