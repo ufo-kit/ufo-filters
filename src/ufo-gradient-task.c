@@ -134,6 +134,7 @@ ufo_gradient_task_process (UfoTask *task,
                 g_warning ("Skipping image with width less than 3");
                 return TRUE;
             }
+            break;
         case DIRECTION_VERTICAL:
             if (requisition->dims[1] < 3) {
                 g_warning ("Skipping image with height less than 3");
