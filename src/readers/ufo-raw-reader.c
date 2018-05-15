@@ -154,7 +154,7 @@ ufo_raw_reader_get_meta (UfoReader *reader,
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
     requisition->n_dims = 2;
     requisition->dims[0] = priv->width;
-    requisition->dims[0] = priv->height;
+    requisition->dims[1] = priv->height;
     *bitdepth = priv->bitdepth;
 }
 
