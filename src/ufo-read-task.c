@@ -418,22 +418,19 @@ ufo_read_task_set_property (GObject *object,
             priv->number = g_value_get_uint (value);
             break;
         case PROP_RAW_WIDTH:
+            g_object_set_property (G_OBJECT (priv->raw_reader), "width", value);
+            break;
         case PROP_RAW_HEIGHT:
+            g_object_set_property (G_OBJECT (priv->raw_reader), "height", value);
+            break;
         case PROP_RAW_BITDEPTH:
-            {
-                const gchar *prop_name;
-
-                /* Determine raw reader property name, i.e. `raw-width` becomes
-                 * `width`. */
-                prop_name = pspec->name + 4;
-                g_object_set (priv->raw_reader, prop_name, g_value_get_uint (value), NULL);
-            }
+            g_object_set_property (G_OBJECT (priv->raw_reader), "bitdepth", value);
             break;
         case PROP_RAW_PRE_OFFSET:
-            g_object_set (priv->raw_reader, "pre-offset", g_value_get_ulong (value), NULL);
+            g_object_set_property (G_OBJECT (priv->raw_reader), "pre-offset", value);
             break;
         case PROP_RAW_POST_OFFSET:
-            g_object_set (priv->raw_reader, "post-offset", g_value_get_ulong (value), NULL);
+            g_object_set_property (G_OBJECT (priv->raw_reader), "post-offset", value);
             break;
         case PROP_TYPE:
             priv->type = g_value_get_enum (value);
