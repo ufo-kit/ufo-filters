@@ -71,19 +71,16 @@ Statistics
 
 .. gobj:class:: measure
 
-    Measure basic image properties with GSL.
+    Measure basic image properties.
 
     .. gobj:prop:: metric:string
 
-        Metric, one of ``std``, ``min`` or ``max``.
+        Metric, one of ``min``, ``max``, ``sum``, ``mean``, ``var``, ``std``,
+        ``skew`` or ``kurtosis``.
 
     .. gobj:prop:: axis:int
 
         Along which axis to measure (-1, all).
-
-    .. gobj:prop:: pass-through:boolean
-
-        ``TRUE`` if data should be copied to next output.
 
 
 .. _generic-opencl-ref:
