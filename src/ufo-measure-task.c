@@ -81,17 +81,7 @@ struct _UfoMeasureTaskPrivate {
     cl_mem mems[M_LAST];
     Metric metric;
     gint axis;
-    gboolean pass_through;
 };
-
-enum {
-    RESULT,
-    LAST_SIGNAL
-};
-
-static guint signals[LAST_SIGNAL] = { 0 };
-
-
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
@@ -105,7 +95,6 @@ enum {
     PROP_0,
     PROP_METRIC,
     PROP_AXIS,
-    PROP_PASS_THROUGH,
     N_PROPERTIES
 };
 
@@ -190,47 +179,6 @@ ufo_measure_task_setup (UfoTask *task,
     g_free (axis);
 }
 
-static void
-ufo_measure_task_get_requisition (UfoTask *task,
-                                  UfoBuffer **inputs,
-                                  UfoRequisition *requisition)
-{
-    UfoMeasureTaskPrivate *priv;
-
-    priv = UFO_MEASURE_TASK_GET_PRIVATE (task);
-
-    if (priv->pass_through)
-        ufo_buffer_get_requisition (inputs[0], requisition);
-    else
-        requisition->n_dims = 0;
-}
-
-static guint
-ufo_measure_task_get_num_inputs (UfoTask *task)
-{
-    return 1;
-}
-
-static guint
-ufo_measure_task_get_num_dimensions (UfoTask *task,
-                                     guint input)
-{
-    return 2;
-}
-
-static UfoTaskMode
-ufo_measure_task_get_mode (UfoTask *task)
-{
-    UfoMeasureTaskPrivate *priv;
-
-    priv = UFO_MEASURE_TASK_GET_PRIVATE (task);
-
-    if (priv->pass_through)
-        return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
-
-    return UFO_TASK_MODE_SINK | UFO_TASK_MODE_GPU;
-}
-
 static gsize
 get_input_size (UfoMeasureTaskPrivate *priv,
                  UfoBuffer *input)
@@ -249,6 +197,39 @@ get_output_size (UfoMeasureTaskPrivate *priv,
 
     ufo_buffer_get_requisition (input, &requisition);
     return priv->axis < 0 ? 1 : requisition.dims[1 - priv->axis];
+}
+
+static void
+ufo_measure_task_get_requisition (UfoTask *task,
+                                  UfoBuffer **inputs,
+                                  UfoRequisition *requisition)
+{
+    UfoMeasureTaskPrivate *priv;
+    UfoRequisition in_req;
+
+    priv = UFO_MEASURE_TASK_GET_PRIVATE (task);
+    ufo_buffer_get_requisition (inputs[0], &in_req);
+    requisition->n_dims = in_req.n_dims - 1;
+    requisition->dims[0] = get_output_size (priv, inputs[0]);
+}
+
+static guint
+ufo_measure_task_get_num_inputs (UfoTask *task)
+{
+    return 1;
+}
+
+static guint
+ufo_measure_task_get_num_dimensions (UfoTask *task,
+                                     guint input)
+{
+    return 2;
+}
+
+static UfoTaskMode
+ufo_measure_task_get_mode (UfoTask *task)
+{
+    return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
 static cl_mem
@@ -531,28 +512,13 @@ ufo_measure_task_process (UfoTask *task,
                           UfoRequisition *requisition)
 {
     UfoMeasureTaskPrivate *priv;
-    UfoRequisition in_req;
-    UfoRequisition result_req;
-    UfoBuffer *result_buffer;
     typedef void (*MetricFunc) (UfoTask *, UfoBuffer *, UfoBuffer *);
     MetricFunc metric_func[] = {compute_default, compute_default, compute_default,
                                 compute_default, compute_variance, compute_std,
                                 compute_skew_kurtosis, compute_skew_kurtosis};
 
     priv = UFO_MEASURE_TASK_GET_PRIVATE (task);
-
-    ufo_buffer_get_requisition (inputs[0], &in_req);
-    result_req.dims[0] = get_output_size (priv, inputs[0]);
-    result_req.n_dims = in_req.n_dims - 1;
-    result_buffer = ufo_buffer_new (&result_req, priv->context);
-
-    metric_func[priv->metric] (task, inputs[0], result_buffer);
-
-    g_signal_emit (task, signals[RESULT], 0, result_buffer);
-    g_object_unref (result_buffer);
-
-    if (priv->pass_through)
-        ufo_buffer_copy (inputs[0], output);
+    metric_func[priv->metric] (task, inputs[0], output);
 
     return TRUE;
 }
@@ -576,10 +542,6 @@ ufo_measure_task_set_property (GObject *object,
             priv->metric = g_value_get_enum (value);
             break;
 
-        case PROP_PASS_THROUGH:
-            priv->pass_through = g_value_get_boolean (value);
-            break;
-
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -600,9 +562,6 @@ ufo_measure_task_get_property (GObject *object,
             break;
         case PROP_METRIC:
             g_value_set_enum (value, priv->metric);
-            break;
-        case PROP_PASS_THROUGH:
-            g_value_set_boolean (value, priv->pass_through);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -671,20 +630,6 @@ ufo_measure_task_class_init (UfoMeasureTaskClass *klass)
             -1, UFO_BUFFER_MAX_NDIMS, -1,
             G_PARAM_READWRITE);
 
-    properties[PROP_PASS_THROUGH] =
-        g_param_spec_boolean ("pass-through",
-            "Copy data to next output",
-            "Copy data to next output",
-            FALSE, G_PARAM_READWRITE);
-
-    signals[RESULT] =
-        g_signal_new ("result",
-                      G_OBJECT_CLASS_TYPE (oclass),
-                      G_SIGNAL_RUN_FIRST | G_SIGNAL_NO_RECURSE,
-                      0,
-                      NULL, NULL, g_cclosure_marshal_VOID__BOXED,
-                      G_TYPE_NONE, 1, UFO_TYPE_BUFFER);
-
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -697,5 +642,4 @@ ufo_measure_task_init(UfoMeasureTask *self)
     self->priv = UFO_MEASURE_TASK_GET_PRIVATE(self);
     self->priv->axis = -1;
     self->priv->metric = M_STD;
-    self->priv->pass_through = FALSE;
 }

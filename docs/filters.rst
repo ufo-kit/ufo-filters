@@ -82,10 +82,6 @@ Statistics
 
         Along which axis to measure (-1, all).
 
-    .. gobj:prop:: pass-through:boolean
-
-        ``TRUE`` if data should be copied to next output.
-
 
 .. _generic-opencl-ref:
 
