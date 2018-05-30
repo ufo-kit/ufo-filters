@@ -185,10 +185,10 @@ compute_real_space_ramp_coefficients (UfoFilterTaskPrivate *priv,
                                       gfloat *filter,
                                       guint width)
 {
-    filter[0] = filter[1] = 0.25;
+    filter[0] = filter[1] = 0.25 * priv->scale;
 
     for (guint k = 1; k < width / 4 + 1; k++) {
-        filter[2*k] = k % 2 ? - 1 / (k * k * G_PI * G_PI) : 0.0;
+        filter[2*k] = k % 2 ? - priv->scale / (k * k * G_PI * G_PI) : 0.0;
         filter[2*k + 1] = filter[2*k];
     }
 }
