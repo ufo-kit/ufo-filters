@@ -142,6 +142,33 @@ foreach plugin: plugins
     )
 endforeach
 
+# generalized backproject and conebeam
+
+shared_module('generalbackproject',
+    sources: [
+        'ufo-general-backproject-task.c',
+        'common/ufo-conebeam.c',
+        'common/ufo-ctgeometry.c',
+        'common/ufo-math.c',
+        'common/ufo-scarray.c',
+    ],
+    dependencies: deps,
+    name_prefix: 'libufofilter',
+    install: true,
+    install_dir: plugin_install_dir,
+)
+
+shared_module('conebeamprojectionweight',
+    sources: [
+        'ufo-cone-beam-projection-weight-task.c',
+        'common/ufo-conebeam.c'
+    ],
+    dependencies: deps,
+    name_prefix: 'libufofilter',
+    install: true,
+    install_dir: plugin_install_dir,
+)
+
 # fft plugins
 
 fft_deps = deps

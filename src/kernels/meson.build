@@ -5,6 +5,7 @@ kernel_files = [
     'bin.cl',
     'clip.cl',
     'complex.cl',
+    'conebeam.cl',
     'correlate.cl',
     'cut.cl',
     'cut-sinogram.cl',
@@ -38,7 +39,11 @@ kernel_files = [
     'split.cl',
     'swap-quadrants.cl',
     'transpose.cl',
-    'zeropad.cl'
+    'zeropad.cl',
+    'templates/general_bp_definitions.in',
+    'templates/general_bp_body.in',
+    'templates/general_bp_header_scalar.in',
+    'templates/general_bp_header_vector.in',
 ]
 
 install_data(kernel_files,
