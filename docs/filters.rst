@@ -307,6 +307,27 @@ Cutting
         Width of the region to cut out.
 
 
+Tiling
+------
+
+.. gobj:class:: tile
+
+    Cuts input into multiple tiles. The stream contains tiles in a zig-zag
+    pattern, i.e. the first tile starts at the top left corner of the input goes
+    on the same row until the end and continues on the first tile of the next
+    row until the final tile in the lower right corner.
+
+    .. gobj:prop:: width:uint
+
+        Width of a tile which must be a divisor of the input width. If this is
+        not changed, the full width will be used.
+
+    .. gobj:prop:: height:uint
+
+        Width of a tile which must be a divisor of the input height. If this is
+        not changed, the full height will be used.
+
+
 Swapping quadrants
 ------------------
 

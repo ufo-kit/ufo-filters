@@ -74,6 +74,7 @@ set(ufofilter_SRCS
     ufo-stack-task.c
     ufo-stdin-task.c
     ufo-stitch-task.c
+    ufo-tile-task.c
     ufo-transpose-task.c
     ufo-transpose-projections-task.c
     ufo-swap-quadrants-task.c

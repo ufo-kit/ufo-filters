@@ -67,6 +67,7 @@ plugins = [
     'stack',
     'stitch',
     'stdin',
+    'tile',
     'transpose',
     'transpose-projections',
     'swap-quadrants',
