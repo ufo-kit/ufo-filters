@@ -17,8 +17,13 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef SEARCH_RADIUS
 #define SEARCH_RADIUS   10
-#define NB_RADIUS       3
+#endif
+
+#ifndef PATCH_RADIUS
+#define PATCH_RADIUS    3
+#endif
 
 #ifndef SIGMA
 #define SIGMA           12
@@ -66,7 +71,7 @@ nlm_noise_reduction (global float *input,
      * Compute the upper left (sx,sy) and lower right (tx, ty) corner points of
      * our search window.
      */
-    int r = min (NB_RADIUS, min(width - 1 - x, min (height - 1 - y, min (x, y))));
+    int r = min (PATCH_RADIUS, min(width - 1 - x, min (height - 1 - y, min (x, y))));
     int sx = max (x - SEARCH_RADIUS, r);
     int sy = max (y - SEARCH_RADIUS, r);
     int tx = min (x + SEARCH_RADIUS, width - 1 - r);
