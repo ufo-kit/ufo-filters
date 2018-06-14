@@ -32,6 +32,7 @@ struct _UfoOpenCLTaskPrivate {
     gchar *filename;
     gchar *funcname;
     gchar *source;
+    gchar *opts;
     guint n_dims;
 };
 
@@ -48,6 +49,7 @@ enum {
     PROP_FILENAME,
     PROP_SOURCE,
     PROP_KERNEL,
+    PROP_OPTIONS,
     PROP_NUM_DIMS,
     N_PROPERTIES
 };
@@ -127,20 +129,13 @@ ufo_opencl_task_setup (UfoTask *task,
     }
 
     if (priv->source != NULL) {
-        priv->kernel = ufo_resources_get_kernel_from_source (resources,
-                                                             priv->source,
-                                                             priv->funcname,
-                                                             error);
+        priv->kernel = ufo_resources_get_kernel_from_source_with_opts (resources, priv->source, priv->funcname, priv->opts, error);
     }
     else {
         const gchar *filename;
 
         filename = priv->filename != NULL ? priv->filename : "opencl.cl";
-
-        priv->kernel = ufo_resources_get_kernel (resources,
-                                                 filename,
-                                                 priv->funcname,
-                                                 error);
+        priv->kernel = ufo_resources_get_kernel_with_opts (resources, filename, priv->funcname, priv->opts, error);
     }
 
     if (priv->kernel != NULL) {
@@ -205,6 +200,7 @@ ufo_opencl_task_copy_real (UfoNode *node,
                   "filename", orig->priv->filename,
                   "source", orig->priv->source,
                   "kernel", orig->priv->funcname,
+                  "options", orig->priv->opts,
                   "dimensions", orig->priv->n_dims,
                   NULL);
 
@@ -233,9 +229,11 @@ ufo_opencl_task_finalize (GObject *object)
 
     g_free (priv->filename);
     g_free (priv->funcname);
+    g_free (priv->opts);
 
     priv->filename = NULL;
     priv->funcname = NULL;
+    priv->opts = NULL;
 }
 
 static void
@@ -270,6 +268,10 @@ ufo_opencl_task_set_property (GObject *object,
             g_free (priv->funcname);
             priv->funcname = g_value_dup_string (value);
             break;
+        case PROP_OPTIONS:
+            g_free (priv->opts);
+            priv->opts = g_value_dup_string (value);
+            break;
         case PROP_NUM_DIMS:
             priv->n_dims = g_value_get_uint (value);
             break;
@@ -296,6 +298,9 @@ ufo_opencl_task_get_property (GObject *object,
             break;
         case PROP_KERNEL:
             g_value_set_string (value, priv->funcname ? priv->funcname : "");
+            break;
+        case PROP_OPTIONS:
+            g_value_set_string (value, priv->opts);
             break;
         case PROP_NUM_DIMS:
             g_value_set_uint (value, priv->n_dims);
@@ -340,6 +345,13 @@ ufo_opencl_task_class_init (UfoOpenCLTaskClass *klass)
             "",
             G_PARAM_READWRITE);
 
+    properties[PROP_OPTIONS] =
+        g_param_spec_string ("options",
+            "OpenCL build options",
+            "OpenCL build options",
+            "",
+            G_PARAM_READWRITE);
+
     properties[PROP_NUM_DIMS] = 
         g_param_spec_uint ("dimensions",
             "Number of dimensions",
@@ -365,6 +377,7 @@ ufo_opencl_task_init (UfoOpenCLTask *self)
     priv->filename = NULL;
     priv->funcname = NULL;
     priv->source = NULL;
+    priv->opts = g_strdup ("");
     priv->n_dims = 2;
     priv->n_inputs = 1;
 }

@@ -123,6 +123,10 @@ Generic OpenCL
 
         Name of the kernel that this filter is associated with.
 
+    .. gobj:prop:: options:string
+
+        OpenCL build options.
+
     .. gobj:prop:: dimensions:uint
 
         Number of dimensions the kernel works on. Must be in [1, 3].
