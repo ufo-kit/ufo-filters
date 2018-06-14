@@ -19,7 +19,10 @@
 
 #define SEARCH_RADIUS   10
 #define NB_RADIUS       3
+
+#ifndef SIGMA
 #define SIGMA           12
+#endif
 
 #define flatten(x,y,r,w) ((y-r)*w + (x-r))
 
