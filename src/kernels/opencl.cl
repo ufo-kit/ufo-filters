@@ -19,7 +19,7 @@
 
 #define SEARCH_RADIUS   10
 #define NB_RADIUS       3
-#define SIGMA           2
+#define SIGMA           12
 
 #define flatten(x,y,r,w) ((y-r)*w + (x-r))
 
@@ -72,7 +72,7 @@ nlm_noise_reduction (global float *input,
     for (int i = sx; i < tx; i++) {
         for (int j = sy; j < ty; j++) {
             float d = dist (input, flatten(x, y, r, width), flatten (i,j,r,width), r, width);
-            float weight = exp (- (SIGMA * SIGMA * 100) * d);
+            float weight = exp (- (SIGMA * SIGMA) * d);
             pixel_value += weight * input[j * width + i];
             total_weight += weight;
         }
