@@ -141,7 +141,8 @@ ufo_measure_task_setup (UfoTask *task,
         priv->local_shape[0] = local_size;
         priv->local_shape[1] = 1;
         axis = g_strdup("");
-    } else {
+    }
+    else {
         if (priv->axis == 0) {
             priv->local_shape[0] = 128;
             priv->local_shape[1] = 1;
@@ -151,22 +152,24 @@ ufo_measure_task_setup (UfoTask *task,
         }
         axis = g_strdup_printf ("%d", priv->axis);
     }
+
     while (priv->local_shape[0] * priv->local_shape[1] > local_size) {
         priv->local_shape[0] /= 2;
     }
+
     g_debug ("Measure local work group size: %lu %lu", priv->local_shape[0], priv->local_shape[1]);
 
     for (i = 0; i < M_LAST; i++) {
         /* Reduction kernels */
         kernel_name = g_strconcat ("reduce_", axis, metric_values[i].value_name, NULL),
-        priv->kernels[i] = ufo_resources_get_kernel (resources, "reductor.cl", kernel_name, error);
+        priv->kernels[i] = ufo_resources_get_kernel (resources, "reductor.cl", kernel_name, NULL, error);
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernels[i]));
 
         /* Postprocessing (normalization) kernels */
         priv->postproc_kernels[i] = NULL;
         if (postproc_codes[i]) {
             postproc_source = create_postprocessing_kernel (postproc_codes[i]);
-            priv->postproc_kernels[i] = ufo_resources_get_kernel_from_source(resources, postproc_source, "calculate", error);
+            priv->postproc_kernels[i] = ufo_resources_get_kernel_from_source (resources, postproc_source, "calculate", NULL, error);
             UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->postproc_kernels[i]));
             g_free (postproc_source);
         }

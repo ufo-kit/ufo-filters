@@ -49,10 +49,10 @@ ufo_transpose_task_setup (UfoTask *task,
                           GError **error)
 {
     UfoTransposeTaskPrivate *priv = UFO_TRANSPOSE_TASK_GET_PRIVATE (task);
-    priv->kernel = ufo_resources_get_kernel (resources, "transpose.cl", "transpose_shared", error);
-    if (priv->kernel) {
+    priv->kernel = ufo_resources_get_kernel (resources, "transpose.cl", "transpose_shared", NULL, error);
+
+    if (priv->kernel)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
-    }
 }
 
 static void

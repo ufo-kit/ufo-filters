@@ -211,24 +211,21 @@ ufo_lamino_backproject_task_setup (UfoTask *task,
             return;
     }
 
-    priv->vector_kernel = ufo_resources_get_kernel (resources, kernel_filename, vector_kernel_name, error);
-    priv->scalar_kernel = ufo_resources_get_kernel (resources, kernel_filename, "backproject_burst_1", error);
+    priv->vector_kernel = ufo_resources_get_kernel (resources, kernel_filename, vector_kernel_name, NULL, error);
+    priv->scalar_kernel = ufo_resources_get_kernel (resources, kernel_filename, "backproject_burst_1", NULL, error);
     priv->sampler = clCreateSampler (priv->context, (cl_bool) FALSE, priv->addressing_mode, CL_FILTER_LINEAR, &cl_error);
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
     UFO_RESOURCES_CHECK_CLERR (cl_error);
 
-    if (priv->vector_kernel) {
+    if (priv->vector_kernel)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->vector_kernel));
-    }
 
-    if (priv->scalar_kernel) {
+    if (priv->scalar_kernel)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->scalar_kernel));
-    }
 
-    for (i = 0; i < BURST; i++) {
+    for (i = 0; i < BURST; i++)
         priv->images[i] = NULL;
-    }
 
     switch (BURST) {
         case 1: priv->table_size = sizeof (cl_float); break;

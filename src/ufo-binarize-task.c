@@ -61,7 +61,7 @@ ufo_binarize_task_setup (UfoTask *task,
     UfoBinarizeTaskPrivate *priv;
 
     priv = UFO_BINARIZE_TASK_GET_PRIVATE (task);
-    priv->kernel = ufo_resources_get_kernel (resources, "binarize.cl", "binarize", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "binarize.cl", "binarize", NULL, error);
 
     if (priv->kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));

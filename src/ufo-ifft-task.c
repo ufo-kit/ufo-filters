@@ -70,7 +70,7 @@ ufo_ifft_task_setup (UfoTask *task,
     UfoIfftTaskPrivate *priv;
 
     priv = UFO_IFFT_TASK_GET_PRIVATE (task);
-    priv->kernel = ufo_resources_get_kernel (resources, "fft.cl", "fft_pack", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "fft.cl", "fft_pack", NULL, error);
     priv->context = ufo_resources_get_context (resources);
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));

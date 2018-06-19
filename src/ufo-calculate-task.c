@@ -78,7 +78,7 @@ make_kernel (UfoCalculateTaskPrivate *priv, UfoResources *resources, GError **er
         g_warning ("Error writing kernel source");
     }
 
-    priv->kernel = ufo_resources_get_kernel_from_source(resources, source, "calculate", error);
+    priv->kernel = ufo_resources_get_kernel_from_source(resources, source, "calculate", NULL, error);
     UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
     g_free (source);
 }

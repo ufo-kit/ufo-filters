@@ -90,7 +90,7 @@ ufo_detect_edge_task_setup (UfoTask *task,
 
     priv = UFO_DETECT_EDGE_TASK_GET_PRIVATE (task);
     priv->context = ufo_resources_get_context (resources);
-    priv->kernel = ufo_resources_get_kernel (resources, "edge.cl", "filter", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "edge.cl", "filter", NULL, error);
 
     if (priv->mask_mem)
         UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->mask_mem));

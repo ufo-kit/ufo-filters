@@ -85,16 +85,18 @@ ufo_polar_coordinates_task_setup (UfoTask *task,
 
     priv = UFO_POLAR_COORDINATES_TASK_GET_PRIVATE (task);
     priv->context = ufo_resources_get_context (resources);
-    priv->populate_polar_kernel = ufo_resources_get_kernel (resources, "polar.cl", "populate_polar_space", error);
-    priv->populate_cartesian_kernel = ufo_resources_get_kernel (resources, "polar.cl", "populate_cartesian_space", error);
+    priv->populate_polar_kernel = ufo_resources_get_kernel (resources, "polar.cl", "populate_polar_space", NULL, error);
+    priv->populate_cartesian_kernel = ufo_resources_get_kernel (resources, "polar.cl", "populate_cartesian_space", NULL, error);
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+
     if (priv->populate_polar_kernel) {
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->populate_polar_kernel));
     }
     if (priv->populate_cartesian_kernel) {
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->populate_cartesian_kernel));
     }
+
     priv->sampler = clCreateSampler (priv->context,
                                      (cl_bool) FALSE,
                                      CL_ADDRESS_CLAMP_TO_EDGE,

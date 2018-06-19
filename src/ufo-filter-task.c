@@ -152,7 +152,7 @@ ufo_filter_task_setup (UfoTask *task,
     priv = UFO_FILTER_TASK_GET_PRIVATE (task);
 
     priv->context = ufo_resources_get_context (resources);
-    priv->kernel = ufo_resources_get_kernel (resources, "filter.cl", "filter", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "filter.cl", "filter", NULL, error);
 
     if (priv->kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));

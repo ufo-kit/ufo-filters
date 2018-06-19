@@ -68,12 +68,12 @@ ufo_blur_task_setup (UfoTask *task,
 
     priv = UFO_BLUR_TASK_GET_PRIVATE (task);
 
-    priv->h_kernel = ufo_resources_get_kernel (resources, "gaussian.cl", "h_gaussian", error);
+    priv->h_kernel = ufo_resources_get_kernel (resources, "gaussian.cl", "h_gaussian", NULL, error);
 
     if (error && *error)
         return;
 
-    priv->v_kernel = ufo_resources_get_kernel (resources, "gaussian.cl", "v_gaussian", error);
+    priv->v_kernel = ufo_resources_get_kernel (resources, "gaussian.cl", "v_gaussian", NULL, error);
 
     if (error && *error)
         return;

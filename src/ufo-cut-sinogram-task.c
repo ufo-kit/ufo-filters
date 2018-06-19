@@ -63,7 +63,7 @@ ufo_cut_sinogram_task_setup (UfoTask *task,
 {
     UfoCutSinogramTaskPrivate *priv = UFO_CUT_SINOGRAM_TASK_GET_PRIVATE (task);
     priv->resources = resources;
-    priv->cut_sinogram_kernel = ufo_resources_get_kernel(resources, "cut-sinogram.cl", "cut_sinogram", error);
+    priv->cut_sinogram_kernel = ufo_resources_get_kernel(resources, "cut-sinogram.cl", "cut_sinogram", NULL, error);
 }
 
 static void

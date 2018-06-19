@@ -85,7 +85,7 @@ ufo_rescale_task_setup (UfoTask *task,
 
     priv = UFO_RESCALE_TASK_GET_PRIVATE (task);
     priv->context = ufo_resources_get_context (resources);
-    priv->kernel = ufo_resources_get_kernel (resources, "rescale.cl", "rescale", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "rescale.cl", "rescale", NULL, error);
 
     /* We can afford CL_ADDRESS_NONE if the final shape is rounded down */
     priv->sampler = clCreateSampler (priv->context,

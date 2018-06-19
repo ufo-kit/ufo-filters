@@ -68,7 +68,7 @@ ufo_remove_outliers_task_setup (UfoTask *task,
     priv = UFO_REMOVE_OUTLIERS_TASK_GET_PRIVATE (task);
     option = g_strdup_printf (" -DBOX_SIZE=%i ", priv->size);
 
-    priv->kernel = ufo_resources_get_kernel_with_opts (resources, "rm-outliers.cl", "filter", option, error);
+    priv->kernel = ufo_resources_get_kernel (resources, "rm-outliers.cl", "filter", option, error);
 
     if (priv->kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));

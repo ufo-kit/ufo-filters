@@ -113,12 +113,13 @@ ufo_filter_stripes1d_task_setup (UfoTask *task,
 
     priv = UFO_FILTER_STRIPES1D_TASK_GET_PRIVATE (task);
     priv->context = ufo_resources_get_context (resources);
-    priv->kernel = ufo_resources_get_kernel (resources, "complex.cl", "c_mul_real_sym", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "complex.cl", "c_mul_real_sym", NULL, error);
     priv->filter_mem = NULL;
+
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
-    if (priv->kernel) {
+
+    if (priv->kernel)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
-    }
 }
 
 static void
@@ -131,9 +132,8 @@ ufo_filter_stripes1d_task_get_requisition (UfoTask *task,
     priv = UFO_FILTER_STRIPES1D_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], requisition);
 
-    if (!priv->filter_mem || requisition->dims[0] / 2 != priv->last_width) {
+    if (!priv->filter_mem || requisition->dims[0] / 2 != priv->last_width)
         create_coefficients (priv, requisition->dims[0] / 2);
-    }
 }
 
 static guint

@@ -71,8 +71,8 @@ ufo_flip_task_setup (UfoTask *task,
     UfoFlipTaskPrivate *priv;
 
     priv = UFO_FLIP_TASK_GET_PRIVATE (task);
-    priv->kernels[DIRECTION_HORIZONTAL] = ufo_resources_get_kernel (resources, "flip.cl", "flip_horizontal", error);
-    priv->kernels[DIRECTION_VERTICAL] = ufo_resources_get_kernel (resources, "flip.cl", "flip_vertical", error);
+    priv->kernels[DIRECTION_HORIZONTAL] = ufo_resources_get_kernel (resources, "flip.cl", "flip_horizontal", NULL, error);
+    priv->kernels[DIRECTION_VERTICAL] = ufo_resources_get_kernel (resources, "flip.cl", "flip_vertical", NULL, error);
 }
 
 static void

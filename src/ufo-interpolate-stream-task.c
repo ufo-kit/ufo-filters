@@ -66,7 +66,7 @@ ufo_interpolate_stream_task_setup (UfoTask *task,
 
     priv = UFO_INTERPOLATE_STREAM_TASK_GET_PRIVATE (task);
     priv->num_inputs = 0;
-    priv->kernel = ufo_resources_get_kernel (resources, "interpolator.cl", "interpolate", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "interpolator.cl", "interpolate", NULL, error);
 
     if (priv->kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));

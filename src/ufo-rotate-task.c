@@ -129,7 +129,7 @@ ufo_rotate_task_setup (UfoTask *task,
     priv = UFO_ROTATE_TASK_GET_PRIVATE (task);
 
     priv->context = ufo_resources_get_context (resources);
-    priv->kernel = ufo_resources_get_kernel (resources, "rotate.cl", "rotate_image", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "rotate.cl", "rotate_image", NULL, error);
     /* Normalized coordinates are necessary for repeat addressing mode */
     priv->sampler = clCreateSampler (priv->context, (cl_bool) TRUE, priv->addressing_mode, priv->interpolation, &cl_error);
 

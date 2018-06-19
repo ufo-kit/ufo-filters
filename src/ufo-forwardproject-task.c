@@ -65,7 +65,7 @@ ufo_forwardproject_task_setup (UfoTask *task,
 
     priv = UFO_FORWARDPROJECT_TASK (task)->priv;
 
-    priv->kernel = ufo_resources_get_kernel (resources, "forwardproject.cl", "forwardproject", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "forwardproject.cl", "forwardproject", NULL, error);
 
     if (priv->kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));

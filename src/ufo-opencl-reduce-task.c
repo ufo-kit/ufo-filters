@@ -91,19 +91,19 @@ ufo_opencl_reduce_task_setup (UfoTask *task,
     }
 
     if (priv->source != NULL) {
-        priv->kernel = ufo_resources_get_kernel_from_source (resources, priv->source, priv->kernel_name, error);
+        priv->kernel = ufo_resources_get_kernel_from_source (resources, priv->source, priv->kernel_name, NULL, error);
 
         if (priv->finish_name)
-            priv->finish = ufo_resources_get_kernel_from_source (resources, priv->source, priv->finish_name, error);
+            priv->finish = ufo_resources_get_kernel_from_source (resources, priv->source, priv->finish_name, NULL, error);
     }
     else {
         const gchar *filename;
 
         filename = priv->filename != NULL ? priv->filename : "opencl-reduce.cl";
-        priv->kernel = ufo_resources_get_kernel (resources, filename, priv->kernel_name, error);
+        priv->kernel = ufo_resources_get_kernel (resources, filename, priv->kernel_name, NULL, error);
 
         if (priv->finish_name)
-            priv->finish = ufo_resources_get_kernel (resources, filename, priv->finish_name, error);
+            priv->finish = ufo_resources_get_kernel (resources, filename, priv->finish_name, NULL, error);
     }
 
     if (priv->kernel != NULL) {

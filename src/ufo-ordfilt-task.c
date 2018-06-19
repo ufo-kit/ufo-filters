@@ -80,12 +80,12 @@ ufo_ordfilt_task_setup (UfoTask *task,
     priv->context = ufo_resources_get_context (resources);
     get_max_alloc_size (resources, priv);
 
-    priv->k_bitonic_ordfilt = ufo_resources_get_kernel (resources, "ordfilt.cl", "bitonic_ordfilt", error);
+    priv->k_bitonic_ordfilt = ufo_resources_get_kernel (resources, "ordfilt.cl", "bitonic_ordfilt", NULL, error);
 
     if (priv->k_bitonic_ordfilt != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->k_bitonic_ordfilt));
 
-    priv->k_load_elements_from_patern = ufo_resources_get_kernel (resources, "ordfilt.cl", "load_elements_from_pattern", error);
+    priv->k_load_elements_from_patern = ufo_resources_get_kernel (resources, "ordfilt.cl", "load_elements_from_pattern", NULL, error);
 
     if (priv->k_load_elements_from_patern != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->k_load_elements_from_patern));

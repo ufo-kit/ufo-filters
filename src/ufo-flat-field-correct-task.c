@@ -67,7 +67,7 @@ ufo_flat_field_correct_task_setup (UfoTask *task,
     UfoFlatFieldCorrectTaskPrivate *priv;
 
     priv = UFO_FLAT_FIELD_CORRECT_TASK_GET_PRIVATE (task);
-    priv->kernel = ufo_resources_get_kernel (resources, "ffc.cl", "flat_correct", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "ffc.cl", "flat_correct", NULL, error);
 
     if (priv->kernel) {
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));

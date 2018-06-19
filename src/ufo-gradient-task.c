@@ -76,7 +76,7 @@ ufo_gradient_task_setup (UfoTask *task,
     UfoGradientTaskPrivate *priv = UFO_GRADIENT_TASK_GET_PRIVATE (task);
     priv->kernel = ufo_resources_get_kernel (resources, "gradient.cl",
                                              direction_values[priv->direction].value_nick,
-                                             error);
+                                             NULL, error);
     UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
 }
 

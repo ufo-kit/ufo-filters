@@ -85,7 +85,7 @@ ufo_med_mad_reject_task_setup (UfoTask *task,
     return;
   }
 
-  priv->kernel = ufo_resources_get_kernel (resources, "med-mad-reject.cl", "outliersRej_MedMad_3x3x3_f32", error);
+  priv->kernel = ufo_resources_get_kernel (resources, "med-mad-reject.cl", "outliersRej_MedMad_3x3x3_f32", NULL, error);
 
   if (priv->kernel != NULL)
     UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));

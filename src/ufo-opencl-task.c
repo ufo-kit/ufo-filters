@@ -129,13 +129,13 @@ ufo_opencl_task_setup (UfoTask *task,
     }
 
     if (priv->source != NULL) {
-        priv->kernel = ufo_resources_get_kernel_from_source_with_opts (resources, priv->source, priv->funcname, priv->opts, error);
+        priv->kernel = ufo_resources_get_kernel_from_source (resources, priv->source, priv->funcname, priv->opts, error);
     }
     else {
         const gchar *filename;
 
         filename = priv->filename != NULL ? priv->filename : "opencl.cl";
-        priv->kernel = ufo_resources_get_kernel_with_opts (resources, filename, priv->funcname, priv->opts, error);
+        priv->kernel = ufo_resources_get_kernel (resources, filename, priv->funcname, priv->opts, error);
     }
 
     if (priv->kernel != NULL) {

@@ -73,9 +73,9 @@ ufo_stitch_task_setup (UfoTask *task,
 
     priv = UFO_STITCH_TASK_GET_PRIVATE (task);
     priv->context = ufo_resources_get_context (resources);
-    priv->kernel = ufo_resources_get_kernel (resources, "interpolator.cl", "interpolate_horizontally", error);
-    priv->sum_kernel = ufo_resources_get_kernel (resources, "reductor.cl", "parallel_sum_2D", error);
-    priv->pad_kernel = ufo_resources_get_kernel (resources, "pad.cl", "pad_with_image", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "interpolator.cl", "interpolate_horizontally", NULL, error);
+    priv->sum_kernel = ufo_resources_get_kernel (resources, "reductor.cl", "parallel_sum_2D", NULL, error);
+    priv->pad_kernel = ufo_resources_get_kernel (resources, "pad.cl", "pad_with_image", NULL, error);
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
 

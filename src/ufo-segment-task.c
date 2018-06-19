@@ -105,9 +105,9 @@ ufo_segment_task_setup (UfoTask *task,
     priv = UFO_SEGMENT_TASK_GET_PRIVATE (task);
 
     priv->context = ufo_resources_get_context (resources);
-    priv->walk = ufo_resources_get_kernel (resources, "segment.cl", "walk", error);
-    priv->render = ufo_resources_get_kernel (resources, "segment.cl", "render", error);
-    priv->threshold = ufo_resources_get_kernel (resources, "segment.cl", "threshold", error);
+    priv->walk = ufo_resources_get_kernel (resources, "segment.cl", "walk", NULL, error);
+    priv->render = ufo_resources_get_kernel (resources, "segment.cl", "render", NULL, error);
+    priv->threshold = ufo_resources_get_kernel (resources, "segment.cl", "threshold", NULL, error);
 
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
 

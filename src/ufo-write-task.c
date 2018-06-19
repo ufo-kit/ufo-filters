@@ -253,7 +253,7 @@ ufo_write_task_setup (UfoTask *task,
     priv->context = ufo_resources_get_context (resources);
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
 
-    priv->kernel = ufo_resources_get_kernel (resources, "split.cl", "unsplit", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "split.cl", "unsplit", NULL, error);
 
     if (priv->kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));

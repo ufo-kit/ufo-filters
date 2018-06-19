@@ -96,12 +96,12 @@ ufo_stat_monitor_task_setup (UfoTask *task,
 
     /* Error : kernel compilation is buggy is one device has fp64 and another has not ! */
     if (priv->node_has_fp64) {
-        priv->kernel = ufo_resources_get_kernel (resources, "stat-monitor.cl", "stat_monitor_f64", error);
-        priv->kernel_final = ufo_resources_get_kernel (resources, "stat-monitor.cl", "stat_monitor_f64_fin", error);
+        priv->kernel = ufo_resources_get_kernel (resources, "stat-monitor.cl", "stat_monitor_f64", NULL, error);
+        priv->kernel_final = ufo_resources_get_kernel (resources, "stat-monitor.cl", "stat_monitor_f64_fin", NULL, error);
     }
     else {
-        priv->kernel = ufo_resources_get_kernel (resources, "stat-monitor.cl", "stat_monitor_f32", error);
-        priv->kernel_final = ufo_resources_get_kernel (resources, "stat-monitor.cl", "stat_monitor_f32_fin", error);
+        priv->kernel = ufo_resources_get_kernel (resources, "stat-monitor.cl", "stat_monitor_f32", NULL, error);
+        priv->kernel_final = ufo_resources_get_kernel (resources, "stat-monitor.cl", "stat_monitor_f32_fin", NULL, error);
     }
 
     if (priv->kernel == NULL || priv->kernel_final == NULL)

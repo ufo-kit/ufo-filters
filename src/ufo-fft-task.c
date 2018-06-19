@@ -87,7 +87,7 @@ ufo_fft_task_setup (UfoTask *task,
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
 
     if (priv->zeropad) {
-        priv->kernel = ufo_resources_get_kernel (resources, "fft.cl", "fft_spread", error);
+        priv->kernel = ufo_resources_get_kernel (resources, "fft.cl", "fft_spread", NULL, error);
     }
 
     priv->context = ufo_resources_get_context (resources);

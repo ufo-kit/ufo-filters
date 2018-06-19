@@ -150,14 +150,11 @@ ufo_dfi_sinc_task_setup (UfoTask *task,
     context = ufo_resources_get_context(resources);
     cmd_queue = g_list_nth_data(ufo_resources_get_cmd_queues(resources), 0);
 
-    //obtain resources
     priv->resources = g_object_ref(resources);
 
-    //create kernel
-    priv->dfi_sinc_kernel = ufo_resources_get_kernel (resources, "dfi.cl", "dfi_sinc_kernel", error);
-    priv->clear_kernel = ufo_resources_get_kernel (resources, "dfi.cl", "clear_kernel", error);
+    priv->dfi_sinc_kernel = ufo_resources_get_kernel (resources, "dfi.cl", "dfi_sinc_kernel", NULL, error);
+    priv->clear_kernel = ufo_resources_get_kernel (resources, "dfi.cl", "clear_kernel", NULL, error);
 
-    //calculate and setup kernel lookup table to buffer
     gfloat *tmp_ktbl = ufo_dfi_sinc_task_get_ktbl (priv->number_presampled_values);
     UfoRequisition ktbl_requisition;
     ktbl_requisition.n_dims = 2;

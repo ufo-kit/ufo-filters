@@ -87,7 +87,7 @@ ufo_filter_stripes_task_setup (UfoTask *task,
 
     priv = UFO_FILTER_STRIPES_TASK_GET_PRIVATE (task);
 
-    priv->kernel = ufo_resources_get_kernel (resources, "filter.cl", "stripe_filter", error);
+    priv->kernel = ufo_resources_get_kernel (resources, "filter.cl", "stripe_filter", NULL, error);
 
     if (priv->kernel != NULL)
         UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
