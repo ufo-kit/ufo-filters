@@ -116,10 +116,10 @@ ufo_filter_stripes1d_task_setup (UfoTask *task,
     priv->kernel = ufo_resources_get_kernel (resources, "complex.cl", "c_mul_real_sym", NULL, error);
     priv->filter_mem = NULL;
 
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
 
     if (priv->kernel)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
 }
 
 static void

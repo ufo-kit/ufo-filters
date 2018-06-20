@@ -77,16 +77,16 @@ ufo_stitch_task_setup (UfoTask *task,
     priv->sum_kernel = ufo_resources_get_kernel (resources, "reductor.cl", "parallel_sum_2D", NULL, error);
     priv->pad_kernel = ufo_resources_get_kernel (resources, "pad.cl", "pad_with_image", NULL, error);
 
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
 
     if (priv->kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
 
     if (priv->sum_kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->sum_kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->sum_kernel), error);
 
     if (priv->pad_kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->pad_kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->pad_kernel), error);
 
     priv->sum_mem = NULL;
 }

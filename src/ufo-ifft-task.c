@@ -73,11 +73,10 @@ ufo_ifft_task_setup (UfoTask *task,
     priv->kernel = ufo_resources_get_kernel (resources, "fft.cl", "fft_pack", NULL, error);
     priv->context = ufo_resources_get_context (resources);
 
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
 
-    if (priv->kernel != NULL) {
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
-    }
+    if (priv->kernel != NULL)
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
 }
 
 static void
@@ -117,7 +116,7 @@ ufo_ifft_task_get_requisition (UfoTask *task,
     }
 
     queue = ufo_gpu_node_get_cmd_queue (UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task))));
-    UFO_RESOURCES_CHECK_CLERR (ufo_fft_update (priv->fft, priv->context, queue, &priv->param));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (ufo_fft_update (priv->fft, priv->context, queue, &priv->param), error);
 
     *requisition = in_req;  /* keep third dimension for 2-D batching */
     requisition->dims[0] = priv->crop_width > 0 ? (gsize) priv->crop_width : priv->param.size[0];

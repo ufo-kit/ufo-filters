@@ -113,7 +113,7 @@ ufo_retrieve_phase_task_setup (UfoTask *task,
 
     priv->mult_by_value_kernel = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "mult_by_value", NULL, error);
 
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext(priv->context));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext(priv->context), error);
 
     if (priv->filter_buffer == NULL) {
         UfoRequisition requisition;
@@ -126,12 +126,12 @@ ufo_retrieve_phase_task_setup (UfoTask *task,
 
     for (int i = 0; i < N_METHODS; i++) {
         if (priv->kernels[i] != NULL) {
-            UFO_RESOURCES_CHECK_CLERR (clRetainKernel(priv->kernels[i]));
+            UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel(priv->kernels[i]), error);
         }
     }
 
     if (priv->mult_by_value_kernel != NULL) {
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->mult_by_value_kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->mult_by_value_kernel), error);
     }
 }
 

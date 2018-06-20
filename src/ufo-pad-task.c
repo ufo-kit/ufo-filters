@@ -93,10 +93,10 @@ ufo_pad_task_setup (UfoTask *task,
     priv->kernel = ufo_resources_get_kernel (resources, "pad.cl", "pad", NULL, error);
     change_sampler (priv);
 
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
-    if (priv->kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
-    }
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
+
+    if (priv->kernel)
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
 }
 
 static void

@@ -163,14 +163,14 @@ ufo_measure_task_setup (UfoTask *task,
         /* Reduction kernels */
         kernel_name = g_strconcat ("reduce_", axis, metric_values[i].value_name, NULL),
         priv->kernels[i] = ufo_resources_get_kernel (resources, "reductor.cl", kernel_name, NULL, error);
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernels[i]));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernels[i]), error);
 
         /* Postprocessing (normalization) kernels */
         priv->postproc_kernels[i] = NULL;
         if (postproc_codes[i]) {
             postproc_source = create_postprocessing_kernel (postproc_codes[i]);
             priv->postproc_kernels[i] = ufo_resources_get_kernel_from_source (resources, postproc_source, "calculate", NULL, error);
-            UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->postproc_kernels[i]));
+            UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->postproc_kernels[i]), error);
             g_free (postproc_source);
         }
 
@@ -178,7 +178,7 @@ ufo_measure_task_setup (UfoTask *task,
     }
 
     priv->context = ufo_resources_get_context (resources);
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
     g_free (axis);
 }
 

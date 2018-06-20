@@ -87,8 +87,8 @@ ufo_stat_monitor_task_setup (UfoTask *task,
 
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
-    UFO_RESOURCES_CHECK_CLERR (clGetCommandQueueInfo (cmd_queue, CL_QUEUE_DEVICE, sizeof (cl_device_id), &dev_cl, NULL));
-    UFO_RESOURCES_CHECK_CLERR (clGetCommandQueueInfo (cmd_queue, CL_QUEUE_CONTEXT, sizeof (cl_context), &context_cl, NULL));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clGetCommandQueueInfo (cmd_queue, CL_QUEUE_DEVICE, sizeof (cl_device_id), &dev_cl, NULL), error);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clGetCommandQueueInfo (cmd_queue, CL_QUEUE_CONTEXT, sizeof (cl_context), &context_cl, NULL), error);
 
     priv = UFO_STAT_MONITOR_TASK_GET_PRIVATE (task);
 
@@ -107,14 +107,14 @@ ufo_stat_monitor_task_setup (UfoTask *task,
     if (priv->kernel == NULL || priv->kernel_final == NULL)
         return;
 
-    UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
-    UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel_final));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel_final), error);
 
-    UFO_RESOURCES_CHECK_CLERR (clGetDeviceInfo (dev_cl, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &(priv->max_local_mem), NULL));
-    UFO_RESOURCES_CHECK_CLERR (clGetDeviceInfo (dev_cl, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &num_cu, NULL));
-    UFO_RESOURCES_CHECK_CLERR (clGetDeviceInfo (dev_cl, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &max_wgs, NULL));
-    UFO_RESOURCES_CHECK_CLERR (clGetDeviceInfo (dev_cl, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(max_wis), max_wis, NULL));
-    UFO_RESOURCES_CHECK_CLERR (clGetKernelWorkGroupInfo (priv->kernel, dev_cl, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &ker_pref_wgs, NULL));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clGetDeviceInfo (dev_cl, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &(priv->max_local_mem), NULL), error);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clGetDeviceInfo (dev_cl, CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(cl_uint), &num_cu, NULL), error);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clGetDeviceInfo (dev_cl, CL_DEVICE_MAX_WORK_GROUP_SIZE, sizeof(size_t), &max_wgs, NULL), error);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clGetDeviceInfo (dev_cl, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(max_wis), max_wis, NULL), error);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clGetKernelWorkGroupInfo (priv->kernel, dev_cl, CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE, sizeof(size_t), &ker_pref_wgs, NULL), error);
 
     /* 4 work-groups per comput unit. */
     priv->wg_num = num_cu << 2;
@@ -179,18 +179,18 @@ ufo_stat_monitor_task_setup (UfoTask *task,
     if ( priv->node_has_fp64 ) {
         /* min, max, mean, sd (one 4-tuple per work-group) */
         priv->stat_out_buff = clCreateBuffer (context_cl, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, priv->wg_num << 5, NULL, &err_code);
-        UFO_RESOURCES_CHECK_CLERR (err_code);
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (err_code, error);
         /* min, max, mean, sd (one 4-tuple once only) */
         priv->stat_out_red = clCreateBuffer (context_cl, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY, 1 << 5, NULL, &err_code);
-        UFO_RESOURCES_CHECK_CLERR (err_code);
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (err_code, error);
     }
     else {
         /* min, max, mean, sd (one 4-tuple per work-group) */
         priv->stat_out_buff = clCreateBuffer (context_cl, CL_MEM_READ_WRITE | CL_MEM_HOST_NO_ACCESS, priv->wg_num << 4, NULL, &err_code);
-        UFO_RESOURCES_CHECK_CLERR (err_code);
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (err_code, error);
         /* min, max, mean, sd (one 4-tuple once only) */
         priv->stat_out_red = clCreateBuffer (context_cl, CL_MEM_READ_WRITE | CL_MEM_HOST_READ_ONLY, 1 << 4, NULL, &err_code);
-        UFO_RESOURCES_CHECK_CLERR (err_code);
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (err_code, error);
     }
 }
 

@@ -93,11 +93,12 @@ ufo_rescale_task_setup (UfoTask *task,
                                      CL_ADDRESS_NONE,
                                      (cl_filter_mode) priv->interpolation,
                                      &err);
-    UFO_RESOURCES_CHECK_CLERR (err);
 
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (err, error);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
+
     if (priv->kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
 }
 
 static void

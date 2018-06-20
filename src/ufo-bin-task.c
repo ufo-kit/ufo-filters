@@ -66,12 +66,12 @@ ufo_bin_task_setup (UfoTask *task,
     priv->kernel_2d = ufo_resources_get_kernel (resources, "bin.cl", "binning_2d", NULL, error);
 
     if (priv->kernel_2d != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel_2d));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel_2d), error);
 
     priv->kernel_3d = ufo_resources_get_kernel (resources, "bin.cl", "binning_3d", NULL, error);
 
     if (priv->kernel_3d != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel_3d));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel_3d), error);
 }
 
 static void

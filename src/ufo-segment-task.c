@@ -109,16 +109,16 @@ ufo_segment_task_setup (UfoTask *task,
     priv->render = ufo_resources_get_kernel (resources, "segment.cl", "render", NULL, error);
     priv->threshold = ufo_resources_get_kernel (resources, "segment.cl", "threshold", NULL, error);
 
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
 
     if (priv->walk != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->walk));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->walk), error);
 
     if (priv->render != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->render));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->render), error);
 
     if (priv->threshold != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->threshold));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->threshold), error);
 }
 
 static void

@@ -70,9 +70,8 @@ make_kernel (UfoCalculateTaskPrivate *priv, UfoResources *resources, GError **er
         return;
     }
 
-    if (priv->kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
-    }
+    if (priv->kernel)
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clReleaseKernel (priv->kernel), error);
 
     if ((gsize) g_sprintf (source, template, expression) != strlen (source)) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
@@ -81,7 +80,7 @@ make_kernel (UfoCalculateTaskPrivate *priv, UfoResources *resources, GError **er
     }
 
     priv->kernel = ufo_resources_get_kernel_from_source(resources, source, "calculate", NULL, error);
-    UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
     g_free (source);
 }
 
@@ -101,7 +100,7 @@ ufo_calculate_task_setup (UfoTask *task,
     priv = UFO_CALCULATE_TASK_GET_PRIVATE (task);
 
     priv->context = ufo_resources_get_context (resources);
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
     make_kernel (priv, resources, error);
 }
 

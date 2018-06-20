@@ -119,7 +119,7 @@ ufo_ocl_1liner_task_setup (UfoTask *task,
   priv->kernel = ufo_resources_get_kernel_from_source (resources, kernel_src, "ocl_1liner", NULL, error);
   /* Done compiling sources into a kernel, if existing retain it */
   if (priv->kernel != NULL)
-    UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+    UFO_RESOURCES_CHECK_AND_SET (clRetainKernel (priv->kernel), error);
 
  exit:
   /* Releasing resources no longer used */

@@ -71,7 +71,7 @@ ufo_remove_outliers_task_setup (UfoTask *task,
     priv->kernel = ufo_resources_get_kernel (resources, "rm-outliers.cl", "filter", option, error);
 
     if (priv->kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
 }
 
 static void

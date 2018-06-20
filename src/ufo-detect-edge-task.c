@@ -93,11 +93,11 @@ ufo_detect_edge_task_setup (UfoTask *task,
     priv->kernel = ufo_resources_get_kernel (resources, "edge.cl", "filter", NULL, error);
 
     if (priv->mask_mem)
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->mask_mem));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clReleaseMemObject (priv->mask_mem), error);
 
     priv->mask_mem = clCreateBuffer (priv->context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                                      9 * sizeof (gfloat), FILTER_MASKS[priv->type], &err);
-    UFO_RESOURCES_CHECK_CLERR (err);
+    UFO_RESOURCES_CHECK_AND_SET (err, error);
 }
 
 static void

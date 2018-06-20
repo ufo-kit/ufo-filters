@@ -78,11 +78,11 @@ ufo_blur_task_setup (UfoTask *task,
     if (error && *error)
         return;
 
-    UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->h_kernel));
-    UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->v_kernel));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->h_kernel), error);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->v_kernel), error);
 
     priv->context = ufo_resources_get_context (resources);
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
 }
 
 static void

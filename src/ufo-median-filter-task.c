@@ -78,10 +78,10 @@ ufo_median_filter_task_setup (UfoTask *task,
             "fill", option, error);
 
     if (priv->inner_kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->inner_kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->inner_kernel), error);
 
     if (priv->fill_kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->fill_kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->fill_kernel), error);
 
     g_free (option);
 }

@@ -93,10 +93,10 @@ ufo_volume_render_task_setup (UfoTask *task,
     priv = UFO_VOLUME_RENDER_TASK_GET_PRIVATE (task);
 
     priv->context = ufo_resources_get_context (resources);
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
 
     priv->kernel = ufo_resources_get_kernel (resources, "volume.cl", "rayCastVolume", NULL, error);
-    UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
 
     priv->view_matrix = g_malloc0 (4 * 4 * sizeof(gfloat));
     priv->view_matrix[0] = 1.0f;
@@ -107,7 +107,7 @@ ufo_volume_render_task_setup (UfoTask *task,
     priv->view_mem = clCreateBuffer (priv->context,
                                      CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                                      4 * 4 * sizeof(gfloat), priv->view_matrix, &err);
-    UFO_RESOURCES_CHECK_CLERR (err);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (err, error);
 }
 
 static void

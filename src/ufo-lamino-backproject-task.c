@@ -215,14 +215,14 @@ ufo_lamino_backproject_task_setup (UfoTask *task,
     priv->scalar_kernel = ufo_resources_get_kernel (resources, kernel_filename, "backproject_burst_1", NULL, error);
     priv->sampler = clCreateSampler (priv->context, (cl_bool) FALSE, priv->addressing_mode, CL_FILTER_LINEAR, &cl_error);
 
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
-    UFO_RESOURCES_CHECK_CLERR (cl_error);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (cl_error, error);
 
     if (priv->vector_kernel)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->vector_kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->vector_kernel), error);
 
     if (priv->scalar_kernel)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->scalar_kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->scalar_kernel), error);
 
     for (i = 0; i < BURST; i++)
         priv->images[i] = NULL;

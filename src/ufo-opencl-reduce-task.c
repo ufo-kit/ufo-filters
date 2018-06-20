@@ -109,10 +109,11 @@ ufo_opencl_reduce_task_setup (UfoTask *task,
     if (priv->kernel != NULL) {
         cl_uint n_args;
 
-        UFO_RESOURCES_CHECK_CLERR (clGetKernelInfo (priv->kernel,
-                                   CL_KERNEL_NUM_ARGS,
-                                   sizeof (cl_uint),
-                                   &n_args, NULL));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clGetKernelInfo (priv->kernel,
+                                                             CL_KERNEL_NUM_ARGS,
+                                                             sizeof (cl_uint),
+                                                             &n_args, NULL),
+                                            error);
 
         if (n_args != 2) {
             g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
@@ -121,11 +122,11 @@ ufo_opencl_reduce_task_setup (UfoTask *task,
             return;
         }
 
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
     }
 
     if (priv->finish)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->finish));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->finish), error);
 
     priv->generated = FALSE;
     priv->counter = 0;

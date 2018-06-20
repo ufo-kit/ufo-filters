@@ -75,17 +75,17 @@ ufo_denoise_task_setup (UfoTask *task,
     priv->k_sort_and_set = ufo_resources_get_kernel (resources, "denoise.cl", "sort_and_set", NULL, error);
 
     if (priv->k_sort_and_set != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->k_sort_and_set));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->k_sort_and_set), error);
 
     priv->k_load_elements = ufo_resources_get_kernel (resources, "denoise.cl", "load_elements", NULL, error);
 
     if (priv->k_load_elements != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->k_load_elements));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->k_load_elements), error);
 
     priv->k_remove_background = ufo_resources_get_kernel (resources, "denoise.cl", "remove_background", NULL, error);
 
     if (priv->k_remove_background != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->k_remove_background));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->k_remove_background), error);
 }
 
 static void

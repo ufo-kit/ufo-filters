@@ -68,7 +68,7 @@ ufo_forwardproject_task_setup (UfoTask *task,
     priv->kernel = ufo_resources_get_kernel (resources, "forwardproject.cl", "forwardproject", NULL, error);
 
     if (priv->kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
 
     if (priv->angle_step == 0) 
         priv->angle_step = G_PI / priv->num_projections;

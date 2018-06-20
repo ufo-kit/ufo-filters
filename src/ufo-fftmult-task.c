@@ -61,7 +61,7 @@ ufo_fftmult_task_setup (UfoTask *task,
     priv->k_fftmult = ufo_resources_get_kernel (resources, "fftmult.cl", "mult", NULL, error);
 
     if (priv->k_fftmult != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->k_fftmult));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->k_fftmult), error);
 }
 
 static void

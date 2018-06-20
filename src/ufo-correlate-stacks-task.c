@@ -85,13 +85,13 @@ ufo_correlate_stacks_task_setup (UfoTask *task,
     priv->sum_kernel = ufo_resources_get_kernel (resources, "correlate.cl", "sum", error);
 
     if (priv->diff_kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->diff_kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->diff_kernel), error);
 
     if (priv->sum_kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->sum_kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->sum_kernel), error);
 
     priv->context = ufo_resources_get_context (resources);
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
 #endif
 
     priv->current = 0;

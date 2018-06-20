@@ -72,7 +72,7 @@ ufo_tile_task_setup (UfoTask *task,
     priv = UFO_TILE_TASK_GET_PRIVATE (task);
     priv->context = ufo_resources_get_context (resources);
 
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
 }
 
 static void
@@ -113,11 +113,10 @@ ufo_tile_task_get_requisition (UfoTask *task,
     }
 
     if (priv->temp == NULL) {
-        cl_int error;
+        cl_int err_code;
 
-        priv->temp = clCreateBuffer (priv->context, CL_MEM_READ_WRITE,
-                                     ufo_buffer_get_size (inputs[0]), NULL, &error);
-        UFO_RESOURCES_CHECK_CLERR (error);
+        priv->temp = clCreateBuffer (priv->context, CL_MEM_READ_WRITE, ufo_buffer_get_size (inputs[0]), NULL, &err_code);
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (err_code, error);
     }
 
     priv->num_horizontal = in_width / requisition->dims[0];

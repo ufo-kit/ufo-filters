@@ -161,13 +161,13 @@ ufo_backproject_task_setup (UfoTask *task,
     priv->nearest_kernel = ufo_resources_get_kernel (resources, "backproject.cl", "backproject_nearest", NULL, error);
     priv->texture_kernel = ufo_resources_get_kernel (resources, "backproject.cl", "backproject_tex", NULL, error);
 
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
 
     if (priv->nearest_kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->nearest_kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->nearest_kernel), error);
 
     if (priv->texture_kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->texture_kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->texture_kernel), error);
 }
 
 static cl_mem

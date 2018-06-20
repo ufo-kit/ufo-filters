@@ -66,7 +66,7 @@ ufo_subtract_task_setup (UfoTask *task,
     priv->kernel = ufo_resources_get_kernel (resources, "arithmetics.cl", "subtract", NULL, error);
 
     if (priv->kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+        UFO_RESOURCES_CHECK_AND_SET (clRetainKernel (priv->kernel), error);
 }
 
 static void

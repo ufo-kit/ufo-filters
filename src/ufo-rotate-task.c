@@ -133,11 +133,11 @@ ufo_rotate_task_setup (UfoTask *task,
     /* Normalized coordinates are necessary for repeat addressing mode */
     priv->sampler = clCreateSampler (priv->context, (cl_bool) TRUE, priv->addressing_mode, priv->interpolation, &cl_error);
 
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
-    UFO_RESOURCES_CHECK_CLERR (cl_error);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (cl_error, error);
 
     if (priv->kernel)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
 }
 
 static void

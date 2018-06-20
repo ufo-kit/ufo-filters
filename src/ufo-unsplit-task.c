@@ -55,7 +55,7 @@ ufo_unsplit_task_setup (UfoTask *task,
     priv->kernel = ufo_resources_get_kernel (resources, "split.cl", "unsplit", NULL, error);
 
     if (priv->kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+        UFO_RESOURCES_CHECK_AND_SET (clRetainKernel (priv->kernel), error);
 }
 
 static void

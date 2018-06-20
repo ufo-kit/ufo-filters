@@ -55,7 +55,7 @@ ufo_mask_task_setup (UfoTask *task,
     priv->kernel = ufo_resources_get_kernel (resources, "mask.cl", "circular", NULL, error);
 
     if (priv->kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
 }
 
 static void

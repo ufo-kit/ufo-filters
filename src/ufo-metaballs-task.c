@@ -88,7 +88,7 @@ ufo_metaballs_task_setup (UfoTask *task,
     priv->kernel = ufo_resources_get_kernel (resources, "metaballs.cl", "draw_metaballs", NULL, error);
 
     if (priv->kernel != NULL)
-        UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
 
     priv->current_iteration = 0;
     priv->balls = g_malloc0 (priv->num_balls * sizeof (Ball));
@@ -106,7 +106,7 @@ ufo_metaballs_task_setup (UfoTask *task,
 
     priv->balls_mem = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                                      priv->num_balls * sizeof (Ball), priv->balls, &err);
-    UFO_RESOURCES_CHECK_CLERR (err);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (err, error);
 }
 
 static void
