@@ -66,7 +66,7 @@ make_kernel (UfoCalculateTaskPrivate *priv, UfoResources *resources, GError **er
 
     if (source == NULL) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                     "Error allocating kernel string memory");
+                     "Could not allocate kernel string memory");
         return;
     }
 
@@ -75,7 +75,9 @@ make_kernel (UfoCalculateTaskPrivate *priv, UfoResources *resources, GError **er
     }
 
     if ((gsize) g_sprintf (source, template, expression) != strlen (source)) {
-        g_warning ("Error writing kernel source");
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                     "Could not write kernel soruce");
+        return;
     }
 
     priv->kernel = ufo_resources_get_kernel_from_source(resources, source, "calculate", NULL, error);
