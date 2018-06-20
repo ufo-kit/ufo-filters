@@ -67,7 +67,7 @@ ufo_hdf5_reader_open (UfoReader *reader,
     components = g_strsplit (filename, ":", 2);
 
     if (components[1] == NULL) {
-        g_warning ("hdf5: must specify dataset name after color");
+        g_warning ("hdf5: must specify dataset name after colon");
         return;
     }
 
