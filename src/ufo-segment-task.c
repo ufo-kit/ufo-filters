@@ -124,7 +124,8 @@ ufo_segment_task_setup (UfoTask *task,
 static void
 ufo_segment_task_get_requisition (UfoTask *task,
                                   UfoBuffer **inputs,
-                                  UfoRequisition *requisition)
+                                  UfoRequisition *requisition,
+                                  GError **error)
 {
     UfoRequisition label_req;
 
@@ -136,8 +137,10 @@ ufo_segment_task_get_requisition (UfoTask *task,
 
     if ((label_req.dims[0] != requisition->dims[0]) ||
         (label_req.dims[1] != requisition->dims[1])) {
-        g_warning ("Label field and input dimensions do not match ([%zu, %zu] != [%zu, %zu])",
-                   label_req.dims[0], label_req.dims[1], requisition->dims[0], requisition->dims[1]);
+
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                     "Label field and input dimensions do not match ([%zu, %zu] != [%zu, %zu])",
+                     label_req.dims[0], label_req.dims[1], requisition->dims[0], requisition->dims[1]);
     }
 }
 

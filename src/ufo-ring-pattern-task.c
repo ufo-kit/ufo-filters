@@ -72,8 +72,9 @@ ufo_ring_pattern_task_setup (UfoTask *task,
 
 static void
 ufo_ring_pattern_task_get_requisition (UfoTask *task,
-                                 UfoBuffer **inputs,
-                                 UfoRequisition *requisition)
+                                       UfoBuffer **inputs,
+                                       UfoRequisition *requisition,
+                                       GError **error)
 {
     UfoRingPatternTaskPrivate *priv = UFO_RING_PATTERN_TASK_GET_PRIVATE (task);
     requisition->dims[0] = priv->width;

@@ -64,7 +64,8 @@ ufo_stdin_task_setup (UfoTask *task,
 static void
 ufo_stdin_task_get_requisition (UfoTask *task,
                                 UfoBuffer **inputs,
-                                UfoRequisition *requisition)
+                                UfoRequisition *requisition,
+                                GError **error)
 {
     UfoStdinTaskPrivate *priv;
 

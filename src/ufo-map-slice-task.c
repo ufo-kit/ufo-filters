@@ -61,7 +61,8 @@ ufo_map_slice_task_setup (UfoTask *task,
 static void
 ufo_map_slice_task_get_requisition (UfoTask *task,
                                     UfoBuffer **inputs,
-                                    UfoRequisition *requisition)
+                                    UfoRequisition *requisition,
+                                    GError **error)
 {
     UfoMapSliceTaskPrivate *priv;
     UfoRequisition in_req;

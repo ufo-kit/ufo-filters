@@ -95,9 +95,9 @@ ufo_med_mad_reject_task_setup (UfoTask *task,
 static void
 ufo_med_mad_reject_task_get_requisition (UfoTask *task,
                                          UfoBuffer **inputs,
-                                         UfoRequisition *requisition)
+                                         UfoRequisition *requisition,
+                                         GError **error)
 {
-  //    requisition->n_dims = 0;
   // Transferring the buffer «size» (size, data type and dimension) to the output
   ufo_buffer_get_requisition(inputs[0], requisition);
 }

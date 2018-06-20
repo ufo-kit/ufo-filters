@@ -102,8 +102,9 @@ ufo_rescale_task_setup (UfoTask *task,
 
 static void
 ufo_rescale_task_get_requisition (UfoTask *task,
-                                     UfoBuffer **inputs,
-                                     UfoRequisition *requisition)
+                                  UfoBuffer **inputs,
+                                  UfoRequisition *requisition,
+                                  GError **error)
 {
     UfoRescaleTaskPrivate *priv;
     UfoRequisition in_req;
@@ -120,6 +121,7 @@ ufo_rescale_task_get_requisition (UfoTask *task,
     if (requisition->dims[0] == 0) {
         requisition->dims[0] = 1;
     }
+
     if (requisition->dims[1] == 0) {
         requisition->dims[1] = 1;
     }

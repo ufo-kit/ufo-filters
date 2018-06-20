@@ -143,7 +143,8 @@ ufo_rotate_task_setup (UfoTask *task,
 static void
 ufo_rotate_task_get_requisition (UfoTask *task,
                                  UfoBuffer **inputs,
-                                 UfoRequisition *requisition)
+                                 UfoRequisition *requisition,
+                                 GError **error)
 {
     UfoRotateTaskPrivate *priv;
     UfoRequisition in_req;

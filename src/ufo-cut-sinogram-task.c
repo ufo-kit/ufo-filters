@@ -68,8 +68,9 @@ ufo_cut_sinogram_task_setup (UfoTask *task,
 
 static void
 ufo_cut_sinogram_task_get_requisition (UfoTask *task,
-                                      UfoBuffer **inputs,
-                                      UfoRequisition *requisition)
+                                       UfoBuffer **inputs,
+                                       UfoRequisition *requisition,
+                                       GError **error)
 {
     UfoCutSinogramTaskPrivate *priv = UFO_CUT_SINOGRAM_TASK_GET_PRIVATE (task);
 

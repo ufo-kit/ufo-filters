@@ -77,7 +77,8 @@ ufo_bin_task_setup (UfoTask *task,
 static void
 ufo_bin_task_get_requisition (UfoTask *task,
                               UfoBuffer **inputs,
-                              UfoRequisition *requisition)
+                              UfoRequisition *requisition,
+                              GError **error)
 {
     UfoBinTaskPrivate *priv;
     UfoRequisition in_req;

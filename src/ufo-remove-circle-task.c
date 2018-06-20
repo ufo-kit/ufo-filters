@@ -60,7 +60,8 @@ ufo_remove_circle_task_setup (UfoTask *task,
 static void
 ufo_remove_circle_task_get_requisition (UfoTask *task,
                                         UfoBuffer **inputs,
-                                        UfoRequisition *requisition)
+                                        UfoRequisition *requisition,
+                                        GError **error)
 {
     /* At most we will have same sized buffer as input since we are only
      * removing circles  */

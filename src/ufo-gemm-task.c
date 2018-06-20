@@ -70,7 +70,8 @@ ufo_gemm_task_setup (UfoTask *task,
 static void
 ufo_gemm_task_get_requisition (UfoTask *task,
                                UfoBuffer **inputs,
-                               UfoRequisition *requisition)
+                               UfoRequisition *requisition,
+                               GError **error)
 {
     UfoGemmTaskPrivate *priv;
     UfoRequisition r_A;
@@ -85,15 +86,17 @@ ufo_gemm_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[2], &r_C);
 
     if (r_B.dims[0] != r_A.dims[1]) {
-        g_warning ("A = <%zu, %zu> not compatible with B = <%zu, %zu>",
-                   r_A.dims[0], r_A.dims[1], r_B.dims[0], r_B.dims[0]);
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                     "A = <%zu, %zu> not compatible with B = <%zu, %zu>",
+                     r_A.dims[0], r_A.dims[1], r_B.dims[0], r_B.dims[0]);
 
         priv->error = TRUE;
     }
 
     if ((r_C.dims[0] != r_A.dims[0]) || (r_C.dims[1] != r_B.dims[1])) {
-        g_warning ("C = <%zu, %zu> not compatible with A = <%zu, %zu> and B = <%zu, %zu>",
-                    r_C.dims[0], r_C.dims[1], r_A.dims[0], r_A.dims[1], r_B.dims[0], r_B.dims[1]);
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                     "C = <%zu, %zu> not compatible with A = <%zu, %zu> and B = <%zu, %zu>",
+                     r_C.dims[0], r_C.dims[1], r_A.dims[0], r_A.dims[1], r_B.dims[0], r_B.dims[1]);
 
         priv->error = TRUE;
     }

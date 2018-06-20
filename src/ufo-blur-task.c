@@ -87,8 +87,9 @@ ufo_blur_task_setup (UfoTask *task,
 
 static void
 ufo_blur_task_get_requisition (UfoTask *task,
-                                        UfoBuffer **inputs,
-                                        UfoRequisition *requisition)
+                               UfoBuffer **inputs,
+                               UfoRequisition *requisition,
+                               GError **error)
 {
     UfoBlurTaskPrivate *priv;
 

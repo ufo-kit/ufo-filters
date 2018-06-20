@@ -277,7 +277,8 @@ compute_faris_byer_coefficients (UfoFilterTaskPrivate *priv,
 static void
 ufo_filter_task_get_requisition (UfoTask *task,
                                  UfoBuffer **inputs,
-                                 UfoRequisition *requisition)
+                                 UfoRequisition *requisition,
+                                 GError **error)
 {
     UfoFilterTaskPrivate *priv;
 

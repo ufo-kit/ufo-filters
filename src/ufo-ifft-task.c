@@ -83,11 +83,18 @@ ufo_ifft_task_setup (UfoTask *task,
 static void
 ufo_ifft_task_get_requisition (UfoTask *task,
                                UfoBuffer **inputs,
-                               UfoRequisition *requisition)
+                               UfoRequisition *requisition,
+                               GError **error)
 {
     UfoIfftTaskPrivate *priv;
     UfoRequisition in_req;
     cl_command_queue queue;
+
+    if (ufo_buffer_get_layout (inputs[0]) != UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED) {
+        g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                             "ifft input must be complex");
+        return;
+    }
 
     priv = UFO_IFFT_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &in_req);

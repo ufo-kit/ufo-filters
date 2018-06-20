@@ -253,7 +253,8 @@ get_reader (UfoReadTaskPrivate *priv, const gchar *filename)
 static void
 ufo_read_task_get_requisition (UfoTask *task,
                                UfoBuffer **inputs,
-                               UfoRequisition *requisition)
+                               UfoRequisition *requisition,
+                               GError **error)
 {
     UfoReadTaskPrivate *priv;
     const gchar *filename;

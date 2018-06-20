@@ -138,12 +138,14 @@ ufo_retrieve_phase_task_setup (UfoTask *task,
 static void
 ufo_retrieve_phase_task_get_requisition (UfoTask *task,
                                          UfoBuffer **inputs,
-                                         UfoRequisition *requisition)
+                                         UfoRequisition *requisition,
+                                         GError **error)
 {
     ufo_buffer_get_requisition (inputs[0], requisition);
 
     if (!IS_POW_OF_2 (requisition->dims[0]) || !IS_POW_OF_2 (requisition->dims[1])) {
-        g_error("Please, perform zeropadding of your dataset along both directions (width, height) up to length of power of 2 (e.g. 256, 512, 1024, 2048, etc.)");
+        g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                             "Please, perform zeropadding of your dataset along both directions (width, height) up to length of power of 2 (e.g. 256, 512, 1024, 2048, etc.)");
     }
 }
 

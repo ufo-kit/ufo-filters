@@ -70,8 +70,8 @@ ufo_gradient_task_new (void)
 
 static void
 ufo_gradient_task_setup (UfoTask *task,
-                       UfoResources *resources,
-                       GError **error)
+                         UfoResources *resources,
+                         GError **error)
 {
     UfoGradientTaskPrivate *priv = UFO_GRADIENT_TASK_GET_PRIVATE (task);
     priv->kernel = ufo_resources_get_kernel (resources, "gradient.cl",
@@ -83,7 +83,8 @@ ufo_gradient_task_setup (UfoTask *task,
 static void
 ufo_gradient_task_get_requisition (UfoTask *task,
                                    UfoBuffer **inputs,
-                                   UfoRequisition *requisition)
+                                   UfoRequisition *requisition,
+                                   GError **error)
 {
     ufo_buffer_get_requisition (inputs[0], requisition);
 }

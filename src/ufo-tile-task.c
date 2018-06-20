@@ -78,7 +78,8 @@ ufo_tile_task_setup (UfoTask *task,
 static void
 ufo_tile_task_get_requisition (UfoTask *task,
                                UfoBuffer **inputs,
-                               UfoRequisition *requisition)
+                               UfoRequisition *requisition,
+                               GError **error)
 {
     UfoTileTaskPrivate *priv;
     gsize in_width;
@@ -91,18 +92,22 @@ ufo_tile_task_get_requisition (UfoTask *task,
 
     if (priv->width > 0) {
         if (priv->width > in_width)
-            g_error ("tile: width %u cannot be larger than %zu", priv->width, in_width);
+            g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                         "tile: width %u cannot be larger than %zu", priv->width, in_width);
         else if (in_width % priv->width)
-            g_error ("tile: input width %zu must be a multiple of width %u", in_width, priv->width);
+            g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                         "tile: input width %zu must be a multiple of width %u", in_width, priv->width);
         else
             requisition->dims[0] = priv->width;
     }
 
     if (priv->height > 0) {
         if (priv->height > in_height)
-            g_error ("tile: height %u cannot be larger than %zu", priv->height, in_height);
+            g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                         "tile: height %u cannot be larger than %zu", priv->height, in_height);
         else if (requisition->dims[1] % priv->height)
-            g_error ("tile: input height %zu must be a multiple of height %u", in_height, priv->height);
+            g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                         "tile: input height %zu must be a multiple of height %u", in_height, priv->height);
         else
             requisition->dims[1] = priv->height;
     }

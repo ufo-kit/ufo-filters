@@ -63,8 +63,9 @@ ufo_ringwriter_task_setup (UfoTask *task,
 
 static void
 ufo_ringwriter_task_get_requisition (UfoTask *task,
-                                 UfoBuffer **inputs,
-                                 UfoRequisition *requisition)
+                                     UfoBuffer **inputs,
+                                     UfoRequisition *requisition,
+                                     GError **error)
 {
     requisition->n_dims = 0;
 }
@@ -77,7 +78,7 @@ ufo_ringwriter_task_get_num_inputs (UfoTask *task)
 
 static guint
 ufo_ringwriter_task_get_num_dimensions (UfoTask *task,
-                                             guint input)
+                                        guint input)
 {
     return 1;
 }

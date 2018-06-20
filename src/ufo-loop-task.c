@@ -58,7 +58,8 @@ ufo_loop_task_setup (UfoTask *task,
 static void
 ufo_loop_task_get_requisition (UfoTask *task,
                                UfoBuffer **inputs,
-                               UfoRequisition *requisition)
+                               UfoRequisition *requisition,
+                               GError **error)
 {
     ufo_buffer_get_requisition (inputs[0], requisition);
 }

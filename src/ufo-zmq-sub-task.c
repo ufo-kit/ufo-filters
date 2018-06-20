@@ -170,7 +170,8 @@ request_data (UfoZmqSubTaskPrivate *priv)
 static void
 ufo_zmq_sub_task_get_requisition (UfoTask *task,
                                   UfoBuffer **inputs,
-                                  UfoRequisition *requisition)
+                                  UfoRequisition *requisition,
+                                  GError **error)
 {
     UfoZmqSubTaskPrivate *priv;
     zmq_msg_t htype_msg;
@@ -178,7 +179,6 @@ ufo_zmq_sub_task_get_requisition (UfoTask *task,
     JsonParser *parser;
     JsonObject *object;
     JsonArray *array;
-    GError *error = NULL;
 
     priv = UFO_ZMQ_SUB_TASK_GET_PRIVATE (task);
 
@@ -189,11 +189,8 @@ ufo_zmq_sub_task_get_requisition (UfoTask *task,
     zmq_msg_recv (&htype_msg, priv->socket, 0);
     header = zmq_msg_data (&htype_msg);
     parser = json_parser_new_immutable ();
-    json_parser_load_from_data (parser, header, zmq_msg_size (&htype_msg), &error);
 
-    if (error != NULL) {
-        g_error ("Error parsing JSON: %s", error->message);
-        g_error_free (error);
+    if (!json_parser_load_from_data (parser, header, zmq_msg_size (&htype_msg), error)) {
         g_object_unref (parser);
         return;
     }

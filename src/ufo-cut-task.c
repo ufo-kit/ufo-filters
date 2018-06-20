@@ -70,7 +70,8 @@ ufo_cut_task_setup (UfoTask *task,
 static void
 ufo_cut_task_get_requisition (UfoTask *task,
                               UfoBuffer **inputs,
-                              UfoRequisition *requisition)
+                              UfoRequisition *requisition,
+                              GError **error)
 {
     UfoCutTaskPrivate *priv;
     UfoRequisition in_req;
@@ -80,8 +81,9 @@ ufo_cut_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
     if (priv->width >= in_req.dims[0]) {
-        g_warning ("Width %u larger than input width %zu", priv->width, in_req.dims[0]);
-        width = 2;
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                     "Cut width %u larger than input width %zu", priv->width, in_req.dims[0]);
+        return;
     }
     else {
         width = in_req.dims[0] - priv->width;

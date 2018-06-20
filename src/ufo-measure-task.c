@@ -205,7 +205,8 @@ get_output_size (UfoMeasureTaskPrivate *priv,
 static void
 ufo_measure_task_get_requisition (UfoTask *task,
                                   UfoBuffer **inputs,
-                                  UfoRequisition *requisition)
+                                  UfoRequisition *requisition,
+                                  GError **error)
 {
     UfoMeasureTaskPrivate *priv;
     UfoRequisition in_req;

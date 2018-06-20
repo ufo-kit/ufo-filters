@@ -131,7 +131,8 @@ ufo_ocl_1liner_task_setup (UfoTask *task,
 static void
 ufo_ocl_1liner_task_get_requisition (UfoTask *task,
                                      UfoBuffer **inputs,
-                                     UfoRequisition *requisition)
+                                     UfoRequisition *requisition,
+                                     GError **error)
 {
   // In the current version of the kernel all the inputs are supposed to have the same dimensions
   // Or more precisely the output has the same dimension as first input (indexed 0) and one work-item

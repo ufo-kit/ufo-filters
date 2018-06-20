@@ -94,7 +94,8 @@ ufo_stitch_task_setup (UfoTask *task,
 static void
 ufo_stitch_task_get_requisition (UfoTask *task,
                                  UfoBuffer **inputs,
-                                 UfoRequisition *requisition)
+                                 UfoRequisition *requisition,
+                                 GError **error)
 {
     UfoStitchTaskPrivate *priv;
     UfoRequisition left_req, right_req;
@@ -103,8 +104,11 @@ ufo_stitch_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], &left_req);
     ufo_buffer_get_requisition (inputs[1], &right_req);
 
-    if (left_req.dims[1] != right_req.dims[1])
-        g_warning ("Both inputs must have the same height");
+    if (left_req.dims[1] != right_req.dims[1]) {
+        g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                             "Both stitch inputs must have the same height");
+        return;
+    }
 
     priv->overlap = (priv->shift >= 0) ? left_req.dims[0] - priv->shift : right_req.dims[0] + priv->shift;
     requisition->n_dims = 2;

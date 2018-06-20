@@ -211,7 +211,8 @@ release_lut_mems (UfoBackprojectTaskPrivate *priv)
 static void
 ufo_backproject_task_get_requisition (UfoTask *task,
                                       UfoBuffer **inputs,
-                                      UfoRequisition *requisition)
+                                      UfoRequisition *requisition,
+                                      GError **error)
 {
     UfoBackprojectTaskPrivate *priv;
     UfoRequisition in_req;
@@ -227,8 +228,11 @@ ufo_backproject_task_get_requisition (UfoTask *task,
     priv->burst_projections = (guint) in_req.dims[1];
 
     if (priv->burst_projections > priv->n_projections) {
-        g_error("Total number of projections (%u) must be greater than "
-                "or equal to sinogram height (%u)", priv->n_projections, priv->burst_projections);
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                     "Total number of projections (%u) must be greater than "
+                     "or equal to sinogram height (%u)",
+                     priv->n_projections, priv->burst_projections);
+        return;
     }
 
     requisition->n_dims = 2;

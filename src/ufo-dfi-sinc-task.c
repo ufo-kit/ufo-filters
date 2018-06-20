@@ -169,9 +169,9 @@ ufo_dfi_sinc_task_setup (UfoTask *task,
 static void
 ufo_dfi_sinc_task_get_requisition (UfoTask *task,
                                    UfoBuffer **inputs,
-                                   UfoRequisition *requisition)
+                                   UfoRequisition *requisition,
+                                   GError **error)
 {
-    //set output requsition
     UfoRequisition input_requisition;
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
 

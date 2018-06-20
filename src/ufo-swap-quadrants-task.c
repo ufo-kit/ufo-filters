@@ -67,7 +67,8 @@ ufo_swap_quadrants_task_setup (UfoTask *task,
 static void
 ufo_swap_quadrants_task_get_requisition (UfoTask *task,
                                          UfoBuffer **inputs,
-                                         UfoRequisition *requisition)
+                                         UfoRequisition *requisition,
+                                         GError **error)
 {
     UfoRequisition input_requisition;
     ufo_buffer_get_requisition (inputs[0], &input_requisition);
