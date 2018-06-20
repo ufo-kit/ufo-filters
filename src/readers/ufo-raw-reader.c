@@ -82,10 +82,11 @@ ufo_raw_reader_can_open (UfoReader *reader,
     return TRUE;
 }
 
-static void
+static gboolean
 ufo_raw_reader_open (UfoReader *reader,
                      const gchar *filename,
-                     guint start)
+                     guint start,
+                     GError **error)
 {
     UfoRawReaderPrivate *priv;
 
@@ -96,6 +97,7 @@ ufo_raw_reader_open (UfoReader *reader,
     priv->total_size = (gsize) ftell (priv->fp);
     priv->frame_size = priv->width * priv->height * priv->bytes_per_pixel;
     fseek (priv->fp, start * priv->frame_size, SEEK_SET);
+    return TRUE;
 }
 
 static void

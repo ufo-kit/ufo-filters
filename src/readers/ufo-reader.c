@@ -31,12 +31,13 @@ ufo_reader_can_open (UfoReader *reader,
     return UFO_READER_GET_IFACE (reader)->can_open (reader, filename);
 }
 
-void
+gboolean
 ufo_reader_open (UfoReader *reader,
                  const gchar *filename,
-                 guint start)
+                 guint start,
+                 GError **error)
 {
-    UFO_READER_GET_IFACE (reader)->open (reader, filename, start);
+    return UFO_READER_GET_IFACE (reader)->open (reader, filename, start, error);
 }
 
 void

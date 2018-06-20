@@ -264,7 +264,10 @@ ufo_read_task_get_requisition (UfoTask *task,
     if (priv->reader == NULL) {
         filename = (gchar *) priv->current_element->data;
         priv->reader = get_reader (priv, filename);
-        ufo_reader_open (priv->reader, filename, priv->start);
+
+        if (!ufo_reader_open (priv->reader, filename, priv->start, error))
+            return;
+
         priv->start = 0;
     }
 
@@ -311,7 +314,9 @@ ufo_read_task_get_requisition (UfoTask *task,
 
         filename = (gchar *) priv->current_element->data;
         priv->reader = get_reader (priv, filename);
-        ufo_reader_open (priv->reader, filename, 0);
+
+        if (!ufo_reader_open (priv->reader, filename, 0, error))
+            return;
     }
 
     ufo_reader_get_meta (priv->reader, requisition, &priv->depth);

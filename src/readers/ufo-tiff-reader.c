@@ -50,10 +50,11 @@ ufo_tiff_reader_can_open (UfoReader *reader,
     return g_str_has_suffix (filename, ".tiff") || g_str_has_suffix (filename, ".tif");
 }
 
-static void
+static gboolean
 ufo_tiff_reader_open (UfoReader *reader,
                       const gchar *filename,
-                      guint start)
+                      guint start,
+                      GError **error)
 {
     UfoTiffReaderPrivate *priv;
 
@@ -61,8 +62,16 @@ ufo_tiff_reader_open (UfoReader *reader,
     priv->tiff = TIFFOpen (filename, "r");
     priv->more = TRUE;
 
+    if (priv->tiff == NULL) {
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                     "Cannot open %s", filename);
+        return FALSE;
+    }
+
     for (guint i = 0; i < start; i++)
         priv->more = TIFFReadDirectory (priv->tiff) == 1;
+
+    return TRUE;
 }
 
 static void

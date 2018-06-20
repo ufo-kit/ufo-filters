@@ -54,10 +54,11 @@ ufo_edf_reader_can_open (UfoReader *reader,
     return g_str_has_suffix (filename, ".edf");
 }
 
-static void
+static gboolean
 ufo_edf_reader_open (UfoReader *reader,
                      const gchar *filename,
-                     guint start)
+                     guint start,
+                     GError **error)
 {
     UfoEdfReaderPrivate *priv;
 
@@ -67,6 +68,8 @@ ufo_edf_reader_open (UfoReader *reader,
     fseek (priv->fp, 0L, SEEK_END);
     priv->size = (gsize) ftell (priv->fp);
     fseek (priv->fp, 0L, SEEK_SET);
+
+    return TRUE;
 }
 
 static void

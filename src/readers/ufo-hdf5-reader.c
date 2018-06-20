@@ -53,10 +53,11 @@ ufo_hdf5_reader_can_open (UfoReader *reader,
     return ufo_hdf5_can_open (filename);
 }
 
-static void
+static gboolean
 ufo_hdf5_reader_open (UfoReader *reader,
                       const gchar *filename,
-                      guint start)
+                      guint start,
+                      GError **error)
 {
     UfoHdf5ReaderPrivate *priv;
     gchar *h5_filename;
@@ -67,8 +68,9 @@ ufo_hdf5_reader_open (UfoReader *reader,
     components = g_strsplit (filename, ":", 2);
 
     if (components[1] == NULL) {
-        g_warning ("hdf5: must specify dataset name after colon");
-        return;
+        g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                             "hdf5: must specify dataset name after colon");
+        return FALSE;
     }
 
     h5_filename = components[0];
@@ -79,13 +81,17 @@ ufo_hdf5_reader_open (UfoReader *reader,
     priv->src_dataspace_id = H5Dget_space (priv->dataset_id);
     priv->n_dims = H5Sget_simple_extent_ndims (priv->src_dataspace_id);
 
-    if (priv->n_dims > 3)
-        g_error ("read:hdf5: no support for four-dimensional data");
+    if (priv->n_dims > 3) {
+        g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                             "hdf5: no support for four-dimensional data");
+        return FALSE;
+    }
 
     H5Sget_simple_extent_dims (priv->src_dataspace_id, priv->dims, NULL);
 
     priv->current = start;
     g_strfreev (components);
+    return TRUE;
 }
 
 static void
