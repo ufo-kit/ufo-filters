@@ -71,10 +71,10 @@ ufo_median_filter_task_setup (UfoTask *task,
     priv = UFO_MEDIAN_FILTER_TASK_GET_PRIVATE (task);
     option = g_strdup_printf (" -DMEDIAN_BOX_SIZE=%i ", priv->size);
 
-    priv->inner_kernel = ufo_resources_get_kernel_with_opts (resources, "median.cl",
+    priv->inner_kernel = ufo_resources_get_kernel (resources, "median.cl",
             "filter_inner", option, error);
 
-    priv->fill_kernel = ufo_resources_get_kernel_with_opts (resources, "median.cl",
+    priv->fill_kernel = ufo_resources_get_kernel (resources, "median.cl",
             "fill", option, error);
 
     if (priv->inner_kernel != NULL)

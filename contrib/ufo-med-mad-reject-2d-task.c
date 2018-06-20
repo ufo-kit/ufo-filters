@@ -86,7 +86,7 @@ ufo_med_mad_reject_2d_task_setup (UfoTask *task,
 
   char kernel_opts[1024];
   snprintf(kernel_opts, 1023, "-DBOXSIZE=%u", priv->box_size);
-  priv->kernel = ufo_resources_get_kernel_with_opts (resources, "med-mad-reject-2d.cl", "med_mad_rej_2D", kernel_opts, error);
+  priv->kernel = ufo_resources_get_kernel (resources, "med-mad-reject-2d.cl", "med_mad_rej_2D", kernel_opts, error);
 
   if (priv->kernel != NULL)
     UFO_RESOURCES_CHECK_CLERR (clRetainKernel (priv->kernel));
