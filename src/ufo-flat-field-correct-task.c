@@ -61,8 +61,8 @@ ufo_flat_field_correct_task_new (void)
 
 static void
 ufo_flat_field_correct_task_setup (UfoTask *task,
-                                      UfoResources *resources,
-                                      GError **error)
+                                   UfoResources *resources,
+                                   GError **error)
 {
     UfoFlatFieldCorrectTaskPrivate *priv;
 
@@ -79,8 +79,13 @@ ufo_flat_field_correct_task_get_requisition (UfoTask *task,
                                              UfoRequisition *requisition,
                                              GError **error)
 {
-    /* TODO: check the size is the same for all three inputs */
     ufo_buffer_get_requisition (inputs[0], requisition);
+
+    if (ufo_buffer_cmp_dimensions (inputs[1], requisition) != 0 ||
+        ufo_buffer_cmp_dimensions (inputs[2], requisition) != 0) {
+        g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                             "flat-field-correct inputs must have the same size");
+    }
 }
 
 static guint

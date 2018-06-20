@@ -79,8 +79,12 @@ ufo_interpolate_task_get_requisition (UfoTask *task,
                                       UfoRequisition *requisition,
                                       GError **error)
 {
-    /* TODO: check for input compatibility */
     ufo_buffer_get_requisition (inputs[0], requisition);
+
+    if (ufo_buffer_cmp_dimensions (inputs[1], requisition) != 0) {
+        g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                             "interpolate inputs must have the same size");
+    }
 }
 
 static guint
