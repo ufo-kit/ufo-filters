@@ -52,12 +52,13 @@ ufo_reader_data_available (UfoReader *reader)
     return UFO_READER_GET_IFACE (reader)->data_available (reader);
 }
 
-void
+gboolean
 ufo_reader_get_meta (UfoReader *reader,
                      UfoRequisition *requisition,
-                     UfoBufferDepth *bitdepth)
+                     UfoBufferDepth *bitdepth,
+                     GError **error)
 {
-    UFO_READER_GET_IFACE (reader)->get_meta (reader, requisition, bitdepth);
+    return UFO_READER_GET_IFACE (reader)->get_meta (reader, requisition, bitdepth, error);
 }
 
 void

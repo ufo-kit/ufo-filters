@@ -146,10 +146,11 @@ ufo_hdf5_reader_read (UfoReader *reader,
     priv->current++;
 }
 
-static void
+static gboolean
 ufo_hdf5_reader_get_meta (UfoReader *reader,
                           UfoRequisition *requisition,
-                          UfoBufferDepth *bitdepth)
+                          UfoBufferDepth *bitdepth,
+                          GError **error)
 {
     UfoHdf5ReaderPrivate *priv;
 

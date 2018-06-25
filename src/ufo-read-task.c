@@ -319,7 +319,8 @@ ufo_read_task_get_requisition (UfoTask *task,
             return;
     }
 
-    ufo_reader_get_meta (priv->reader, requisition, &priv->depth);
+    if (!ufo_reader_get_meta (priv->reader, requisition, &priv->depth, error))
+        return;
 
     if (priv->depth > 32)
         /*

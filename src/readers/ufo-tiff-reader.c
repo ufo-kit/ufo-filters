@@ -194,10 +194,11 @@ ufo_tiff_reader_read (UfoReader *reader,
     priv->more = TIFFReadDirectory (priv->tiff) == 1;
 }
 
-static void
+static gboolean
 ufo_tiff_reader_get_meta (UfoReader *reader,
                           UfoRequisition *requisition,
-                          UfoBufferDepth *bitdepth)
+                          UfoBufferDepth *bitdepth,
+                          GError **error)
 {
     UfoTiffReaderPrivate *priv;
     guint32 width;
@@ -228,6 +229,8 @@ ufo_tiff_reader_get_meta (UfoReader *reader,
         default:
             *bitdepth = UFO_BUFFER_DEPTH_32F;
     }
+
+    return TRUE;
 }
 
 static void

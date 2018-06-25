@@ -189,10 +189,11 @@ ufo_edf_reader_get_depth (const gchar *value, UfoBufferDepth *depth, guint *byte
     *bytes = 1;
 }
 
-static void
+static gboolean
 ufo_edf_reader_get_meta (UfoReader *reader,
                          UfoRequisition *requisition,
-                         UfoBufferDepth *bitdepth)
+                         UfoBufferDepth *bitdepth,
+                         GError **error)
 {
     UfoEdfReaderPrivate *priv;
     gchar **tokens;
@@ -203,21 +204,26 @@ ufo_edf_reader_get_meta (UfoReader *reader,
     header = g_malloc (priv->size);
 
     if (fread (header, 1, priv->size, priv->fp) != (gsize) priv->size) {
+        g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                             "Could not read EDF header.");
         g_free (header);
         fclose (priv->fp);
         priv->fp = NULL;
-        return;
+        return FALSE;
     }
 
     header_trig_position = g_strstr_len (header, -1, "}");
     data_position = header_trig_position - header + 2;
+
     if (header_trig_position == NULL || data_position % 512) {
-        g_warning ("Edf header corrupted");
+        g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                             "Corrupt EDF header or not an EDF file.");
         g_free (header);
         fclose (priv->fp);
         priv->fp = NULL;
-        return;
+        return FALSE;
     }
+
     /* Go to the data position */
     fseek (priv->fp, data_position, SEEK_SET);
     /* Don't process binary data */
@@ -249,8 +255,7 @@ ufo_edf_reader_get_meta (UfoReader *reader,
         else if (!g_strcmp0 (key, "DataType")) {
             ufo_edf_reader_get_depth (value, bitdepth, &priv->bytes_per_sample);
         }
-        else if (!g_strcmp0 (key, "ByteOrder") &&
-                 !g_strcmp0 (value, "HighByteFirst")) {
+        else if (!g_strcmp0 (key, "ByteOrder") && !g_strcmp0 (value, "HighByteFirst")) {
             priv->big_endian = TRUE;
         }
         else if (!g_strcmp0 (key, "Size")) {
@@ -267,6 +272,7 @@ ufo_edf_reader_get_meta (UfoReader *reader,
 
     g_strfreev (tokens);
     g_free (header);
+    return TRUE;
 }
 
 static void

@@ -146,10 +146,11 @@ ufo_raw_reader_read (UfoReader *reader,
     fseek (priv->fp, priv->post_offset, SEEK_CUR);
 }
 
-static void
+static gboolean
 ufo_raw_reader_get_meta (UfoReader *reader,
                          UfoRequisition *requisition,
-                         UfoBufferDepth *bitdepth)
+                         UfoBufferDepth *bitdepth,
+                         GError **error)
 {
     UfoRawReaderPrivate *priv;
 
@@ -158,6 +159,7 @@ ufo_raw_reader_get_meta (UfoReader *reader,
     requisition->dims[0] = priv->width;
     requisition->dims[1] = priv->height;
     *bitdepth = priv->bitdepth;
+    return TRUE;
 }
 
 static void
