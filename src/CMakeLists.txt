@@ -15,6 +15,7 @@ set(ufofilter_SRCS
     ufo-cut-sinogram-task.c
     ufo-center-of-rotation-task.c
     ufo-concatenate-result-task.c
+    ufo-cone-beam-projection-weight-task.c
     ufo-contrast-task.c
     ufo-correlate-stacks-task.c
     ufo-dfi-sinc-task.c
@@ -37,6 +38,7 @@ set(ufofilter_SRCS
     ufo-forwardproject-task.c
     ufo-get-dup-circ-task.c
     ufo-gradient-task.c
+    ufo-general-backproject-task.c
     ufo-ifft-task.c
     ufo-interpolate-task.c
     ufo-interpolate-stream-task.c
@@ -113,6 +115,15 @@ set(retrieve_phase_aux_SRCS
 
 set(lamino_backproject_aux_SRCS
     lamino-roi.c)
+
+set(cone_beam_projection_weight_aux_SRCS
+    common/ufo-scarray.c)
+
+set(general_backproject_aux_SRCS
+    common/ufo-math.c
+    common/ufo-conebeam.c
+    common/ufo-scarray.c
+    common/ufo-ctgeometry.c)
 
 file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}

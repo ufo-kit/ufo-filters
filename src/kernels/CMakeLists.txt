@@ -7,6 +7,10 @@ set(Z_TEMPLATE ${CMAKE_CURRENT_SOURCE_DIR}/templates/z_template.in)
 set(LAMINO_TEMPLATE ${CMAKE_CURRENT_SOURCE_DIR}/templates/lamino_template.in)
 set(CENTER_TEMPLATE ${CMAKE_CURRENT_SOURCE_DIR}/templates/center_template.in)
 set(ROLL_TEMPLATE ${CMAKE_CURRENT_SOURCE_DIR}/templates/roll_template.in)
+set(GENERAL_BP_DEFINITIONS templates/general_bp_definitions.in)
+set(GENERAL_BP_HEADER_SCALAR templates/general_bp_header_scalar.in)
+set(GENERAL_BP_HEADER_VECTOR templates/general_bp_header_vector.in)
+set(GENERAL_BP_BODY templates/general_bp_body.in)
 set(GENERATOR ${CMAKE_CURRENT_SOURCE_DIR}/tools/make_burst_kernels.py)
 set(Z_KERNEL z_kernel.cl)
 set(LAMINO_KERNEL lamino_kernel.cl)
@@ -32,6 +36,10 @@ install(
           ${CMAKE_CURRENT_BINARY_DIR}/${CENTER_KERNEL}
           ${CMAKE_CURRENT_BINARY_DIR}/${LAMINO_KERNEL}
           ${CMAKE_CURRENT_BINARY_DIR}/${ROLL_KERNEL}
+          ${CMAKE_CURRENT_SOURCE_DIR}/${GENERAL_BP_DEFINITIONS}
+          ${CMAKE_CURRENT_SOURCE_DIR}/${GENERAL_BP_HEADER_SCALAR}
+          ${CMAKE_CURRENT_SOURCE_DIR}/${GENERAL_BP_HEADER_VECTOR}
+          ${CMAKE_CURRENT_SOURCE_DIR}/${GENERAL_BP_BODY}
     DESTINATION ${UFO_KERNELDIR}
 )
 
