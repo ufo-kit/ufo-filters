@@ -1,3 +1,46 @@
+Version 0.16.0
+==============
+
+Enhancements:
+
+- filter: Enable scaling in ramp_fromreal
+- opencl: add `options` property to set build opts
+- opencl: allow overriding PATCH_ and SEARCH_RADIUS
+- opencl: add `diff` kernel
+- nlm: use sigma if passed as an option
+- nlm: don't scale sigma arbitrarily
+- backproject: lift angle-step and -offset limits
+- read: support single plane RGB data
+- write: support RGB TIFFs and JPEGs
+- write: do not require fmt specifier for jpeg
+- bin: support 3D binning as well
+- fft: add debug message showing underlying FFT lib
+- Do transpose on GPU
+
+Fixes:
+
+- Fix #153: handle 64 bit TIFFs gracefully
+- Fix #159: add boolean `rescale` option
+- Fix #161: add test to prove things work
+- Fix #162: make use of new buffer layout API
+- Fix #163: return raw-height correctly
+- Fix #165: use current get_kernel API
+- Fix #166: propagate OpenCL errors if possible
+
+Breaks:
+
+- detect-edge: rename "type" to "filter"
+
+New filters:
+
+- Add cone beam reconstructor
+- Add tile task
+- Add unsplit task
+- Add map-color task
+- Add gradient filter
+- Add zmq-pub and zmq-sub tasks
+
+
 Version 0.15.1
 ==============
 
