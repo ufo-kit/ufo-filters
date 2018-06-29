@@ -160,6 +160,7 @@ ufo_hdf5_reader_get_meta (UfoReader *reader,
     requisition->dims[0] = priv->dims[2];
     requisition->dims[1] = priv->dims[1];
     *bitdepth = UFO_BUFFER_DEPTH_32F;
+    return TRUE;
 }
 
 static void
