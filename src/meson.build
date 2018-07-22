@@ -171,31 +171,36 @@ shared_module('conebeamprojectionweight',
 
 # fft plugins
 
-fft_deps = deps
+have_clfft = clfft_dep.found()
+with_oclfft = get_option('oclfft')
 
-if clfft_dep.found()
-    fft_deps += [clfft_dep]
-else
-    fft_deps += [oclfft_dep]
-endif
+if have_clfft or with_oclfft
+    fft_deps = deps
 
-common_fft = static_library('commonfft',
-    'common/ufo-fft.c',
-    dependencies: fft_deps,
-)
+    if clfft_dep.found()
+        fft_deps += [clfft_dep]
+    else
+        fft_deps += [oclfft_dep]
+    endif
 
-foreach plugin: fft_plugins
-    name = ''.join(plugin.split('-'))
-
-    shared_module(name,
-        'ufo-@0@-task.c'.format(plugin),
-        dependencies: deps,
-        name_prefix: 'libufofilter',
-        link_with: common_fft,
-        install: true,
-        install_dir: plugin_install_dir,
+    common_fft = static_library('commonfft',
+        'common/ufo-fft.c',
+        dependencies: fft_deps,
     )
-endforeach
+
+    foreach plugin: fft_plugins
+        name = ''.join(plugin.split('-'))
+
+        shared_module(name,
+            'ufo-@0@-task.c'.format(plugin),
+            dependencies: deps,
+            name_prefix: 'libufofilter',
+            link_with: common_fft,
+            install: true,
+            install_dir: plugin_install_dir,
+        )
+    endforeach
+endif
 
 # lamino plugin
 
