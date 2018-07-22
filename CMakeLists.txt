@@ -40,7 +40,7 @@ endif()
 include(GNUInstallDirs)
 include(PkgConfigVars)
 
-set(PKG_UFO_CORE_MIN_REQUIRED "0.12")
+set(PKG_UFO_CORE_MIN_REQUIRED "0.16")
 # Backprojection burst mode, must be one of 1, 2, 4, 8, 16
 set(BP_BURST "16" CACHE STRING "Number of projections processed in one pass")
 

@@ -27,7 +27,7 @@ if cc.get_id() == 'gcc'
 endif
 
 opencl_dep = declare_dependency(dependencies: cc.find_library('OpenCL'))
-ufo_dep = dependency('ufo', version: '>= 0.12')
+ufo_dep = dependency('ufo', version: '>= 0.16')
 
 plugin_install_dir = ufo_dep.get_pkgconfig_variable('plugindir')
 kernel_install_dir = ufo_dep.get_pkgconfig_variable('kerneldir')
