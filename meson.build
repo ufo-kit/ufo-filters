@@ -32,12 +32,17 @@ ufo_dep = dependency('ufo', version: '>= 0.16')
 plugin_install_dir = ufo_dep.get_pkgconfig_variable('plugindir')
 kernel_install_dir = ufo_dep.get_pkgconfig_variable('kerneldir')
 
+prefixdir = get_option('prefix')
+datadir = join_paths(prefixdir, get_option('datadir'))
+docdir = join_paths(datadir, 'doc', 'ufo-filters')
+
 deps = [
     ufo_dep,
     opencl_dep,
 ]
 
 subdir('deps')
+subdir('docs')
 subdir('src')
 subdir('tests')
 
