@@ -29,6 +29,10 @@ endif
 opencl_dep = declare_dependency(dependencies: cc.find_library('OpenCL'))
 ufo_dep = dependency('ufo', version: '>= 0.16')
 
+m_dep = declare_dependency(
+    dependencies: cc.find_library('m')
+)
+
 plugin_install_dir = ufo_dep.get_pkgconfig_variable('plugindir')
 kernel_install_dir = ufo_dep.get_pkgconfig_variable('kerneldir')
 
@@ -39,6 +43,7 @@ docdir = join_paths(datadir, 'doc', 'ufo-filters')
 deps = [
     ufo_dep,
     opencl_dep,
+    m_dep,
 ]
 
 subdir('deps')
