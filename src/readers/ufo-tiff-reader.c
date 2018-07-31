@@ -223,6 +223,9 @@ ufo_tiff_reader_get_meta (UfoReader *reader,
         case 8:
             *bitdepth = UFO_BUFFER_DEPTH_8U;
             break;
+        case 12:
+            *bitdepth = UFO_BUFFER_DEPTH_12U;
+            break;
         case 16:
             *bitdepth = UFO_BUFFER_DEPTH_16U;
             break;
