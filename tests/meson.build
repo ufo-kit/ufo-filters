@@ -6,7 +6,7 @@ tests = [
     'test-file-write-regression'
 ]
 
-tiffinfo = find_program('tiffinfo')
+tiffinfo = find_program('tiffinfo', required : false)
 
 if tiffinfo.found()
     tests += ['test-142']
