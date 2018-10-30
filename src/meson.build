@@ -47,6 +47,7 @@ plugins = [
     'merge',
     'metaballs',
     'monitor',
+    'non-local-means',
     'null',
     'opencl',
     'opencl-reduce',

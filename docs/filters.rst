@@ -178,7 +178,7 @@ Rotation
 
         Specifies interpolation when a computed pixel coordinate falls between
         pixels, can be `nearest` or `linear`.
-        
+
 
 Flipping
 --------
@@ -521,6 +521,26 @@ Gradient
 
          Direction of the gradient, can be either ``horizontal``, ``vertical``,
          ``both`` or ``both_abs``.
+
+
+Non-local-means denoising
+-------------------------
+
+.. gobj:class:: non-local-means
+
+    Reduce noise using Buades' non-local means algorithm.
+
+    .. gobj:prop:: search-radius:uint
+
+        Radius for similarity search.
+
+    .. gobj:prop:: patch-radius:uint
+
+        Radius of patches.
+
+    .. gobj:prop:: sigma:float
+
+        Sigma influencing the Gaussian weighting.
 
 
 Stream transformations

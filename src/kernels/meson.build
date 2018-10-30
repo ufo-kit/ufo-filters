@@ -24,6 +24,7 @@ kernel_files = [
     'mask.cl',
     'median.cl',
     'metaballs.cl',
+    'nlm.cl',
     'ordfilt.cl',
     'opencl.cl',
     'opencl-reduce.cl',
