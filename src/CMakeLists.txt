@@ -55,6 +55,7 @@ set(ufofilter_SRCS
     ufo-merge-task.c
     ufo-metaballs-task.c
     ufo-monitor-task.c
+    ufo-non-local-means-task.c
     ufo-null-task.c
     ufo-opencl-task.c
     ufo-opencl-reduce-task.c
