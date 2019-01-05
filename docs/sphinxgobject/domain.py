@@ -1,7 +1,8 @@
 from docutils import nodes
+from docutils.parsers.rst import Directive
 from sphinx import addnodes
 from sphinx.domains import Domain, ObjType
-from sphinx.directives import ObjectDescription, Directive
+from sphinx.directives import ObjectDescription
 from sphinx.locale import l_
 from sphinx.roles import XRefRole
 from sphinx.util.docfields import Field
