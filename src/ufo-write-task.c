@@ -51,16 +51,19 @@ struct _UfoWriteTaskPrivate {
     guint counter;
     guint counter_start;
     guint counter_step;
+    gulong bytes_per_file;
+    gulong num_written_bytes;
     gboolean append;
     gsize width;
     gsize height;
 
     UfoBufferDepth depth;
+    guint bits_per_sample;
     gfloat minimum;
     gfloat maximum;
     gboolean rescale;
 
-    gboolean multi_file;
+    guint num_fmt_specifiers;
     gboolean opened;
 
     cl_context context;
@@ -97,6 +100,7 @@ enum {
     PROP_FILENAME,
     PROP_COUNTER_START,
     PROP_COUNTER_STEP,
+    PROP_BYTES_PER_FILE,
     PROP_APPEND,
     PROP_BITS,
     PROP_MINIMUM,
@@ -119,7 +123,7 @@ ufo_write_task_new (void)
 static gchar *
 get_current_filename (UfoWriteTaskPrivate *priv)
 {
-    if (priv->multi_file)
+    if (!priv->num_fmt_specifiers)
         return g_strdup (priv->filename);
 
     return g_strdup_printf (priv->filename, priv->counter);
@@ -159,7 +163,6 @@ ufo_write_task_setup (UfoTask *task,
 {
     UfoWriteTaskPrivate *priv;
     gchar *dirname;
-    guint num_fmt_specifiers;
 
     priv = UFO_WRITE_TASK_GET_PRIVATE (task);
 
@@ -169,24 +172,23 @@ ufo_write_task_setup (UfoTask *task,
         return;
     }
 
-    num_fmt_specifiers = count_format_specifiers (priv->filename);
+    priv->num_fmt_specifiers = count_format_specifiers (priv->filename);
     dirname = g_path_get_dirname (priv->filename);
 
-    if (num_fmt_specifiers > 1) {
+    if (priv->num_fmt_specifiers > 1) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
                      "`%s' has too many format specifiers", dirname);
         return;
     }
 
-    priv->multi_file = num_fmt_specifiers == 0;
-
     /* Check that we can actually overwrite existing files */
-    if (priv->multi_file && !can_be_written (priv->filename, error))
+    if (!priv->num_fmt_specifiers && !can_be_written (priv->filename, error))
         return;
 
     if (!priv->append) {
         priv->counter = 0;
     }
+    priv->num_written_bytes = 0;
 
     if (ufo_writer_can_open (UFO_WRITER (priv->raw_writer), priv->filename)) {
         priv->writer = UFO_WRITER (priv->raw_writer);
@@ -235,7 +237,7 @@ ufo_write_task_setup (UfoTask *task,
 
     priv->counter = priv->counter_start;
 
-    if (priv->append && !priv->multi_file) {
+    if (priv->append && priv->num_fmt_specifiers) {
         gboolean exists = TRUE;
 
         while (exists) {
@@ -299,7 +301,7 @@ ufo_write_task_process (UfoTask *task,
     UfoRequisition in_req;
     guint8 *data;
     guint num_frames;
-    gsize offset;
+    gsize offset, out_size;
 
     priv = UFO_WRITE_TASK_GET_PRIVATE (UFO_WRITE_TASK (task));
     ufo_buffer_get_requisition (inputs[0], &in_req);
@@ -338,6 +340,7 @@ ufo_write_task_process (UfoTask *task,
     }
 
     offset = ufo_buffer_get_size (inputs[0]) / num_frames;
+    out_size = in_req.dims[0] * in_req.dims[1] * priv->bits_per_sample / 8;
 
     image.requisition = &in_req;
     image.depth = priv->depth;
@@ -347,7 +350,7 @@ ufo_write_task_process (UfoTask *task,
 
     for (guint i = 0; i < num_frames; i++) {
 retry:
-        if (!priv->multi_file || !priv->opened) {
+        if (!priv->opened) {
             GError *error = NULL;
             gchar *filename = get_current_filename (priv);
 
@@ -366,13 +369,14 @@ retry:
 
         image.data = data + i * offset;
         ufo_writer_write (priv->writer, &image);
+        priv->num_written_bytes += out_size;
 
-        if (!priv->multi_file) {
+        if (priv->num_fmt_specifiers && priv->num_written_bytes + out_size > priv->bytes_per_file) {
             ufo_writer_close (priv->writer);
             priv->opened = FALSE;
+            priv->num_written_bytes = 0;
+            priv->counter += priv->counter_step;
         }
-
-        priv->counter += priv->counter_step;
     }
 
     return TRUE;
@@ -397,6 +401,9 @@ ufo_write_task_set_property (GObject *object,
         case PROP_COUNTER_STEP:
             priv->counter_step = g_value_get_uint (value);
             break;
+        case PROP_BYTES_PER_FILE:
+            priv->bytes_per_file = g_value_get_ulong (value);
+            break;
         case PROP_APPEND:
             priv->append = g_value_get_boolean (value);
             break;
@@ -409,14 +416,20 @@ ufo_write_task_set_property (GObject *object,
                     return;
                 }
 
-                if (val == 8)
+                if (val == 8) {
                     priv->depth = UFO_BUFFER_DEPTH_8U;
+                    priv->bits_per_sample = 8;
+                }
 
-                if (val == 16)
+                if (val == 16) {
                     priv->depth = UFO_BUFFER_DEPTH_16U;
+                    priv->bits_per_sample = 16;
+                }
 
-                if (val == 32)
+                if (val == 32) {
                     priv->depth = UFO_BUFFER_DEPTH_32F;
+                    priv->bits_per_sample = 16;
+                }
             }
             break;
         case PROP_MAXIMUM:
@@ -457,6 +470,9 @@ ufo_write_task_get_property (GObject *object,
             break;
         case PROP_COUNTER_STEP:
             g_value_set_uint (value, priv->counter_step);
+            break;
+        case PROP_BYTES_PER_FILE:
+            g_value_set_ulong (value, priv->bytes_per_file);
             break;
         case PROP_APPEND:
             g_value_set_boolean (value, priv->append);
@@ -586,6 +602,13 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
             1, G_MAXUINT, 1,
             G_PARAM_READWRITE);
 
+    properties[PROP_BYTES_PER_FILE] =
+        g_param_spec_ulong ("bytes-per-file",
+            "Bytes per file for multi-page files",
+            "Bytes per file for multi-page files",
+            0, G_MAXULONG, 0,
+            G_PARAM_READWRITE);
+
     properties[PROP_APPEND] =
         g_param_spec_boolean ("append",
             "If true the data is appended, otherwise overwritten",
@@ -641,8 +664,11 @@ ufo_write_task_init(UfoWriteTask *self)
     self->priv->counter = 0;
     self->priv->counter_start = 0;
     self->priv->counter_step = 1;
+    self->priv->bytes_per_file = 0;
+    self->priv->num_written_bytes = 0;
+    self->priv->num_fmt_specifiers = 0;
     self->priv->append = FALSE;
-    self->priv->multi_file = FALSE;
+    self->priv->bits_per_sample = 32;
     self->priv->depth = UFO_BUFFER_DEPTH_32F;
     self->priv->minimum = G_MAXFLOAT;
     self->priv->maximum = -G_MAXFLOAT;
