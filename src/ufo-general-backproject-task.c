@@ -574,7 +574,7 @@ is_parameter_angular (UfoUniRecoParameter parameter)
 {
     return is_axis_parameter (parameter) ||
            is_volume_parameter (parameter) ||
-           is_detector_position_parameter (parameter);
+           is_detector_rotation_parameter (parameter);
 }
 /*}}}*/
 
