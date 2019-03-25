@@ -94,6 +94,7 @@ ufo_tiff_writer_write (UfoWriter *writer,
     TIFFSetField (priv->tiff, TIFFTAG_IMAGELENGTH, image->requisition->dims[1]);
     TIFFSetField (priv->tiff, TIFFTAG_SAMPLESPERPIXEL, is_rgb ? 3 : 1);
     TIFFSetField (priv->tiff, TIFFTAG_ROWSPERSTRIP, TIFFDefaultStripSize (priv->tiff, (guint32) - 1));
+    TIFFSetField (priv->tiff, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
 
     /*
      * I seriously don't know if this is supposed to be supported by the format,
