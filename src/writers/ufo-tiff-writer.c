@@ -27,6 +27,7 @@
 struct _UfoTiffWriterPrivate {
     TIFF *tiff;
     guint page;
+    gboolean bigtiff;
 };
 
 static void ufo_writer_interface_init (UfoWriterIface *iface);
@@ -36,6 +37,14 @@ G_DEFINE_TYPE_WITH_CODE (UfoTiffWriter, ufo_tiff_writer, G_TYPE_OBJECT,
                                                 ufo_writer_interface_init))
 
 #define UFO_TIFF_WRITER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_TIFF_WRITER, UfoTiffWriterPrivate))
+
+enum {
+    PROP_0,
+    PROP_BIGTIFF,
+    N_PROPERTIES
+};
+
+static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoTiffWriter *
 ufo_tiff_writer_new (void)
@@ -58,7 +67,7 @@ ufo_tiff_writer_open (UfoWriter *writer,
     UfoTiffWriterPrivate *priv;
     
     priv = UFO_TIFF_WRITER_GET_PRIVATE (writer);
-    priv->tiff = TIFFOpen (filename, "w");
+    priv->tiff = TIFFOpen (filename, priv->bigtiff ? "w8" : "w");
     priv->page = 0;
 }
 
@@ -134,6 +143,41 @@ ufo_tiff_writer_write (UfoWriter *writer,
 }
 
 static void
+ufo_tiff_writer_set_property (GObject *object,
+                              guint property_id,
+                              const GValue *value,
+                              GParamSpec *pspec)
+{
+    UfoTiffWriterPrivate *priv = UFO_TIFF_WRITER_GET_PRIVATE (object);
+
+    switch (property_id) {
+        case PROP_BIGTIFF:
+            priv->bigtiff = g_value_get_boolean (value);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+            break;
+    }
+}
+static void
+ufo_tiff_writer_get_property (GObject *object,
+                              guint property_id,
+                              GValue *value,
+                              GParamSpec *pspec)
+{
+    UfoTiffWriterPrivate *priv = UFO_TIFF_WRITER_GET_PRIVATE (object);
+
+    switch (property_id) {
+        case PROP_BIGTIFF:
+            g_value_set_boolean (value, priv->bigtiff);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+            break;
+    }
+}
+
+static void
 ufo_tiff_writer_finalize (GObject *object)
 {
     UfoTiffWriterPrivate *priv;
@@ -160,7 +204,19 @@ ufo_tiff_writer_class_init(UfoTiffWriterClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
+    gobject_class->set_property = ufo_tiff_writer_set_property;
+    gobject_class->get_property = ufo_tiff_writer_get_property;
     gobject_class->finalize = ufo_tiff_writer_finalize;
+
+    properties[PROP_BIGTIFF] =
+        g_param_spec_boolean("bigtiff",
+            "Write BigTiff format",
+            "Write BigTiff format",
+            FALSE,
+            G_PARAM_READWRITE);
+
+    for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
+        g_object_class_install_property (gobject_class, i, properties[i]);
 
     g_type_class_add_private (gobject_class, sizeof (UfoTiffWriterPrivate));
 }
@@ -172,4 +228,5 @@ ufo_tiff_writer_init (UfoTiffWriter *self)
 
     self->priv = priv = UFO_TIFF_WRITER_GET_PRIVATE (self);
     priv->tiff = NULL;
+    priv->bigtiff = FALSE;
 }

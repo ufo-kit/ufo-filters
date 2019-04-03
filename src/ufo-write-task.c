@@ -109,6 +109,9 @@ enum {
 #ifdef HAVE_JPEG
     PROP_JPEG_QUALITY,
 #endif
+#ifdef HAVE_TIFF
+    PROP_TIFF_BIGTIFF,
+#endif
     N_PROPERTIES
 };
 
@@ -447,6 +450,11 @@ ufo_write_task_set_property (GObject *object,
             ufo_jpeg_writer_set_quality (priv->jpeg_writer, priv->jpeg_quality);
             break;
 #endif
+#ifdef HAVE_TIFF
+        case PROP_TIFF_BIGTIFF:
+            g_object_set_property (G_OBJECT (priv->tiff_writer), "bigtiff", value);
+            break;
+#endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -496,6 +504,11 @@ ufo_write_task_get_property (GObject *object,
 #ifdef HAVE_JPEG
         case PROP_JPEG_QUALITY:
             g_value_set_uint (value, priv->jpeg_quality);
+            break;
+#endif
+#ifdef HAVE_TIFF
+        case PROP_TIFF_BIGTIFF:
+            g_object_get_property (G_OBJECT (priv->tiff_writer), "bigtiff", value);
             break;
 #endif
         default:
@@ -649,6 +662,15 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
             "JPEG quality",
             "JPEG quality between 0 and 100",
             0, 100, 95, G_PARAM_READWRITE);
+#endif
+
+#ifdef HAVE_TIFF
+    properties[PROP_TIFF_BIGTIFF] =
+        g_param_spec_boolean("tiff-bigtiff",
+            "Write BigTiff format",
+            "Write BigTiff format",
+            FALSE,
+            G_PARAM_READWRITE);
 #endif
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
