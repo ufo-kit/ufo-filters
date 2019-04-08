@@ -104,5 +104,9 @@ kernel void
 mult_by_value(global float *input, global float *values, global float *output)
 {
     int idx = get_global_id(1) * get_global_size(0) + get_global_id(0);
-    output[idx] = input[idx] * values[idx];
+    /* values[idx >> 1] because the filter is real (its width is *input* width / 2)
+     * and *input* is complex with real (idx) and imaginary part (idx + 1)
+     * interleaved. Thus, two consecutive *input* values are multiplied by the
+     * same filter value. */
+    output[idx] = input[idx] * values[idx >> 1];
 }

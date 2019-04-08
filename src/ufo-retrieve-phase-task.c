@@ -177,6 +177,7 @@ ufo_retrieve_phase_task_process (UfoTask *task,
     UfoRetrievePhaseTaskPrivate *priv;
     UfoGpuNode *node;
     UfoProfiler *profiler;
+    gsize global_work_size[3];
 
     cl_mem in_mem, out_mem, filter_mem;
     cl_kernel method_kernel;
@@ -200,7 +201,10 @@ ufo_retrieve_phase_task_process (UfoTask *task,
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 1, sizeof (gfloat), &priv->regularization_rate));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 2, sizeof (gfloat), &priv->binary_filter));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 3, sizeof (cl_mem), &filter_mem));
-        ufo_profiler_call (profiler, cmd_queue, method_kernel, requisition->n_dims, requisition->dims, NULL);
+        /* Filter is real, as opposed to the complex input, so the width is only half of the interleaved input */
+        global_work_size[0] = requisition->dims[0] / 2;
+        global_work_size[1] = requisition->dims[1];
+        ufo_profiler_call (profiler, cmd_queue, method_kernel, requisition->n_dims, global_work_size, NULL);
     }
     else {
         filter_mem = ufo_buffer_get_device_array (priv->filter_buffer, cmd_queue);
