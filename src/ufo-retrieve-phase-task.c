@@ -104,7 +104,7 @@ ufo_retrieve_phase_task_setup (UfoTask *task,
     priv->context = ufo_resources_get_context (resources);
 
     lambda = 6.62606896e-34 * 299792458 / (priv->energy * 1.60217733e-16);
-    priv->prefac = 2 * G_PI * lambda * priv->distance / (priv->pixel_size * priv->pixel_size);
+    priv->prefac = G_PI * lambda * priv->distance / (priv->pixel_size * priv->pixel_size);
 
     priv->kernels[METHOD_TIE] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "tie_method", NULL, error);
     priv->kernels[METHOD_CTF] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "ctf_method", NULL, error);

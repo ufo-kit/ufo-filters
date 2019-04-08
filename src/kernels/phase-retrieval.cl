@@ -25,17 +25,11 @@
     const int height = get_global_size(1);              \
     int idx = get_global_id(0);                         \
     int idy = get_global_id(1);                         \
-    if (idx >= width || idy >= height)                  \
-        return;                                         \
-    if (idx == 0 && idy == 0) {                         \
-        output[0] = 0.5f * pow(10, regularize_rate);    \
-        return;                                         \
-    }                                                   \
-    float n_idx = (idx >= floor((float) width / 2.0f)) ? idx - width : idx; \
-    float n_idy = (idy >= floor((float) height / 2.0f)) ? idy - height : idy; \
+    float n_idx = (idx >= width >> 1) ? idx - width : idx; \
+    float n_idy = (idy >= height >> 1) ? idy - height : idy; \
     n_idx = n_idx / width; \
     n_idy = n_idy / height; \
-    float sin_arg = prefac * (n_idy * n_idy + n_idx * n_idx) / 2.0f; \
+    float sin_arg = prefac * (n_idy * n_idy + n_idx * n_idx); \
 
 #define COMMON_SETUP    \
     COMMON_SETUP_TIE;   \
