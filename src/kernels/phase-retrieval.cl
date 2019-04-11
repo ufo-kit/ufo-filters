@@ -50,33 +50,11 @@ ctf_method(float prefac, float regularize_rate, float binary_filter_rate, global
 }
 
 kernel void
-ctfhalfsine_method(float prefac, float regularize_rate, float binary_filter_rate, global float *output)
-{
-    COMMON_SETUP;
-
-    if (sin_arg >= M_PI_F)
-        output[idy * width + idx] = 0.0f;
-    else
-        output[idy * width + idx] = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));
-}
-
-kernel void
 qp_method(float prefac, float regularize_rate, float binary_filter_rate, global float *output)
 {
     COMMON_SETUP;
 
     if (sin_arg > M_PI_2_F && fabs (sin_value) < binary_filter_rate)
-        output[idy * width + idx] = 0.0f;
-    else
-        output[idy * width + idx] = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));
-}
-
-kernel void
-qphalfsine_method(float prefac, float regularize_rate, float binary_filter_rate, global float *output)
-{
-    COMMON_SETUP;
-
-    if ((sin_arg > M_PI_2_F && fabs(sin_value) < binary_filter_rate) || sin_arg >= M_PI_F)
         output[idy * width + idx] = 0.0f;
     else
         output[idy * width + idx] = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));

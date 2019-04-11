@@ -30,9 +30,7 @@
 typedef enum {
     METHOD_TIE = 0,
     METHOD_CTF,
-    METHOD_CTFHALFSINE,
     METHOD_QP,
-    METHOD_QPHALFSINE,
     METHOD_QP2,
     N_METHODS
 } Method;
@@ -40,9 +38,7 @@ typedef enum {
 static GEnumValue method_values[] = {
     { METHOD_TIE,           "METHOD_TIE",           "tie" },
     { METHOD_CTF,           "METHOD_CTF",           "ctf" },
-    { METHOD_CTFHALFSINE,   "METHOD_CTFHALFSINE",   "ctfhalfsine" },
     { METHOD_QP,            "METHOD_QP",            "qp" },
-    { METHOD_QPHALFSINE,    "METHOD_QPHALFSINE",    "qphalfsine" },
     { METHOD_QP2,           "METHOD_QP2",           "qp2" },
     { 0, NULL, NULL}
 };
@@ -108,9 +104,7 @@ ufo_retrieve_phase_task_setup (UfoTask *task,
 
     priv->kernels[METHOD_TIE] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "tie_method", NULL, error);
     priv->kernels[METHOD_CTF] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "ctf_method", NULL, error);
-    priv->kernels[METHOD_CTFHALFSINE] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "ctfhalfsine_method", NULL, error);
     priv->kernels[METHOD_QP] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "qp_method", NULL, error);
-    priv->kernels[METHOD_QPHALFSINE] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "qphalfsine_method", NULL, error);
     priv->kernels[METHOD_QP2] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "qp2_method", NULL, error);
 
     priv->mult_by_value_kernel = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "mult_by_value", NULL, error);
