@@ -36,37 +36,43 @@
     float sin_value = sin(sin_arg);
 
 kernel void
-tie_method(float prefac, float regularize_rate, float binary_filter_rate, global float *output)
+tie_method(float prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP_TIE;
-    output[idy * width + idx] = 0.5f / (sin_arg + pow(10, -regularize_rate));
+    if (sin_arg >= frequency_cutoff)
+        output[idy * width + idx] = 0.0f;
+    else
+        output[idy * width + idx] = 0.5f / (sin_arg + pow(10, -regularize_rate));
 }
 
 kernel void
-ctf_method(float prefac, float regularize_rate, float binary_filter_rate, global float *output)
+ctf_method(float prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP;
-    output[idy * width + idx] = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));
-}
-
-kernel void
-qp_method(float prefac, float regularize_rate, float binary_filter_rate, global float *output)
-{
-    COMMON_SETUP;
-
-    if (sin_arg > M_PI_2_F && fabs (sin_value) < binary_filter_rate)
+    if (sin_arg >= frequency_cutoff)
         output[idy * width + idx] = 0.0f;
     else
         output[idy * width + idx] = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));
 }
 
 kernel void
-qp2_method(float prefac, float regularize_rate, float binary_filter_rate, global float *output)
+qp_method(float prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
+{
+    COMMON_SETUP;
+
+    if (sin_arg > M_PI_2_F && fabs (sin_value) < binary_filter_rate || sin_arg >= frequency_cutoff)
+        output[idy * width + idx] = 0.0f;
+    else
+        output[idy * width + idx] = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));
+}
+
+kernel void
+qp2_method(float prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP;
     float cacl_filter_value = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));
 
-    if (sin_arg > M_PI_2_F && fabs(sin_value) < binary_filter_rate)
+    if (sin_arg > M_PI_2_F && fabs(sin_value) < binary_filter_rate || sin_arg >= frequency_cutoff)
         output[idy * width + idx] = sign(cacl_filter_value) / (2 * (binary_filter_rate + pow(10, -regularize_rate)));
     else
         output[idy * width + idx] = cacl_filter_value;

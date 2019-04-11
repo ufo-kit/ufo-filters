@@ -50,6 +50,7 @@ struct _UfoRetrievePhaseTaskPrivate {
     gfloat pixel_size;
     gfloat regularization_rate;
     gfloat binary_filter;
+    gfloat frequency_cutoff;
     gboolean output_filter;
 
     gfloat prefac;
@@ -76,6 +77,7 @@ enum {
     PROP_PIXEL_SIZE,
     PROP_REGULARIZATION_RATE,
     PROP_BINARY_FILTER_THRESHOLDING,
+    PROP_FREQUENCY_CUTOFF,
     PROP_OUTPUT_FILTER,
     N_PROPERTIES
 };
@@ -200,7 +202,8 @@ ufo_retrieve_phase_task_process (UfoTask *task,
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 0, sizeof (gfloat), &priv->prefac));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 1, sizeof (gfloat), &priv->regularization_rate));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 2, sizeof (gfloat), &priv->binary_filter));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 3, sizeof (cl_mem), &filter_mem));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 3, sizeof (gfloat), &priv->frequency_cutoff));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 4, sizeof (cl_mem), &filter_mem));
         global_work_size[0] = requisition->dims[0];
         global_work_size[1] = requisition->dims[1];
         if (!priv->output_filter) {
@@ -255,6 +258,9 @@ ufo_retrieve_phase_task_get_property (GObject *object,
         case PROP_BINARY_FILTER_THRESHOLDING:
             g_value_set_float (value, priv->binary_filter);
             break;
+        case PROP_FREQUENCY_CUTOFF:
+            g_value_set_float (value, priv->frequency_cutoff);
+            break;
         case PROP_OUTPUT_FILTER:
             g_value_set_boolean (value, priv->output_filter);
             break;
@@ -290,6 +296,9 @@ ufo_retrieve_phase_task_set_property (GObject *object,
             break;
         case PROP_BINARY_FILTER_THRESHOLDING:
             priv->binary_filter = g_value_get_float (value);
+            break;
+        case PROP_FREQUENCY_CUTOFF:
+            priv->frequency_cutoff = g_value_get_float (value);
             break;
         case PROP_OUTPUT_FILTER:
             priv->output_filter = g_value_get_boolean (value);
@@ -397,6 +406,13 @@ ufo_retrieve_phase_task_class_init (UfoRetrievePhaseTaskClass *klass)
             0, G_MAXFLOAT, 0.1,
             G_PARAM_READWRITE);
 
+    properties[PROP_FREQUENCY_CUTOFF] =
+        g_param_spec_float ("frequency-cutoff",
+            "Cut-off frequency in radians",
+            "Cut-off frequency in radians",
+            0, G_MAXFLOAT, G_MAXFLOAT,
+            G_PARAM_READWRITE);
+
     properties[PROP_OUTPUT_FILTER] =
         g_param_spec_boolean ("output-filter",
             "Output the frequency filter, not the result of the filtering",
@@ -421,6 +437,7 @@ ufo_retrieve_phase_task_init(UfoRetrievePhaseTask *self)
     priv->pixel_size = 0.75e-6f;
     priv->regularization_rate = 2.5f;
     priv->binary_filter = 0.1f;
+    priv->frequency_cutoff = G_MAXFLOAT;
     priv->kernels = (cl_kernel *) g_malloc0(N_METHODS * sizeof(cl_kernel));
     priv->filter_buffer = NULL;
     priv->output_filter = FALSE;
