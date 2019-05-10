@@ -1093,8 +1093,7 @@ Phase retrieval
 
     .. gobj:prop:: method:enum
 
-        Retrieval method which is one of ``tie``, ``ctf``, ``ctfhalfsine``,
-        ``qp``, ``qphalfsine`` or ``qp2``.
+        Retrieval method which is one of ``tie``, ``ctf``, ``qp`` or ``qp2``.
 
     .. gobj:prop:: energy:float
 
@@ -1102,17 +1101,18 @@ Phase retrieval
 
     .. gobj:prop:: distance:float
 
-        Distance in meter.
+        Distance in meters.
 
     .. gobj:prop:: pixel-size:float
 
-        Pixel size in meter.
+        Pixel size in meters.
 
     .. gobj:prop:: regularization-rate:float
 
         Regularization parameter is log10 of the constant to be added to the
         denominator to regularize the singularity at zero frequency: 1/sin(x) ->
-        1/(sin(x)+10^-RegPar).
+        1/(sin(x)+10^-RegPar). It is also log10(delta / beta) where the complex
+        refractive index is delta + beta * 1j.
 
         Typical values [2, 3].
 
@@ -1124,6 +1124,14 @@ Phase retrieval
 
         Typical values in [0.01, 0.1], ``qp`` retrieval is rather independent of
         cropping width.
+
+    .. gobj:prop:: frequency-cutoff:float
+
+        Cutoff frequency after which the filter is set to 0 in radians.
+
+    .. gobj:prop:: output-filter:boolean
+
+        Output filter values instead of the filtered frequencies.
 
 
 General matrix-matrix multiplication

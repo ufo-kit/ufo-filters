@@ -25,76 +25,54 @@
     const int height = get_global_size(1);              \
     int idx = get_global_id(0);                         \
     int idy = get_global_id(1);                         \
-    if (idx >= width || idy >= height)                  \
-        return;                                         \
-    if (idx == 0 && idy == 0) {                         \
-        output[0] = 0.5f * pow(10, regularize_rate);    \
-        return;                                         \
-    }                                                   \
-    float n_idx = (idx >= floor((float) width / 2.0f)) ? idx - width : idx; \
-    float n_idy = (idy >= floor((float) height / 2.0f)) ? idy - height : idy; \
+    float n_idx = (idx >= width >> 1) ? idx - width : idx; \
+    float n_idy = (idy >= height >> 1) ? idy - height : idy; \
     n_idx = n_idx / width; \
     n_idy = n_idy / height; \
-    float sin_arg = prefac * (n_idy * n_idy + n_idx * n_idx) / 2.0f; \
+    float sin_arg = prefac * (n_idy * n_idy + n_idx * n_idx); \
 
 #define COMMON_SETUP    \
     COMMON_SETUP_TIE;   \
     float sin_value = sin(sin_arg);
 
 kernel void
-tie_method(float prefac, float regularize_rate, float binary_filter_rate, global float *output)
+tie_method(float prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP_TIE;
-    output[idy * width + idx] = 0.5f / (sin_arg + pow(10, -regularize_rate));
+    if (sin_arg >= frequency_cutoff)
+        output[idy * width + idx] = 0.0f;
+    else
+        output[idy * width + idx] = 0.5f / (sin_arg + pow(10, -regularize_rate));
 }
 
 kernel void
-ctf_method(float prefac, float regularize_rate, float binary_filter_rate, global float *output)
+ctf_method(float prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP;
-    output[idy * width + idx] = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));
-}
-
-kernel void
-ctfhalfsine_method(float prefac, float regularize_rate, float binary_filter_rate, global float *output)
-{
-    COMMON_SETUP;
-
-    if (sin_arg >= M_PI_F)
+    if (sin_arg >= frequency_cutoff)
         output[idy * width + idx] = 0.0f;
     else
         output[idy * width + idx] = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));
 }
 
 kernel void
-qp_method(float prefac, float regularize_rate, float binary_filter_rate, global float *output)
+qp_method(float prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP;
 
-    if (sin_arg > M_PI_2_F && fabs (sin_value) < binary_filter_rate)
+    if (sin_arg > M_PI_2_F && fabs (sin_value) < binary_filter_rate || sin_arg >= frequency_cutoff)
         output[idy * width + idx] = 0.0f;
     else
         output[idy * width + idx] = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));
 }
 
 kernel void
-qphalfsine_method(float prefac, float regularize_rate, float binary_filter_rate, global float *output)
-{
-    COMMON_SETUP;
-
-    if ((sin_arg > M_PI_2_F && fabs(sin_value) < binary_filter_rate) || sin_arg >= M_PI_F)
-        output[idy * width + idx] = 0.0f;
-    else
-        output[idy * width + idx] = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));
-}
-
-kernel void
-qp2_method(float prefac, float regularize_rate, float binary_filter_rate, global float *output)
+qp2_method(float prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP;
     float cacl_filter_value = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));
 
-    if (sin_arg > M_PI_2_F && fabs(sin_value) < binary_filter_rate)
+    if (sin_arg > M_PI_2_F && fabs(sin_value) < binary_filter_rate || sin_arg >= frequency_cutoff)
         output[idy * width + idx] = sign(cacl_filter_value) / (2 * (binary_filter_rate + pow(10, -regularize_rate)));
     else
         output[idy * width + idx] = cacl_filter_value;
@@ -104,5 +82,9 @@ kernel void
 mult_by_value(global float *input, global float *values, global float *output)
 {
     int idx = get_global_id(1) * get_global_size(0) + get_global_id(0);
-    output[idx] = input[idx] * values[idx];
+    /* values[idx >> 1] because the filter is real (its width is *input* width / 2)
+     * and *input* is complex with real (idx) and imaginary part (idx + 1)
+     * interleaved. Thus, two consecutive *input* values are multiplied by the
+     * same filter value. */
+    output[idx] = input[idx] * values[idx >> 1];
 }

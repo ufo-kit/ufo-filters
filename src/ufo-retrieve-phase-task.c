@@ -30,9 +30,7 @@
 typedef enum {
     METHOD_TIE = 0,
     METHOD_CTF,
-    METHOD_CTFHALFSINE,
     METHOD_QP,
-    METHOD_QPHALFSINE,
     METHOD_QP2,
     N_METHODS
 } Method;
@@ -40,9 +38,7 @@ typedef enum {
 static GEnumValue method_values[] = {
     { METHOD_TIE,           "METHOD_TIE",           "tie" },
     { METHOD_CTF,           "METHOD_CTF",           "ctf" },
-    { METHOD_CTFHALFSINE,   "METHOD_CTFHALFSINE",   "ctfhalfsine" },
     { METHOD_QP,            "METHOD_QP",            "qp" },
-    { METHOD_QPHALFSINE,    "METHOD_QPHALFSINE",    "qphalfsine" },
     { METHOD_QP2,           "METHOD_QP2",           "qp2" },
     { 0, NULL, NULL}
 };
@@ -54,6 +50,8 @@ struct _UfoRetrievePhaseTaskPrivate {
     gfloat pixel_size;
     gfloat regularization_rate;
     gfloat binary_filter;
+    gfloat frequency_cutoff;
+    gboolean output_filter;
 
     gfloat prefac;
     cl_kernel *kernels;
@@ -79,6 +77,8 @@ enum {
     PROP_PIXEL_SIZE,
     PROP_REGULARIZATION_RATE,
     PROP_BINARY_FILTER_THRESHOLDING,
+    PROP_FREQUENCY_CUTOFF,
+    PROP_OUTPUT_FILTER,
     N_PROPERTIES
 };
 
@@ -102,13 +102,11 @@ ufo_retrieve_phase_task_setup (UfoTask *task,
     priv->context = ufo_resources_get_context (resources);
 
     lambda = 6.62606896e-34 * 299792458 / (priv->energy * 1.60217733e-16);
-    priv->prefac = 2 * G_PI * lambda * priv->distance / (priv->pixel_size * priv->pixel_size);
+    priv->prefac = G_PI * lambda * priv->distance / (priv->pixel_size * priv->pixel_size);
 
     priv->kernels[METHOD_TIE] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "tie_method", NULL, error);
     priv->kernels[METHOD_CTF] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "ctf_method", NULL, error);
-    priv->kernels[METHOD_CTFHALFSINE] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "ctfhalfsine_method", NULL, error);
     priv->kernels[METHOD_QP] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "qp_method", NULL, error);
-    priv->kernels[METHOD_QPHALFSINE] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "qphalfsine_method", NULL, error);
     priv->kernels[METHOD_QP2] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "qp2_method", NULL, error);
 
     priv->mult_by_value_kernel = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "mult_by_value", NULL, error);
@@ -141,7 +139,13 @@ ufo_retrieve_phase_task_get_requisition (UfoTask *task,
                                          UfoRequisition *requisition,
                                          GError **error)
 {
+    UfoRetrievePhaseTaskPrivate *priv;
+
+    priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], requisition);
+    if (priv->output_filter) {
+        requisition->dims[0] >>= 1;
+    }
 
     if (!IS_POW_OF_2 (requisition->dims[0]) || !IS_POW_OF_2 (requisition->dims[1])) {
         g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
@@ -177,6 +181,7 @@ ufo_retrieve_phase_task_process (UfoTask *task,
     UfoRetrievePhaseTaskPrivate *priv;
     UfoGpuNode *node;
     UfoProfiler *profiler;
+    gsize global_work_size[3];
 
     cl_mem in_mem, out_mem, filter_mem;
     cl_kernel method_kernel;
@@ -186,8 +191,6 @@ ufo_retrieve_phase_task_process (UfoTask *task,
 
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
-    out_mem = ufo_buffer_get_device_array (output, cmd_queue);
-    in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
 
     if (ufo_buffer_cmp_dimensions (priv->filter_buffer, requisition) != 0) {
@@ -199,17 +202,31 @@ ufo_retrieve_phase_task_process (UfoTask *task,
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 0, sizeof (gfloat), &priv->prefac));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 1, sizeof (gfloat), &priv->regularization_rate));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 2, sizeof (gfloat), &priv->binary_filter));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 3, sizeof (cl_mem), &filter_mem));
-        ufo_profiler_call (profiler, cmd_queue, method_kernel, requisition->n_dims, requisition->dims, NULL);
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 3, sizeof (gfloat), &priv->frequency_cutoff));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 4, sizeof (cl_mem), &filter_mem));
+        global_work_size[0] = requisition->dims[0];
+        global_work_size[1] = requisition->dims[1];
+        if (!priv->output_filter) {
+            /* Filter is real as opposed to the complex input, so the width is only half of the interleaved input */
+            global_work_size[0] >>= 1;
+        }
+        ufo_profiler_call (profiler, cmd_queue, method_kernel, requisition->n_dims, global_work_size, NULL);
     }
     else {
         filter_mem = ufo_buffer_get_device_array (priv->filter_buffer, cmd_queue);
     }
 
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 0, sizeof (cl_mem), &in_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 1, sizeof (cl_mem), &filter_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 2, sizeof (cl_mem), &out_mem));
-    ufo_profiler_call (profiler, cmd_queue, priv->mult_by_value_kernel, requisition->n_dims, requisition->dims, NULL);
+    if (priv->output_filter) {
+        ufo_buffer_copy (priv->filter_buffer, output);
+    }
+    else {
+        out_mem = ufo_buffer_get_device_array (output, cmd_queue);
+        in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 0, sizeof (cl_mem), &in_mem));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 1, sizeof (cl_mem), &filter_mem));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 2, sizeof (cl_mem), &out_mem));
+        ufo_profiler_call (profiler, cmd_queue, priv->mult_by_value_kernel, requisition->n_dims, requisition->dims, NULL);
+    }
     
     return TRUE;
 }
@@ -240,6 +257,12 @@ ufo_retrieve_phase_task_get_property (GObject *object,
             break;
         case PROP_BINARY_FILTER_THRESHOLDING:
             g_value_set_float (value, priv->binary_filter);
+            break;
+        case PROP_FREQUENCY_CUTOFF:
+            g_value_set_float (value, priv->frequency_cutoff);
+            break;
+        case PROP_OUTPUT_FILTER:
+            g_value_set_boolean (value, priv->output_filter);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -273,6 +296,12 @@ ufo_retrieve_phase_task_set_property (GObject *object,
             break;
         case PROP_BINARY_FILTER_THRESHOLDING:
             priv->binary_filter = g_value_get_float (value);
+            break;
+        case PROP_FREQUENCY_CUTOFF:
+            priv->frequency_cutoff = g_value_get_float (value);
+            break;
+        case PROP_OUTPUT_FILTER:
+            priv->output_filter = g_value_get_boolean (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -377,6 +406,20 @@ ufo_retrieve_phase_task_class_init (UfoRetrievePhaseTaskClass *klass)
             0, G_MAXFLOAT, 0.1,
             G_PARAM_READWRITE);
 
+    properties[PROP_FREQUENCY_CUTOFF] =
+        g_param_spec_float ("frequency-cutoff",
+            "Cut-off frequency in radians",
+            "Cut-off frequency in radians",
+            0, G_MAXFLOAT, G_MAXFLOAT,
+            G_PARAM_READWRITE);
+
+    properties[PROP_OUTPUT_FILTER] =
+        g_param_spec_boolean ("output-filter",
+            "Output the frequency filter, not the result of the filtering",
+            "Output the frequency filter, not the result of the filtering",
+            FALSE,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -394,6 +437,8 @@ ufo_retrieve_phase_task_init(UfoRetrievePhaseTask *self)
     priv->pixel_size = 0.75e-6f;
     priv->regularization_rate = 2.5f;
     priv->binary_filter = 0.1f;
+    priv->frequency_cutoff = G_MAXFLOAT;
     priv->kernels = (cl_kernel *) g_malloc0(N_METHODS * sizeof(cl_kernel));
     priv->filter_buffer = NULL;
+    priv->output_filter = FALSE;
 }
