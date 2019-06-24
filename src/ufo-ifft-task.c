@@ -182,10 +182,10 @@ ufo_ifft_task_process (UfoTask *task,
                                                 0, NULL, NULL));
 
     /* Scale and reshape if necessary */
-    scale = 1.0f / ((gfloat) requisition->dims[0]);
+    scale = 1.0f / ((gfloat) priv->param.size[0]);
 
     if (priv->param.dimensions == UFO_FFT_2D) {
-        scale /= (gfloat) requisition->dims[1];
+        scale /= (gfloat) priv->param.size[1];
     }
 
     width = (cl_int) requisition->dims[0];
