@@ -28,6 +28,7 @@
 
 
 struct _UfoFilterStripesTaskPrivate {
+    gfloat sigma;
     cl_kernel kernel;
 };
 
@@ -41,8 +42,11 @@ G_DEFINE_TYPE_WITH_CODE (UfoFilterStripesTask, ufo_filter_stripes_task, UFO_TYPE
 
 enum {
     PROP_0,
+    PROP_SIGMA,
     N_PROPERTIES
 };
+
+static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
 ufo_filter_stripes_task_new (void)
@@ -71,9 +75,11 @@ ufo_filter_stripes_task_process (UfoTask *task,
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_float), &priv->sigma));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
+    g_message ("%lu %lu %g", requisition->dims[0], requisition->dims[1], priv->sigma);
 
     return TRUE;
 }
@@ -149,12 +155,62 @@ ufo_task_interface_init (UfoTaskIface *iface)
 }
 
 static void
+ufo_filter_stripes_task_set_property (GObject *object,
+                                      guint property_id,
+                                      const GValue *value,
+                                      GParamSpec *pspec)
+{
+    UfoFilterStripesTaskPrivate *priv = UFO_FILTER_STRIPES_TASK_GET_PRIVATE (object);
+
+    switch (property_id) {
+        case PROP_SIGMA:
+            priv->sigma = g_value_get_float (value);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+            break;
+    }
+}
+
+static void
+ufo_filter_stripes_task_get_property (GObject *object,
+                                      guint property_id,
+                                      GValue *value,
+                                      GParamSpec *pspec)
+{
+    UfoFilterStripesTaskPrivate *priv = UFO_FILTER_STRIPES_TASK_GET_PRIVATE (object);
+
+    switch (property_id) {
+        case PROP_SIGMA:
+            g_value_set_float (value, priv->sigma);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
+            break;
+    }
+}
+
+static void
 ufo_filter_stripes_task_class_init (UfoFilterStripesTaskClass *klass)
 {
     GObjectClass *oclass;
 
     oclass = G_OBJECT_CLASS (klass);
+
     oclass->finalize = ufo_filter_stripes_task_finalize;
+    oclass->set_property = ufo_filter_stripes_task_set_property;
+    oclass->get_property = ufo_filter_stripes_task_get_property;
+
+    properties[PROP_SIGMA] =
+        g_param_spec_float ("sigma",
+            "Sigma of the gaussian window",
+            "Sigma of the gaussian window",
+            0.0, G_MAXFLOAT, 1e-7,
+            G_PARAM_READWRITE);
+
+    for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
+        g_object_class_install_property (oclass, i, properties[i]);
+
     g_type_class_add_private(klass, sizeof(UfoFilterStripesTaskPrivate));
 }
 
@@ -164,4 +220,5 @@ ufo_filter_stripes_task_init (UfoFilterStripesTask *self)
     UfoFilterStripesTaskPrivate *priv;
     self->priv = priv = UFO_FILTER_STRIPES_TASK_GET_PRIVATE (self);
     priv->kernel = NULL;
+    priv->sigma = 1e-7;
 }
