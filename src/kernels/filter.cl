@@ -38,7 +38,7 @@ stripe_filter (global float *input,
     const int height = get_global_size(1);
     const int index = idy * get_global_size(0) + idx;
 
-    if (((idy < 1) || (idy >= height - 1)) && (idx > 0) && (idx < width - 1))
+    if (idy == 0 && idx > 1)
         output[index] = 0.0f;
     else
         output[index] = input[index];
