@@ -801,6 +801,26 @@ Frequency filtering
         Theta parameter of Faris-Byer filter.
 
 
+Stripe filtering
+----------------
+
+.. gobj:class:: filter-stripes
+
+    Filter vertical stripes. The input and output are in 2D frequency domain.
+    The filter multiplies horizontal frequencies (for frequency ky=0) with a
+    Gaussian profile centered at 0 frequency.
+
+    Example usage::
+
+        $ ufo-launch read path=sino.tif ! fft dimensions=2 ! filter-stripes sigma=1 ! ifft dimensions=2 ! write filename=sino-filtered.tif
+
+    .. gobj:prop:: sigma:float
+
+        Filter strength, which is the sigma of the gaussian. Small values, e.g.
+        1e-7 cause only the zero frequency to remain in the signal, i.e.
+        stronger filtering.
+
+
 1D stripe filtering
 -------------------
 
