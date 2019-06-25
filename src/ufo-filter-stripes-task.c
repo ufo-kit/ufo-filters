@@ -79,7 +79,6 @@ ufo_filter_stripes_task_process (UfoTask *task,
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
-    g_message ("%lu %lu %g", requisition->dims[0], requisition->dims[1], priv->sigma);
 
     return TRUE;
 }
