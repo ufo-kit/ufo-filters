@@ -49,3 +49,60 @@ interpolate_horizontally (global float *a,
     output[idy * width + idx + offset] = (1.0f - alpha) * a[idy * left_width + idx + offset] +
                                          alpha * weight * b[idy * right_width + idx];
 }
+
+kernel void
+interpolate_mask_horizontally (global float *input,
+                               global float *mask,
+                               global float *output)
+{
+   const int idx = get_global_id (0);
+   const int idy = get_global_id (1);
+   const int width = get_global_size (0);
+   const int offset = idy * width;
+   int left = idx, right = idx;
+   float span, diff;
+
+   if (mask[offset + idx]) {
+        while (left > -1 && mask[offset + left] > 0) {
+            left--;
+        }
+        while (right < width && mask[offset + right] > 0) {
+            right++;
+        }
+
+        if (left < 0) {
+            /* Mask spans to the left border, use only the right value */
+            if (right < width - 1) {
+                /* There are two valid pixels on the right, use gradient */
+                diff = input[offset + right] - input[offset + right + 1];
+                output[offset + idx] = input[offset + right] + diff * (right - idx);
+            } else if (right == width - 1) {
+                /* There is only one valid pixel on the right, which is the only
+                 * valid pixel in this row, so use it's value everywhere */
+                output[offset + idx] = input[offset + right];
+            } else {
+                /* All pixels in this row are invalid, just copy the input */
+                output[offset + idx] = input[offset + idx];
+            }
+        } else if (right >= width) {
+            /* Mask spans to the right border, use only the left value */
+            if (left > 0) {
+                /* There are two valid pixels on the left, use gradient */
+                diff = input[offset + left] - input[offset + left - 1];
+                output[offset + idx] = input[offset + left] + diff * (idx - left);
+            } else if (left == 0) {
+                /* There is only one valid pixel on the left, which is the only
+                 * valid pixel in this row, so use it's value everywhere */
+                output[offset + idx] = input[offset + left];
+            }
+        } else {
+            /* There are valid pixels on both sides, use standard linear
+             * interpolation */
+            span = (float) (right - left);
+            output[offset + idx] = (right - idx) / span * input[offset + left] +
+                                   (idx - left) / span * input[offset + right];
+        }
+   } else {
+       output[offset + idx] = input[offset + idx];
+   }
+}

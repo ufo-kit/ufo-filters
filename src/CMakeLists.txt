@@ -39,6 +39,7 @@ set(ufofilter_SRCS
     ufo-get-dup-circ-task.c
     ufo-gradient-task.c
     ufo-general-backproject-task.c
+    ufo-horizontal-interpolate-task.c
     ufo-ifft-task.c
     ufo-interpolate-task.c
     ufo-interpolate-stream-task.c
