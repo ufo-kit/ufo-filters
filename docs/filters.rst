@@ -542,6 +542,11 @@ Non-local-means denoising
 
         Sigma influencing the Gaussian weighting.
 
+    .. gobj:prop:: addressing-mode:enum
+
+        Addressing mode specifies the behavior for pixels falling outside the
+        original image. See OpenCL ``sampler_t`` documentation for more information.
+
 
 Horizontal interpolation
 ------------------------
