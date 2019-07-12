@@ -59,8 +59,8 @@ nlm_noise_reduction (read_only image2d_t input,
     float total_weight = 0.0f;
     float pixel_value = 0.0f;
 
-    for (int i = x - search_radius; i < x + search_radius; i++) {
-        for (int j = y - search_radius; j < y + search_radius; j++) {
+    for (int i = x - search_radius; i < x + search_radius + 1; i++) {
+        for (int j = y - search_radius; j < y + search_radius + 1; j++) {
             d = dist (input, sampler, (float2) (x + 0.5f, y + 0.5f), (float2) (i + 0.5f, j + 0.5f),
                       patch_radius, width, height);
             weight = exp (- sigma_2 * d);
