@@ -258,14 +258,14 @@ ufo_non_local_means_task_class_init (UfoNonLocalMeansTaskClass *klass)
         g_param_spec_uint ("search-radius",
             "Search radius in pixels",
             "Search radius in pixels",
-            10, 8192, 10,
+            1, 8192, 10,
             G_PARAM_READWRITE);
 
     properties[PROP_PATCH_RADIUS] =
         g_param_spec_uint ("patch-radius",
             "Search radius in pixels",
             "Search radius in pixels",
-            3, 27, 3,
+            1, 100, 3,
             G_PARAM_READWRITE);
 
     properties[PROP_SIGMA] =
