@@ -163,16 +163,7 @@ ufo_non_local_means_task_set_property (GObject *object,
             priv->search_radius = g_value_get_uint (value);
             break;
         case PROP_PATCH_RADIUS:
-            {
-                guint v = g_value_get_uint (value);
-
-                if (!(v % 2)) {
-                    g_printerr ("Patch radius must be odd, increasing by one\n");
-                    v++;
-                }
-
-                priv->patch_radius = v;
-            }
+            priv->patch_radius = g_value_get_uint (value);
             break;
         case PROP_SIGMA:
             priv->sigma = g_value_get_float (value);
