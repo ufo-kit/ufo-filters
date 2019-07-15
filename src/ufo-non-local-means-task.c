@@ -22,6 +22,7 @@
 #else
 #include <CL/cl.h>
 #endif
+#include <math.h>
 
 #include "ufo-non-local-means-task.h"
 #include "common/ufo-addressing.h"
@@ -32,9 +33,11 @@ struct _UfoNonLocalMeansTaskPrivate {
     guint patch_radius;
     gfloat h;
     gfloat sigma;
+    gboolean use_window;
     cl_kernel kernel;
     cl_sampler sampler;
     cl_context context;
+    cl_mem window_mem;
     AddressingMode addressing_mode;
 };
 
@@ -52,11 +55,66 @@ enum {
     PROP_PATCH_RADIUS,
     PROP_H,
     PROP_SIGMA,
+    PROP_WINDOW,
     PROP_ADDRESSING_MODE,
     N_PROPERTIES
 };
 
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
+
+/**
+ * release_coefficients:
+ * @priv: UfoNonLocalMeansTaskPrivate
+ *
+ * Release Gaussian window coefficients memory object.
+ */
+static void
+release_coefficients (UfoNonLocalMeansTaskPrivate *priv)
+{
+    if (priv->window_mem) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->window_mem));
+        priv->window_mem = NULL;
+    }
+}
+
+/**
+ * create_coefficients:
+ * @priv: UfoNonLocalMeansTaskPrivate
+ *
+ * Compute Gaussian window coefficients.
+ */
+static void
+create_coefficients (UfoNonLocalMeansTaskPrivate *priv)
+{
+    cl_int err;
+    gfloat *coefficients, coefficients_sum = 0.0f, sigma;
+    gsize wsize;
+    gint r;
+
+    wsize = 2 * priv->patch_radius + 1;
+    r = (gint) priv->patch_radius;
+    coefficients = g_malloc0 (sizeof (gfloat) * wsize * wsize);
+    sigma = priv->patch_radius / 2.0f;
+
+    for (gint y = 0; y < (gint) wsize; y++) {
+        for (gint x = 0; x < (gint) wsize; x++) {
+            coefficients[y * wsize + x] = exp (- ((x - r) * (x - r) + (y - r) * (y - r)) / (sigma * sigma * 2.0f));
+            coefficients_sum += coefficients[y * wsize + x];
+        }
+    }
+    for (guint i = 0; i < wsize * wsize; i++) {
+        coefficients[i] /= coefficients_sum;
+    }
+
+    release_coefficients (priv);
+    priv->window_mem = clCreateBuffer (priv->context,
+                                       CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                       sizeof (cl_float) * wsize * wsize,
+                                       coefficients,
+                                       &err);
+    UFO_RESOURCES_CHECK_CLERR (err);
+    g_free (coefficients);
+}
 
 UfoNode *
 ufo_non_local_means_task_new (void)
@@ -74,6 +132,7 @@ ufo_non_local_means_task_setup (UfoTask *task,
 
     priv = UFO_NON_LOCAL_MEANS_TASK_GET_PRIVATE (task);
     priv->kernel = ufo_resources_get_kernel (resources, "nlm.cl", "nlm_noise_reduction", NULL, error);
+    priv->window_mem = NULL;
 
     if (priv->kernel)
         UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
@@ -95,7 +154,11 @@ ufo_non_local_means_task_get_requisition (UfoTask *task,
                                           UfoRequisition *requisition,
                                           GError **error)
 {
+    UfoNonLocalMeansTaskPrivate *priv = UFO_NON_LOCAL_MEANS_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], requisition);
+    if (priv->use_window && !priv->window_mem) {
+        create_coefficients (priv);
+    }
 }
 
 static guint
@@ -146,6 +209,7 @@ ufo_non_local_means_task_process (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (guint), &priv->patch_radius));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 5, sizeof (gfloat), &h));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 6, sizeof (gfloat), &var));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 7, sizeof (cl_mem), &priv->window_mem));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
@@ -174,6 +238,9 @@ ufo_non_local_means_task_set_property (GObject *object,
             break;
         case PROP_SIGMA:
             priv->sigma = g_value_get_float (value);
+            break;
+        case PROP_WINDOW:
+            priv->use_window = g_value_get_boolean (value);
             break;
         case PROP_ADDRESSING_MODE:
             priv->addressing_mode = g_value_get_enum (value);
@@ -205,6 +272,9 @@ ufo_non_local_means_task_get_property (GObject *object,
         case PROP_SIGMA:
             g_value_set_float (value, priv->sigma);
             break;
+        case PROP_WINDOW:
+            g_value_set_boolean (value, priv->use_window);
+            break;
         case PROP_ADDRESSING_MODE:
             g_value_set_enum (value, priv->addressing_mode);
             break;
@@ -233,6 +303,7 @@ ufo_non_local_means_task_finalize (GObject *object)
         UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
         priv->context = NULL;
     }
+    release_coefficients (priv);
 
     G_OBJECT_CLASS (ufo_non_local_means_task_parent_class)->finalize (object);
 }
@@ -285,6 +356,13 @@ ufo_non_local_means_task_class_init (UfoNonLocalMeansTaskClass *klass)
             0.0f, G_MAXFLOAT, 0.0f,
             G_PARAM_READWRITE);
 
+    properties[PROP_WINDOW] =
+        g_param_spec_boolean ("window",
+            "Use Gaussian window by computing patch weights",
+            "Use Gaussian window by computing patch weights",
+            TRUE,
+            G_PARAM_READWRITE);
+
     properties[PROP_ADDRESSING_MODE] =
         g_param_spec_enum ("addressing-mode",
             "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
@@ -308,5 +386,6 @@ ufo_non_local_means_task_init(UfoNonLocalMeansTask *self)
     self->priv->patch_radius = 3;
     self->priv->h = 0.1f;
     self->priv->sigma = 0.0f;
+    self->priv->use_window = TRUE;
     self->priv->addressing_mode = CL_ADDRESS_MIRRORED_REPEAT;
 }

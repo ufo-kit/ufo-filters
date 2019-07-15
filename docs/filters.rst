@@ -548,6 +548,13 @@ Non-local-means denoising
 
         Noise standard deviation, improves weights computation.
 
+    .. gobj:prop:: window:boolean
+
+        Apply Gaussian profile with :math:`\sigma = \frac{P}{2}`, where :math:`P`
+        is the gobj:prop:`patch-radius` parameter to the weight computation
+        which decreases the influence of pixels towards the corners of the
+        patches.
+
     .. gobj:prop:: addressing-mode:enum
 
         Addressing mode specifies the behavior for pixels falling outside the

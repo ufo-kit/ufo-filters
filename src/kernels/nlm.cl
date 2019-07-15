@@ -25,21 +25,35 @@ dist (read_only image2d_t input,
       int radius,
       int width,
       int height,
-      float variance)
+      float h_2,
+      float variance,
+      constant float *window_coeffs)
 {
     float dist = 0.0f, tmp;
-    float wsize = (2.0f * radius + 1.0f);
-    wsize *= wsize;
+    int wsize = (2 * radius + 1);
+    float coeff = h_2;
+
+    if (!window_coeffs) {
+        /* Gaussian window is normalized to sum=1, so if it is used, we are done
+         * with just summation. If it is not, we need to compute the mean. */
+        coeff /= wsize * wsize;
+    }
 
     for (int i = -radius; i < radius + 1; i++) {
         for (int j = -radius; j < radius + 1; j++) {
             tmp = read_imagef (input, sampler, (float2) ((p.x + i) / width, (p.y + j) / height)).x -
                     read_imagef (input, sampler, (float2) ((q.x + i) / width, (q.y + j) / height)).x;
-            dist += fmax (0.0f, tmp * tmp - 2 * variance);
+            if (window_coeffs) {
+                /* Use gaussian window.
+                 * Cutoff negative numbers which would cause large weights. */
+                dist += fmax (0.0f, window_coeffs[(j + radius) * wsize + (i + radius)] * (tmp * tmp - 2 * variance));
+            } else {
+                dist += fmax (0.0f, tmp * tmp - 2 * variance);
+            }
         }
     }
 
-    return dist / wsize;
+    return dist * coeff;
 }
 
 kernel void
@@ -49,7 +63,8 @@ nlm_noise_reduction (read_only image2d_t input,
                      const int search_radius,
                      const int patch_radius,
                      const float h_2,
-                     const float variance)
+                     const float variance,
+                     constant float *window_coeffs)
 {
     const int x = get_global_id (0);
     const int y = get_global_id (1);
@@ -63,8 +78,8 @@ nlm_noise_reduction (read_only image2d_t input,
     for (int i = x - search_radius; i < x + search_radius + 1; i++) {
         for (int j = y - search_radius; j < y + search_radius + 1; j++) {
             d = dist (input, sampler, (float2) (x + 0.5f, y + 0.5f), (float2) (i + 0.5f, j + 0.5f),
-                      patch_radius, width, height, variance);
-            weight = exp (- h_2 * d);
+                      patch_radius, width, height, h_2, variance, window_coeffs);
+            weight = exp (-d);
             pixel_value += weight * read_imagef (input, sampler, (float2) ((i + 0.5f) / width, (j + 0.5f) / height)).x;
             total_weight += weight;
         }
