@@ -30,6 +30,7 @@
 struct _UfoNonLocalMeansTaskPrivate {
     guint search_radius;
     guint patch_radius;
+    gfloat h;
     gfloat sigma;
     cl_kernel kernel;
     cl_sampler sampler;
@@ -49,6 +50,7 @@ enum {
     PROP_0,
     PROP_SEARCH_RADIUS,
     PROP_PATCH_RADIUS,
+    PROP_H,
     PROP_SIGMA,
     PROP_ADDRESSING_MODE,
     N_PROPERTIES
@@ -127,21 +129,23 @@ ufo_non_local_means_task_process (UfoTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
-    gfloat sigma;
+    gfloat h, var;
 
     priv = UFO_NON_LOCAL_MEANS_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
-    sigma = 1 / priv->sigma;
+    h = 1 / priv->h / priv->h;
+    var = priv->sigma * priv->sigma;
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_sampler), &priv->sampler));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (guint), &priv->search_radius));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (guint), &priv->patch_radius));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 5, sizeof (gfloat), &sigma));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 5, sizeof (gfloat), &h));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 6, sizeof (gfloat), &var));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
@@ -164,6 +168,9 @@ ufo_non_local_means_task_set_property (GObject *object,
             break;
         case PROP_PATCH_RADIUS:
             priv->patch_radius = g_value_get_uint (value);
+            break;
+        case PROP_H:
+            priv->h = g_value_get_float (value);
             break;
         case PROP_SIGMA:
             priv->sigma = g_value_get_float (value);
@@ -191,6 +198,9 @@ ufo_non_local_means_task_get_property (GObject *object,
             break;
         case PROP_PATCH_RADIUS:
             g_value_set_uint (value, priv->patch_radius);
+            break;
+        case PROP_H:
+            g_value_set_float (value, priv->h);
             break;
         case PROP_SIGMA:
             g_value_set_float (value, priv->sigma);
@@ -261,11 +271,18 @@ ufo_non_local_means_task_class_init (UfoNonLocalMeansTaskClass *klass)
             1, 100, 3,
             G_PARAM_READWRITE);
 
+    properties[PROP_H] =
+        g_param_spec_float ("h",
+            "Smoothing control parameter, should be around noise standard deviation or slightly less",
+            "Smoothing control parameter, should be around noise standard deviation or slightly less",
+            0.0f, G_MAXFLOAT, 0.1f,
+            G_PARAM_READWRITE);
+
     properties[PROP_SIGMA] =
         g_param_spec_float ("sigma",
-            "Sigma",
-            "Sigma",
-            0.0f, G_MAXFLOAT, 0.1f,
+            "Noise standard deviation",
+            "Noise standard deviation",
+            0.0f, G_MAXFLOAT, 0.0f,
             G_PARAM_READWRITE);
 
     properties[PROP_ADDRESSING_MODE] =
@@ -289,6 +306,7 @@ ufo_non_local_means_task_init(UfoNonLocalMeansTask *self)
 
     self->priv->search_radius = 10;
     self->priv->patch_radius = 3;
-    self->priv->sigma = 0.1f;
+    self->priv->h = 0.1f;
+    self->priv->sigma = 0.0f;
     self->priv->addressing_mode = CL_ADDRESS_MIRRORED_REPEAT;
 }

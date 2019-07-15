@@ -24,7 +24,8 @@ dist (read_only image2d_t input,
       float2 q,
       int radius,
       int width,
-      int height)
+      int height,
+      float variance)
 {
     float dist = 0.0f, tmp;
     float wsize = (2.0f * radius + 1.0f);
@@ -34,7 +35,7 @@ dist (read_only image2d_t input,
         for (int j = -radius; j < radius + 1; j++) {
             tmp = read_imagef (input, sampler, (float2) ((p.x + i) / width, (p.y + j) / height)).x -
                     read_imagef (input, sampler, (float2) ((q.x + i) / width, (q.y + j) / height)).x;
-            dist += tmp * tmp;
+            dist += fmax (0.0f, tmp * tmp - 2 * variance);
         }
     }
 
@@ -47,13 +48,13 @@ nlm_noise_reduction (read_only image2d_t input,
                      sampler_t sampler,
                      const int search_radius,
                      const int patch_radius,
-                     const float sigma)
+                     const float h_2,
+                     const float variance)
 {
     const int x = get_global_id (0);
     const int y = get_global_id (1);
     const int width = get_global_size (0);
     const int height = get_global_size (1);
-    const float sigma_2 = sigma * sigma;
     float d, weight;
 
     float total_weight = 0.0f;
@@ -62,8 +63,8 @@ nlm_noise_reduction (read_only image2d_t input,
     for (int i = x - search_radius; i < x + search_radius + 1; i++) {
         for (int j = y - search_radius; j < y + search_radius + 1; j++) {
             d = dist (input, sampler, (float2) (x + 0.5f, y + 0.5f), (float2) (i + 0.5f, j + 0.5f),
-                      patch_radius, width, height);
-            weight = exp (- sigma_2 * d);
+                      patch_radius, width, height, variance);
+            weight = exp (- h_2 * d);
             pixel_value += weight * read_imagef (input, sampler, (float2) ((i + 0.5f) / width, (j + 0.5f) / height)).x;
             total_weight += weight;
         }

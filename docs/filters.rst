@@ -538,9 +538,15 @@ Non-local-means denoising
 
         Radius of patches.
 
+    .. gobj:prop:: h:float
+
+        Smoothing control parameter, should be around noise standard deviation
+        or slightly less. Higher h results in a smoother image but with blurred
+        features.
+
     .. gobj:prop:: sigma:float
 
-        Sigma influencing the Gaussian weighting.
+        Noise standard deviation, improves weights computation.
 
     .. gobj:prop:: addressing-mode:enum
 
