@@ -25,18 +25,20 @@ flat_correct (global float *corrected,
               const int sinogram_input,
               const int absorptivity,
               const int fix_abnormal,
-              const float dark_scale)
+              const float dark_scale,
+              const float flat_scale)
 {
     const int gid = get_global_id(1) * get_global_size(0) + get_global_id(0);
     const int corr_idx = sinogram_input ? get_global_id(0) : gid;
     const float cdark = dark[corr_idx] * dark_scale;
+    const float cflat = flat[corr_idx] * flat_scale;
     float result;
 
     if (absorptivity) {
-        result = log ((flat[corr_idx] - cdark) / (data[gid] - cdark));
+        result = log ((cflat - cdark) / (data[gid] - cdark));
     }
     else {
-        result = (data[gid] - cdark) / (flat[corr_idx] - cdark);
+        result = (data[gid] - cdark) / (cflat - cdark);
     }
 
     if (fix_abnormal && (isnan (result) || isinf (result))) {
