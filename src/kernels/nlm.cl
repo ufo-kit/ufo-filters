@@ -18,16 +18,16 @@
  */
 
 float
-dist (read_only image2d_t input,
-      sampler_t sampler,
-      float2 p,
-      float2 q,
-      int radius,
-      int width,
-      int height,
-      float h_2,
-      float variance,
-      constant float *window_coeffs)
+compute_dist (read_only image2d_t input,
+              sampler_t sampler,
+              float2 p,
+              float2 q,
+              int radius,
+              int width,
+              int height,
+              float h_2,
+              float variance,
+              constant float *window_coeffs)
 {
     float dist = 0.0f, tmp;
     int wsize = (2 * radius + 1);
@@ -77,7 +77,7 @@ nlm_noise_reduction (read_only image2d_t input,
 
     for (int j = y - search_radius; j < y + search_radius + 1; j++) {
         for (int i = x - search_radius; i < x + search_radius + 1; i++) {
-            d = dist (input, sampler, (float2) (x + 0.5f, y + 0.5f), (float2) (i + 0.5f, j + 0.5f),
+            d = compute_dist (input, sampler, (float2) (x + 0.5f, y + 0.5f), (float2) (i + 0.5f, j + 0.5f),
                       patch_radius, width, height, h_2, variance, window_coeffs);
             weight = exp (-d);
             pixel_value += weight * read_imagef (input, sampler, (float2) ((i + 0.5f) / width, (j + 0.5f) / height)).x;
