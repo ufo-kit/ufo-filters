@@ -94,14 +94,8 @@ compute_cumsum_local_width (UfoNonLocalMeansTaskPrivate *priv)
     return local_width;
 }
 
-/**
- * release_coefficients:
- * @priv: UfoNonLocalMeansTaskPrivate
- *
- * Release Gaussian window coefficients memory object.
- */
 static void
-release_coefficients (UfoNonLocalMeansTaskPrivate *priv)
+release_gaussian_window (UfoNonLocalMeansTaskPrivate *priv)
 {
     if (priv->window_mem) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->window_mem));
@@ -109,14 +103,8 @@ release_coefficients (UfoNonLocalMeansTaskPrivate *priv)
     }
 }
 
-/**
- * create_coefficients:
- * @priv: UfoNonLocalMeansTaskPrivate
- *
- * Compute Gaussian window coefficients.
- */
 static void
-create_coefficients (UfoNonLocalMeansTaskPrivate *priv)
+create_gaussian_window (UfoNonLocalMeansTaskPrivate *priv)
 {
     cl_int err;
     gfloat *coefficients, coefficients_sum = 0.0f, sigma;
@@ -138,7 +126,6 @@ create_coefficients (UfoNonLocalMeansTaskPrivate *priv)
         coefficients[i] /= coefficients_sum;
     }
 
-    release_coefficients (priv);
     priv->window_mem = clCreateBuffer (priv->context,
                                        CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
                                        sizeof (cl_float) * wsize * wsize,
@@ -526,8 +513,8 @@ ufo_non_local_means_task_get_requisition (UfoTask *task,
         priv->max_work_group_size = g_value_get_ulong (max_work_group_size_gvalue);
         g_value_unset (max_work_group_size_gvalue);
     }
-    if (priv->use_window && !priv->window_mem) {
-        create_coefficients (priv);
+    if (!priv->fast && priv->use_window && !priv->window_mem) {
+        create_gaussian_window (priv);
     }
     if (priv->cropped_size[0] != requisition->dims[0] || priv->cropped_size[1] != requisition->dims[1]) {
         priv->cropped_size[0] = requisition->dims[0];
@@ -831,7 +818,7 @@ ufo_non_local_means_task_finalize (GObject *object)
         UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
         priv->context = NULL;
     }
-    release_coefficients (priv);
+    release_gaussian_window (priv);
     release_fast_buffers (priv);
 
     G_OBJECT_CLASS (ufo_non_local_means_task_parent_class)->finalize (object);
