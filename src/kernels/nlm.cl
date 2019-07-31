@@ -44,16 +44,14 @@ compute_dist (read_only image2d_t input,
             tmp = read_imagef (input, sampler, (float2) ((p.x + i) / width, (p.y + j) / height)).x -
                     read_imagef (input, sampler, (float2) ((q.x + i) / width, (q.y + j) / height)).x;
             if (window_coeffs) {
-                /* Use gaussian window.
-                 * Cutoff negative numbers which would cause large weights. */
-                dist += fmax (0.0f, window_coeffs[(j + radius) * wsize + (i + radius)] * (tmp * tmp - 2 * variance));
+                dist += window_coeffs[(j + radius) * wsize + (i + radius)] * (tmp * tmp - 2 * variance);
             } else {
-                dist += fmax (0.0f, tmp * tmp - 2 * variance);
+                dist += tmp * tmp - 2 * variance;
             }
         }
     }
 
-    return dist * coeff;
+    return fmax (0.0f, dist) * coeff;
 }
 
 kernel void
