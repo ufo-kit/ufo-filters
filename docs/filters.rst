@@ -542,16 +542,20 @@ Non-local-means denoising
 
         Smoothing control parameter, should be around noise standard deviation
         or slightly less. Higher h results in a smoother image but with blurred
-        features.
+        features. If it is 0, estimate noise standard deviation and use it as
+        the parameter value.
 
     .. gobj:prop:: sigma:float
 
-        Noise standard deviation, improves weights computation.
+        Noise standard deviation, improves weights computation. If it is zero,
+        it is *not* automatically estimated as opposed to :gobj:prop:`h`.
+        :gobj:prop:`estimate-sigma` has to be specified in order to override
+        :gobj:prop:`sigma` value.
 
     .. gobj:prop:: window:boolean
 
         Apply Gaussian profile with :math:`\sigma = \frac{P}{2}`, where :math:`P`
-        is the gobj:prop:`patch-radius` parameter to the weight computation
+        is the :gobj:prop:`patch-radius` parameter to the weight computation
         which decreases the influence of pixels towards the corners of the
         patches.
 
@@ -561,6 +565,13 @@ Non-local-means denoising
         difference in the result from the classical algorithm is that there is
         no Gaussian profile used and from the nature of the fast algorithm,
         floating point precision errors might occur for large images.
+
+    .. gobj:prop:: estimate-sigma:boolean
+
+        Estimate sigma based on [#]_, which overrides :gobj:prop:`sigma`
+        parameter value. Only the first image in a sequence is used for
+        estimation and the estimated sigma is re-used for every consequent
+        image.
 
     .. gobj:prop:: addressing-mode:enum
 
@@ -572,6 +583,11 @@ Non-local-means denoising
         nonlocal filtering applied to electron cryomicroscopy* in 5th IEEE
         International Symposium on Biomedical Imaging: From Nano to Macro,
         2008, pp. 1331-1334. DOI:10.1109/ISBI.2008.4541250
+
+    .. [#]
+        J. Immerkaer, *Fast noise variance estimation* in Computer vision and image
+        understanding 64.2 (1996): 300-302. DOI:10.1006/cviu.1996.0060
+
 
 
 Horizontal interpolation

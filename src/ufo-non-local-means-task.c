@@ -39,7 +39,9 @@ struct _UfoNonLocalMeansTaskPrivate {
     gfloat sigma;
     gboolean use_window;
     gboolean fast;
-    cl_kernel kernel, mse_kernel, cumsum_kernel, spread_kernel, transpose_kernel, weight_kernel, divide_kernel;
+    gboolean estimate_sigma;
+    cl_kernel kernel, mse_kernel, cumsum_kernel, spread_kernel, transpose_kernel, weight_kernel, divide_kernel,
+              convolution_kernel, sum_kernel;
     cl_sampler sampler;
     cl_context context;
     cl_mem window_mem, group_sums, aux_mem[2], weights_mem;
@@ -62,6 +64,7 @@ enum {
     PROP_SIGMA,
     PROP_WINDOW,
     PROP_FAST,
+    PROP_ESTIMATE_SIGMA,
     PROP_ADDRESSING_MODE,
     N_PROPERTIES
 };
@@ -456,6 +459,9 @@ ufo_non_local_means_task_setup (UfoTask *task,
     } else {
         priv->kernel = ufo_resources_get_kernel (resources, "nlm.cl", "nlm_noise_reduction", NULL, error);
     }
+    priv->convolution_kernel = ufo_resources_get_kernel (resources, "estimate-noise.cl", "convolve_abs_laplacian_diff", NULL, error);
+    priv->sum_kernel = ufo_resources_get_kernel (resources, "reductor.cl", "reduce_M_SUM", NULL, error);
+
     priv->window_mem = NULL;
     priv->group_sums = NULL;
     priv->weights_mem = NULL;
@@ -484,6 +490,12 @@ ufo_non_local_means_task_setup (UfoTask *task,
     if (priv->divide_kernel) {
         UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->divide_kernel), error);
     }
+    if (priv->convolution_kernel) {
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->convolution_kernel), error);
+    }
+    if (priv->sum_kernel) {
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->sum_kernel), error);
+    }
 
     priv->context = ufo_resources_get_context (resources);
     UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
@@ -508,27 +520,26 @@ ufo_non_local_means_task_get_requisition (UfoTask *task,
 
     ufo_buffer_get_requisition (inputs[0], requisition);
 
+    if (priv->max_work_group_size == 0) {
+        node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+        max_work_group_size_gvalue = ufo_gpu_node_get_info (node, UFO_GPU_NODE_INFO_MAX_WORK_GROUP_SIZE);
+        priv->max_work_group_size = g_value_get_ulong (max_work_group_size_gvalue);
+        g_value_unset (max_work_group_size_gvalue);
+    }
     if (priv->use_window && !priv->window_mem) {
         create_coefficients (priv);
     }
-    if (priv->fast) {
-        if (priv->max_work_group_size == 0) {
-            node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
-            max_work_group_size_gvalue = ufo_gpu_node_get_info (node, UFO_GPU_NODE_INFO_MAX_WORK_GROUP_SIZE);
-            priv->max_work_group_size = g_value_get_ulong (max_work_group_size_gvalue);
-            g_value_unset (max_work_group_size_gvalue);
-        }
-        if (priv->cropped_size[0] == 0 || priv->cropped_size[0] != requisition->dims[0] ||
-            priv->cropped_size[1] != requisition->dims[1]) {
-            if (priv->cropped_size[0] != 0) {
-                /* Size changed, release first. */
-                release_fast_buffers (priv);
-            }
-            priv->cropped_size[0] = requisition->dims[0];
-            priv->cropped_size[1] = requisition->dims[1];
+    if (priv->cropped_size[0] != requisition->dims[0] || priv->cropped_size[1] != requisition->dims[1]) {
+        priv->cropped_size[0] = requisition->dims[0];
+        priv->cropped_size[1] = requisition->dims[1];
+        if (priv->fast) {
             priv->padding = priv->search_radius + priv->patch_radius + 1;
             priv->padded_size[0] = priv->cropped_size[0] + 2 * priv->padding;
             priv->padded_size[1] = priv->cropped_size[1] + 2 * priv->padding;
+            if (priv->group_sums) {
+                /* Buffers exist, which means size changed, release first. */
+                release_fast_buffers (priv);
+            }
             create_fast_buffers (priv);
         }
     }
@@ -553,6 +564,75 @@ ufo_non_local_means_task_get_mode (UfoTask *task)
     return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
+static gfloat
+compute_sigma (UfoNonLocalMeansTaskPrivate *priv,
+                cl_command_queue cmd_queue,
+                UfoProfiler *profiler,
+                cl_mem input_image,
+                cl_mem out_mem)
+{
+    gsize n = priv->cropped_size[0] * priv->cropped_size[1];
+    gsize num_groups = MIN (priv->max_work_group_size, NUM_CHUNKS (n, priv->max_work_group_size));
+    gsize num_group_iterations, global_size;
+    gfloat *result, sum = 0.0f;
+    cl_int err;
+    cl_mem group_sums;
+
+    /* First compute the convolution of the input with the difference of
+     * laplacians.
+     */
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->convolution_kernel, 0, sizeof (cl_mem), &input_image));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->convolution_kernel, 1, sizeof (cl_sampler), &priv->sampler));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->convolution_kernel, 2, sizeof (cl_mem), &out_mem));
+    ufo_profiler_call (profiler, cmd_queue, priv->convolution_kernel, 2, priv->cropped_size, NULL);
+
+    /* Now compute partial sums of the convolved image. */
+    /* Number of iterations of every group is given by the number of pixels
+     * divided by the number of pixels *num_groups* can process. */
+    num_group_iterations = NUM_CHUNKS (n, priv->max_work_group_size * num_groups);
+    /* The real number of groups is given by the number of pixels
+     * divided by the group size and the number of group iterations. */
+    num_groups = NUM_CHUNKS (n, num_group_iterations * priv->max_work_group_size);
+    global_size = num_groups * priv->max_work_group_size;
+
+    g_debug ("               n: %lu", n);
+    g_debug ("      num groups: %lu", num_groups);
+    g_debug ("group iterations: %lu", num_group_iterations);
+    g_debug ("     kernel dims: %lu", global_size);
+
+    result = g_malloc0 (sizeof (cl_float) * num_groups);
+    group_sums = clCreateBuffer (priv->context,
+                                 CL_MEM_READ_WRITE,
+                                 sizeof (cl_float) * num_groups,
+                                 NULL,
+                                 &err);
+    UFO_RESOURCES_CHECK_CLERR (err);
+
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 0, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 1, sizeof (cl_mem), &group_sums));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 2, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 3, sizeof (cl_float) * priv->max_work_group_size, NULL));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 4, sizeof (gsize), &n));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 5, sizeof (gint), &num_group_iterations));
+    ufo_profiler_call (profiler, cmd_queue, priv->sum_kernel, 1, &global_size, &priv->max_work_group_size);
+
+    clEnqueueReadBuffer (cmd_queue,
+                         group_sums,
+                         CL_TRUE,
+                         0, sizeof (cl_float) * num_groups,
+                         result,
+                         0, NULL, NULL);
+    UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (group_sums));
+
+    /* Sum partial sums computed by the groups. */
+    for (gsize i = 0; i < num_groups; i++) {
+        sum += result[i];
+    }
+    g_free (result);
+
+    return sqrt (G_PI_2) / (6 * (priv->cropped_size[0] - 2.0f) * (priv->cropped_size[1] - 2.0f)) * sum;
+}
+
 static gboolean
 ufo_non_local_means_task_process (UfoTask *task,
                                   UfoBuffer **inputs,
@@ -566,20 +646,39 @@ ufo_non_local_means_task_process (UfoTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
-    gfloat h, var;
+    gfloat h, var, estimated_sigma;
     gfloat fill_pattern = 0.0f;
+    guint num_processed;
 
     priv = UFO_NON_LOCAL_MEANS_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
+    in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_buffer_get_requisition (inputs[0], &in_req);
+    g_object_get (task, "num_processed", &num_processed, NULL);
+
+    /* Estimate sigma only from the first image in the stream in order to
+     * keep the results consistent.
+     */
+    if (num_processed == 0 && (priv->h <= 0.0f || priv->estimate_sigma)) {
+        /* Use out_mem for the convolution, it's not necessary after the
+         * computation and can be re-used by the de-noising itself.
+         */
+        estimated_sigma = compute_sigma (priv, cmd_queue, profiler, in_mem, out_mem);
+        g_debug ("Estimated sigma: %g", estimated_sigma);
+        if (priv->h <= 0.0f) {
+            priv->h = estimated_sigma;
+        }
+        if (priv->estimate_sigma) {
+            priv->sigma = estimated_sigma;
+        }
+    }
     h = 1 / priv->h / priv->h;
     var = priv->sigma * priv->sigma;
 
     if (priv->fast) {
-        in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
         UFO_RESOURCES_CHECK_CLERR (clEnqueueFillBuffer (cmd_queue, out_mem, &fill_pattern, sizeof (gfloat), 0,
                                                         sizeof (gfloat) * priv->cropped_size[0] * priv->cropped_size[1],
                                                         0, NULL, NULL));
@@ -588,7 +687,6 @@ ufo_non_local_means_task_process (UfoTask *task,
                                                         0, NULL, NULL));
         compute_nlm_fast (priv, cmd_queue, profiler, in_mem, out_mem);
     } else {
-        in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_sampler), &priv->sampler));
@@ -631,6 +729,9 @@ ufo_non_local_means_task_set_property (GObject *object,
         case PROP_FAST:
             priv->fast = g_value_get_boolean (value);
             break;
+        case PROP_ESTIMATE_SIGMA:
+            priv->estimate_sigma = g_value_get_boolean (value);
+            break;
         case PROP_ADDRESSING_MODE:
             priv->addressing_mode = g_value_get_enum (value);
             break;
@@ -666,6 +767,9 @@ ufo_non_local_means_task_get_property (GObject *object,
             break;
         case PROP_FAST:
             g_value_set_boolean (value, priv->fast);
+            break;
+        case PROP_ESTIMATE_SIGMA:
+            g_value_set_boolean (value, priv->estimate_sigma);
             break;
         case PROP_ADDRESSING_MODE:
             g_value_set_enum (value, priv->addressing_mode);
@@ -710,6 +814,14 @@ ufo_non_local_means_task_finalize (GObject *object)
     if (priv->divide_kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->divide_kernel));
         priv->divide_kernel = NULL;
+    }
+    if (priv->convolution_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->convolution_kernel));
+        priv->convolution_kernel = NULL;
+    }
+    if (priv->sum_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->sum_kernel));
+        priv->sum_kernel = NULL;
     }
     if (priv->sampler) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseSampler (priv->sampler));
@@ -787,6 +899,13 @@ ufo_non_local_means_task_class_init (UfoNonLocalMeansTaskClass *klass)
             TRUE,
             G_PARAM_READWRITE);
 
+    properties[PROP_ESTIMATE_SIGMA] =
+        g_param_spec_boolean ("estimate-sigma",
+            "Estimate noise standard deviation",
+            "Estimate noise standard deviation",
+            FALSE,
+            G_PARAM_READWRITE);
+
     properties[PROP_ADDRESSING_MODE] =
         g_param_spec_enum ("addressing-mode",
             "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
@@ -813,10 +932,11 @@ ufo_non_local_means_task_init(UfoNonLocalMeansTask *self)
     self->priv->padded_size[0] = 0;
     self->priv->padded_size[1] = 0;
     self->priv->padding = -1;
-    self->priv->h = 0.1f;
+    self->priv->h = 0.0f;
     self->priv->sigma = 0.0f;
     self->priv->max_work_group_size = 0;
     self->priv->use_window = TRUE;
     self->priv->addressing_mode = CL_ADDRESS_MIRRORED_REPEAT;
     self->priv->fast = FALSE;
+    self->priv->estimate_sigma = FALSE;
 }

@@ -13,6 +13,7 @@ kernel_files = [
     'denoise.cl',
     'dfi.cl',
     'edge.cl',
+    'estimate-noise.cl',
     'ffc.cl',
     'fft.cl',
     'fftmult.cl',
