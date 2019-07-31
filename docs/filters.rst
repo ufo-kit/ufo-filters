@@ -555,10 +555,23 @@ Non-local-means denoising
         which decreases the influence of pixels towards the corners of the
         patches.
 
+    .. gobj:prop:: fast:boolean
+
+        Use a fast version of the algorithm described in [#]_. The only
+        difference in the result from the classical algorithm is that there is
+        no Gaussian profile used and from the nature of the fast algorithm,
+        floating point precision errors might occur for large images.
+
     .. gobj:prop:: addressing-mode:enum
 
         Addressing mode specifies the behavior for pixels falling outside the
         original image. See OpenCL ``sampler_t`` documentation for more information.
+
+    .. [#]
+        J. Darbon, A. Cunha, T.F. Chan, S. Osher, and G.J. Jensen, *Fast
+        nonlocal filtering applied to electron cryomicroscopy* in 5th IEEE
+        International Symposium on Biomedical Imaging: From Nano to Macro,
+        2008, pp. 1331-1334. DOI:10.1109/ISBI.2008.4541250
 
 
 Horizontal interpolation

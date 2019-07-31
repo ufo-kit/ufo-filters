@@ -57,6 +57,88 @@ compute_dist (read_only image2d_t input,
 }
 
 kernel void
+compute_shifted_mse (read_only image2d_t input,
+                     global float *output,
+                     sampler_t sampler,
+                     const int dx,
+                     const int dy,
+                     const int padding,
+                     const float variance)
+{
+    /* Global dimensions are for the padded output image */
+    int idx = get_global_id (0);
+    int idy = get_global_id (1);
+    int padded_width = get_global_size (0);
+    /* Image is padded by *padding* on both sides of both dimensions. */
+    float cropped_width = (float) (padded_width - 2 * padding);
+    float cropped_height = (float) (get_global_size (1) - 2 * padding);
+    float x = ((float) (idx - padding)) + 0.5f;
+    float y = ((float) (idy - padding)) + 0.5f;
+    float a, b;
+
+    a = read_imagef (input, sampler, (float2) (x / cropped_width, y / cropped_height)).x;
+    b = read_imagef (input, sampler, (float2) ((x + dx) / cropped_width, (y + dy) / cropped_height)).x;
+
+    output[idy * padded_width + idx] = (a - b) * (a - b) - 2 * variance;
+}
+
+kernel void
+process_shift (read_only image2d_t input,
+               global float *integral_input,
+               global float *weights,
+               global float *output,
+               const sampler_t sampler,
+               const int dx,
+               const int dy,
+               const int patch_radius,
+               const int padding,
+               const float coeff,
+               const int is_conjugate)
+{
+    /* Global dimensions are for the cropped output image */
+    int idx = get_global_id (0);
+    int idy = get_global_id (1);
+    /* Image is padded by *padding* on both sides of both dimensions. */
+    int x = idx + padding;
+    int y = idy + padding;
+    float x_im = idx + dx + 0.5f;
+    float y_im = idy + dy + 0.5f;
+    int cropped_width = get_global_size (0);
+    int cropped_height = get_global_size (1);
+    int padded_width = cropped_width + 2 * padding;
+    float dist, weight;
+    if (is_conjugate) {
+        /* direct computation: g(x) = w(x) + f(x + dx)
+         * conjugate: g(x + dx) = w(x) + f(x), where idx = x + dx, so
+         * g(idx) = w(idx - dx) * f(idx - x) = w(idx - dx) * f(x_im - 2dx)
+         */
+        x -= dx;
+        y -= dy;
+        x_im -= 2 * dx;
+        y_im -= 2 * dy;
+    }
+
+    dist = integral_input[(y + patch_radius) * padded_width + x + patch_radius] -
+           integral_input[(y - patch_radius - 1) * padded_width + x + patch_radius] -
+           integral_input[(y + patch_radius) * padded_width + x - patch_radius - 1] +
+           integral_input[(y - patch_radius - 1) * padded_width + x - patch_radius - 1];
+    dist = fmax (0.0f, dist) * coeff;
+    weight = exp (-dist);
+
+    weights[idy * cropped_width + idx] += weight;
+    output[idy * cropped_width + idx] += weight * read_imagef (input, sampler, (float2) (x_im / cropped_width,
+                                                                                         y_im / cropped_height)).x;
+}
+
+kernel void divide_inplace (global float *coefficients,
+                            global float *output)
+{
+    int index = get_global_size (0) * get_global_id (1) + get_global_id (0);
+
+    output[index] = native_divide (output[index], coefficients[index]);
+}
+
+kernel void
 nlm_noise_reduction (read_only image2d_t input,
                      global float *output,
                      sampler_t sampler,

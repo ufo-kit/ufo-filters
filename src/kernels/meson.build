@@ -9,6 +9,7 @@ kernel_files = [
     'correlate.cl',
     'cut.cl',
     'cut-sinogram.cl',
+    'cumsum.cl',
     'denoise.cl',
     'dfi.cl',
     'edge.cl',
