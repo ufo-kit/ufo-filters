@@ -20,3 +20,6 @@ add_test(test_177
 
 add_test(test_core_149
          ${BASH} "${CMAKE_CURRENT_SOURCE_DIR}/test-core-149.sh")
+
+add_test(test_nlm
+         ${BASH} "${CMAKE_CURRENT_SOURCE_DIR}/test-nlm.sh")
