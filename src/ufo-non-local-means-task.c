@@ -71,6 +71,15 @@ enum {
 
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
+static gsize
+compute_closest_smaller_power_of_2 (gsize value)
+{
+    gdouble integer;
+    modf (log2 (value), &integer);
+
+    return (gsize) pow (2, integer);
+}
+
 static gint
 compute_cumsum_local_width (UfoNonLocalMeansTaskPrivate *priv)
 {
@@ -79,8 +88,7 @@ compute_cumsum_local_width (UfoNonLocalMeansTaskPrivate *priv)
 
     /* Compute global and local dimensions for the cumsum kernel */
     /* First make sure local_width is a power of 2 */
-    modf (log2 (priv->max_work_group_size), &integer);
-    local_width = (gint) pow (2, integer);
+    local_width = (gint) compute_closest_smaller_power_of_2 (priv->max_work_group_size);
     if (local_width > 4) {
         /* Empirically determined value on NVIDIA cards */
         local_width /= 4;
@@ -559,8 +567,7 @@ compute_sigma (UfoNonLocalMeansTaskPrivate *priv,
                 cl_mem out_mem)
 {
     gsize n = priv->cropped_size[0] * priv->cropped_size[1];
-    gsize num_groups = MIN (priv->max_work_group_size, NUM_CHUNKS (n, priv->max_work_group_size));
-    gsize num_group_iterations, global_size;
+    gsize local_size, num_groups, num_group_iterations, global_size;
     gfloat *result, sum = 0.0f;
     cl_int err;
     cl_mem group_sums;
@@ -574,18 +581,23 @@ compute_sigma (UfoNonLocalMeansTaskPrivate *priv,
     ufo_profiler_call (profiler, cmd_queue, priv->convolution_kernel, 2, priv->cropped_size, NULL);
 
     /* Now compute partial sums of the convolved image. */
+    /* Compute global and local dimensions for the cumsum kernel */
+    /* Make sure local_size is a power of 2 */
+    local_size = compute_closest_smaller_power_of_2 (priv->max_work_group_size);
     /* Number of iterations of every group is given by the number of pixels
      * divided by the number of pixels *num_groups* can process. */
-    num_group_iterations = NUM_CHUNKS (n, priv->max_work_group_size * num_groups);
+    num_groups = MIN (local_size, NUM_CHUNKS (n, local_size));
+    num_group_iterations = NUM_CHUNKS (n, local_size * num_groups);
     /* The real number of groups is given by the number of pixels
      * divided by the group size and the number of group iterations. */
-    num_groups = NUM_CHUNKS (n, num_group_iterations * priv->max_work_group_size);
-    global_size = num_groups * priv->max_work_group_size;
+    num_groups = NUM_CHUNKS (n, num_group_iterations * local_size);
+    global_size = num_groups * local_size;
 
-    g_debug ("               n: %lu", n);
-    g_debug ("      num groups: %lu", num_groups);
-    g_debug ("group iterations: %lu", num_group_iterations);
-    g_debug ("     kernel dims: %lu", global_size);
+    g_debug ("                 n: %lu", n);
+    g_debug ("        num groups: %lu", num_groups);
+    g_debug ("  group iterations: %lu", num_group_iterations);
+    g_debug ("kernel global size: %lu", global_size);
+    g_debug (" kernel local size: %lu", local_size);
 
     result = g_malloc0 (sizeof (cl_float) * num_groups);
     group_sums = clCreateBuffer (priv->context,
@@ -598,10 +610,10 @@ compute_sigma (UfoNonLocalMeansTaskPrivate *priv,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 0, sizeof (cl_mem), &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 1, sizeof (cl_mem), &group_sums));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 2, sizeof (cl_mem), &out_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 3, sizeof (cl_float) * priv->max_work_group_size, NULL));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 3, sizeof (cl_float) * local_size, NULL));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 4, sizeof (gsize), &n));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 5, sizeof (gint), &num_group_iterations));
-    ufo_profiler_call (profiler, cmd_queue, priv->sum_kernel, 1, &global_size, &priv->max_work_group_size);
+    ufo_profiler_call (profiler, cmd_queue, priv->sum_kernel, 1, &global_size, &local_size);
 
     clEnqueueReadBuffer (cmd_queue,
                          group_sums,
