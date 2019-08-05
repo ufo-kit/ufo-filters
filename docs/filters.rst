@@ -885,6 +885,9 @@ Flat-field correction
 
         Scale the dark field prior to the flat field correct.
 
+    .. gobj:prop:: flat-scale:float
+
+        Scale the flat field prior to the flat field correct.
 
 Sinogram transposition
 ----------------------
