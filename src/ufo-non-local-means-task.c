@@ -25,10 +25,11 @@
 #include <math.h>
 
 #include "ufo-non-local-means-task.h"
+#include "common/ufo-math.h"
 #include "common/ufo-addressing.h"
+#include "common/ufo-common.h"
 
 #define PIXELS_PER_THREAD 4
-#define NUM_CHUNKS(n, k) (((n) - 1) / (k) + 1)
 
 struct _UfoNonLocalMeansTaskPrivate {
     guint search_radius;
@@ -71,15 +72,6 @@ enum {
 
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
-static gsize
-compute_closest_smaller_power_of_2 (gsize value)
-{
-    gdouble integer;
-    modf (log2 (value), &integer);
-
-    return (gsize) pow (2, integer);
-}
-
 static gint
 compute_cumsum_local_width (UfoNonLocalMeansTaskPrivate *priv)
 {
@@ -88,7 +80,7 @@ compute_cumsum_local_width (UfoNonLocalMeansTaskPrivate *priv)
 
     /* Compute global and local dimensions for the cumsum kernel */
     /* First make sure local_width is a power of 2 */
-    local_width = (gint) compute_closest_smaller_power_of_2 (priv->max_work_group_size);
+    local_width = (gint) ufo_math_compute_closest_smaller_power_of_2 (priv->max_work_group_size);
     if (local_width > 4) {
         /* Empirically determined value on NVIDIA cards */
         local_width /= 4;
@@ -253,19 +245,19 @@ compute_cumsum (UfoNonLocalMeansTaskPrivate *priv,
      * This is not be the final number of groups, it's just used to compute the
      * number of iterations of every group.
      */
-    num_groups = MIN (local_width, NUM_CHUNKS (width, local_width));
+    num_groups = MIN (local_width, UFO_MATH_NUM_CHUNKS (width, local_width));
     /* Number of iterations of every group is given by the number of pixels
      * divided by the number of pixels *num_groups* can process. */
-    num_group_iterations = NUM_CHUNKS (width, local_width * num_groups);
+    num_group_iterations = UFO_MATH_NUM_CHUNKS (width, local_width * num_groups);
     /* Finally, the real number of groups is given by the number of pixels
      * divided by the group size and the number of group iterations. */
-    num_groups = NUM_CHUNKS (width, num_group_iterations * local_width);
+    num_groups = UFO_MATH_NUM_CHUNKS (width, num_group_iterations * local_width);
 
     /* Cache size must be larger by *local_size* / 16 because of the bank
      * conflicts avoidance. Additionally, +1 is needed because of the shifted
      * access to the local memory.
      */
-    cache_size = sizeof (cl_float) * (local_width + NUM_CHUNKS (local_width, 16) + 1);
+    cache_size = sizeof (cl_float) * (local_width + UFO_MATH_NUM_CHUNKS (local_width, 16) + 1);
     cumsum_global_size[0] = num_groups * local_width / 2;
     cumsum_global_size[1] = height;
     block_sums_global_size[0] = local_width / 2;
@@ -559,79 +551,6 @@ ufo_non_local_means_task_get_mode (UfoTask *task)
     return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
-static gfloat
-compute_sigma (UfoNonLocalMeansTaskPrivate *priv,
-                cl_command_queue cmd_queue,
-                UfoProfiler *profiler,
-                cl_mem input_image,
-                cl_mem out_mem)
-{
-    gsize n = priv->cropped_size[0] * priv->cropped_size[1];
-    gsize local_size, num_groups, num_group_iterations, global_size;
-    gfloat *result, sum = 0.0f;
-    cl_int err;
-    cl_mem group_sums;
-
-    /* First compute the convolution of the input with the difference of
-     * laplacians.
-     */
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->convolution_kernel, 0, sizeof (cl_mem), &input_image));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->convolution_kernel, 1, sizeof (cl_sampler), &priv->sampler));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->convolution_kernel, 2, sizeof (cl_mem), &out_mem));
-    ufo_profiler_call (profiler, cmd_queue, priv->convolution_kernel, 2, priv->cropped_size, NULL);
-
-    /* Now compute partial sums of the convolved image. */
-    /* Compute global and local dimensions for the cumsum kernel */
-    /* Make sure local_size is a power of 2 */
-    local_size = compute_closest_smaller_power_of_2 (priv->max_work_group_size);
-    /* Number of iterations of every group is given by the number of pixels
-     * divided by the number of pixels *num_groups* can process. */
-    num_groups = MIN (local_size, NUM_CHUNKS (n, local_size));
-    num_group_iterations = NUM_CHUNKS (n, local_size * num_groups);
-    /* The real number of groups is given by the number of pixels
-     * divided by the group size and the number of group iterations. */
-    num_groups = NUM_CHUNKS (n, num_group_iterations * local_size);
-    global_size = num_groups * local_size;
-
-    g_debug ("                 n: %lu", n);
-    g_debug ("        num groups: %lu", num_groups);
-    g_debug ("  group iterations: %lu", num_group_iterations);
-    g_debug ("kernel global size: %lu", global_size);
-    g_debug (" kernel local size: %lu", local_size);
-
-    result = g_malloc0 (sizeof (cl_float) * num_groups);
-    group_sums = clCreateBuffer (priv->context,
-                                 CL_MEM_READ_WRITE,
-                                 sizeof (cl_float) * num_groups,
-                                 NULL,
-                                 &err);
-    UFO_RESOURCES_CHECK_CLERR (err);
-
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 0, sizeof (cl_mem), &out_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 1, sizeof (cl_mem), &group_sums));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 2, sizeof (cl_mem), &out_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 3, sizeof (cl_float) * local_size, NULL));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 4, sizeof (gsize), &n));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->sum_kernel, 5, sizeof (gint), &num_group_iterations));
-    ufo_profiler_call (profiler, cmd_queue, priv->sum_kernel, 1, &global_size, &local_size);
-
-    clEnqueueReadBuffer (cmd_queue,
-                         group_sums,
-                         CL_TRUE,
-                         0, sizeof (cl_float) * num_groups,
-                         result,
-                         0, NULL, NULL);
-    UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (group_sums));
-
-    /* Sum partial sums computed by the groups. */
-    for (gsize i = 0; i < num_groups; i++) {
-        sum += result[i];
-    }
-    g_free (result);
-
-    return sqrt (G_PI_2) / (6 * (priv->cropped_size[0] - 2.0f) * (priv->cropped_size[1] - 2.0f)) * sum;
-}
-
 static gboolean
 ufo_non_local_means_task_process (UfoTask *task,
                                   UfoBuffer **inputs,
@@ -665,7 +584,15 @@ ufo_non_local_means_task_process (UfoTask *task,
         /* Use out_mem for the convolution, it's not necessary after the
          * computation and can be re-used by the de-noising itself.
          */
-        estimated_sigma = compute_sigma (priv, cmd_queue, profiler, in_mem, out_mem);
+        estimated_sigma = ufo_common_estimate_sigma (priv->convolution_kernel,
+                                                     priv->sum_kernel,
+                                                     cmd_queue,
+                                                     priv->sampler,
+                                                     profiler,
+                                                     in_mem,
+                                                     out_mem,
+                                                     priv->max_work_group_size,
+                                                     priv->cropped_size);
         g_debug ("Estimated sigma: %g", estimated_sigma);
         if (priv->h <= 0.0f) {
             priv->h = estimated_sigma;

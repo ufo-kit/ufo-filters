@@ -48,7 +48,6 @@ plugins = [
     'merge',
     'metaballs',
     'monitor',
-    'non-local-means',
     'null',
     'opencl',
     'opencl-reduce',
@@ -164,6 +163,20 @@ shared_module('conebeamprojectionweight',
     sources: [
         'ufo-cone-beam-projection-weight-task.c',
         'common/ufo-conebeam.c'
+    ],
+    dependencies: deps,
+    name_prefix: 'libufofilter',
+    install: true,
+    install_dir: plugin_install_dir,
+)
+
+# non local means
+
+shared_module('nonlocalmeans',
+    sources: [
+        'ufo-non-local-means-task.c',
+        'common/ufo-math.c',
+        'common/ufo-common.c',
     ],
     dependencies: deps,
     name_prefix: 'libufofilter',

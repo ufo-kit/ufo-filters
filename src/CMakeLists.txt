@@ -127,6 +127,10 @@ set(general_backproject_aux_SRCS
     common/ufo-scarray.c
     common/ufo-ctgeometry.c)
 
+set(non_local_means_aux_SRCS
+    common/ufo-math.c
+    common/ufo-common.c)
+
 file(GLOB ufofilter_KERNELS "kernels/*.cl")
 #}}}
 #{{{ Variables

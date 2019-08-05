@@ -24,6 +24,8 @@
 
 #define UFO_MATH_EPSILON 1e-7
 #define UFO_MATH_ARE_ALMOST_EQUAL(a, b) (ABS ((a) - (b)) < UFO_MATH_EPSILON)
+#define UFO_MATH_NUM_CHUNKS(n, k) (((n) - 1) / (k) + 1)
+
 
 typedef struct {
     gdouble x, y, z;
@@ -54,5 +56,6 @@ gdouble          ufo_array_minimum              (gdouble     *array,
 gdouble          ufo_clip_value                 (gdouble value,
                                                  gdouble minimum,
                                                  gdouble maximum);
+gsize            ufo_math_compute_closest_smaller_power_of_2 (gsize value);
 
 #endif
