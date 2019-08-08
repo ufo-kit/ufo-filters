@@ -31,6 +31,7 @@ struct _UfoFlatFieldCorrectTaskPrivate {
     gboolean absorptivity;
     gboolean sinogram_input;
     gfloat dark_scale;
+    gfloat flat_scale;
     cl_kernel kernel;
 };
 
@@ -48,6 +49,7 @@ enum {
     PROP_ABSORPTIVITY,
     PROP_SINOGRAM_INPUT,
     PROP_DARK_SCALE,
+    PROP_FLAT_SCALE,
     N_PROPERTIES
 };
 
@@ -153,6 +155,7 @@ ufo_flat_field_correct_task_process (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 5, sizeof (cl_int), &absorptivity));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 6, sizeof (cl_int), &fix_nan_and_inf));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 7, sizeof (cl_float), &priv->dark_scale));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 8, sizeof (cl_float), &priv->flat_scale));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
@@ -181,6 +184,10 @@ ufo_flat_field_correct_task_set_property (GObject *object,
         case PROP_DARK_SCALE:
             priv->dark_scale = g_value_get_float (value);
             break;
+        case PROP_FLAT_SCALE:
+            priv->flat_scale = g_value_get_float (value);
+            break;
+
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -207,6 +214,9 @@ ufo_flat_field_correct_task_get_property (GObject *object,
             break;
         case PROP_DARK_SCALE:
             g_value_set_float (value, priv->dark_scale);
+            break;
+        case PROP_FLAT_SCALE:
+            g_value_set_float (value, priv->flat_scale);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -277,6 +287,13 @@ ufo_flat_field_correct_task_class_init (UfoFlatFieldCorrectTaskClass *klass)
             -G_MAXFLOAT, G_MAXFLOAT, 1.0f,
             G_PARAM_READWRITE);
 
+    properties[PROP_FLAT_SCALE] =
+        g_param_spec_float ("flat-scale",
+            "Scale the flat field prior to the flat field correct",
+            "Scale the flat field prior to the flat field correct",
+            -G_MAXFLOAT, G_MAXFLOAT, 1.0f,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -292,4 +309,5 @@ ufo_flat_field_correct_task_init(UfoFlatFieldCorrectTask *self)
     self->priv->sinogram_input = FALSE;
     self->priv->kernel = NULL;
     self->priv->dark_scale = 1.0f;
+    self->priv->flat_scale = 1.0f;
 }
