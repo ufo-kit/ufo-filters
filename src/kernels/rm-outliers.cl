@@ -37,7 +37,7 @@ filter (global float *input,
     int height = get_global_size(1);
 
     /* Check for boundary elements */
-    if (abs(idx - width) < HALF_SIZE && abs(idy - height) < HALF_SIZE)
+    if (idy < HALF_SIZE || idy + HALF_SIZE >= height || idx < HALF_SIZE || idx + HALF_SIZE >= width)
         output[idy * width + idx] = input[idy * width + idx];
     else {
         float elements[BOX_SIZE * BOX_SIZE];
