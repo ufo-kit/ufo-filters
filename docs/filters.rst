@@ -590,6 +590,37 @@ Non-local-means denoising
 
 
 
+Finding large spots
+-------------------
+
+.. gobj:class:: find-large-spots
+
+    Find large spots with extreme values in an image. First, pixels with values
+    greater than :gobj:prop:`spot_threshold` are added to the mask, then
+    connected pixels with absolute difference between them and the originally
+    detected greater than :gobj:prop:`grow-threshold` are added to the mask. In
+    the end, holes are also removed from the mask.
+
+    .. gobj:prop:: spot-threshold:float
+
+        Pixels with values greater than this threshold are added to the mask.
+
+    .. gobj:prop:: grow-threshold:float
+
+        Pixels connected to the ones found by :gobj:prop:`spot-threshold` with
+        absolute difference greater than this threshold are added to the mask.
+        If the value is 0, it is automatically set to full width at tenth
+        maximum of the estimated noise standard deviation.
+
+    .. gobj:prop:: addressing-mode:enum
+
+        Addressing mode specifies the behavior for pixels falling outside the
+        original image. See OpenCL ``sampler_t`` documentation for more
+        information. This parameter is used only for automatic noise standard
+        deviation estimation.
+
+
+
 Horizontal interpolation
 ------------------------
 

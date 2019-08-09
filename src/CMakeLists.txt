@@ -26,6 +26,7 @@ set(ufofilter_SRCS
     ufo-dump-ring-task.c
     ufo-duplicate-task.c
     ufo-filter-task.c
+    ufo-find-large-spots-task.c
     ufo-flatten-task.c
     ufo-flatten-inplace-task.c
     ufo-flat-field-correct-task.c
@@ -128,6 +129,10 @@ set(general_backproject_aux_SRCS
     common/ufo-ctgeometry.c)
 
 set(non_local_means_aux_SRCS
+    common/ufo-math.c
+    common/ufo-common.c)
+
+set(find_large_spots_aux_SRCS
     common/ufo-math.c
     common/ufo-common.c)
 
