@@ -619,7 +619,7 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
         g_param_spec_ulong ("bytes-per-file",
             "Bytes per file for multi-page files",
             "Bytes per file for multi-page files",
-            0, G_MAXULONG, 0,
+            0, G_MAXULONG, 137438953472,
             G_PARAM_READWRITE);
 
     properties[PROP_APPEND] =
@@ -669,7 +669,7 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
         g_param_spec_boolean("tiff-bigtiff",
             "Write BigTiff format",
             "Write BigTiff format",
-            FALSE,
+            TRUE,
             G_PARAM_READWRITE);
 #endif
 
@@ -686,7 +686,7 @@ ufo_write_task_init(UfoWriteTask *self)
     self->priv->counter = 0;
     self->priv->counter_start = 0;
     self->priv->counter_step = 1;
-    self->priv->bytes_per_file = 0;
+    self->priv->bytes_per_file = ((gulong) 1) << 37;
     self->priv->num_written_bytes = 0;
     self->priv->num_fmt_specifiers = 0;
     self->priv->append = FALSE;

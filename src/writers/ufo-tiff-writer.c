@@ -212,7 +212,7 @@ ufo_tiff_writer_class_init(UfoTiffWriterClass *klass)
         g_param_spec_boolean("bigtiff",
             "Write BigTiff format",
             "Write BigTiff format",
-            FALSE,
+            TRUE,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -228,5 +228,5 @@ ufo_tiff_writer_init (UfoTiffWriter *self)
 
     self->priv = priv = UFO_TIFF_WRITER_GET_PRIVATE (self);
     priv->tiff = NULL;
-    priv->bigtiff = FALSE;
+    priv->bigtiff = TRUE;
 }
