@@ -1,6 +1,6 @@
 #!/bin/bash
 
-ufo-launch dummy-data width=512 height=512 number=3 ! write filename=foo-%02i.tif
+ufo-launch dummy-data width=512 height=512 number=3 ! write filename=foo-%02i.tif bytes-per-file=0
 
 files=("foo-*.tif")
 files=$(echo ${files[*]})
