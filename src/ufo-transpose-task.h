@@ -54,6 +54,7 @@ struct _UfoTransposeTask {
 struct _UfoTransposeTaskClass {
     /*< private >*/
     UfoTaskNodeClass parent_class;
+  UfoTransposeTaskPrivate *priv;
 };
 
 UfoNode  *ufo_transpose_task_new       (void);
