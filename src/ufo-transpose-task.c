@@ -175,6 +175,7 @@ ufo_transpose_task_class_init (UfoTransposeTaskClass *klass)
     GObjectClass *oclass = G_OBJECT_CLASS (klass);
 
     oclass->finalize = ufo_transpose_task_finalize;
+    g_type_class_add_private (oclass, sizeof(UfoTransposeTaskPrivate));
 }
 
 static void
