@@ -24,6 +24,7 @@ constant sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE |
 kernel void
 forwardproject(read_only image2d_t slice,
                global float *sinogram,
+               float axis_pos,
                float angle_step)
 {
     const int idx = get_global_id(0);
@@ -32,9 +33,9 @@ forwardproject(read_only image2d_t slice,
 
     const float angle = idy * angle_step;
     /* radius of object circle */
-    const float r = slice_width / 2.0f;
+    const float r = fmin (axis_pos, slice_width - axis_pos);
     /* positive/negative distance from detector center */
-    const float d = idx - r;
+    const float d = idx - axis_pos + 0.5f;
     /* length of the cut through the circle */
     const float l = sqrt(4.0f*r*r - 4.0f*d*d);
 
@@ -46,7 +47,7 @@ forwardproject(read_only image2d_t slice,
     const float2 N = (float2) (D.y, -D.x);
 
     /* sample point in the circle traveling along N */
-    float2 sample = d * D - l/2.0f * N + ((float2) (r, r));
+    float2 sample = d * D - l/2.0f * N + ((float2) (axis_pos, axis_pos));
     float sum = 0.0f;
 
     for (int i = 0; i < l; i++) {
