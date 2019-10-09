@@ -29,6 +29,7 @@
 struct _UfoForwardprojectTaskPrivate {
     cl_kernel kernel;
     cl_mem slice_mem;
+    gfloat axis_pos;
     gfloat angle_step;
     guint num_projections;
 };
@@ -43,6 +44,7 @@ G_DEFINE_TYPE_WITH_CODE (UfoForwardprojectTask, ufo_forwardproject_task, UFO_TYP
 
 enum {
     PROP_0,
+    PROP_AXIS_POSITION,
     PROP_ANGLE_STEP,
     PROP_NUM_PROJECTIONS,
     N_PROPERTIES
@@ -90,6 +92,9 @@ ufo_forwardproject_task_get_requisition (UfoTask *task,
     requisition->n_dims = 2;
     requisition->dims[0] = in_req.dims[0];
     requisition->dims[1] = priv->num_projections;
+    if (priv->axis_pos == -G_MAXFLOAT) {
+        priv->axis_pos = in_req.dims[0] / 2.0f;
+    }
 }
 
 static guint
@@ -134,7 +139,8 @@ ufo_forwardproject_task_process (UfoTask *task,
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (gfloat), &priv->angle_step));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (gfloat), &priv->axis_pos));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (gfloat), &priv->angle_step));
 
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
 
@@ -150,6 +156,9 @@ ufo_forwardproject_task_set_property (GObject *object,
     UfoForwardprojectTaskPrivate *priv = UFO_FORWARDPROJECT_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
+        case PROP_AXIS_POSITION:
+            priv->axis_pos = g_value_get_float (value);
+            break;
         case PROP_ANGLE_STEP:
             priv->angle_step = g_value_get_float(value);
             break;
@@ -171,6 +180,9 @@ ufo_forwardproject_task_get_property (GObject *object,
     UfoForwardprojectTaskPrivate *priv = UFO_FORWARDPROJECT_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
+        case PROP_AXIS_POSITION:
+            g_value_set_float (value, priv->axis_pos);
+            break;
         case PROP_ANGLE_STEP:
             g_value_set_float(value, priv->angle_step);
             break;
@@ -218,6 +230,13 @@ ufo_forwardproject_task_class_init (UfoForwardprojectTaskClass *klass)
     gobject_class->get_property = ufo_forwardproject_task_get_property;
     gobject_class->finalize = ufo_forwardproject_task_finalize;
 
+    properties[PROP_AXIS_POSITION] =
+        g_param_spec_float ("axis-pos",
+            "Position of rotation axis",
+            "Position of rotation axis",
+            -G_MAXFLOAT, G_MAXFLOAT, -G_MAXFLOAT,
+            G_PARAM_READWRITE);
+
     properties[PROP_ANGLE_STEP] =
         g_param_spec_float("angle-step",
             "Increment of angle in radians",
@@ -245,6 +264,7 @@ ufo_forwardproject_task_init(UfoForwardprojectTask *self)
 {
     self->priv = UFO_FORWARDPROJECT_TASK_GET_PRIVATE(self);
 
+    self->priv->axis_pos = -G_MAXFLOAT;
     self->priv->num_projections = 256;
     self->priv->angle_step = 0;
 }
