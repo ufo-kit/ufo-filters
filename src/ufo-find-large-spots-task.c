@@ -27,9 +27,22 @@
 #include "common/ufo-addressing.h"
 #include "common/ufo-common.h"
 
+typedef enum {
+    SPOT_THRESHOLD_BELOW = -1,
+    SPOT_THRESHOLD_ABSOLUTE,
+    SPOT_THRESHOLD_ABOVE
+} SpotThresholdMode;
+
+static GEnumValue spot_threshold_mode_values[] = {
+    { SPOT_THRESHOLD_BELOW, "SPOT_THRESHOLD_BELOW", "below" },
+    { SPOT_THRESHOLD_ABSOLUTE, "SPOT_THRESHOLD_ABSOLUTE", "absolute" },
+    { SPOT_THRESHOLD_ABOVE, "SPOT_THRESHOLD_ABOVE", "above" },
+    { 0, NULL, NULL}
+};
 
 struct _UfoFindLargeSpotsTaskPrivate {
     gfloat spot_threshold;
+    SpotThresholdMode spot_threshold_mode;
     gfloat grow_threshold;
     cl_context context;
     cl_kernel set_ones_kernel, set_threshold_kernel, grow_kernel, holes_kernel, convolution_kernel, sum_kernel;
@@ -48,6 +61,7 @@ G_DEFINE_TYPE_WITH_CODE (UfoFindLargeSpotsTask, ufo_find_large_spots_task, UFO_T
 
 enum {
     PROP_0,
+    PROP_SPOT_THRESHOLD_MODE,
     PROP_SPOT_THRESHOLD,
     PROP_GROW_THRESHOLD,
     PROP_ADDRESSING_MODE,
@@ -74,7 +88,7 @@ ufo_find_large_spots_task_setup (UfoTask *task,
     UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
 
     priv->set_ones_kernel = ufo_resources_get_kernel (resources, "morphology.cl", "set_to_ones", NULL, error);
-    priv->set_threshold_kernel = ufo_resources_get_kernel (resources, "morphology.cl", "set_abs_above_threshold", NULL, error);
+    priv->set_threshold_kernel = ufo_resources_get_kernel (resources, "morphology.cl", "set_above_threshold", NULL, error);
     priv->grow_kernel = ufo_resources_get_kernel (resources, "morphology.cl", "grow_region_above_threshold", NULL, error);
     priv->holes_kernel = ufo_resources_get_kernel (resources, "morphology.cl", "fill_holes", NULL, error);
     priv->convolution_kernel = ufo_resources_get_kernel (resources, "estimate-noise.cl", "convolve_abs_laplacian_diff", NULL, error);
@@ -208,6 +222,7 @@ ufo_find_large_spots_task_process (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->set_threshold_kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->set_threshold_kernel, 1, sizeof (cl_mem), &priv->aux_mem[0]));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->set_threshold_kernel, 2, sizeof (cl_int), &priv->spot_threshold));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->set_threshold_kernel, 3, sizeof (cl_int), &priv->spot_threshold_mode));
     ufo_profiler_call (profiler, cmd_queue, priv->set_threshold_kernel, 2, requisition->dims, NULL);
     UFO_RESOURCES_CHECK_CLERR (clEnqueueCopyBuffer (cmd_queue,
                                                     priv->aux_mem[0],
@@ -302,6 +317,9 @@ ufo_find_large_spots_task_set_property (GObject *object,
         case PROP_SPOT_THRESHOLD:
             priv->spot_threshold = g_value_get_float (value);
             break;
+        case PROP_SPOT_THRESHOLD_MODE:
+            priv->spot_threshold_mode = g_value_get_enum (value);
+            break;
         case PROP_GROW_THRESHOLD:
             priv->grow_threshold = g_value_get_float (value);
             break;
@@ -325,6 +343,9 @@ ufo_find_large_spots_task_get_property (GObject *object,
     switch (property_id) {
         case PROP_SPOT_THRESHOLD:
             g_value_set_float (value, priv->spot_threshold);
+            break;
+        case PROP_SPOT_THRESHOLD_MODE:
+            g_value_set_enum (value, priv->spot_threshold_mode);
             break;
         case PROP_GROW_THRESHOLD:
             g_value_set_float (value, priv->grow_threshold);
@@ -413,8 +434,15 @@ ufo_find_large_spots_task_class_init (UfoFindLargeSpotsTaskClass *klass)
         g_param_spec_float ("spot-threshold",
             "Pixels with grey value larger than this are considered as spots",
             "Pixels with grey value larger than this are considered as spots",
-            0.0f, G_MAXFLOAT, 0.0f,
+            -G_MAXFLOAT, G_MAXFLOAT, 0.0f,
             G_PARAM_READWRITE);
+
+    properties[PROP_SPOT_THRESHOLD_MODE] =
+        g_param_spec_enum ("spot-threshold-mode",
+            "Pixels must be either \"below\", \"above\" the spot threshold, or their \"absolute\" value can be compared",
+            "Pixels must be either \"below\", \"above\" the spot threshold, or their \"absolute\" value can be compared",
+            g_enum_register_static ("spot-threshold-mode", spot_threshold_mode_values),
+            SPOT_THRESHOLD_ABSOLUTE, G_PARAM_READWRITE);
 
     properties[PROP_GROW_THRESHOLD] =
         g_param_spec_float ("grow-threshold",
@@ -443,5 +471,6 @@ ufo_find_large_spots_task_init(UfoFindLargeSpotsTask *self)
     self->priv = UFO_FIND_LARGE_SPOTS_TASK_GET_PRIVATE(self);
     self->priv->spot_threshold = 0.0f;
     self->priv->grow_threshold = 0.0f;
+    self->priv->spot_threshold_mode = SPOT_THRESHOLD_ABSOLUTE;
     self->priv->addressing_mode = CL_ADDRESS_MIRRORED_REPEAT;
 }

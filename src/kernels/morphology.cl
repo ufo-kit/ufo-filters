@@ -17,14 +17,26 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+/**
+ * Set mask to 1 if value exceeds threshold. If sgn is -1, value has to be below
+ * threshold, if it is 1 it has to be above threshold, if it is 0 absolute value
+ * is compared.
+ */
 kernel void
-set_abs_above_threshold (global float *input,
+set_above_threshold (global float *input,
                          global float *output,
-                         const float threshold)
+                         const float threshold,
+                         const int sgn)
 {
     int index = get_global_id (1) * get_global_size (0) + get_global_id (0);
+    float value = input[index];
+    if (!sgn) {
+        value = fabs (value) - threshold;
+    } else {
+        value = sgn * (value - threshold);
+    }
 
-    output[index] = fabs (input[index]) > threshold ? 1 : 0;
+    output[index] = value > 0 ? 1 : 0;
 }
 
 kernel void
