@@ -136,7 +136,12 @@ ufo_flatten_task_process (UfoTask *task,
                 tmp[i] = in_mem[i * width * height + y * width + x];
 
             qsort ((gpointer) tmp, depth, sizeof(gfloat), cmp_float);
-            out_mem[y * width + x] = tmp[depth / 2];
+            if (depth % 2) {
+                out_mem[y * width + x] = tmp[depth / 2];
+            } else {
+                /* Average two middle values if depth is even */
+                out_mem[y * width + x] = (tmp[depth / 2] + tmp[depth / 2 - 1]) / 2.0f;
+            }
         }
     }
 
