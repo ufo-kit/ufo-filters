@@ -19,6 +19,7 @@ kernel_files = [
     'flip.cl',
     'forwardproject.cl',
     'gaussian.cl',
+    'gradient.cl',
     'histthreshold.cl',
     'interpolator.cl',
     'mask.cl',
