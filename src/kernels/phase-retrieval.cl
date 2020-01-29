@@ -49,10 +49,11 @@ kernel void
 ctf_method(float prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP;
-    if (sin_arg >= frequency_cutoff)
+
+    if (fabs (sin_value + pow(10, -regularize_rate)) < 1e-7 || sin_arg >= frequency_cutoff || (idx == 0 && idy == 0))
         output[idy * width + idx] = 0.0f;
     else
-        output[idy * width + idx] = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));
+        output[idy * width + idx] = 0.5f / (sin_value + pow(10, -regularize_rate));
 }
 
 kernel void
@@ -60,19 +61,22 @@ qp_method(float prefac, float regularize_rate, float binary_filter_rate, float f
 {
     COMMON_SETUP;
 
-    if (sin_arg > M_PI_2_F && fabs (sin_value) < binary_filter_rate || sin_arg >= frequency_cutoff)
+    if (sin_arg > M_PI_2_F && fabs (sin_value + pow(10, -regularize_rate)) < binary_filter_rate ||
+        sin_arg >= frequency_cutoff || (idx == 0 && idy == 0))
+        /* Zero frequency (idx == 0 && idy == 0) must be set to zero explicitly */
         output[idy * width + idx] = 0.0f;
     else
-        output[idy * width + idx] = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));
+        output[idy * width + idx] = 0.5f / (sin_value + pow(10, -regularize_rate));
 }
 
 kernel void
 qp2_method(float prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP;
-    float cacl_filter_value = 0.5f * sign(sin_value) / (fabs(sin_value) + pow(10, -regularize_rate));
+    float cacl_filter_value = 0.5f / (sin_value + pow(10, -regularize_rate));
 
-    if (sin_arg > M_PI_2_F && fabs(sin_value) < binary_filter_rate || sin_arg >= frequency_cutoff)
+    if (sin_arg > M_PI_2_F && fabs(sin_value + pow(10, -regularize_rate)) < binary_filter_rate ||
+        sin_arg >= frequency_cutoff || (idx == 0 && idy == 0))
         output[idy * width + idx] = sign(cacl_filter_value) / (2 * (binary_filter_rate + pow(10, -regularize_rate)));
     else
         output[idy * width + idx] = cacl_filter_value;
