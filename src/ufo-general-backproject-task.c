@@ -270,7 +270,7 @@ compute_slice_region_##type (UfoGeneralBackprojectTaskPrivate *priv,            
         region_for_opencl[0] = (type) ufo_scarray_get_int (region, 0);                                                      \
         region_for_opencl[1] = (type) ufo_scarray_get_int (region, 2);                                                      \
     } else {                                                                                                                \
-        region_for_opencl[0] = (type) -(length / 2);                                                                        \
+        region_for_opencl[0] = -((type) length / 2);                                                                        \
         region_for_opencl[1] = (type) 1;                                                                                    \
     }                                                                                                                       \
 }
