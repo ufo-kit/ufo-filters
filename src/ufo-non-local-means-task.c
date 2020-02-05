@@ -863,6 +863,6 @@ ufo_non_local_means_task_init(UfoNonLocalMeansTask *self)
     self->priv->max_work_group_size = 0;
     self->priv->use_window = TRUE;
     self->priv->addressing_mode = CL_ADDRESS_MIRRORED_REPEAT;
-    self->priv->fast = FALSE;
+    self->priv->fast = TRUE;
     self->priv->estimate_sigma = FALSE;
 }
