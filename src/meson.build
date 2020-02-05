@@ -184,6 +184,20 @@ shared_module('nonlocalmeans',
     install_dir: plugin_install_dir,
 )
 
+# find large spots
+
+shared_module('findlargespots',
+    sources: [
+        'ufo-find-large-spots-task.c',
+        'common/ufo-math.c',
+        'common/ufo-common.c',
+    ],
+    dependencies: deps,
+    name_prefix: 'libufofilter',
+    install: true,
+    install_dir: plugin_install_dir,
+)
+
 # fft plugins
 
 have_clfft = clfft_dep.found()
