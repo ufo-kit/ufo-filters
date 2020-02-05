@@ -140,3 +140,12 @@ ufo_array_minimum (gdouble *array, gint num_values)
 {
     return find_extremum (array, num_values, 1);
 }
+
+gsize
+ufo_math_compute_closest_smaller_power_of_2 (gsize value)
+{
+    gdouble integer;
+    modf (log2 (value), &integer);
+
+    return (gsize) pow (2, integer);
+}

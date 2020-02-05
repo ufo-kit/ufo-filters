@@ -3,7 +3,8 @@ tests = [
     'test-153',
     'test-161',
     'test-core-149',
-    'test-file-write-regression'
+    'test-file-write-regression',
+    'test-nlm'
 ]
 
 tiffinfo = find_program('tiffinfo', required : false)
