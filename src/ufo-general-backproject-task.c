@@ -1509,7 +1509,9 @@ ufo_general_backproject_task_get_requisition (UfoTask *task,
         slice_size = requisition->dims[0] * requisition->dims[1] * get_type_size (priv->store_type);
         volume_size = slice_size * priv->num_slices;
         max_mem_alloc_size_gvalue = ufo_gpu_node_get_info (node, UFO_GPU_NODE_INFO_MAX_MEM_ALLOC_SIZE);
-        max_mem_alloc_size = g_value_get_ulong (max_mem_alloc_size_gvalue);
+        /* Even if a card claims to be able to allocate more than 4 GB (e.g. RTX
+         * 8000) we get OpenCL errors, so limit it to 4 GB */
+        max_mem_alloc_size = MIN (g_value_get_ulong (max_mem_alloc_size_gvalue), ((cl_ulong) 1) << 32);
         g_value_unset (max_mem_alloc_size_gvalue);
         priv->num_slices_per_chunk = (guint) floor ((gdouble) MIN (max_mem_alloc_size, volume_size) / ((gdouble) slice_size));
         if (projections_size + volume_size > max_global_mem_size) {
