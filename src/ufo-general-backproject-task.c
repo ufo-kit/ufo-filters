@@ -41,9 +41,8 @@
 #define REAL_SIZE_ARG_INDEX 1
 #define STATIC_ARG_OFFSET 18
 #define G_LOG_LEVEL_DOMAIN "gbp"
-#define REGION_SIZE(region) ((ufo_scarray_get_int ((region), 2)) == 0) ? 0 : \
-                            ((ufo_scarray_get_int ((region), 1) - ufo_scarray_get_int ((region), 0) - 1) /\
-                            ufo_scarray_get_int ((region), 2) + 1)
+#define REGION_SIZE(region) (ceil ((ufo_scarray_get_double ((region), 1) - ufo_scarray_get_double ((region), 0)) /\
+                             ufo_scarray_get_double ((region), 2)))
 #define NEXT_DIVISOR(dividend, divisor) ((dividend) + (divisor) - (dividend) % (divisor))
 #define DEFINE_FILL_SINCOS(type)                      \
 static void                                           \
@@ -266,9 +265,9 @@ compute_slice_region_##type (UfoGeneralBackprojectTaskPrivate *priv,            
                              UfoScarray *region,                                                                            \
                              type region_for_opencl[2])                                                                     \
 {                                                                                                                           \
-    if (ufo_scarray_get_int (region, 2)) {                                                                                  \
-        region_for_opencl[0] = (type) ufo_scarray_get_int (region, 0);                                                      \
-        region_for_opencl[1] = (type) ufo_scarray_get_int (region, 2);                                                      \
+    if (ufo_scarray_get_double (region, 2)) {                                                                               \
+        region_for_opencl[0] = (type) ufo_scarray_get_double (region, 0);                                                   \
+        region_for_opencl[1] = (type) ufo_scarray_get_double (region, 2);                                                   \
     } else {                                                                                                                \
         region_for_opencl[0] = -((type) length / 2);                                                                        \
         region_for_opencl[1] = (type) 1;                                                                                    \
@@ -1468,13 +1467,13 @@ ufo_general_backproject_task_get_requisition (UfoTask *task,
     requisition->n_dims = 2;
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
-    if (ufo_scarray_get_int (priv->region_x, 2) == 0) {
+    if (ufo_scarray_get_double (priv->region_x, 2) == 0.0) {
         /* If the slice width is not set, reconstruct full width */
         requisition->dims[0] = in_req.dims[0];
     } else {
         requisition->dims[0] = REGION_SIZE (priv->region_x);
     }
-    if (ufo_scarray_get_int (priv->region_y, 2) == 0) {
+    if (ufo_scarray_get_double (priv->region_y, 2) == 0.0) {
         /* If the slice height is not set, reconstruct full height, which is the
          * same as width */
         requisition->dims[1] = in_req.dims[0];
@@ -2029,14 +2028,6 @@ ufo_general_backproject_task_class_init (UfoGeneralBackprojectTaskClass *klass)
     oclass->get_property = ufo_general_backproject_task_get_property;
     oclass->finalize = ufo_general_backproject_task_finalize;
 
-    GParamSpec *region_vals = g_param_spec_int ("region-values",
-                                                "Region values",
-                                                "Elements in regions",
-                                                G_MININT,
-                                                G_MAXINT,
-                                                (gint) 0,
-                                                G_PARAM_READWRITE);
-
     GParamSpec *double_region_vals = g_param_spec_double ("double-region-values",
                                                           "Double Region values",
                                                           "Elements in double regions",
@@ -2078,14 +2069,14 @@ ufo_general_backproject_task_class_init (UfoGeneralBackprojectTaskClass *klass)
         g_param_spec_value_array ("x-region",
             "X region for reconstruction (horizontal axis) as (from, to, step)",
             "X region for reconstruction (horizontal axis) as (from, to, step)",
-            region_vals,
+            double_region_vals,
             G_PARAM_READWRITE);
 
     properties[PROP_REGION_Y] =
         g_param_spec_value_array ("y-region",
             "Y region for reconstruction (beam direction axis) as (from, to, step)",
             "Y region for reconstruction (beam direction axis) as (from, to, step)",
-            region_vals,
+            double_region_vals,
             G_PARAM_READWRITE);
 
     properties[PROP_CENTER_POSITION_X] =
@@ -2297,8 +2288,8 @@ ufo_general_backproject_task_init(UfoGeneralBackprojectTask *self)
 
     /* Value arrays */
     self->priv->region = ufo_scarray_new (3, G_TYPE_DOUBLE, NULL);
-    self->priv->region_x = ufo_scarray_new (3, G_TYPE_INT, NULL);
-    self->priv->region_y = ufo_scarray_new (3, G_TYPE_INT, NULL);
+    self->priv->region_x = ufo_scarray_new (3, G_TYPE_DOUBLE, NULL);
+    self->priv->region_y = ufo_scarray_new (3, G_TYPE_DOUBLE, NULL);
     self->priv->geometry = ufo_ctgeometry_new ();
 
     /* Private */
