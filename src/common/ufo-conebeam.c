@@ -22,6 +22,7 @@ static UfoUniRecoNodeProps node_props[] = {
     {"GENERIC", 8, 0},
     {"GEFORCE_GTX_TITAN", 24, 32},
     {"GEFORCE_GTX_1080_TI", 24, 32},
+    {"QUADRO_RTX_8000", 30, 32},
 };
 
 GHashTable *
