@@ -364,8 +364,8 @@ static const GEnumValue parameter_values[] = {
 };
 
 static GEnumValue compute_type_values[] = {
-    {CT_FLOAT,  "FT_FLOAT",  "float"},
-    {CT_DOUBLE, "FT_DOUBLE", "double"},
+    {CT_FLOAT,  "CT_FLOAT",  "float"},
+    {CT_DOUBLE, "CT_DOUBLE", "double"},
     { 0, NULL, NULL}
 };
 
@@ -2206,7 +2206,7 @@ ufo_general_backproject_task_class_init (UfoGeneralBackprojectTaskClass *klass)
             "Data type for performing kernel math operations "
             "(\"half\", \"float\", \"double\")",
             g_enum_register_static ("ufo_gbp_compute_type", compute_type_values),
-            FT_FLOAT,
+            CT_FLOAT,
             G_PARAM_READWRITE);
 
     properties[PROP_ADDRESSING_MODE] =
