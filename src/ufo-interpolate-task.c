@@ -224,8 +224,10 @@ ufo_interpolate_task_finalize (GObject *object)
         priv->y = NULL;
     }
 
-    UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
-    priv->kernel = NULL;
+    if (priv->kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
+        priv->kernel = NULL;
+    }
 
     G_OBJECT_CLASS (ufo_interpolate_task_parent_class)->finalize (object);
 }

@@ -1943,14 +1943,18 @@ ufo_general_backproject_task_finalize (GObject *object)
 {
     guint i;
     UfoGeneralBackprojectTaskPrivate *priv = UFO_GENERAL_BACKPROJECT_TASK_GET_PRIVATE (object);
-    g_object_unref (priv->resources);
-    priv->resources = NULL;
+    if (priv->resources) {
+        g_object_unref (priv->resources);
+        priv->resources = NULL;
+    }
 
     ufo_scarray_free (priv->region);
     ufo_scarray_free (priv->region_x);
     ufo_scarray_free (priv->region_y);
     ufo_ctgeometry_free (priv->geometry);
-    g_hash_table_destroy (priv->node_props_table);
+    if (priv->node_props_table) {
+        g_hash_table_destroy (priv->node_props_table);
+    }
 
     if (priv->projections) {
         for (i = 0; i < priv->burst; i++) {
@@ -2274,6 +2278,16 @@ static void
 ufo_general_backproject_task_init(UfoGeneralBackprojectTask *self)
 {
     self->priv = UFO_GENERAL_BACKPROJECT_TASK_GET_PRIVATE(self);
+    self->priv->resources = NULL;
+    self->priv->node_props_table = NULL;
+    self->priv->projections = NULL;
+    self->priv->chunks = NULL;
+    self->priv->cl_regions = NULL;
+    self->priv->vector_arguments = NULL;
+    self->priv->context = NULL;
+    self->priv->kernel = NULL;
+    self->priv->rest_kernel = NULL;
+    self->priv->sampler = NULL;
 
     /* Scalars */
     self->priv->burst = 0;

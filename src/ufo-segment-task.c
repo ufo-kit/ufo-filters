@@ -406,7 +406,10 @@ ufo_segment_task_finalize (GObject *object)
     if (priv->threshold != NULL)
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->threshold));
 
-    UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
+    if (priv->context) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
+        priv->context = NULL;
+    }
 
     G_OBJECT_CLASS (ufo_segment_task_parent_class)->finalize (object);
 }

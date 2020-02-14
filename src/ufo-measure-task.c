@@ -580,8 +580,10 @@ ufo_measure_task_finalize (GObject *object)
     gint i;
 
     for (i = 0; i < M_LAST; i++) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernels[i]));
-        priv->kernels[i] = NULL;
+        if (priv->kernels[i]) {
+            UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernels[i]));
+            priv->kernels[i] = NULL;
+        }
         if (priv->postproc_kernels[i]) {
             UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->postproc_kernels[i]));
             priv->postproc_kernels[i] = NULL;

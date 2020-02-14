@@ -232,8 +232,10 @@ ufo_interpolate_stream_task_finalize (GObject *object)
     priv = UFO_INTERPOLATE_STREAM_TASK_GET_PRIVATE (object);
     g_ptr_array_free (priv->copies, TRUE);
 
-    UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
-    priv->kernel = NULL;
+    if (priv->kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
+        priv->kernel = NULL;
+    }
 
     G_OBJECT_CLASS (ufo_interpolate_stream_task_parent_class)->finalize (object);
 }

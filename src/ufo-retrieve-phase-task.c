@@ -319,8 +319,10 @@ ufo_retrieve_phase_task_finalize (GObject *object)
 
     if (priv->kernels) {
         for (int i = 0; i < N_METHODS; i++) {
-            UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernels[i]));
-            priv->kernels[i] = NULL;
+            if (priv->kernels[i]) {
+                UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernels[i]));
+                priv->kernels[i] = NULL;
+            }
         }
     }
 

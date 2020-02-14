@@ -193,7 +193,10 @@ static void
 ufo_gradient_task_finalize (GObject *object)
 {
     UfoGradientTaskPrivate *priv = UFO_GRADIENT_TASK_GET_PRIVATE (object);
-    UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
+    if (priv->kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
+        priv->kernel = NULL;
+    }
 
     G_OBJECT_CLASS (ufo_gradient_task_parent_class)->finalize (object);
 }
