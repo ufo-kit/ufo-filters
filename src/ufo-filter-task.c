@@ -475,7 +475,7 @@ ufo_filter_task_class_init (UfoFilterTaskClass *klass)
         g_param_spec_enum ("filter",
             "Type of filter (\"ramp\", \"ramp-fromreal\", \"butterworth\", \"faris-byer\", \"hamming\",\"bh3\")",
             "Type of filter (\"ramp\", \"ramp-fromreal\", \"butterworth\", \"faris-byer\", \"hamming\",\"bh3\")",
-            g_enum_register_static ("filter", filter_values),
+            g_enum_register_static ("ufo_filter_filter", filter_values),
             0, G_PARAM_READWRITE);
 
     properties[PROP_CUTOFF] =

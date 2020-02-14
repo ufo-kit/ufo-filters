@@ -367,7 +367,7 @@ ufo_retrieve_phase_task_class_init (UfoRetrievePhaseTaskClass *klass)
         g_param_spec_enum ("method",
             "Method name",
             "Method name",
-            g_enum_register_static ("method", method_values),
+            g_enum_register_static ("ufo_retrieve_phase_method", method_values),
             METHOD_TIE,
             G_PARAM_READWRITE);
 

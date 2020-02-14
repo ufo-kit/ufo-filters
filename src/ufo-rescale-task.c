@@ -324,7 +324,7 @@ ufo_rescale_task_class_init (UfoRescaleTaskClass *klass)
         g_param_spec_enum ("interpolation",
             "Interpolation mode (\"nearest\", \"linear\")",
             "Interpolation mode (\"nearest\", \"linear\")",
-            g_enum_register_static ("interpolation", interpolation_values),
+            g_enum_register_static ("ufo_rescale_interpolation", interpolation_values),
             INTERPOLATION_LINEAR, G_PARAM_READWRITE);
 
     properties[PROP_WIDTH] =

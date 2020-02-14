@@ -477,7 +477,7 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
         g_param_spec_enum ("mode",
             "Backprojection mode (\"nearest\", \"texture\")",
             "Backprojection mode (\"nearest\", \"texture\")",
-            g_enum_register_static ("mode", mode_values),
+            g_enum_register_static ("ufo_backproject_mode", mode_values),
             MODE_TEXTURE, G_PARAM_READWRITE);
 
     properties[PROP_ROI_X] =

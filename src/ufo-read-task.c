@@ -672,7 +672,7 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
         g_param_spec_enum ("type",
             "Override type detection based on extension",
             "Override type detection based on extension",
-            g_enum_register_static ("type", type_values),
+            g_enum_register_static ("ufo_read_type", type_values),
             TYPE_UNSPECIFIED,
             G_PARAM_READWRITE);
 

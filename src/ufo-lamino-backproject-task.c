@@ -772,7 +772,7 @@ ufo_lamino_backproject_task_class_init (UfoLaminoBackprojectTaskClass *klass)
             "Which parameter will be varied along the z-axis",
             "Which parameter will be varied along the z-axis "
                 "(\"z\", \"x-center\", \"lamino-angle\", \"roll-angle\")",
-            g_enum_register_static ("parameter", parameter_values),
+            g_enum_register_static ("ufo_lbp_parameter", parameter_values),
             PARAMETER_Z,
             G_PARAM_READWRITE);
 
@@ -780,7 +780,7 @@ ufo_lamino_backproject_task_class_init (UfoLaminoBackprojectTaskClass *klass)
         g_param_spec_enum ("addressing-mode",
             "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
             "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
-            g_enum_register_static ("bp_addressing_mode", addressing_values),
+            g_enum_register_static ("ufo_lbp_addressing_mode", addressing_values),
             CL_ADDRESS_CLAMP,
             G_PARAM_READWRITE);
 

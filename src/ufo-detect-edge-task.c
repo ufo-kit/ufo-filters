@@ -244,7 +244,7 @@ ufo_detect_edge_task_class_init (UfoDetectEdgeTaskClass *klass)
         g_param_spec_enum ("filter",
             "Filter type (\"sobel\", \"laplace\", \"prewitt\")",
             "Filter type (\"sobel\", \"laplace\", \"prewitt\")",
-            g_enum_register_static ("filter", filter_values),
+            g_enum_register_static ("ufo_detect_edge_filter", filter_values),
             FILTER_SOBEL,
             G_PARAM_READWRITE);
 

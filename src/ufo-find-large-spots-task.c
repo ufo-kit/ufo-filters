@@ -441,7 +441,7 @@ ufo_find_large_spots_task_class_init (UfoFindLargeSpotsTaskClass *klass)
         g_param_spec_enum ("spot-threshold-mode",
             "Pixels must be either \"below\", \"above\" the spot threshold, or their \"absolute\" value can be compared",
             "Pixels must be either \"below\", \"above\" the spot threshold, or their \"absolute\" value can be compared",
-            g_enum_register_static ("spot-threshold-mode", spot_threshold_mode_values),
+            g_enum_register_static ("ufo_fls_spot_threshold_mode", spot_threshold_mode_values),
             SPOT_THRESHOLD_ABSOLUTE, G_PARAM_READWRITE);
 
     properties[PROP_GROW_THRESHOLD] =
@@ -455,7 +455,7 @@ ufo_find_large_spots_task_class_init (UfoFindLargeSpotsTaskClass *klass)
         g_param_spec_enum ("addressing-mode",
             "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
             "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
-            g_enum_register_static ("find_addressing_mode", addressing_values),
+            g_enum_register_static ("ufo_fls_addressing_mode", addressing_values),
             CL_ADDRESS_MIRRORED_REPEAT,
             G_PARAM_READWRITE);
 
