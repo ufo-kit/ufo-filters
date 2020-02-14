@@ -334,7 +334,7 @@ ufo_polar_coordinates_task_class_init (UfoPolarCoordinatesTaskClass *klass)
         g_param_spec_enum ("direction",
             "Conversion direction",
             "Conversion direction from: \"polar_to_cartesian\", \"cartesian_to_polar\"",
-            g_enum_register_static ("direction", direction_values),
+            g_enum_register_static ("ufo_polar_direction", direction_values),
             DIRECTION_CARTESIAN_TO_POLAR, G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)

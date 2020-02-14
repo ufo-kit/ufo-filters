@@ -2049,7 +2049,7 @@ ufo_general_backproject_task_class_init (UfoGeneralBackprojectTaskClass *klass)
         g_param_spec_enum ("parameter",
             "Which parameter will be varied along the z-axis",
             "Which parameter will be varied along the z-axis",
-            g_enum_register_static ("GBPParameter", parameter_values),
+            g_enum_register_static ("ufo_gbp_parameter", parameter_values),
             UFO_UNI_RECO_PARAMETER_Z,
             G_PARAM_READWRITE);
 
@@ -2205,7 +2205,7 @@ ufo_general_backproject_task_class_init (UfoGeneralBackprojectTaskClass *klass)
             "Data type for performing kernel math operations",
             "Data type for performing kernel math operations "
             "(\"half\", \"float\", \"double\")",
-            g_enum_register_static ("compute-type", compute_type_values),
+            g_enum_register_static ("ufo_gbp_compute_type", compute_type_values),
             FT_FLOAT,
             G_PARAM_READWRITE);
 
@@ -2213,7 +2213,7 @@ ufo_general_backproject_task_class_init (UfoGeneralBackprojectTaskClass *klass)
         g_param_spec_enum ("addressing-mode",
             "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
             "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
-            g_enum_register_static ("bp_addressing_mode", addressing_values),
+            g_enum_register_static ("ufo_gbp_addressing_mode", addressing_values),
             CL_ADDRESS_CLAMP,
             G_PARAM_READWRITE);
 
@@ -2222,7 +2222,7 @@ ufo_general_backproject_task_class_init (UfoGeneralBackprojectTaskClass *klass)
             "Data type for storing the intermediate gray value for a voxel from various rotation angles",
             "Data type for storing the intermediate gray value for a voxel from various rotation angles "
             "(\"half\", \"float\", \"double\")",
-            g_enum_register_static ("result-type", ft_values),
+            g_enum_register_static ("ufo_gbp_result_type", ft_values),
             FT_FLOAT,
             G_PARAM_READWRITE);
 
@@ -2231,7 +2231,7 @@ ufo_general_backproject_task_class_init (UfoGeneralBackprojectTaskClass *klass)
             "Data type of the output volume",
             "Data type of the output volume "
             "(\"half\", \"float\", \"double\", \"uchar\", \"ushort\", \"uint\")",
-            g_enum_register_static ("store-type", st_values),
+            g_enum_register_static ("ufo_gbp_store_type", st_values),
             ST_FLOAT,
             G_PARAM_READWRITE);
 

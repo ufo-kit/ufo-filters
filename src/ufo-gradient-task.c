@@ -222,7 +222,7 @@ ufo_gradient_task_class_init (UfoGradientTaskClass *klass)
         g_param_spec_enum ("direction",
             "Direction (horizontal, vertical, both, both_abs)",
             "Direction (horizontal, vertical, both, both_abs)",
-            g_enum_register_static ("direction", direction_values),
+            g_enum_register_static ("ufo_gradient_direction", direction_values),
             DIRECTION_HORIZONTAL,
             G_PARAM_READWRITE);
 

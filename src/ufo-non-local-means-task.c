@@ -836,7 +836,7 @@ ufo_non_local_means_task_class_init (UfoNonLocalMeansTaskClass *klass)
         g_param_spec_enum ("addressing-mode",
             "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
             "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
-            g_enum_register_static ("nlm_addressing_mode", addressing_values),
+            g_enum_register_static ("ufo_nlm_addressing_mode", addressing_values),
             CL_ADDRESS_MIRRORED_REPEAT,
             G_PARAM_READWRITE);
 

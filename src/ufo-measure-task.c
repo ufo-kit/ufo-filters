@@ -624,7 +624,7 @@ ufo_measure_task_class_init (UfoMeasureTaskClass *klass)
         g_param_spec_enum ("metric",
             "Metric (min, max, sum, mean, var, std, skew, kurtosis)",
             "Metric (min, max, sum, mean, var, std, skew, kurtosis)",
-            g_enum_register_static ("metric", metric_values),
+            g_enum_register_static ("ufo_measure_metric", metric_values),
             M_STD, G_PARAM_READWRITE);
 
     properties[PROP_AXIS] =

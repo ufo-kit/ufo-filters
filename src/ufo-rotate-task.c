@@ -393,7 +393,7 @@ ufo_rotate_task_class_init (UfoRotateTaskClass *klass)
         g_param_spec_enum ("addressing-mode",
             "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
             "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
-            g_enum_register_static ("rot_addressing_mode", addressing_values),
+            g_enum_register_static ("ufo_rot_addressing_mode", addressing_values),
             CL_ADDRESS_CLAMP,
             G_PARAM_READWRITE);
 
@@ -401,7 +401,7 @@ ufo_rotate_task_class_init (UfoRotateTaskClass *klass)
         g_param_spec_enum ("interpolation",
             "Interpolation (\"nearest\" or \"linear\")",
             "Interpolation (\"nearest\" or \"linear\")",
-            g_enum_register_static ("rot_interpolation", interpolation_values),
+            g_enum_register_static ("ufo_rot_interpolation", interpolation_values),
             CL_FILTER_LINEAR,
             G_PARAM_READWRITE);
 

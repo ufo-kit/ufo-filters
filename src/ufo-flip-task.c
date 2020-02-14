@@ -199,7 +199,7 @@ ufo_flip_task_class_init (UfoFlipTaskClass *klass)
         g_param_spec_enum ("direction",
             "Flip direction (`horizontal' or `vertical')",
             "Flip direction (`horizontal' or `vertical')",
-            g_enum_register_static ("direction", direction_values),
+            g_enum_register_static ("ufo_flip_direction", direction_values),
             DIRECTION_HORIZONTAL,
             G_PARAM_READWRITE);
 
