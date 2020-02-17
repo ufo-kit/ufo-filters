@@ -166,7 +166,10 @@ ufo_loop_task_dispose (GObject *object)
     UfoLoopTaskPrivate *priv;
 
     priv = UFO_LOOP_TASK_GET_PRIVATE (object);
-    g_object_unref (priv->temporary);
+    if (priv->temporary) {
+        g_object_unref (priv->temporary);
+        priv->temporary = NULL;
+    }
 
     G_OBJECT_CLASS (ufo_loop_task_parent_class)->dispose (object);
 }
