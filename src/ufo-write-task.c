@@ -126,6 +126,10 @@ ufo_write_task_new (void)
 static gchar *
 get_current_filename (UfoWriteTaskPrivate *priv)
 {
+    if (!priv->filename) {
+        return NULL;
+    }
+
     if (!priv->num_fmt_specifiers)
         return g_strdup (priv->filename);
 
@@ -357,7 +361,7 @@ retry:
             GError *error = NULL;
             gchar *filename = get_current_filename (priv);
 
-            if (!can_be_written (filename, &error)) {
+            if (filename && !can_be_written (filename, &error)) {
                 g_warning ("%s", error->message);
                 g_free (filename);
                 g_error_free (error);
@@ -366,7 +370,9 @@ retry:
             }
 
             ufo_writer_open (priv->writer, filename);
-            g_free (filename);
+            if (filename) {
+                g_free (filename);
+            }
             priv->opened = TRUE;
         }
 
@@ -551,8 +557,10 @@ ufo_write_task_finalize (GObject *object)
 
     priv = UFO_WRITE_TASK_GET_PRIVATE (object);
 
-    g_free (priv->filename);
-    priv->filename= NULL;
+    if (priv->filename) {
+        g_free (priv->filename);
+        priv->filename= NULL;
+    }
 
     if (priv->kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
