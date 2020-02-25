@@ -63,10 +63,12 @@ c_div (global float *in1,
 }
 
 kernel void
-c_conj (global float *data)
+c_conj (global float *data,
+        global float *out)
 {
     int idx = get_global_id(1) * 2 * get_global_size(0) + 2 * get_global_id(0);
-    data[idx+1] = -data[idx+1];
+    out[idx] = data[idx];
+    out[idx+1] = -data[idx+1];
 }
 
 /**
