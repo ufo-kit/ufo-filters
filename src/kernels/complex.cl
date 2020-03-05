@@ -71,6 +71,19 @@ c_conj (global float *data,
     out[idx+1] = -data[idx+1];
 }
 
+kernel void
+c_abs_squared (global float *data,
+               global float *out)
+{
+    int y = get_global_id (1) * 2 * get_global_size (0);
+    int in_idx = y + 2 * get_global_id(0);
+    int out_idx = y + get_global_id(0);
+
+    /* Store the results in the horizontally first half of the complex *out*
+     * array, so the result of this should be cropped to half the input width. */
+    out[out_idx] = data[in_idx] * data[in_idx] + data[in_idx + 1] * data[in_idx + 1];
+}
+
 /**
   * c_mul_real_sym:
   * @frequencies: complex Fourier transform frequencies with interleaved
