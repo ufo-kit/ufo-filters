@@ -64,6 +64,7 @@ set(ufofilter_SRCS
     ufo-ordfilt-task.c
     ufo-pad-task.c
     ufo-polar-coordinates-task.c
+    ufo-power-spectrum-task.c
     ufo-read-task.c
     ufo-reduce-task.c
     ufo-refeed-task.c
