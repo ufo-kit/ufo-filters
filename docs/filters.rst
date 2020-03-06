@@ -860,6 +860,11 @@ Fast Fourier transform
         Height to crop output.
 
 
+.. gobj:class:: power-spectrum
+
+    Compute power spectrum from fourier coefficients.
+
+
 Frequency filtering
 -------------------
 

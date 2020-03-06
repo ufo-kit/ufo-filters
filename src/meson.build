@@ -54,6 +54,7 @@ plugins = [
     'ordfilt',
     'pad',
     'polar-coordinates',
+    'power-spectrum',
     'reduce',
     'refeed',
     'remove-circle',

@@ -71,16 +71,24 @@ c_conj (global float *data,
     out[idx+1] = -data[idx+1];
 }
 
+/**
+ * Compute power spectrum.
+ *
+ * @data: complex input
+ * @out: real output
+ */
 kernel void
 c_abs_squared (global float *data,
                global float *out)
 {
-    int y = get_global_id (1) * 2 * get_global_size (0);
-    int in_idx = y + 2 * get_global_id(0);
-    int out_idx = y + get_global_id(0);
+    int width = get_global_size (0);
+    int idx = get_global_id (0);
+    int idy = get_global_id (1);
+    int out_idx = width * idy + idx;
+    /* Input data must be complex interleaved, global dimensions are with
+     * respect to the real output, so multiply width by 2. */
+    int in_idx = 2 * width * idy + 2 * idx;
 
-    /* Store the results in the horizontally first half of the complex *out*
-     * array, so the result of this should be cropped to half the input width. */
     out[out_idx] = data[in_idx] * data[in_idx] + data[in_idx + 1] * data[in_idx + 1];
 }
 
