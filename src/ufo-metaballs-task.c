@@ -289,14 +289,14 @@ ufo_metaballs_task_class_init (UfoMetaballsTaskClass *klass)
         g_param_spec_uint("width",
             "Width of the output",
             "Width of the output",
-            1, 8192, 512,
+            1, 32768, 512,
             G_PARAM_READWRITE);
 
     properties[PROP_HEIGHT] =
         g_param_spec_uint("height",
             "Height of the output",
             "Height of the output",
-            1, 8192, 512,
+            1, 32768, 512,
             G_PARAM_READWRITE);
 
     properties[PROP_NUM_BALLS] =

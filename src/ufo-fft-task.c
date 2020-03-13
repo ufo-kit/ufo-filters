@@ -341,21 +341,21 @@ ufo_fft_task_class_init (UfoFftTaskClass *klass)
         g_param_spec_uint("size-x",
             "Size of the FFT transform in x-direction",
             "Size of the FFT transform in x-direction",
-            1, 8192, 1,
+            1, 32768, 1,
             G_PARAM_READWRITE);
 
     properties[PROP_SIZE_Y] =
         g_param_spec_uint("size-y",
             "Size of the FFT transform in y-direction",
             "Size of the FFT transform in y-direction",
-            1, 8192, 1,
+            1, 32768, 1,
             G_PARAM_READWRITE);
 
     properties[PROP_SIZE_Z] =
         g_param_spec_uint("size-z",
             "Size of the FFT transform in z-direction",
             "Size of the FFT transform in z-direction",
-            1, 8192, 1,
+            1, 32768, 1,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)

@@ -349,14 +349,14 @@ ufo_buffer_task_class_init (UfoBufferTaskClass *klass)
         g_param_spec_uint ("number",
             "Number of pre-allocated \"pages\"",
             "Number of pre-allocated \"pages\"",
-            1, 4096, 4,
+            1, 32768, 4,
             G_PARAM_READWRITE);
 
     properties[PROP_DUP_COUNT] =
         g_param_spec_uint ("dup-count",
             "Number of times each image should be duplicated",
             "Number of times each image should be duplicated",
-            1, 4096, 1,
+            1, 32768, 1,
             G_PARAM_READWRITE);
 
     properties[PROP_LOOP] =

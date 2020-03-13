@@ -442,21 +442,21 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
         g_param_spec_uint ("num-projections",
             "Number of projections between 0 and 180 degrees",
             "Number of projections between 0 and 180 degrees",
-            0, +8192, 0,
+            0, +32768, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_OFFSET] =
         g_param_spec_uint ("offset",
             "Offset to the first projection",
             "Offset to the first projection",
-            0, +8192, 0,
+            0, +32768, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_AXIS_POSITION] =
         g_param_spec_double ("axis-pos",
             "Position of rotation axis",
             "Position of rotation axis",
-            -1.0, +8192.0, 0.0,
+            -1.0, +32768.0, 0.0,
             G_PARAM_READWRITE);
 
     properties[PROP_ANGLE_STEP] =

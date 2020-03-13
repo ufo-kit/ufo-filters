@@ -392,14 +392,14 @@ ufo_volume_render_task_class_init (UfoVolumeRenderTaskClass *klass)
         g_param_spec_uint ("width",
             "Width",
             "Width of the rendered image",
-            1, 8192, 512,
+            1, 32768, 512,
             G_PARAM_READWRITE);
 
     properties[PROP_HEIGHT] =
         g_param_spec_uint ("height",
             "Height",
             "Height of the rendered image",
-            1, 8192, 512,
+            1, 32768, 512,
             G_PARAM_READWRITE);
 
     properties[PROP_NUM_GENERATE] = 

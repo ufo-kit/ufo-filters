@@ -320,14 +320,14 @@ ufo_polar_coordinates_task_class_init (UfoPolarCoordinatesTaskClass *klass)
         g_param_spec_uint ("width",
             "Final width",
             "Final width after transformation",
-            0, 8192, 0,
+            0, 32768, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_HEIGHT] =
         g_param_spec_uint ("height",
             "Final height",
             "Final height after transformation",
-            0, 8192, 0,
+            0, 32768, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_DIRECTION] =

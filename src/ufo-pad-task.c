@@ -315,28 +315,28 @@ ufo_pad_task_class_init (UfoPadTaskClass *klass)
         g_param_spec_uint ("width",
             "Padded width",
             "Padded width",
-            0, +8192, 0,
+            0, +32768, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_HEIGHT] =
         g_param_spec_uint ("height",
             "Padded height",
             "Padded height",
-            0, +8192, 0,
+            0, +32768, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_X] =
         g_param_spec_int ("x",
             "X start index",
             "X index for input's 0th column",
-            -8192, +8192, 0,
+            -32768, +32768, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_Y] =
         g_param_spec_int ("y",
             "Y start index",
             "Y index for input's 0th row",
-            -8192, +8192, 0,
+            -32768, +32768, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_ADDRESSING_MODE] =

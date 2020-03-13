@@ -2265,7 +2265,7 @@ ufo_general_backproject_task_class_init (UfoGeneralBackprojectTaskClass *klass)
         g_param_spec_uint ("num-projections",
             "Number of projections",
             "Number of projections",
-            0, 16384, 0,
+            0, 32768, 0,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
