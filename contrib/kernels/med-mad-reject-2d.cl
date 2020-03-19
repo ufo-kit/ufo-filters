@@ -62,7 +62,7 @@ med_mad_rej_2D (
   float swapper;
 
   /* Computing the median : */
-  for (index = 0; num_px != (1+index); ++index) {
+  for (index = 1; num_px != index; ++index) {
     for (size_t j = 0; j!= (num_px-index); ++j ) {
       swapper = v[j];
       v[j] = min(v[j], v[j+1]);
@@ -78,7 +78,7 @@ med_mad_rej_2D (
   for ( index = (num_px>>1) ; num_px != index; ++index) {
     v[index] = v[index] - med;
   }
-  for (index = 0; num_px != (1+index); ++index) {
+  for (index = 1; num_px != index; ++index) {
     for (size_t j = 0; j!= (num_px-index); ++j ) {
       swapper = v[j];
       v[j] = min(v[j], v[j+1]);
