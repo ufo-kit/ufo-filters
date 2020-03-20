@@ -66,6 +66,7 @@ plugins = [
     'segment',
     'sleep',
     'slice',
+    'sliding-stack',
     'stack',
     'stitch',
     'stdin',
