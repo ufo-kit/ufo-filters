@@ -1694,7 +1694,13 @@ ufo_general_backproject_task_generate (UfoTask *task,
     bpp = get_type_size (priv->store_type);
     g_object_get (task, "num_processed", &count, NULL);
 
-    if (count != priv->num_projections || priv->generated >= priv->num_slices) {
+    if (count != priv->num_projections) {
+        /* Don't send volume if not enough projections came */
+        g_warning ("general-backproject received only %u projections out of %u "
+                   "specified, no outuput will be generated", count, priv->num_projections);
+        return FALSE;
+    }
+    if (priv->generated >= priv->num_slices) {
         /* Don't send volume if not enough projections came */
         return FALSE;
     }
