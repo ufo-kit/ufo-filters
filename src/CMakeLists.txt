@@ -77,6 +77,7 @@ set(ufofilter_SRCS
     ufo-rotate-task.c
     ufo-sleep-task.c
     ufo-slice-task.c
+    ufo-sliding-stack-task.c
     ufo-stack-task.c
     ufo-stdin-task.c
     ufo-stitch-task.c

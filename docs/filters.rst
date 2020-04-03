@@ -758,6 +758,23 @@ Stacking
         Number of items, i.e. the length of the third dimension.
 
 
+Stacking with sliding window
+----------------------------
+
+.. gobj:class:: sliding-stack
+
+    Stacks input images up to the specified :gobj:prop:`number` and then
+    replaces old images with incoming new ones as they come. The first image is
+    copied to all positions in the beginning. Images in the window are not
+    ordered, i.e. if e.g. :gobj:prop:`number` = 3, then the window will contain
+    the following input images: (0, 0, 0), (0, 1, 0), (0, 1, 2), (3, 1, 2), (3,
+    4, 2), (3, 4, 5) and so on.
+
+    .. gobj:prop:: number:uint
+
+        Number of items, i.e. the length of the third dimension.
+
+
 Merging
 -------
 
