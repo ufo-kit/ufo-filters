@@ -13,7 +13,8 @@ File writer
     Writes input data to the file system. Support for writing depends on compile
     support, however raw (`.raw`) files can always be written. TIFF (`.tif` and
     `.tiff`), HDF5 (`.h5`) and JPEG (`.jpg` and `.jpeg`) might be supported
-    additionally.
+    additionally. By default, :gobj:prop:`bytes-per-file` is set to 128 GB, set
+    it to 0 if you want to write single-page files.
 
     .. gobj:prop:: filename:string
 
@@ -34,6 +35,10 @@ File writer
 
         Determines the number of steps the counter replacing the format
         specifier is incremented. Initially, it is set to 1.
+
+    .. gobj:prop:: bytes-per-file:ulong
+
+        Bytes per file for multi-page files.
 
     .. gobj:prop:: append:boolean
 
@@ -70,6 +75,13 @@ File writer
 
         JPEG quality value between 0 and 100. Higher values correspond to higher
         quality and larger file sizes.
+
+    For TIFF files the following property applies:
+
+    .. gobj:prop:: tiff-bigtiff:boolean
+
+        Whether to write in BigTiff format (required for files larger than 4
+        GB).
 
 
 Memory writer
