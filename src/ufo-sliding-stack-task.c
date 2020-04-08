@@ -23,6 +23,7 @@
 
 struct _UfoSlidingStackTaskPrivate {
     guint n_items;
+    gboolean ordered;
     guint current;
     guint8 *window;
 };
@@ -38,6 +39,7 @@ G_DEFINE_TYPE_WITH_CODE (UfoSlidingStackTask, ufo_sliding_stack_task, UFO_TYPE_T
 enum {
     PROP_0,
     PROP_NUM_ITEMS,
+    PROP_ORDERED,
     N_PROPERTIES
 };
 
@@ -110,7 +112,7 @@ ufo_sliding_stack_task_process (UfoTask *task,
     guint8 *in_mem;
     guint8 *out_mem;
     gsize size, window_size;
-    guint i;
+    guint i, j;
 
     priv = UFO_SLIDING_STACK_TASK_GET_PRIVATE (task);
 
@@ -132,7 +134,14 @@ ufo_sliding_stack_task_process (UfoTask *task,
      * replace even indices in one output buffer and odd in the other. So we
      * need to keep a copy of the input locally and copy to the output.
      * TODO: improve this on a lower level in ufo-core. */
-    memcpy (out_mem, priv->window, window_size);
+    if (priv->ordered) {
+        j = priv->current;
+        for (i = 0; i < priv->n_items; i++, j++) {
+            memcpy (out_mem + i * size, priv->window + j % priv->n_items * size, size);
+        }
+    } else {
+        memcpy (out_mem, priv->window, window_size);
+    }
 
     return TRUE;
 }
@@ -149,6 +158,9 @@ ufo_sliding_stack_task_set_property (GObject *object,
     switch (property_id) {
         case PROP_NUM_ITEMS:
             priv->n_items = g_value_get_uint (value);
+            break;
+        case PROP_ORDERED:
+            priv->ordered = g_value_get_boolean (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -167,6 +179,9 @@ ufo_sliding_stack_task_get_property (GObject *object,
     switch (property_id) {
         case PROP_NUM_ITEMS:
             g_value_set_uint (value, priv->n_items);
+            break;
+        case PROP_ORDERED:
+            g_value_set_boolean (value, priv->ordered);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -216,6 +231,12 @@ ufo_sliding_stack_task_class_init (UfoSlidingStackTaskClass *klass)
             1, G_MAXUINT, 1,
             G_PARAM_READWRITE);
 
+    properties[PROP_ORDERED] =
+        g_param_spec_boolean ("ordered",
+            "Order items in the sliding window",
+            "Order items in the sliding window",
+            FALSE, G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -227,5 +248,6 @@ ufo_sliding_stack_task_init(UfoSlidingStackTask *self)
 {
     self->priv = UFO_SLIDING_STACK_TASK_GET_PRIVATE(self);
     self->priv->n_items = 1;
+    self->priv->ordered = FALSE;
     self->priv->window = NULL;
 }
