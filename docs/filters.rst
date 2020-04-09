@@ -765,14 +765,19 @@ Stacking with sliding window
 
     Stacks input images up to the specified :gobj:prop:`number` and then
     replaces old images with incoming new ones as they come. The first image is
-    copied to all positions in the beginning. Images in the window are not
-    ordered, i.e. if e.g. :gobj:prop:`number` = 3, then the window will contain
-    the following input images: (0, 0, 0), (0, 1, 0), (0, 1, 2), (3, 1, 2), (3,
-    4, 2), (3, 4, 5) and so on.
+    copied to all positions in the beginning. By default, images in the window
+    are not ordered, i.e. if e.g. :gobj:prop:`number` = 3, then the window will
+    contain the following input images: (0, 0, 0), (0, 1, 0), (0, 1, 2), (3, 1,
+    2), (3, 4, 2), (3, 4, 5) and so on. If you want them to appear ordered with
+    respect to their arrival time, use :gobj:prop:`ordered`.
 
     .. gobj:prop:: number:uint
 
         Number of items, i.e. the length of the third dimension.
+
+    .. gobj:prop:: ordered:boolean
+
+        Order items in the sliding window.
 
 
 Merging
