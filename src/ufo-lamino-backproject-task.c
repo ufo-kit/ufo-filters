@@ -37,7 +37,7 @@
 /* TODO: make this a parameter? */
 /* Wait with enabling this until sync issues in ufo-core have been solved */
 #define COPY_PROJECTION_REGION 0
-#define EXTRACT_FLOAT(region, index) g_value_get_float (g_value_array_get_nth ((region), (index)))
+#define EXTRACT_FLOAT(region, index) ((gfloat) g_value_get_double (g_value_array_get_nth ((region), (index))))
 #define REGION_SIZE(region) ((EXTRACT_INT ((region), 2)) == 0) ? 0 : \
                             ((EXTRACT_INT ((region), 1) - EXTRACT_INT ((region), 0) - 1) /\
                             EXTRACT_INT ((region), 2) + 1)
@@ -680,13 +680,13 @@ ufo_lamino_backproject_task_class_init (UfoLaminoBackprojectTaskClass *klass)
                                                 (gint) 0,
                                                 G_PARAM_READWRITE);
 
-    GParamSpec *float_region_vals = g_param_spec_float ("float-region-values",
-                                                        "Float Region values",
-                                                        "Elements in float regions",
-                                                        -G_MAXFLOAT,
-                                                        G_MAXFLOAT,
-                                                        0.0f,
-                                                        G_PARAM_READWRITE);
+    GParamSpec *double_region_vals = g_param_spec_double ("double-region-values",
+                                                          "Double Region values",
+                                                          "Elements in double regions",
+                                                          -INFINITY,
+                                                          INFINITY,
+                                                          0.0,
+                                                          G_PARAM_READWRITE);
 
     properties[PROP_X_REGION] =
         g_param_spec_value_array ("x-region",
@@ -713,7 +713,7 @@ ufo_lamino_backproject_task_class_init (UfoLaminoBackprojectTaskClass *klass)
         g_param_spec_value_array ("region",
             "Region for the parameter along z-axis as (from, to, step)",
             "Region for the parameter along z-axis as (from, to, step)",
-            float_region_vals,
+            double_region_vals,
             G_PARAM_READWRITE);
 
     properties[PROP_PROJECTION_OFFSET] =
@@ -728,7 +728,7 @@ ufo_lamino_backproject_task_class_init (UfoLaminoBackprojectTaskClass *klass)
         g_param_spec_value_array ("center",
             "Center of the volume with respect to projections (x, y)",
             "Center of the volume with respect to projections (x, y), (rotation axes)",
-            float_region_vals,
+            double_region_vals,
             G_PARAM_READWRITE);
 
     properties[PROP_OVERALL_ANGLE] =
@@ -796,12 +796,12 @@ ufo_lamino_backproject_task_init(UfoLaminoBackprojectTask *self)
     self->priv = UFO_LAMINO_BACKPROJECT_TASK_GET_PRIVATE(self);
     guint i;
     GValue int_zero = G_VALUE_INIT;
-    GValue float_zero = G_VALUE_INIT;
+    GValue double_zero = G_VALUE_INIT;
 
     g_value_init (&int_zero, G_TYPE_INT);
-    g_value_init (&float_zero, G_TYPE_FLOAT);
+    g_value_init (&double_zero, G_TYPE_DOUBLE);
     g_value_set_int (&int_zero, 0);
-    g_value_set_float (&float_zero, 0.0f);
+    g_value_set_double (&double_zero, 0.0f);
     self->priv->x_region = g_value_array_new (3);
     self->priv->y_region = g_value_array_new (3);
     self->priv->region = g_value_array_new (3);
@@ -812,10 +812,10 @@ ufo_lamino_backproject_task_init(UfoLaminoBackprojectTask *self)
     for (i = 0; i < 3; i++) {
         g_value_array_insert (self->priv->x_region, i, &int_zero);
         g_value_array_insert (self->priv->y_region, i, &int_zero);
-        g_value_array_insert (self->priv->region, i, &float_zero);
+        g_value_array_insert (self->priv->region, i, &double_zero);
         if (i < 2) {
             g_value_array_insert (self->priv->projection_offset, i, &int_zero);
-            g_value_array_insert (self->priv->center, i, &float_zero);
+            g_value_array_insert (self->priv->center, i, &double_zero);
         }
     }
 
