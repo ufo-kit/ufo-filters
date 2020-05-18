@@ -160,6 +160,24 @@ ufo_opencl_reduce_task_get_mode (UfoTask *task)
     return UFO_TASK_MODE_REDUCTOR | UFO_TASK_MODE_GPU;
 }
 
+static UfoNode *
+ufo_opencl_reduce_task_copy_real (UfoNode *node,
+                                  GError **error)
+{
+    g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_COPY,
+                 "Cannot be copied (please disable graph expansion or limit the used devices to 1, e.g. UFO_DEVICES=0)");
+
+    return NULL;
+}
+
+static gboolean
+ufo_opencl_reduce_task_equal_real (UfoNode *n1,
+                                   UfoNode *n2)
+{
+    g_return_val_if_fail (UFO_IS_OPENCL_REDUCE_TASK (n1) && UFO_IS_OPENCL_REDUCE_TASK (n2), FALSE);
+    return UFO_OPENCL_REDUCE_TASK (n1)->priv->kernel == UFO_OPENCL_REDUCE_TASK (n2)->priv->kernel;
+}
+
 static gboolean
 ufo_opencl_reduce_task_process (UfoTask *task,
                                 UfoBuffer **inputs,
@@ -355,6 +373,7 @@ static void
 ufo_opencl_reduce_task_class_init (UfoOpenCLReduceTaskClass *klass)
 {
     GObjectClass *oclass = G_OBJECT_CLASS (klass);
+    UfoNodeClass *node_class = UFO_NODE_CLASS (klass);
 
     oclass->set_property = ufo_opencl_reduce_task_set_property;
     oclass->get_property = ufo_opencl_reduce_task_get_property;
@@ -404,6 +423,9 @@ ufo_opencl_reduce_task_class_init (UfoOpenCLReduceTaskClass *klass)
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
+
+    node_class->copy = ufo_opencl_reduce_task_copy_real;
+    node_class->equal = ufo_opencl_reduce_task_equal_real;
 
     g_type_class_add_private (oclass, sizeof(UfoOpenCLReduceTaskPrivate));
 }
