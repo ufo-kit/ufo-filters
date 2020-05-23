@@ -82,6 +82,9 @@ backproject_tex (read_only image2d_t sinogram,
 #ifdef DEVICE_QUADRO_M6000
 #pragma unroll 2
 #endif
+#ifdef DEVICE_GFX1010
+#pragma unroll 4
+#endif
     for(int proj = 0; proj < n_projections; proj++) {
         float h = by * sin_lut[angle_offset + proj] + bx * cos_lut[angle_offset + proj] + axis_pos;
         sum += read_imagef (sinogram, volumeSampler, (float2)(h, proj + 0.5f)).x;
