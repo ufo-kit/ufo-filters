@@ -1235,6 +1235,10 @@ Phase retrieval
 
     Computes and applies a fourier filter to correct phase-shifted data.
     Expects frequencies as an input and produces frequencies as an output.
+    Propagation distance can be specified for both x and y directions together
+    by the :gobj:prop:`distance` parameter or separately by
+    :gobj:prop:`distance-x` and :gobj:prop:`distance-y`, which is useful e.g.
+    when pixel size is not symmetrical.
 
     .. gobj:prop:: method:enum
 
@@ -1247,6 +1251,14 @@ Phase retrieval
     .. gobj:prop:: distance:float
 
         Distance in meters.
+
+    .. gobj:prop:: distance-x:float
+
+        Distance in x-direction in meters.
+
+    .. gobj:prop:: distance-y:float
+
+        Distance in y-direction in meters.
 
     .. gobj:prop:: pixel-size:float
 

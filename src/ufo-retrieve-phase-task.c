@@ -46,14 +46,14 @@ static GEnumValue method_values[] = {
 struct _UfoRetrievePhaseTaskPrivate {
     Method method;
     gfloat energy;
-    gfloat distance;
+    gfloat distance, distance_x, distance_y;
     gfloat pixel_size;
     gfloat regularization_rate;
     gfloat binary_filter;
     gfloat frequency_cutoff;
     gboolean output_filter;
 
-    gfloat prefac;
+    gfloat prefac[2];
     cl_kernel *kernels;
     cl_kernel mult_by_value_kernel;
     cl_context context;
@@ -74,6 +74,8 @@ enum {
     PROP_METHOD,
     PROP_ENERGY,
     PROP_DISTANCE,
+    PROP_DISTANCE_X,
+    PROP_DISTANCE_Y,
     PROP_PIXEL_SIZE,
     PROP_REGULARIZATION_RATE,
     PROP_BINARY_FILTER_THRESHOLDING,
@@ -96,13 +98,23 @@ ufo_retrieve_phase_task_setup (UfoTask *task,
                                GError **error)
 {
     UfoRetrievePhaseTaskPrivate *priv;
-    gfloat lambda;
+    gfloat lambda, tmp;
 
     priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (task);
     priv->context = ufo_resources_get_context (resources);
 
     lambda = 6.62606896e-34 * 299792458 / (priv->energy * 1.60217733e-16);
-    priv->prefac = G_PI * lambda * priv->distance / (priv->pixel_size * priv->pixel_size);
+    tmp = G_PI * lambda / (priv->pixel_size * priv->pixel_size);
+    if (priv->distance_x != 0.0f && priv->distance_y != 0.0f) {
+        priv->prefac[0] = tmp * priv->distance_x;
+        priv->prefac[1] = tmp * priv->distance_y;
+    } else if (priv->distance != 0.0f) {
+        priv->prefac[0] = priv->prefac[1] = tmp * priv->distance;
+    } else {
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                     "Either both, distance_x and distance_y must be non-zero, or distance must be non-zero");
+        return;
+    }
 
     priv->kernels[METHOD_TIE] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "tie_method", NULL, error);
     priv->kernels[METHOD_CTF] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "ctf_method", NULL, error);
@@ -199,7 +211,7 @@ ufo_retrieve_phase_task_process (UfoTask *task,
 
         method_kernel = priv->kernels[(gint)priv->method];
 
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 0, sizeof (gfloat), &priv->prefac));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 0, sizeof (cl_float2), &priv->prefac));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 1, sizeof (gfloat), &priv->regularization_rate));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 2, sizeof (gfloat), &priv->binary_filter));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 3, sizeof (gfloat), &priv->frequency_cutoff));
@@ -249,6 +261,12 @@ ufo_retrieve_phase_task_get_property (GObject *object,
         case PROP_DISTANCE:
             g_value_set_float (value, priv->distance);
             break;
+        case PROP_DISTANCE_X:
+            g_value_set_float (value, priv->distance_x);
+            break;
+        case PROP_DISTANCE_Y:
+            g_value_set_float (value, priv->distance_y);
+            break;
         case PROP_PIXEL_SIZE:
             g_value_set_float (value, priv->pixel_size);
             break;
@@ -287,6 +305,12 @@ ufo_retrieve_phase_task_set_property (GObject *object,
             break;
         case PROP_DISTANCE:
             priv->distance = g_value_get_float (value);
+            break;
+        case PROP_DISTANCE_X:
+            priv->distance_x = g_value_get_float (value);
+            break;
+        case PROP_DISTANCE_Y:
+            priv->distance_y = g_value_get_float (value);
             break;
         case PROP_PIXEL_SIZE:
             priv->pixel_size = g_value_get_float (value);
@@ -384,7 +408,21 @@ ufo_retrieve_phase_task_class_init (UfoRetrievePhaseTaskClass *klass)
         g_param_spec_float ("distance",
             "Distance value",
             "Distance value.",
-            0, G_MAXFLOAT, 0.945,
+            0, G_MAXFLOAT, 0.0f,
+            G_PARAM_READWRITE);
+
+    properties[PROP_DISTANCE_X] =
+        g_param_spec_float ("distance-x",
+            "Distance value for x-direction",
+            "Distance value for x-direction",
+            0, G_MAXFLOAT, 0.0f,
+            G_PARAM_READWRITE);
+
+    properties[PROP_DISTANCE_Y] =
+        g_param_spec_float ("distance-y",
+            "Distance value for y-direction",
+            "Distance value for y-direction",
+            0, G_MAXFLOAT, 0.0f,
             G_PARAM_READWRITE);
 
     properties[PROP_PIXEL_SIZE] =
@@ -435,7 +473,9 @@ ufo_retrieve_phase_task_init(UfoRetrievePhaseTask *self)
     self->priv = priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE(self);
     priv->method = METHOD_TIE;
     priv->energy = 20.0f;
-    priv->distance = 0.945f;
+    priv->distance = 0.0f;
+    priv->distance_x = 0.0f;
+    priv->distance_y = 0.0f;
     priv->pixel_size = 0.75e-6f;
     priv->regularization_rate = 2.5f;
     priv->binary_filter = 0.1f;
