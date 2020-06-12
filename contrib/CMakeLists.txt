@@ -47,6 +47,7 @@ add_definitions("-std=c99 -Wall -fPIC")
 add_definitions(-DG_LOG_DOMAIN="Ufo")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}
+                    ${CMAKE_CURRENT_BINARY_DIR}
                     ${OPENCL_INCLUDE_DIRS}
                     ${UFO_INCLUDE_DIRS})
 
@@ -58,6 +59,10 @@ set(ufofilter_LIBS
     m
     ${UFO_LIBRARIES}
     ${OpenCL_LIBRARIES})
+
+set(CL_TARGET_OPENCL_VERSION "120")
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.in
+               ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
 # build static auxiliary library first
 add_library(contrib_sxc_aux STATIC ${contrib_sxc_aux_SRCS})

@@ -18,6 +18,7 @@
  *
  * Authored by: Alexandre Lewkowicz (lewkow_a@epita.fr)
  */
+#include "config.h"
 
 #include <stdio.h>
 #include <string.h>

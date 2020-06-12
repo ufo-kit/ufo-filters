@@ -18,6 +18,7 @@
  *
  * Serge Cohen <serge.cohen@synchrotron-soleil.fr>
  */
+#include "config.h"
 #include "ufo-med-mad-reject-task.h"
 #include "ufo-sxc-common.h"
 

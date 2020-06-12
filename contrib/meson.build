@@ -27,3 +27,11 @@ endforeach
 install_data(kernels,
     install_dir: kernel_install_dir,
 )
+
+conf = configuration_data()
+conf.set('CL_TARGET_OPENCL_VERSION', '120')
+configure_file(
+    input: 'config.h.meson.in',
+    output: 'config.h',
+    configuration: conf,
+)

@@ -17,6 +17,7 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "config.h"
 #include <stdio.h>
 #include <math.h>
 #include <glib.h>
@@ -28,7 +29,6 @@
 #include <CL/cl.h>
 #endif
 
-#include "config.h"
 #include "ufo-lamino-backproject-task.h"
 #include "lamino-roi.h"
 #include "common/ufo-addressing.h"

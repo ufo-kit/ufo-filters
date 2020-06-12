@@ -147,6 +147,7 @@ set(ufofilter_LIBS
     ${OpenCL_LIBRARIES})
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -pedantic -Wall -Wextra -fPIC -Wno-unused-parameter -Wno-deprecated-declarations")
+set(CL_TARGET_OPENCL_VERSION "120")
 
 add_definitions(-D_FILE_OFFSET_BITS=64 -D_LARGE_FILES)
 #}}}

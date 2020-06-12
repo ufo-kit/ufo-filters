@@ -124,6 +124,7 @@ conf.set('HAVE_TIFF', tiff_dep.found())
 conf.set('HAVE_JPEG', jpeg_dep.found())
 conf.set('WITH_HDF5', hdf5_dep.found())
 conf.set('BURST', get_option('lamino_backproject_burst_mode'))
+conf.set('CL_TARGET_OPENCL_VERSION', '120')
 
 configure_file(
     input: 'config.h.meson.in',
