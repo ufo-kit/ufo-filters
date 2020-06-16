@@ -17,6 +17,7 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "config.h"
 #ifdef __APPLE__
 #include <OpenCL/cl.h>
 #else
@@ -29,7 +30,6 @@
 #include <errno.h>
 #include <math.h>
 
-#include "config.h"
 #include "ufo-write-task.h"
 #include "writers/ufo-writer.h"
 #include "writers/ufo-raw-writer.h"

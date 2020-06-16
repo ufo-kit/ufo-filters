@@ -18,6 +18,7 @@
  *
  * Serge Cohen <serge.cohen@synchrotron-soleil.fr>
  */
+#include "config.h"
 // The following define seems necessary on Linux to get stdio.h declare asprintf family of functions.
 // Should be done early enough to be sure that stdio.h is not already included withOUT _GNU_SOURCE on.
 #define _GNU_SOURCE

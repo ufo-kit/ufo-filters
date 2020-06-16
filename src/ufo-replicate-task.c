@@ -18,6 +18,7 @@
  *
  * Authored by: Alexandre Lewkowicz (lewkow_a@epita.fr)
  */
+#include "config.h"
 
 #include <stdlib.h>
 #include "ufo-replicate-task.h"

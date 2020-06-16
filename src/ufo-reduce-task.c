@@ -18,6 +18,7 @@
  *
  * Authored by: Alexandre Lewkowicz (lewkow_a@epita.fr)
  */
+#include "config.h"
 
 #ifdef __APPLE__
 #include <OpenCL/cl.h>

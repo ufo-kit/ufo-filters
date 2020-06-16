@@ -20,6 +20,7 @@
 #ifndef UFO_COMMON_H
 #define UFO_COMMON_H
 
+#include "config.h"
 #ifdef __APPLE__
 #include <OpenCL/cl.h>
 #else

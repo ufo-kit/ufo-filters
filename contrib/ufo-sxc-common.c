@@ -19,6 +19,7 @@
  * Serge Cohen <serge.cohen@synchrotron-soleil.fr>
  */
 
+#include "config.h"
 #include "ufo-sxc-common.h"
 
 // Required headers :
