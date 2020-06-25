@@ -29,14 +29,14 @@
     float n_idy = (idy >= height >> 1) ? idy - height : idy; \
     n_idx = n_idx / width; \
     n_idy = n_idy / height; \
-    float sin_arg = prefac * (n_idy * n_idy + n_idx * n_idx); \
+    float sin_arg = prefac.x * (n_idx * n_idx) + prefac.y * (n_idy * n_idy); \
 
 #define COMMON_SETUP    \
     COMMON_SETUP_TIE;   \
     float sin_value = sin(sin_arg);
 
 kernel void
-tie_method(float prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
+tie_method(float2 prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP_TIE;
     if (sin_arg >= frequency_cutoff)
@@ -46,7 +46,7 @@ tie_method(float prefac, float regularize_rate, float binary_filter_rate, float 
 }
 
 kernel void
-ctf_method(float prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
+ctf_method(float2 prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP;
 
@@ -57,7 +57,7 @@ ctf_method(float prefac, float regularize_rate, float binary_filter_rate, float 
 }
 
 kernel void
-qp_method(float prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
+qp_method(float2 prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP;
 
@@ -70,7 +70,7 @@ qp_method(float prefac, float regularize_rate, float binary_filter_rate, float f
 }
 
 kernel void
-qp2_method(float prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
+qp2_method(float2 prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP;
     float cacl_filter_value = 0.5f / (sin_value + pow(10, -regularize_rate));
