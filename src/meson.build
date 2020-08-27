@@ -135,9 +135,7 @@ configure_file(
 # standard plugins
 
 foreach plugin: plugins
-    name = ''.join(plugin.split('-'))
-
-    shared_module(name,
+    shared_module(plugin,
         'ufo-@0@-task.c'.format(plugin),
         dependencies: deps,
         name_prefix: 'libufofilter',
@@ -148,7 +146,7 @@ endforeach
 
 # generalized backproject and conebeam
 
-shared_module('generalbackproject',
+shared_module('general-backproject',
     sources: [
         'ufo-general-backproject-task.c',
         'common/ufo-conebeam.c',
@@ -162,10 +160,11 @@ shared_module('generalbackproject',
     install_dir: plugin_install_dir,
 )
 
-shared_module('conebeamprojectionweight',
+shared_module('cone-beam-projection-weight',
     sources: [
         'ufo-cone-beam-projection-weight-task.c',
-        'common/ufo-conebeam.c'
+        'common/ufo-conebeam.c',
+        'common/ufo-scarray.c',
     ],
     dependencies: deps,
     name_prefix: 'libufofilter',
@@ -175,7 +174,7 @@ shared_module('conebeamprojectionweight',
 
 # non local means
 
-shared_module('nonlocalmeans',
+shared_module('non-local-means',
     sources: [
         'ufo-non-local-means-task.c',
         'common/ufo-math.c',
@@ -189,7 +188,7 @@ shared_module('nonlocalmeans',
 
 # find large spots
 
-shared_module('findlargespots',
+shared_module('find-large-spots',
     sources: [
         'ufo-find-large-spots-task.c',
         'common/ufo-math.c',
@@ -221,9 +220,7 @@ if have_clfft or with_oclfft
     )
 
     foreach plugin: fft_plugins
-        name = ''.join(plugin.split('-'))
-
-        shared_module(name,
+        shared_module(plugin,
             'ufo-@0@-task.c'.format(plugin),
             dependencies: deps,
             name_prefix: 'libufofilter',
@@ -239,7 +236,7 @@ endif
 python = find_program('python', required: false)
 
 if python.found()
-    shared_module('laminobackproject',
+    shared_module('lamino-backproject',
         sources: ['ufo-lamino-backproject-task.c'],
         dependencies: deps,
         name_prefix: 'libufofilter',
@@ -307,7 +304,7 @@ endif
 # cvshow
 
 if opencv_dep.found()
-    shared_module('cvshow',
+    shared_module('cv-show',
         sources: ['writers/ufo-writer.c', 'ufo-cv-show-task.cpp'],
         dependencies: deps + [opencv_dep],
         name_prefix: 'libufofilter',
@@ -342,9 +339,8 @@ endif
 
 if zmq_dep.found() and json_dep.found()
     foreach plugin: zmq_plugins
-        name = ''.join(plugin.split('-'))
 
-        shared_module(name,
+        shared_module(plugin,
             'ufo-@0@-task.c'.format(plugin),
             dependencies: deps + [zmq_dep, json_dep],
             name_prefix: 'libufofilter',

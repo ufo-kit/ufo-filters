@@ -13,9 +13,7 @@ kernels = [
 ]
 
 foreach plugin: plugins
-    name = ''.join(plugin.split('-'))
-
-    shared_module(name,
+    shared_module(plugin,
         sources: ['ufo-@0@-task.c'.format(plugin), 'ufo-sxc-common.c'],
         dependencies: deps,
         name_prefix: 'libufofilter',

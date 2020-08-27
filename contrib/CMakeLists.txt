@@ -72,8 +72,7 @@ foreach(_src ${contrib_sxc_filter_SRCS})
     string(REGEX REPLACE "ufo-([^ \\.]+)-task.*" "\\1" task "${_src}")
 
     # build string to get miscalleanous sources
-    string(REPLACE "-" "_" _misc ${task})
-    string(TOUPPER ${_misc} _misc_upper)
+    set(target "ufofilter${task}")
 
     # create an option name and add this to disable filters
     set(_misc "${_misc}_misc_SRCS")
