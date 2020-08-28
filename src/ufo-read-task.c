@@ -637,21 +637,21 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
         g_param_spec_uint ("raw-width",
             "Width of raw image",
             "Width of raw image",
-            0, G_MAXUINT, G_MAXUINT,
+            0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_RAW_HEIGHT] =
         g_param_spec_uint ("raw-height",
             "Height of raw image",
             "Height of raw image",
-            0, G_MAXUINT, G_MAXUINT,
+            0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_RAW_BITDEPTH] =
         g_param_spec_uint ("raw-bitdepth",
             "Bitdepth of raw image",
             "Bitdepth of raw image",
-            0, G_MAXUINT, G_MAXUINT,
+            0, G_MAXUINT, UFO_BUFFER_DEPTH_INVALID,
             G_PARAM_READWRITE);
 
     properties[PROP_RAW_PRE_OFFSET] =
