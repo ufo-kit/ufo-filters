@@ -507,6 +507,9 @@ ufo_write_task_get_property (GObject *object,
         case PROP_MINIMUM:
             g_value_set_float (value, priv->minimum);
             break;
+        case PROP_RESCALE:
+            g_value_set_boolean (value, priv->rescale);
+            break;
 #ifdef HAVE_JPEG
         case PROP_JPEG_QUALITY:
             g_value_set_uint (value, priv->jpeg_quality);
