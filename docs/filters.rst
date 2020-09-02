@@ -1311,11 +1311,13 @@ Phase retrieval
     Propagation distance can be specified for both x and y directions together
     by the :gobj:prop:`distance` parameter or separately by
     :gobj:prop:`distance-x` and :gobj:prop:`distance-y`, which is useful e.g.
-    when pixel size is not symmetrical.
+    when pixel size is not symmetrical. :gobj:prop:`distance` may be a list in
+    which case a multi-distance CTF phase retrieval is performed. In this case
+    :gobj:prop:`method` must be set to ``ctf_multidistance``.
 
     .. gobj:prop:: method:enum
 
-        Retrieval method which is one of ``tie``, ``ctf``, ``qp`` or ``qp2``.
+        Retrieval method which is one of ``tie``, ``ctf``, ``ctf_multidistance``, ``qp`` or ``qp2``.
 
     .. gobj:prop:: energy:float
 
