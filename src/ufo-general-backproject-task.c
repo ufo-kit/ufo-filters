@@ -1601,9 +1601,11 @@ ufo_general_backproject_task_process (UfoTask *task,
     cl_float f_tomo_angle[2];
     cl_double d_tomo_angle[2];
     cl_int iteration;
-    const gsize local_work_size[3] = {16, 8, 8};
+    gsize local_work_size[3] = {1, 1, 1};
     gsize global_work_size[3];
     gint real_size[4];
+    GValue *max_work_group_size_gval;
+    gulong max_work_group_size;
 
     priv = UFO_GENERAL_BACKPROJECT_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
@@ -1621,6 +1623,14 @@ ufo_general_backproject_task_process (UfoTask *task,
         index = count % burst;
     }
 
+    /* Local work size determined by the maximum supported work group size */
+    max_work_group_size_gval = ufo_gpu_node_get_info (node, UFO_GPU_NODE_INFO_MAX_WORK_GROUP_SIZE);
+    max_work_group_size = g_value_get_ulong (max_work_group_size_gval);
+    g_value_unset (max_work_group_size_gval);
+    for (i = 0; i < (guint) log2 (max_work_group_size); i++) {
+        local_work_size[i % 3] *= 2;
+    }
+
     global_work_size[0] = requisition->dims[0] % local_work_size[0] ?
                           NEXT_DIVISOR (requisition->dims[0], local_work_size[0]) :
                           requisition->dims[0];
@@ -1633,6 +1643,7 @@ ufo_general_backproject_task_process (UfoTask *task,
     real_size[0] = requisition->dims[0];
     real_size[1] = requisition->dims[1];
     real_size[3] = 0;
+
     if (!count) {
         g_log ("gbp", G_LOG_LEVEL_DEBUG, "Global work size: %lu %lu %lu, local: %lu %lu %lu",
                global_work_size[0], global_work_size[1], global_work_size[2],
