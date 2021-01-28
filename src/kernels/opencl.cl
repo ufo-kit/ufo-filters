@@ -118,3 +118,30 @@ diff (global float *x,
     const size_t idx = get_global_id (1) * get_global_size (0) + get_global_id (0);
     output[idx] = x[idx] - y[idx];
 }
+
+kernel void
+add (global float *x,
+     global float *y,
+     global float *output)
+{
+    const size_t idx = get_global_id (1) * get_global_size (0) + get_global_id (0);
+    output[idx] = x[idx] + y[idx];
+}
+
+kernel void
+multiply (global float *x,
+          global float *y,
+          global float *output)
+{
+    const size_t idx = get_global_id (1) * get_global_size (0) + get_global_id (0);
+    output[idx] = x[idx] * y[idx];
+}
+
+kernel void
+divide (global float *x,
+        global float *y,
+        global float *output)
+{
+    const size_t idx = get_global_id (1) * get_global_size (0) + get_global_id (0);
+    output[idx] = x[idx] / y[idx];
+}
