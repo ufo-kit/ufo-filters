@@ -798,13 +798,16 @@ make_volume_transformation (const gchar *values, const gchar *point, const gchar
  * @vectorized (in): geometry parameters are vectors
  * @with_volume: (in): rotate reconstructed volume
  * @perpendicular_detector: (in): is the detector perpendicular to the beam
+ * @shifted_detector: (in): is the detector laterally shifted
+ * @shifted_source: (in): is the source laterally shifted
  * @parallel_beam: (in): is the beam parallel
  *
  * Make static transformations independent from the tomographic rotation angle.
  */
 static gchar *
 make_static_transformations (gboolean vectorized, gboolean with_volume,
-                             gboolean perpendicular_detector, gboolean parallel_beam)
+                             gboolean perpendicular_detector, gboolean shifted_detector,
+                             gboolean shifted_source, gboolean parallel_beam)
 {
     gchar *code = g_strnfill (8192, 0);
     gchar *current = code;
@@ -850,13 +853,16 @@ make_static_transformations (gboolean vectorized, gboolean with_volume,
 /**
  * make_projection_computation:
  * @perpendicular_detector: (in): is the detector perpendicular to the beam
+ * @shifted_detector: (in): is the detector laterally shifted
+ * @shifted_source: (in): is the source laterally shifted
  * @parallel_beam: (in): is the beam parallel
  *
  * Make voxel projection calculation with the least possible operations based on
  * geometry settings.
  */
 static const gchar *
-make_projection_computation (gboolean perpendicular_detector, gboolean parallel_beam)
+make_projection_computation (gboolean perpendicular_detector, gboolean shifted_detector,
+                             gboolean shifted_source, gboolean parallel_beam)
 {
     const gchar *code;
 
@@ -865,7 +871,11 @@ make_projection_computation (gboolean perpendicular_detector, gboolean parallel_
             code = "\t// Perpendicular detector in combination with parallel beam geometry, i.e.\n"
                    "\t// voxel.xz is directly the detector coordinate, no transformation necessary\n";
         } else {
-            code = "\tvoxel = mad (native_divide (project_tmp, (voxel.y - source_position[%d].y)), voxel, source_position[%d]);\n";
+            if (shifted_source) {
+                code = "\tvoxel = mad (native_divide (project_tmp, (voxel.y - source_position[%d].y)), (voxel - source_position[%d]), source_position[%d]);\n";
+            } else {
+                code = "\tvoxel = mad (native_divide (project_tmp, (voxel.y - source_position[%d].y)), voxel, source_position[%d]);\n";
+            }
         }
     } else {
         if (parallel_beam) {
@@ -887,6 +897,8 @@ make_projection_computation (gboolean perpendicular_detector, gboolean parallel_
  * @burst (in): number of projections processed by the kernel
  * @with_axis: (in): do computations related with rotation axis
  * @perpendicular_detector: (in): is the detector perpendicular to the the mean
+ * @shifted_detector: (in): is the detector laterally shifted
+ * @shifted_source: (in): is the source laterally shifted
  * beam direction
  * @parallel_beam: (in): is the beam parallel
  * @compute_type: (in): data type for internal computations
@@ -896,8 +908,8 @@ make_projection_computation (gboolean perpendicular_detector, gboolean parallel_
  */
 static gchar *
 make_transformations (UfoUniRecoParameter parameter, gboolean vectorized, gint burst, gboolean with_volume,
-                      gboolean with_axis, gboolean perpendicular_detector, gboolean parallel_beam,
-                      const gchar *compute_type)
+                      gboolean with_axis, gboolean perpendicular_detector, gboolean shifted_detector,
+                      gboolean shifted_source, gboolean parallel_beam, const gchar *compute_type)
 {
     gint i;
     size_t written = 0;
@@ -909,8 +921,8 @@ make_transformations (UfoUniRecoParameter parameter, gboolean vectorized, gint b
     const gchar *slice_coefficient =
         "\t// Get the value and weigh it (source_position is negative, so -voxel.y\n"
         "\tcoeff = native_divide (source_position[%d].y - detector_position[%d].y, (source_position[%d].y - voxel.y));\n";
-    const gchar *detector_transformation =
-        "\tvoxel -= detector_position[%d];\n"
+    const gchar *detector_shift = "\tvoxel -= detector_position[%d];\n";
+    const gchar *detector_rotation =
         "\tvoxel = rotate_x ((cfloat2)(-detector_angle_x[%d].x, detector_angle_x[%d].y), voxel);\n"
         "\tvoxel = rotate_y ((cfloat2)(-detector_angle_y[%d].x, detector_angle_y[%d].y), voxel);\n"
         "\tvoxel = rotate_z ((cfloat2)(-detector_angle_z[%d].x, detector_angle_z[%d].y), voxel);\n";
@@ -937,7 +949,7 @@ make_transformations (UfoUniRecoParameter parameter, gboolean vectorized, gint b
         }
         /* For vectorized kernel all static transformations become non-static */
         if ((pretransformation = make_static_transformations (vectorized, with_volume, perpendicular_detector,
-                                                             parallel_beam)) == NULL) {
+                                                             shifted_detector, shifted_source, parallel_beam)) == NULL) {
             g_warning ("Error making static transformations");
             return NULL;
         }
@@ -967,14 +979,18 @@ make_transformations (UfoUniRecoParameter parameter, gboolean vectorized, gint b
     current = g_stpcpy (current,
                         "\t// Compute the voxel projected on the detector plane in the global coordinates\n"
                         "\t// V = S + u * (V - S)\n");
-    current = g_stpcpy (current, make_projection_computation (perpendicular_detector, parallel_beam));
+    current = g_stpcpy (current, make_projection_computation (perpendicular_detector, shifted_detector,
+                                                              shifted_source, parallel_beam));
 
-    if (!perpendicular_detector) {
+    if (!perpendicular_detector || shifted_detector) {
         /* Transform global coordinates to detector coordinates */
         current = g_stpcpy (current,
                             "\t// Transform the projected coordinates to the detector coordinates, i.e. rotate the\n"
                             "\t// projected voxel to the detector plane\n");
-        current = g_stpcpy (current, detector_transformation);
+        current = g_stpcpy (current, detector_shift);
+        if (!perpendicular_detector) {
+            current = g_stpcpy (current, detector_rotation);
+        }
     }
 
     /* Computational data type adjustment */
@@ -1039,6 +1055,8 @@ make_transformations (UfoUniRecoParameter parameter, gboolean vectorized, gint b
  * @with_axis (in): rotate the rotation axis
  * @with_volume: (in): rotate reconstructed volume
  * @perpendicular_detector: (in): is the detector perpendicular to the beam
+ * @shifted_detector: (in): is the detector laterally shifted
+ * @shifted_source: (in): is the source laterally shifted
  * @parallel_beam: (in): is the beam parallel
  * @compute_type (in): data type for calculations (one of "half", "float", "double")
  * @result_type (in): data type for storing the intermediate result (one of "half", "float", "double")
@@ -1050,8 +1068,9 @@ make_transformations (UfoUniRecoParameter parameter, gboolean vectorized, gint b
  */
 static gchar *
 make_kernel (gchar *template, gboolean vectorized, gint burst, gboolean with_axis, gboolean with_volume,
-             gboolean perpendicular_detector, gboolean parallel_beam, const gchar *compute_type,
-             const gchar *result_type, const gchar *store_type, UfoUniRecoParameter parameter)
+             gboolean perpendicular_detector, gboolean shifted_detector, gboolean shifted_source,
+             gboolean parallel_beam, const gchar *compute_type, const gchar *result_type,
+             const gchar *store_type, UfoUniRecoParameter parameter)
 {
     const gchar *double_pragma_def, *double_pragma, *half_pragma_def, *half_pragma,
           *image_args_fmt, *trigonomoerty_args_fmt;
@@ -1104,7 +1123,7 @@ make_kernel (gchar *template, gboolean vectorized, gint burst, gboolean with_axi
 
     if (!vectorized) {
         if ((static_transformations = make_static_transformations(FALSE, with_volume, perpendicular_detector,
-                                                                  parallel_beam)) == NULL) {
+                                                                  shifted_detector, shifted_source, parallel_beam)) == NULL) {
             g_warning ("Error making static transformations");
             return NULL;
         }
@@ -1113,7 +1132,8 @@ make_kernel (gchar *template, gboolean vectorized, gint burst, gboolean with_axi
         static_transformations = tmp;
     }
     if ((transformations = make_transformations (parameter, vectorized, burst, with_volume, with_axis,
-                                                 perpendicular_detector, parallel_beam, compute_type)) == NULL) {
+                                                 perpendicular_detector, shifted_detector, shifted_source,
+                                                 parallel_beam, compute_type)) == NULL) {
         g_warning ("Error making tomographic-angle-based transformations");
         return NULL;
     }
@@ -1255,7 +1275,7 @@ node_setup (UfoGeneralBackprojectTaskPrivate *priv,
             UfoGpuNode *node)
 {
     guint i;
-    gboolean with_axis, with_volume, parallel_beam, perpendicular_detector;
+    gboolean with_axis, with_volume, parallel_beam, perpendicular_detector, shifted_detector, shifted_source;
     gchar *template, *kernel_code, *compiler_options = NULL;
     const gchar *node_name;
     GValue *node_name_gvalue;
@@ -1286,6 +1306,10 @@ node_setup (UfoGeneralBackprojectTaskPrivate *priv,
                 !(ufo_scarray_is_almost_zero (priv->geometry->axis->angle->x) &&
                   ufo_scarray_is_almost_zero (priv->geometry->axis->angle->y));
     with_volume = is_volume_parameter (priv->parameter) || !ufo_scpoint_are_almost_zero (priv->geometry->volume_angle);
+    shifted_detector = !(ufo_scarray_is_almost_zero (priv->geometry->detector->position->x) &&
+                         ufo_scarray_is_almost_zero (priv->geometry->detector->position->z));
+    shifted_source = !(ufo_scarray_is_almost_zero (priv->geometry->source_position->x) &&
+                         ufo_scarray_is_almost_zero (priv->geometry->source_position->z));
     perpendicular_detector = !is_detector_rotation_parameter (priv->parameter) &&
                              !is_detector_position_parameter (priv->parameter) &&
                              ufo_scpoint_are_almost_zero (priv->geometry->detector->angle);
@@ -1326,8 +1350,8 @@ node_setup (UfoGeneralBackprojectTaskPrivate *priv,
 
     /* Create kernel source code based on geometry settings */
     kernel_code = make_kernel (template, priv->vectorized, priv->burst, with_axis, with_volume,
-                               perpendicular_detector, parallel_beam,
-                               compute_type_values[priv->compute_type].value_nick,
+                               perpendicular_detector, shifted_detector, shifted_source,
+                               parallel_beam, compute_type_values[priv->compute_type].value_nick,
                                ft_values[priv->result_type].value_nick,
                                st_values[priv->store_type].value_nick,
                                priv->parameter);
@@ -1345,8 +1369,8 @@ node_setup (UfoGeneralBackprojectTaskPrivate *priv,
 
     if (priv->num_projections % priv->burst) {
         kernel_code = make_kernel (template, priv->vectorized, priv->num_projections % priv->burst,
-                                   with_axis, with_volume,
-                                   perpendicular_detector, parallel_beam,
+                                   with_axis, with_volume, perpendicular_detector,
+                                   shifted_detector, shifted_source, parallel_beam,
                                    compute_type_values[priv->compute_type].value_nick,
                                    ft_values[priv->result_type].value_nick,
                                    st_values[priv->store_type].value_nick,
