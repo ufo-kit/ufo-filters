@@ -129,7 +129,7 @@ ufo_augmented_lamino_task_process (UfoTask *task,
     gboolean use_tomo;
     gint r_squared = current_radius * current_radius;
     for(gint y = 0; y < full_height; ++y){
-        for(gint x=0; x < full_width; ++x){
+        for(gint x=0; x < full_width/2; ++x){
             use_tomo = FALSE;
 
             if(x*x + y*y < r_squared){
@@ -147,10 +147,12 @@ ufo_augmented_lamino_task_process (UfoTask *task,
             }
 
             if(use_tomo){
-                out[y * full_width + x] = in_tomo[y * full_width + x];
+                out[y * 2 * full_width + x * 2] = in_tomo[y * 2 * full_width + x * 2];
+                out[y * 2 * full_width + x * 2 + 1] = in_tomo[y * 2 * full_width + x * 2 + 1];
             }
             else{
-                out[y * full_width + x] = in_lamino[y * full_width + x];
+                out[y * 2 * full_width + x * 2] = in_lamino[y * 2 * full_width + x * 2];
+                out[y * 2 * full_width + x * 2 + 1] = in_lamino[y * 2 * full_width + x * 2 + 1];
             }
         }
     }
