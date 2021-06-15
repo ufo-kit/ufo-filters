@@ -979,6 +979,27 @@ Zeropadding
 Reconstruction
 ==============
 
+Augmented Laminography
+----------------------
+
+.. gobj:class:: augmented-laminography
+
+    Selects valid contributions from tomographic and laminographic volumes and merges them according to sci-rep.
+
+    Two input streams are required:
+
+    1. Fourier transformed tomography volume
+    2. Fourier transforemd laminograpy volume
+
+    A single volume (in Fourier space) will be created as output.
+
+    .. gobj:prop:: lamino-angle:float
+        Laminographic angle in randiant. An angle of zero represents tomography.
+
+    .. gobj:prop:: number:int
+        Number of slices.
+
+
 Flat-field correction
 ---------------------
 
