@@ -31,7 +31,8 @@ filter (global float *input,
 kernel void
 stripe_filter (global float *input,
                global float *output,
-               const float sigma)
+               const float horizontal_sigma,
+               const float vertical_sigma)
 {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
@@ -41,11 +42,17 @@ stripe_filter (global float *input,
     /* Swap frequencies for interleaved complex input */
     /* No need to negate the second half of frequencies for Gaussian */
     const float x = idx >= width >> 1 ? (width >> 1) - (idx >> 1) : idx >> 1;
-    const float weight = exp (- x * x / (2 * sigma * sigma));
+    const float x_weight = exp (- x * x / (2 * horizontal_sigma * horizontal_sigma));
 
-    if (idy == 0) {
-        output[index] = input[index] * weight;
+    if (vertical_sigma == 0.0f) {
+        if (idy == 0) {
+            output[index] = input[index] * x_weight;
+        } else {
+            output[index] = input[index];
+        }
     } else {
-        output[index] = input[index];
+        const float y = idy >= height >> 1 ? height - idy : idy;
+        const float y_weight = exp (- y * y / (2 * vertical_sigma * vertical_sigma));
+        output[index] = input[index] * (1 - y_weight * (1 - x_weight));
     }
 }

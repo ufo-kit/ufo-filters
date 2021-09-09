@@ -29,7 +29,8 @@
 
 
 struct _UfoFilterStripesTaskPrivate {
-    gfloat sigma;
+    gfloat horizontal_sigma;
+    gfloat vertical_sigma;
     cl_kernel kernel;
 };
 
@@ -43,7 +44,8 @@ G_DEFINE_TYPE_WITH_CODE (UfoFilterStripesTask, ufo_filter_stripes_task, UFO_TYPE
 
 enum {
     PROP_0,
-    PROP_SIGMA,
+    PROP_HORIZONTAL_SIGMA,
+    PROP_VERTICAL_SIGMA,
     N_PROPERTIES
 };
 
@@ -76,7 +78,8 @@ ufo_filter_stripes_task_process (UfoTask *task,
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_float), &priv->sigma));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_float), &priv->horizontal_sigma));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_float), &priv->vertical_sigma));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
@@ -163,8 +166,11 @@ ufo_filter_stripes_task_set_property (GObject *object,
     UfoFilterStripesTaskPrivate *priv = UFO_FILTER_STRIPES_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_SIGMA:
-            priv->sigma = g_value_get_float (value);
+        case PROP_HORIZONTAL_SIGMA:
+            priv->horizontal_sigma = g_value_get_float (value);
+            break;
+        case PROP_VERTICAL_SIGMA:
+            priv->vertical_sigma = g_value_get_float (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -181,8 +187,11 @@ ufo_filter_stripes_task_get_property (GObject *object,
     UfoFilterStripesTaskPrivate *priv = UFO_FILTER_STRIPES_TASK_GET_PRIVATE (object);
 
     switch (property_id) {
-        case PROP_SIGMA:
-            g_value_set_float (value, priv->sigma);
+        case PROP_HORIZONTAL_SIGMA:
+            g_value_set_float (value, priv->horizontal_sigma);
+            break;
+        case PROP_VERTICAL_SIGMA:
+            g_value_set_float (value, priv->vertical_sigma);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -201,11 +210,18 @@ ufo_filter_stripes_task_class_init (UfoFilterStripesTaskClass *klass)
     oclass->set_property = ufo_filter_stripes_task_set_property;
     oclass->get_property = ufo_filter_stripes_task_get_property;
 
-    properties[PROP_SIGMA] =
-        g_param_spec_float ("sigma",
-            "Sigma of the gaussian window",
-            "Sigma of the gaussian window",
+    properties[PROP_HORIZONTAL_SIGMA] =
+        g_param_spec_float ("horizontal-sigma",
+            "Sigma of the gaussian window in the horizontal direction",
+            "Sigma of the gaussian window in the horizontal direction",
             0.0, G_MAXFLOAT, 1e-7,
+            G_PARAM_READWRITE);
+
+    properties[PROP_VERTICAL_SIGMA] =
+        g_param_spec_float ("vertical-sigma",
+            "Sigma of the gaussian window in the vertical direction",
+            "Sigma of the gaussian window in the vertical direction",
+            0.0, G_MAXFLOAT, 0.0f,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -220,5 +236,6 @@ ufo_filter_stripes_task_init (UfoFilterStripesTask *self)
     UfoFilterStripesTaskPrivate *priv;
     self->priv = priv = UFO_FILTER_STRIPES_TASK_GET_PRIVATE (self);
     priv->kernel = NULL;
-    priv->sigma = 1e-7;
+    priv->horizontal_sigma = 1e-7;
+    priv->vertical_sigma = 0.0f;
 }

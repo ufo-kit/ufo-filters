@@ -930,17 +930,27 @@ Stripe filtering
 
     Filter vertical stripes. The input and output are in 2D frequency domain.
     The filter multiplies horizontal frequencies (for frequency ky=0) with a
-    Gaussian profile centered at 0 frequency.
+    Gaussian profile centered at 0 frequency if ``vertical-sigma`` is 0.
+    Otherwise it applies also a vertical Gaussian profile (1 - Gaussian), which
+    enables filtering of not perfectly vertical stripes, which is useful for
+    broader stripes and stripes which are not perfectly straight.
 
     Example usage::
 
         $ ufo-launch read path=sino.tif ! fft dimensions=2 ! filter-stripes sigma=1 ! ifft dimensions=2 ! write filename=sino-filtered.tif
 
-    .. gobj:prop:: sigma:float
+    .. gobj:prop:: horizontal-sigma:float
 
-        Filter strength, which is the sigma of the gaussian. Small values, e.g.
-        1e-7 cause only the zero frequency to remain in the signal, i.e.
-        stronger filtering.
+        Horizontal filter strength, which is the sigma of the Gaussian. Small
+        values, e.g. 1e-7 cause only the zero frequency to remain in the
+        signal, i.e. stronger filtering. Values around 1 are a good starting
+        point.
+
+    .. gobj:prop:: vertical-sigma:float
+
+        Vertical filter strength, which is the sigma of the Gaussian. The larger
+        the value, the more non-vertical frequencies are removed. Value around 4
+        is a good starting point.
 
 
 1D stripe filtering
