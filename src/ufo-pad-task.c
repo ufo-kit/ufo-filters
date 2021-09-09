@@ -342,8 +342,8 @@ ufo_pad_task_class_init (UfoPadTaskClass *klass)
 
     properties[PROP_ADDRESSING_MODE] =
         g_param_spec_enum ("addressing-mode",
-            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
-            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
+            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
+            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
             g_enum_register_static ("ufo_pad_addressing_mode", addressing_values),
             CL_ADDRESS_CLAMP,
             G_PARAM_READWRITE);
