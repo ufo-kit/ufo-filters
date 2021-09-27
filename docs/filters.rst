@@ -751,7 +751,9 @@ Stacking
 .. gobj:class:: stack
 
     Symmetrical to the slice filter, the stack filter stacks two-dimensional
-    input.
+    input. If ``number`` is not a divisor of the number of input images, the
+    last produced stack at index which starts to exceed the number of input
+    images will contain arbitrary images from the previous iterations.
 
     .. gobj:prop:: number:uint
 
