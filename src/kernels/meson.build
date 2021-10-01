@@ -42,6 +42,7 @@ kernel_files = [
     'rotate.cl',
     'segment.cl',
     'split.cl',
+    'stacked-backproject.cl',
     'swap-quadrants.cl',
     'transpose.cl',
     'zeropad.cl',

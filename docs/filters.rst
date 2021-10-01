@@ -1094,6 +1094,67 @@ Tomographic backprojection
         Height of the region of interest. The default value of 0 denotes full
         height.
 
+Tomographic Stacked backprojection
+----------------------------------
+
+.. gobj:class:: stacked-backproject
+
+    Computes the backprojection of multiple sinograms in parallel.
+    Stream multiple sinograms by introducing a stack filter of certain size
+    before this filter.
+    A suitable minimum stack size must be specified based on precision mode
+
+    1. single - 2
+    2. half   - 4
+    3. int8   - 4
+
+    .. gobj:prop:: num-projections:uint
+
+        Number of projections between 0 and 180 degrees
+
+    .. gobj:prop:: offset:uint
+
+        Offset to the first projection.
+
+    .. gobj:prop:: axis-pos:double
+
+        Position of the rotation axis in horizontal pixel dimension of a
+        sinogram or projection. If not given, the center of the sinogram is
+        assumed.
+
+    .. gobj:prop:: angle-step:double
+
+        Angle step increment in radians. If not given, pi divided by height
+        of input sinogram is assumed.
+
+    .. gobj:prop:: angle-offset:double
+
+        Constant angle offset in radians. This determines effectively the
+        starting angle.
+
+    .. gobj:prop:: roi-x:uint
+
+        Horizontal coordinate of the start of the ROI. By default 0.
+
+    .. gobj:prop:: roi-y:uint
+
+        Vertical coordinate of the start of the ROI. By default 0.
+
+    .. gobj:prop:: roi-width:uint
+
+        Width of the region of interest. The default value of 0 denotes full
+        width.
+
+    .. gobj:prop:: roi-height:uint
+
+        Height of the region of interest. The default value of 0 denotes full
+        height.
+
+    .. gobj:prop:: precision-mode:enum
+
+        Precision mode or storage format which can be ``single`` or ``half``
+        or ``int8``
+        Correspondingly it represents storage in 32, 16 and 8-bits.
 
 Forward projection
 ------------------

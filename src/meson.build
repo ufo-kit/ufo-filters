@@ -68,6 +68,7 @@ plugins = [
     'slice',
     'sliding-stack',
     'stack',
+    'stacked-backproject',
     'stitch',
     'stdin',
     'tile',
