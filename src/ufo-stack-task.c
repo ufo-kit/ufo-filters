@@ -25,6 +25,8 @@
 struct _UfoStackTaskPrivate {
     guint n_items;
     guint current;
+    gboolean inputs_stopped;
+    gboolean finished;
     gboolean generated;
 };
 
@@ -113,12 +115,11 @@ ufo_stack_task_process (UfoTask *task,
     size = ufo_buffer_get_size (inputs[0]);
     in_mem = (guint8 *) ufo_buffer_get_host_array (inputs[0], NULL);
     out_mem = (guint8 *) ufo_buffer_get_host_array (output, NULL);
-    memcpy (out_mem + priv->current * size, in_mem, size);
+    memcpy (out_mem + (priv->current % priv->n_items) * size, in_mem, size);
     priv->current++;
 
-    if (priv->current == priv->n_items) {
+    if (priv->current % priv->n_items == 0) {
         // g_warning ("StackTask: stack full, ready for generating. [current %d]", priv->current);
-        priv->current = 0;
         priv->generated = FALSE;
         return FALSE;
     }
@@ -135,6 +136,15 @@ ufo_stack_task_generate (UfoTask *task,
 
     priv = UFO_STACK_TASK_GET_PRIVATE (task);
 
+    if (priv->inputs_stopped && !priv->finished) {
+        /* If the inputs stopped and n_items is not a divisor of the length of
+         * the input stream, force generation to make sure the last chunk of
+         * data is produced, even though with invalid last elements (leftovers
+         * from previous stack filling) */
+        priv->generated = FALSE;
+        priv->finished = TRUE;
+    }
+
     if (!priv->generated) {
         priv->generated = TRUE;
         return TRUE;
@@ -142,6 +152,13 @@ ufo_stack_task_generate (UfoTask *task,
     else {
         return FALSE;
     }
+}
+
+static void inputs_stopped_callback (UfoTask *task)
+{
+    UfoStackTaskPrivate *priv = UFO_STACK_TASK_GET_PRIVATE (task);
+
+    priv->inputs_stopped = TRUE;
 }
 
 static void
@@ -225,4 +242,7 @@ ufo_stack_task_init(UfoStackTask *self)
 {
     self->priv = UFO_STACK_TASK_GET_PRIVATE(self);
     self->priv->n_items = 1;
+    self->priv->inputs_stopped = FALSE;
+    self->priv->finished = FALSE;
+    g_signal_connect (self, "inputs_stopped", (GCallback) inputs_stopped_callback, NULL);
 }
