@@ -118,6 +118,13 @@ ufo_flatten_task_process (UfoTask *task,
     gfloat *out_mem;
     gfloat *tmp;
     gsize width, height, depth;
+    UfoRequisition in_req;
+
+    ufo_buffer_get_requisition (inputs[0], &in_req);
+    if (in_req.n_dims != 3) {
+        g_warning ("Flatten task requires a 3D input");
+        return TRUE;
+    }
 
     in_mem = ufo_buffer_get_host_array (inputs[0], NULL);
     out_mem = ufo_buffer_get_host_array (output, NULL);
