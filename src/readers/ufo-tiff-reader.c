@@ -117,7 +117,8 @@ read_data (UfoTiffReaderPrivate *priv,
         gchar *src;
         gsize plane_size;
 
-        plane_size = step * roi_height / roi_step;
+        /* Allow things like roi_height=1 and roi_step=20 */
+        plane_size = step * ((roi_height - 1) / roi_step + 1);
         src = g_new0 (gchar, step * 3);
 
         for (guint i = roi_y; i < roi_y + roi_height; i += roi_step) {

@@ -346,8 +346,9 @@ ufo_read_task_get_requisition (UfoTask *task,
         }
     }
 
-    /* update height for reduced vertical ROI */
-    requisition->dims[1] = priv->roi_height / priv->roi_step;
+    /* update height for reduced vertical ROI and allow things like roi_height=1
+     * and roi_step=20 */
+    requisition->dims[1] = (priv->roi_height - 1) / priv->roi_step + 1;
 }
 
 static guint
