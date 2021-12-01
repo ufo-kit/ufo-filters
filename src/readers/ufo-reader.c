@@ -55,21 +55,23 @@ ufo_reader_data_available (UfoReader *reader)
 gboolean
 ufo_reader_get_meta (UfoReader *reader,
                      UfoRequisition *requisition,
+                     gsize *num_images,
                      UfoBufferDepth *bitdepth,
                      GError **error)
 {
-    return UFO_READER_GET_IFACE (reader)->get_meta (reader, requisition, bitdepth, error);
+    return UFO_READER_GET_IFACE (reader)->get_meta (reader, requisition, num_images, bitdepth, error);
 }
 
-void
+gsize
 ufo_reader_read (UfoReader *reader,
                  UfoBuffer *buffer,
                  UfoRequisition *requisition,
                  guint roi_y,
                  guint roi_height,
-                 guint roi_step)
+                 guint roi_step,
+                 guint image_step)
 {
-    UFO_READER_GET_IFACE (reader)->read (reader, buffer, requisition, roi_y, roi_height, roi_step);
+    return UFO_READER_GET_IFACE (reader)->read (reader, buffer, requisition, roi_y, roi_height, roi_step, image_step);
 }
 
 static void

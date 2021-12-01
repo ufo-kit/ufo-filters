@@ -123,19 +123,23 @@ ufo_raw_reader_data_available (UfoReader *reader)
     return priv->fp != NULL && pos >= 0 && (((gulong) pos) + priv->pre_offset + priv->frame_size) <= priv->total_size;
 }
 
-static void
+static gsize
 ufo_raw_reader_read (UfoReader *reader,
                      UfoBuffer *buffer,
                      UfoRequisition *requisition,
                      guint roi_y,
                      guint roi_height,
-                     guint roi_step)
+                     guint roi_step,
+                     guint image_step)
 {
     UfoRawReaderPrivate *priv;
     gchar *data;
+    gsize to_skip;
+    gsize page_size;
 
     priv = UFO_RAW_READER_GET_PRIVATE (reader);
     data = (gchar *) ufo_buffer_get_host_array (buffer, NULL);
+    page_size = priv->frame_size + priv->pre_offset + priv->post_offset;
 
     fseek (priv->fp, priv->pre_offset, SEEK_CUR);
 
@@ -144,11 +148,18 @@ ufo_raw_reader_read (UfoReader *reader,
         g_warning ("Could not read enough data");
 
     fseek (priv->fp, priv->post_offset, SEEK_CUR);
+
+    /* Skip the desired number of images */
+    to_skip = MIN (image_step - 1, (priv->total_size - (gsize) ftell (priv->fp)) / page_size);
+    fseek (priv->fp, to_skip * page_size, SEEK_CUR);
+
+    return to_skip + 1;
 }
 
 static gboolean
 ufo_raw_reader_get_meta (UfoReader *reader,
                          UfoRequisition *requisition,
+                         gsize *num_images,
                          UfoBufferDepth *bitdepth,
                          GError **error)
 {
@@ -158,6 +169,7 @@ ufo_raw_reader_get_meta (UfoReader *reader,
     requisition->n_dims = 2;
     requisition->dims[0] = priv->width;
     requisition->dims[1] = priv->height;
+    *num_images = priv->total_size / priv->frame_size;
     *bitdepth = priv->bitdepth;
     return TRUE;
 }
