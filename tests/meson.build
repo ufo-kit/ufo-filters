@@ -4,7 +4,8 @@ tests = [
     'test-161',
     'test-core-149',
     'test-file-write-regression',
-    'test-nlm'
+    'test-nlm',
+    'test-multipage-readers'
 ]
 
 tiffinfo = find_program('tiffinfo', required : false)
@@ -16,6 +17,14 @@ endif
 test_env = [
     'UFO_PLUGIN_PATH=@0@'.format(join_paths(meson.build_root(), 'src'))
 ]
+
+configure_file(input: 'make-input-multipage-readers',
+               output: 'make-input-multipage-readers',
+               copy: true)
+
+configure_file(input: 'check-multipage-readers',
+               output: 'check-multipage-readers',
+               copy: true)
 
 foreach t: tests
     test(t, find_program('@0@.sh'.format(t)), env: test_env)
