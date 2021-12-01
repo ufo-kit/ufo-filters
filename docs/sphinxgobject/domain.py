@@ -3,7 +3,7 @@ from docutils.parsers.rst import Directive
 from sphinx import addnodes
 from sphinx.domains import Domain, ObjType
 from sphinx.directives import ObjectDescription
-from sphinx.locale import l_
+from sphinx.locale import _
 from sphinx.roles import XRefRole
 from sphinx.util.docfields import Field
 from sphinx.util.nodes import make_refnode
@@ -71,8 +71,8 @@ class GObjectDomain(Domain):
     name = 'gobj'
 
     object_types = {
-        'class': ObjType(l_('class'), 'class'),
-        'prop': ObjType(l_('prop'), 'prop'),
+        'class': ObjType(_('class'), 'class'),
+        'prop': ObjType(_('prop'), 'prop'),
     }
 
     directives = {
