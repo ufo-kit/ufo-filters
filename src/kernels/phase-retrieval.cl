@@ -20,7 +20,7 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#define COMMON_SETUP_TIE                                \
+#define COMMON_FREQUENCY_SETUP                          \
     const int width = get_global_size(0);               \
     const int height = get_global_size(1);              \
     int idx = get_global_id(0);                         \
@@ -28,12 +28,22 @@
     float n_idx = (idx >= width >> 1) ? idx - width : idx; \
     float n_idy = (idy >= height >> 1) ? idy - height : idy; \
     n_idx = n_idx / width; \
-    n_idy = n_idy / height; \
+    n_idy = n_idy / height;
+
+#define COMMON_SETUP_TIE                                                     \
+    COMMON_FREQUENCY_SETUP;                                                  \
     float sin_arg = prefac.x * (n_idx * n_idx) + prefac.y * (n_idy * n_idy); \
 
 #define COMMON_SETUP    \
     COMMON_SETUP_TIE;   \
     float sin_value = sin(sin_arg);
+
+#define CTF_MULTI_SETUP                                                                                                     \
+    float prefac = M_PI * wavelength * (n_idx * n_idx / pixel_size / pixel_size + n_idy * n_idy / pixel_size / pixel_size);
+
+/* b/d * cos + sin = d/b * (b/d * sin + cos); 10^R = d/b */
+#define CTF_MULTI_VALUE(prefac, dist, regularize_rate) (pow(10, (regularize_rate)) * sin ((prefac) * (dist)) + cos ((prefac) * (dist)))
+
 
 kernel void
 tie_method(float2 prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
@@ -91,4 +101,49 @@ mult_by_value(global float *input, global float *values, global float *output)
      * interleaved. Thus, two consecutive *input* values are multiplied by the
      * same filter value. */
     output[idx] = input[idx] * values[idx >> 1];
+}
+
+/**
+ * Compute the sum of the CTF^2 for the later division.
+ */
+kernel void
+ctf_multidistance_square(global float *distances,
+                         unsigned int num_distances,
+                         float wavelength,
+                         float pixel_size,
+                         float regularize_rate,
+                         global float *output)
+{
+    COMMON_FREQUENCY_SETUP;
+    CTF_MULTI_SETUP;
+    float result = 0.0f;
+    float value;
+
+    for (unsigned int i = 0; i < num_distances; i++) {
+        value = CTF_MULTI_VALUE(prefac, distances[i], regularize_rate);
+        result += value * value;
+    }
+
+    output[idy * width + idx] = num_distances * 0.5f * pow(10, regularize_rate) / (result + pow(10, -regularize_rate));
+}
+
+/**
+ * Apply the CTF to a projection at a specific distance.
+ */
+kernel void
+ctf_multidistance_apply_distance(global float *input,
+                                 float dist,
+                                 unsigned int num_distances,
+                                 float wavelength,
+                                 float pixel_size,
+                                 float regularize_rate,
+                                 global float *output)
+{
+    COMMON_FREQUENCY_SETUP;
+    CTF_MULTI_SETUP;
+    int index = idy * 2 * width + 2 * idx;
+    float value = CTF_MULTI_VALUE(prefac, dist, regularize_rate) / num_distances;
+
+    output[index] += input[index] * value;
+    output[index + 1] += input[index + 1] * value;
 }

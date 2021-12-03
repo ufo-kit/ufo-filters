@@ -18,6 +18,7 @@
  */
 #include "config.h"
 
+#include <math.h>
 #ifdef __APPLE__
 #include <OpenCL/cl.h>
 #else
@@ -31,6 +32,7 @@
 typedef enum {
     METHOD_TIE = 0,
     METHOD_CTF,
+    METHOD_CTF_MULTI,
     METHOD_QP,
     METHOD_QP2,
     N_METHODS
@@ -39,6 +41,7 @@ typedef enum {
 static GEnumValue method_values[] = {
     { METHOD_TIE,           "METHOD_TIE",           "tie" },
     { METHOD_CTF,           "METHOD_CTF",           "ctf" },
+    { METHOD_CTF_MULTI,     "METHOD_CTF_MULTI",     "ctf_multidistance" },
     { METHOD_QP,            "METHOD_QP",            "qp" },
     { METHOD_QP2,           "METHOD_QP2",           "qp2" },
     { 0, NULL, NULL}
@@ -47,7 +50,8 @@ static GEnumValue method_values[] = {
 struct _UfoRetrievePhaseTaskPrivate {
     Method method;
     gfloat energy;
-    gfloat distance, distance_x, distance_y;
+    GValueArray *distance;
+    gfloat distance_x, distance_y;
     gfloat pixel_size;
     gfloat regularization_rate;
     gfloat binary_filter;
@@ -56,7 +60,7 @@ struct _UfoRetrievePhaseTaskPrivate {
 
     gfloat prefac[2];
     cl_kernel *kernels;
-    cl_kernel mult_by_value_kernel;
+    cl_kernel mult_by_value_kernel, ctf_multi_apply_dist_kernel;
     cl_context context;
     UfoBuffer *filter_buffer;
 };
@@ -109,20 +113,27 @@ ufo_retrieve_phase_task_setup (UfoTask *task,
     if (priv->distance_x != 0.0f && priv->distance_y != 0.0f) {
         priv->prefac[0] = tmp * priv->distance_x;
         priv->prefac[1] = tmp * priv->distance_y;
-    } else if (priv->distance != 0.0f) {
-        priv->prefac[0] = priv->prefac[1] = tmp * priv->distance;
+    } else if (priv->distance->n_values > 0) {
+        priv->prefac[0] = priv->prefac[1] = tmp * g_value_get_double (g_value_array_get_nth (priv->distance, 0));
     } else {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                     "Either both, distance_x and distance_y must be non-zero, or distance must be non-zero");
+                     "Either both, distance_x and distance_y must be non-zero, or distance must be specified");
+        return;
+    }
+    if (priv->distance->n_values > 1 && priv->method != METHOD_CTF_MULTI) {
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                     "When multiple distances are speicified method must be set to \"ctf_multidistance\"");
         return;
     }
 
     priv->kernels[METHOD_TIE] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "tie_method", NULL, error);
     priv->kernels[METHOD_CTF] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "ctf_method", NULL, error);
+    priv->kernels[METHOD_CTF_MULTI] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "ctf_multidistance_square", NULL, error);
     priv->kernels[METHOD_QP] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "qp_method", NULL, error);
     priv->kernels[METHOD_QP2] = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "qp2_method", NULL, error);
 
     priv->mult_by_value_kernel = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "mult_by_value", NULL, error);
+    priv->ctf_multi_apply_dist_kernel = ufo_resources_get_kernel (resources, "phase-retrieval.cl", "ctf_multidistance_apply_distance", NULL, error);
 
     UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext(priv->context), error);
 
@@ -143,6 +154,10 @@ ufo_retrieve_phase_task_setup (UfoTask *task,
 
     if (priv->mult_by_value_kernel != NULL) {
         UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->mult_by_value_kernel), error);
+    }
+
+    if (priv->ctf_multi_apply_dist_kernel != NULL) {
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->ctf_multi_apply_dist_kernel), error);
     }
 }
 
@@ -169,13 +184,14 @@ ufo_retrieve_phase_task_get_requisition (UfoTask *task,
 static guint
 ufo_filter_task_get_num_inputs (UfoTask *task)
 {
-    return 1;
+    UfoRetrievePhaseTaskPrivate *priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (task);
+
+    return MAX(1, priv->distance->n_values);
 }
 
 static guint
 ufo_filter_task_get_num_dimensions (UfoTask *task, guint input)
 {
-    g_return_val_if_fail (input == 0, 0);
     return 2;
 }
 
@@ -195,8 +211,12 @@ ufo_retrieve_phase_task_process (UfoTask *task,
     UfoGpuNode *node;
     UfoProfiler *profiler;
     gsize global_work_size[3];
+    cl_int cl_err;
+    guint i;
+    gfloat *distances, lambda, distance;
+    gfloat fill_pattern = 0.0f;
 
-    cl_mem in_mem, out_mem, filter_mem;
+    cl_mem current_in_mem, in_sum_mem, in_mem, out_mem, filter_mem, distances_mem;
     cl_kernel method_kernel;
     cl_command_queue cmd_queue;
 
@@ -206,24 +226,49 @@ ufo_retrieve_phase_task_process (UfoTask *task,
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
 
+    global_work_size[0] = requisition->dims[0];
+    global_work_size[1] = requisition->dims[1];
+    if (!priv->output_filter) {
+        /* Filter is real as opposed to the complex input, so the width is only half of the interleaved input */
+        global_work_size[0] >>= 1;
+    }
+
     if (ufo_buffer_cmp_dimensions (priv->filter_buffer, requisition) != 0) {
         ufo_buffer_resize (priv->filter_buffer, requisition);
         filter_mem = ufo_buffer_get_device_array (priv->filter_buffer, cmd_queue);
 
         method_kernel = priv->kernels[(gint)priv->method];
 
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 0, sizeof (cl_float2), &priv->prefac));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 1, sizeof (gfloat), &priv->regularization_rate));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 2, sizeof (gfloat), &priv->binary_filter));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 3, sizeof (gfloat), &priv->frequency_cutoff));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 4, sizeof (cl_mem), &filter_mem));
-        global_work_size[0] = requisition->dims[0];
-        global_work_size[1] = requisition->dims[1];
-        if (!priv->output_filter) {
-            /* Filter is real as opposed to the complex input, so the width is only half of the interleaved input */
-            global_work_size[0] >>= 1;
+        if (priv->method == METHOD_CTF_MULTI) {
+            lambda = 6.62606896e-34 * 299792458 / (priv->energy * 1.60217733e-16);
+            distances = g_malloc0 (priv->distance->n_values * sizeof (gfloat));
+            for (i = 0; i < priv->distance->n_values; i++) {
+                distances[i] = g_value_get_double (g_value_array_get_nth (priv->distance, i));
+            }
+            distances_mem = clCreateBuffer (priv->context,
+                                           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+                                           priv->distance->n_values * sizeof(float),
+                                           distances,
+                                           &cl_err);
+            UFO_RESOURCES_CHECK_CLERR (cl_err);
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 0, sizeof (cl_mem), &distances_mem));
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 1, sizeof (guint), &priv->distance->n_values));
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 2, sizeof (gfloat), &lambda));
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 3, sizeof (gfloat), &priv->pixel_size));
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 4, sizeof (gfloat), &priv->regularization_rate));
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 5, sizeof (cl_mem), &filter_mem));
+            g_free (distances);
+        } else {
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 0, sizeof (cl_float2), &priv->prefac));
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 1, sizeof (gfloat), &priv->regularization_rate));
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 2, sizeof (gfloat), &priv->binary_filter));
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 3, sizeof (gfloat), &priv->frequency_cutoff));
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (method_kernel, 4, sizeof (cl_mem), &filter_mem));
         }
         ufo_profiler_call (profiler, cmd_queue, method_kernel, requisition->n_dims, global_work_size, NULL);
+        if (priv->method == METHOD_CTF_MULTI) {
+            UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (distances_mem));
+        }
     }
     else {
         filter_mem = ufo_buffer_get_device_array (priv->filter_buffer, cmd_queue);
@@ -233,12 +278,43 @@ ufo_retrieve_phase_task_process (UfoTask *task,
         ufo_buffer_copy (priv->filter_buffer, output);
     }
     else {
+        if (priv->method == METHOD_CTF_MULTI) {
+            /* Sum input frequencies first, then proceed wth complex division */
+            in_sum_mem = clCreateBuffer (priv->context,
+                                         CL_MEM_READ_WRITE,
+                                         requisition->dims[0] * requisition->dims[1] * sizeof(float),
+                                         NULL,
+                                         &cl_err);
+            UFO_RESOURCES_CHECK_CLERR (cl_err);
+            UFO_RESOURCES_CHECK_CLERR (clEnqueueFillBuffer (cmd_queue, in_sum_mem, &fill_pattern, sizeof (cl_float),
+                                                            0, requisition->dims[0] * requisition->dims[1] * sizeof(float),
+                                                            0, NULL, NULL));
+            for (i = 0; i < priv->distance->n_values; i++) {
+                distance = g_value_get_double (g_value_array_get_nth (priv->distance, i));
+                current_in_mem = ufo_buffer_get_device_array (inputs[i], cmd_queue);
+                UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->ctf_multi_apply_dist_kernel, 0, sizeof (cl_mem), &current_in_mem));
+                UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->ctf_multi_apply_dist_kernel, 1, sizeof (gfloat), &distance));
+                UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->ctf_multi_apply_dist_kernel, 2, sizeof (guint), &priv->distance->n_values));
+                UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->ctf_multi_apply_dist_kernel, 3, sizeof (gfloat), &lambda));
+                UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->ctf_multi_apply_dist_kernel, 4, sizeof (gfloat), &priv->pixel_size));
+                UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->ctf_multi_apply_dist_kernel, 5, sizeof (gfloat), &priv->regularization_rate));
+                UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->ctf_multi_apply_dist_kernel, 6, sizeof (cl_mem), &in_sum_mem));
+                ufo_profiler_call (profiler, cmd_queue, priv->ctf_multi_apply_dist_kernel, requisition->n_dims, global_work_size, NULL);
+            }
+            in_mem = in_sum_mem;
+        } else {
+            in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
+        }
+
         out_mem = ufo_buffer_get_device_array (output, cmd_queue);
-        in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 0, sizeof (cl_mem), &in_mem));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 1, sizeof (cl_mem), &filter_mem));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 2, sizeof (cl_mem), &out_mem));
         ufo_profiler_call (profiler, cmd_queue, priv->mult_by_value_kernel, requisition->n_dims, requisition->dims, NULL);
+
+        if (priv->method == METHOD_CTF_MULTI) {
+            UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (in_sum_mem));
+        }
     }
     
     return TRUE;
@@ -260,7 +336,7 @@ ufo_retrieve_phase_task_get_property (GObject *object,
             g_value_set_float (value, priv->energy);
             break;
         case PROP_DISTANCE:
-            g_value_set_float (value, priv->distance);
+            g_value_set_boxed (value, priv->distance);
             break;
         case PROP_DISTANCE_X:
             g_value_set_float (value, priv->distance_x);
@@ -296,6 +372,7 @@ ufo_retrieve_phase_task_set_property (GObject *object,
                                       GParamSpec *pspec)
 {
     UfoRetrievePhaseTaskPrivate *priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (object);
+    GValueArray *array;
 
     switch (property_id) {
         case PROP_METHOD:
@@ -305,7 +382,11 @@ ufo_retrieve_phase_task_set_property (GObject *object,
             priv->energy = g_value_get_float (value);
             break;
         case PROP_DISTANCE:
-            priv->distance = g_value_get_float (value);
+            array = (GValueArray *) g_value_get_boxed (value);
+            if (array) {
+                g_value_array_free (priv->distance);
+                priv->distance = g_value_array_copy (array);
+            }
             break;
         case PROP_DISTANCE_X:
             priv->distance_x = g_value_get_float (value);
@@ -358,6 +439,11 @@ ufo_retrieve_phase_task_finalize (GObject *object)
         priv->mult_by_value_kernel = NULL;
     }
 
+    if (priv->ctf_multi_apply_dist_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->ctf_multi_apply_dist_kernel));
+        priv->ctf_multi_apply_dist_kernel = NULL;
+    }
+
     if (priv->context) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
         priv->context = NULL;
@@ -366,6 +452,8 @@ ufo_retrieve_phase_task_finalize (GObject *object)
     if (priv->filter_buffer) {
         g_object_unref(priv->filter_buffer);
     }
+
+    g_value_array_free (priv->distance);
 
     G_OBJECT_CLASS (ufo_retrieve_phase_task_parent_class)->finalize (object);
 }
@@ -390,6 +478,14 @@ ufo_retrieve_phase_task_class_init (UfoRetrievePhaseTaskClass *klass)
     gobject_class->get_property = ufo_retrieve_phase_task_get_property;
     gobject_class->finalize = ufo_retrieve_phase_task_finalize;
 
+    GParamSpec *double_region_vals = g_param_spec_double ("double-region-values",
+                                                          "Double Region values",
+                                                          "Elements in double regions",
+                                                          -INFINITY,
+                                                          INFINITY,
+                                                          0.0,
+                                                          G_PARAM_READWRITE);
+
     properties[PROP_METHOD] =
         g_param_spec_enum ("method",
             "Method name",
@@ -406,10 +502,10 @@ ufo_retrieve_phase_task_class_init (UfoRetrievePhaseTaskClass *klass)
             G_PARAM_READWRITE);
 
     properties[PROP_DISTANCE] =
-        g_param_spec_float ("distance",
+        g_param_spec_value_array ("distance",
             "Distance value",
             "Distance value.",
-            0, G_MAXFLOAT, 0.0f,
+            double_region_vals,
             G_PARAM_READWRITE);
 
     properties[PROP_DISTANCE_X] =
@@ -471,10 +567,11 @@ static void
 ufo_retrieve_phase_task_init(UfoRetrievePhaseTask *self)
 {
     UfoRetrievePhaseTaskPrivate *priv;
+
     self->priv = priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE(self);
     priv->method = METHOD_TIE;
     priv->energy = 20.0f;
-    priv->distance = 0.0f;
+    priv->distance = g_value_array_new (1);
     priv->distance_x = 0.0f;
     priv->distance_y = 0.0f;
     priv->pixel_size = 0.75e-6f;
