@@ -26,6 +26,7 @@
 
 struct _UfoEdfReaderPrivate {
     FILE *fp;
+    guint start;
     gssize size;
     gsize height;
     guint bytes_per_sample;
@@ -68,6 +69,7 @@ ufo_edf_reader_open (UfoReader *reader,
     fseek (priv->fp, 0L, SEEK_END);
     priv->size = (gsize) ftell (priv->fp);
     fseek (priv->fp, 0L, SEEK_SET);
+    priv->start = start;
 
     return TRUE;
 }
@@ -93,19 +95,22 @@ ufo_edf_reader_data_available (UfoReader *reader)
     return priv->fp != NULL && ftell (priv->fp) < priv->size;
 }
 
-static void
+static gsize
 ufo_edf_reader_read (UfoReader *reader,
                      UfoBuffer *buffer,
                      UfoRequisition *requisition,
                      guint roi_y,
                      guint roi_height,
-                     guint roi_step)
+                     guint roi_step,
+                     guint image_step)
 {
     UfoEdfReaderPrivate *priv;
     gsize num_bytes;
     gsize num_read;
     gssize offset;
     gchar *data;
+    gsize to_skip;
+    guint start = 0;
 
     priv = UFO_EDF_READER_GET_PRIVATE (reader);
     data = (gchar *) ufo_buffer_get_host_array (buffer, NULL);
@@ -113,12 +118,16 @@ ufo_edf_reader_read (UfoReader *reader,
     /* size of the image width in bytes */
     const gsize width = requisition->dims[0] * priv->bytes_per_sample;
     const guint num_rows = requisition->dims[1];
+    if (priv->start) {
+        start = priv->start;
+        priv->start = 0;
+    }
     const gsize end_position = ftell (priv->fp) + priv->height * width;
 
     offset = 0;
 
-    /* Go to the first desired row */
-    fseek (priv->fp, roi_y * width, SEEK_CUR);
+    /* Go to the first desired row at *start* image index */
+    fseek (priv->fp, start * priv->height * width + roi_y * width, SEEK_CUR);
 
     if (roi_step == 1) {
         /* Read the full ROI at once if no stepping is specified */
@@ -126,14 +135,14 @@ ufo_edf_reader_read (UfoReader *reader,
         num_read = fread (data, 1, num_bytes, priv->fp);
 
         if (num_read != num_bytes)
-            return;
+            return 0;
     }
     else {
         for (guint i = 0; i < num_rows - 1; i++) {
             num_read = fread (data + offset, 1, width, priv->fp);
 
             if (num_read != width)
-                return;
+                return 0;
 
             offset += width;
             fseek (priv->fp, (roi_step - 1) * width, SEEK_CUR);
@@ -144,11 +153,15 @@ ufo_edf_reader_read (UfoReader *reader,
         num_read = fread (data + offset, 1, width, priv->fp);
 
         if (num_read != width)
-            return;
+            return 0;
     }
 
     /* Go to the image end to be in a consistent state for the next read */
     fseek (priv->fp, end_position, SEEK_SET);
+
+    /* Skip the desired number of images */
+    to_skip = MIN (image_step - 1, (priv->size - (gsize) ftell (priv->fp)) / (priv->height * width));
+    fseek (priv->fp, to_skip * priv->height * width, SEEK_CUR);
 
     if ((G_BYTE_ORDER == G_LITTLE_ENDIAN) && priv->big_endian) {
         guint32 *conv = (guint32 *) ufo_buffer_get_host_array (buffer, NULL);
@@ -157,6 +170,8 @@ ufo_edf_reader_read (UfoReader *reader,
         for (guint i = 0; i < n_pixels; i++)
             conv[i] = g_ntohl (conv[i]);
     }
+
+    return to_skip + 1;
 }
 
 static void
@@ -192,6 +207,7 @@ ufo_edf_reader_get_depth (const gchar *value, UfoBufferDepth *depth, guint *byte
 static gboolean
 ufo_edf_reader_get_meta (UfoReader *reader,
                          UfoRequisition *requisition,
+                         gsize *num_images,
                          UfoBufferDepth *bitdepth,
                          GError **error)
 {
@@ -270,6 +286,7 @@ ufo_edf_reader_get_meta (UfoReader *reader,
         g_strfreev (key_value);
     }
 
+    *num_images = requisition->dims[0] * requisition->dims[1] * priv->bytes_per_sample / (priv->size - data_position);
     g_strfreev (tokens);
     g_free (header);
     return TRUE;

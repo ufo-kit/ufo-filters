@@ -48,14 +48,16 @@ struct _UfoReaderIface {
     gboolean    (*data_available)       (UfoReader      *reader);
     gboolean    (*get_meta)             (UfoReader      *reader,
                                          UfoRequisition *requisition,
+                                         gsize          *num_images,
                                          guint          *bitdepth,
                                          GError        **error);
-    void        (*read)                 (UfoReader      *reader,
+    gsize       (*read)                 (UfoReader      *reader,
                                          UfoBuffer      *buffer,
                                          UfoRequisition *requisition,
                                          guint           roi_y,
                                          guint           roi_height,
-                                         guint           roi_step);
+                                         guint           roi_step,
+                                         guint           image_step);
 };
 
 gboolean    ufo_reader_can_open         (UfoReader      *reader,
@@ -68,14 +70,16 @@ void        ufo_reader_close            (UfoReader      *reader);
 gboolean    ufo_reader_data_available   (UfoReader      *reader);
 gboolean    ufo_reader_get_meta         (UfoReader      *reader,
                                          UfoRequisition *requisition,
+                                         gsize          *num_images,
                                          UfoBufferDepth *bitdepth,
                                          GError        **error);
-void        ufo_reader_read             (UfoReader      *reader,
+gsize       ufo_reader_read             (UfoReader      *reader,
                                          UfoBuffer      *buffer,
                                          UfoRequisition *requisition,
                                          guint           roi_y,
                                          guint           roi_height,
-                                         guint           roi_step);
+                                         guint           roi_step,
+                                         guint           image_step);
 
 GType  ufo_reader_get_type        (void);
 

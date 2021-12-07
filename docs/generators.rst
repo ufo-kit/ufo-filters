@@ -34,9 +34,17 @@ File reader
 
         First index from where files are read.
 
+    .. gobj:prop:: image-start:uint
+
+        First image index from where images are read in multi-image files.
+
     .. gobj:prop:: step:uint
 
         Number of files to skip.
+
+    .. gobj:prop:: image-step:uint
+
+        Number of images to skip in a multi-image file.
 
     .. gobj:prop:: y:uint
 
@@ -79,18 +87,6 @@ File reader
         Overrides the type detection that is based on the file extension. For
         example, to load `.foo` files as raw files, set the ``type`` property to
         `raw`.
-
-    .. gobj:prop:: retries:uint
-
-        Set the number of retries in case files do not exist yet and are being
-        written. If you set this, you *must* also set ``number`` otherwise you
-        would have to wait basically forever for the execution to finish. Note,
-        that only files are considered which come after the last successful
-        filename.
-
-    .. gobj:prop:: retry-timeout:uint
-
-        Seconds to wait before reading new files.
 
 
 Memory reader

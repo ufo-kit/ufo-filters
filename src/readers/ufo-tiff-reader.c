@@ -26,6 +26,7 @@
 struct _UfoTiffReaderPrivate {
     TIFF    *tiff;
     gboolean more;
+    gsize num_images;
 };
 
 static void ufo_reader_interface_init (UfoReaderIface *iface);
@@ -59,8 +60,9 @@ ufo_tiff_reader_open (UfoReader *reader,
     UfoTiffReaderPrivate *priv;
 
     priv = UFO_TIFF_READER_GET_PRIVATE (reader);
+    priv->num_images = 0;
     priv->tiff = TIFFOpen (filename, "r");
-    priv->more = TRUE;
+    priv->more = FALSE;
 
     if (priv->tiff == NULL) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
@@ -68,8 +70,18 @@ ufo_tiff_reader_open (UfoReader *reader,
         return FALSE;
     }
 
-    for (guint i = 0; i < start; i++)
-        priv->more = TIFFReadDirectory (priv->tiff) == 1;
+	do {
+	    priv->num_images++;
+	} while (TIFFReadDirectory(priv->tiff));
+
+    if (start < priv->num_images) {
+        priv->more = TRUE;
+        if (TIFFSetDirectory (priv->tiff, start) != 1) {
+            g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                         "Cannot find first image in %s", filename);
+            return FALSE;
+        }
+    }
 
     return TRUE;
 }
@@ -172,16 +184,18 @@ read_64_bit_data (UfoTiffReaderPrivate *priv,
     g_free (src);
 }
 
-static void
+static gsize
 ufo_tiff_reader_read (UfoReader *reader,
                       UfoBuffer *buffer,
                       UfoRequisition *requisition,
                       guint roi_y,
                       guint roi_height,
-                      guint roi_step)
+                      guint roi_step,
+                      guint image_step)
 {
     UfoTiffReaderPrivate *priv;
     guint16 bits;
+    gsize num_read = 0;
 
     priv = UFO_TIFF_READER_GET_PRIVATE (reader);
 
@@ -192,12 +206,21 @@ ufo_tiff_reader_read (UfoReader *reader,
     else
         read_data (priv, buffer, requisition, bits, roi_y, roi_height, roi_step);
 
-    priv->more = TIFFReadDirectory (priv->tiff) == 1;
+    do {
+        priv->more = TIFFReadDirectory (priv->tiff) == 1;
+        num_read++;
+        if (!priv->more) {
+            break;
+        }
+    } while (num_read < image_step);
+
+    return num_read;
 }
 
 static gboolean
 ufo_tiff_reader_get_meta (UfoReader *reader,
                           UfoRequisition *requisition,
+                          gsize *num_images,
                           UfoBufferDepth *bitdepth,
                           GError **error)
 {
@@ -219,6 +242,7 @@ ufo_tiff_reader_get_meta (UfoReader *reader,
     requisition->dims[0] = (gsize) width;
     requisition->dims[1] = (gsize) height;
     requisition->dims[2] = samples == 3 ? 3 : 0;
+    *num_images = priv->num_images;
 
     switch (bits_per_sample) {
         case 8:

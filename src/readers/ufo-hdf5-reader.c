@@ -116,18 +116,20 @@ ufo_hdf5_reader_data_available (UfoReader *reader)
     return priv->current < priv->dims[0];
 }
 
-static void
+static gsize
 ufo_hdf5_reader_read (UfoReader *reader,
                       UfoBuffer *buffer,
                       UfoRequisition *requisition,
                       guint roi_y,
                       guint roi_height,
-                      guint roi_step)
+                      guint roi_step,
+                      guint image_step)
 {
     UfoHdf5ReaderPrivate *priv;
     gpointer data;
     hid_t dst_dataspace_id;
     hsize_t dst_dims[2];
+    gsize num_read = 0;
 
     priv = UFO_HDF5_READER_GET_PRIVATE (reader);
     data = ufo_buffer_get_host_array (buffer, NULL);
@@ -143,12 +145,16 @@ ufo_hdf5_reader_read (UfoReader *reader,
     H5Dread (priv->dataset_id, H5T_NATIVE_FLOAT, dst_dataspace_id, priv->src_dataspace_id, H5P_DEFAULT, data);
     H5Sclose (dst_dataspace_id);
 
-    priv->current++;
+    num_read = MIN (image_step, priv->dims[0] - priv->current);
+    priv->current += num_read;
+
+    return num_read;
 }
 
 static gboolean
 ufo_hdf5_reader_get_meta (UfoReader *reader,
                           UfoRequisition *requisition,
+                          gsize *num_images,
                           UfoBufferDepth *bitdepth,
                           GError **error)
 {
@@ -159,6 +165,7 @@ ufo_hdf5_reader_get_meta (UfoReader *reader,
     requisition->n_dims = 2;
     requisition->dims[0] = priv->dims[2];
     requisition->dims[1] = priv->dims[1];
+    *num_images = priv->dims[0];
     *bitdepth = UFO_BUFFER_DEPTH_32F;
     return TRUE;
 }

@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+
+import sys
+import numpy as np
+import tifffile
+
+
+def main(gt):
+    im = tifffile.imread('multipage-out.tif')
+    if im.ndim == 2:
+        im = im[np.newaxis]
+
+    collected = []
+    for i in range(im.shape[0]):
+        collected.append(int(im[i, 0, 0]))
+        if int(gt[i]) != collected[i]:
+            print('Sequences do not match', gt[:i + 1], collected[:i + 1])
+            return 1
+
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

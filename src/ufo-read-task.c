@@ -70,9 +70,8 @@ struct _UfoReadTaskPrivate {
     guint    current;
     guint    step;
     guint    start;
+    guint    image_start;
     guint    number;
-    guint    retries;
-    guint    retry_timeout;
     gboolean done;
     gboolean single;
 
@@ -82,6 +81,7 @@ struct _UfoReadTaskPrivate {
     guint    roi_y;
     guint    roi_height;
     guint    roi_step;
+    guint    image_step;
 
     UfoReader       *reader;
     UfoEdfReader    *edf_reader;
@@ -110,11 +110,13 @@ enum {
     PROP_0,
     PROP_PATH,
     PROP_START,
+    PROP_IMAGE_START,
     PROP_NUMBER,
     PROP_STEP,
     PROP_ROI_Y,
     PROP_ROI_HEIGHT,
     PROP_ROI_STEP,
+    PROP_IMAGE_STEP,
     PROP_CONVERT,
     PROP_RAW_WIDTH,
     PROP_RAW_HEIGHT,
@@ -122,8 +124,6 @@ enum {
     PROP_RAW_PRE_OFFSET,
     PROP_RAW_POST_OFFSET,
     PROP_TYPE,
-    PROP_RETRIES,
-    PROP_RETRY_TIMEOUT,
     N_PROPERTIES
 };
 
@@ -218,13 +218,6 @@ ufo_read_task_setup (UfoTask *task,
         return;
     }
 
-    if (priv->number == G_MAXUINT && priv->retries > 0) {
-        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                     "`retries' but not `number' set");
-        return;
-    }
-
-    priv->start = 0;
     priv->current = 0;
 }
 
@@ -258,51 +251,17 @@ ufo_read_task_get_requisition (UfoTask *task,
 {
     UfoReadTaskPrivate *priv;
     const gchar *filename;
+    gsize num_images = 0;
 
     priv = UFO_READ_TASK_GET_PRIVATE (UFO_READ_TASK (task));
 
-    if (priv->reader == NULL) {
-        filename = (gchar *) priv->current_element->data;
-        priv->reader = get_reader (priv, filename);
-
-        if (!ufo_reader_open (priv->reader, filename, priv->start, error))
-            return;
-
-        priv->start = 0;
-    }
-
-    if (!ufo_reader_data_available (priv->reader)) {
-        GList *last_element;
-        guint tries;
-
-        ufo_reader_close (priv->reader);
-        last_element = priv->current_element;
-        priv->current_element = g_list_nth (priv->current_element, priv->step);
-
-        if (priv->current_element == NULL) {
-            if (priv->retries == 0 || priv->current == priv->number) {
-                priv->done = TRUE;
-                priv->reader = NULL;
-                return;
-            }
-
-            for (tries = 0; tries < priv->retries && priv->current_element == NULL; tries++) {
-                 GList *new_list;
-                 GList *match;
-
-                 g_debug ("read: retry %i/%i, waiting %is for new files", tries + 1, priv->retries, priv->retry_timeout);
-                 g_usleep (priv->retry_timeout * G_USEC_PER_SEC);
-                 new_list = g_list_sort (read_filenames (priv), (GCompareFunc) g_strcmp0);
-                 match = g_list_find_custom (new_list, last_element->data, (GCompareFunc) g_strcmp0);
-
-                 if (match != g_list_last (new_list)) {
-                     g_list_free_full (priv->filenames, (GDestroyNotify) g_free);
-                     priv->filenames = new_list;
-                     priv->current_element = g_list_next (match);
-                 }
-                 else {
-                     g_list_free_full (new_list, (GDestroyNotify) g_free);
-                 }
+    if (!priv->reader || !ufo_reader_data_available (priv->reader)) {
+        while (TRUE) {
+            /* Keep skipping files until we find one with enough images to start
+             * reading at priv->image_start index. */
+            if (priv->reader) {
+                ufo_reader_close (priv->reader);
+                priv->current_element = g_list_nth (priv->current_element, priv->step);
             }
 
             if (priv->current_element == NULL) {
@@ -310,17 +269,24 @@ ufo_read_task_get_requisition (UfoTask *task,
                 priv->reader = NULL;
                 return;
             }
+
+            filename = (gchar *) priv->current_element->data;
+            priv->reader = get_reader (priv, filename);
+
+            if (!ufo_reader_open (priv->reader, filename, priv->image_start, error))
+                return;
+            if (!ufo_reader_get_meta (priv->reader, requisition, &num_images, &priv->depth, error))
+                return;
+
+            if (priv->image_start >= num_images) {
+                priv->image_start -= num_images;
+            } else {
+                priv->image_start = 0;
+                break;
+            }
         }
-
-        filename = (gchar *) priv->current_element->data;
-        priv->reader = get_reader (priv, filename);
-
-        if (!ufo_reader_open (priv->reader, filename, 0, error))
-            return;
     }
 
-    if (!ufo_reader_get_meta (priv->reader, requisition, &priv->depth, error))
-        return;
 
     if (priv->depth > 32)
         /*
@@ -376,13 +342,16 @@ ufo_read_task_generate (UfoTask *task,
                         UfoRequisition *requisition)
 {
     UfoReadTaskPrivate *priv;
+    guint num_processed;
 
     priv = UFO_READ_TASK_GET_PRIVATE (UFO_READ_TASK (task));
 
     if (priv->current == priv->number || priv->done)
         return FALSE;
 
-    ufo_reader_read (priv->reader, output, requisition, priv->roi_y, priv->roi_height, priv->roi_step);
+    num_processed = ufo_reader_read (priv->reader, output, requisition, priv->roi_y, priv->roi_height,
+                                   priv->roi_step, priv->image_step);
+    priv->image_start = priv->image_step - num_processed;
 
     if ((priv->depth != UFO_BUFFER_DEPTH_32F) && priv->convert)
         ufo_buffer_convert (output, priv->depth);
@@ -416,11 +385,17 @@ ufo_read_task_set_property (GObject *object,
         case PROP_ROI_STEP:
             priv->roi_step = g_value_get_uint (value);
             break;
+        case PROP_IMAGE_STEP:
+            priv->image_step = g_value_get_uint (value);
+            break;
         case PROP_CONVERT:
             priv->convert = g_value_get_boolean (value);
             break;
         case PROP_START:
             priv->start = g_value_get_uint (value);
+            break;
+        case PROP_IMAGE_START:
+            priv->image_start = g_value_get_uint (value);
             break;
         case PROP_NUMBER:
             priv->number = g_value_get_uint (value);
@@ -442,12 +417,6 @@ ufo_read_task_set_property (GObject *object,
             break;
         case PROP_TYPE:
             priv->type = g_value_get_enum (value);
-            break;
-        case PROP_RETRIES:
-            priv->retries = g_value_get_uint (value);
-            break;
-        case PROP_RETRY_TIMEOUT:
-            priv->retry_timeout = g_value_get_uint (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -479,11 +448,17 @@ ufo_read_task_get_property (GObject *object,
         case PROP_ROI_STEP:
             g_value_set_uint (value, priv->roi_step);
             break;
+        case PROP_IMAGE_STEP:
+            g_value_set_uint (value, priv->image_step);
+            break;
         case PROP_CONVERT:
             g_value_set_boolean (value, priv->convert);
             break;
         case PROP_START:
             g_value_set_uint (value, priv->start);
+            break;
+        case PROP_IMAGE_START:
+            g_value_set_uint (value, priv->image_start);
             break;
         case PROP_NUMBER:
             g_value_set_uint (value, priv->number);
@@ -505,12 +480,6 @@ ufo_read_task_get_property (GObject *object,
             break;
         case PROP_TYPE:
             g_value_set_enum (value, priv->type);
-            break;
-        case PROP_RETRIES:
-            g_value_set_uint (value, priv->retries);
-            break;
-        case PROP_RETRY_TIMEOUT:
-            g_value_set_uint (value, priv->retry_timeout);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -613,6 +582,13 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
             1, G_MAXUINT, 1,
             G_PARAM_READWRITE);
 
+    properties[PROP_IMAGE_STEP] =
+        g_param_spec_uint ("image-step",
+            "Read every \"step\" image",
+            "Read every \"step\" image",
+            1, G_MAXUINT, 1,
+            G_PARAM_READWRITE);
+
     properties[PROP_CONVERT] =
         g_param_spec_boolean ("convert",
             "Enable automatic conversion",
@@ -627,10 +603,17 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
             0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
+    properties[PROP_IMAGE_START] =
+        g_param_spec_uint ("image-start",
+            "Offset to the first read image in a multi-image file",
+            "Offset to the first read image in a multi-image file",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
+
     properties[PROP_NUMBER] =
         g_param_spec_uint ("number",
-            "Number of files that will be read at most",
-            "Number of files that will be read at most",
+            "Number of images that will be read at most",
+            "Number of images that will be read at most",
             0, G_MAXUINT, G_MAXUINT,
             G_PARAM_READWRITE);
 
@@ -677,20 +660,6 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
             TYPE_UNSPECIFIED,
             G_PARAM_READWRITE);
 
-    properties[PROP_RETRIES] =
-        g_param_spec_uint ("retries",
-            "Number of read retries",
-            "Number of read retries",
-            0, G_MAXUINT, 0,
-            G_PARAM_READWRITE);
-
-    properties[PROP_RETRY_TIMEOUT] =
-        g_param_spec_uint ("retry-timeout",
-            "Time in seconds to wait between retries",
-            "Time in seconds to wait between retries",
-            0, G_MAXUINT, 1,
-            G_PARAM_READWRITE);
-
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -708,11 +677,11 @@ ufo_read_task_init(UfoReadTask *self)
     priv->roi_y = 0;
     priv->roi_height = 0;
     priv->roi_step = 1;
+    priv->image_step = 1;
     priv->convert = TRUE;
     priv->start = 0;
+    priv->image_start = 0;
     priv->number = G_MAXUINT;
-    priv->retries = 0;
-    priv->retry_timeout = 1;
     priv->depth = UFO_BUFFER_DEPTH_32F;
 
     priv->edf_reader = ufo_edf_reader_new ();
