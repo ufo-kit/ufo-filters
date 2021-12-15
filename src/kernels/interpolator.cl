@@ -53,7 +53,8 @@ interpolate_horizontally (global float *a,
 kernel void
 interpolate_mask_horizontally (global float *input,
                                global float *mask,
-                               global float *output)
+                               global float *output,
+                               const int use_gradient)
 {
    const int idx = get_global_id (0);
    const int idy = get_global_id (1);
@@ -73,9 +74,13 @@ interpolate_mask_horizontally (global float *input,
         if (left < 0) {
             /* Mask spans to the left border, use only the right value */
             if (right < width - 1) {
-                /* There are two valid pixels on the right, use gradient */
-                diff = input[offset + right] - input[offset + right + 1];
-                output[offset + idx] = input[offset + right] + diff * (right - idx);
+                if (use_gradient) {
+                    /* There are two valid pixels on the right, use gradient */
+                    diff = input[offset + right] - input[offset + right + 1];
+                    output[offset + idx] = input[offset + right] + diff * (right - idx);
+                } else {
+                    output[offset + idx] = input[offset + right];
+                }
             } else if (right == width - 1) {
                 /* There is only one valid pixel on the right, which is the only
                  * valid pixel in this row, so use it's value everywhere */
@@ -87,9 +92,13 @@ interpolate_mask_horizontally (global float *input,
         } else if (right >= width) {
             /* Mask spans to the right border, use only the left value */
             if (left > 0) {
-                /* There are two valid pixels on the left, use gradient */
-                diff = input[offset + left] - input[offset + left - 1];
-                output[offset + idx] = input[offset + left] + diff * (idx - left);
+                if (use_gradient) {
+                    /* There are two valid pixels on the left, use gradient */
+                    diff = input[offset + left] - input[offset + left - 1];
+                    output[offset + idx] = input[offset + left] + diff * (idx - left);
+                } else {
+                    output[offset + idx] = input[offset + left];
+                }
             } else if (left == 0) {
                 /* There is only one valid pixel on the left, which is the only
                  * valid pixel in this row, so use it's value everywhere */

@@ -629,13 +629,22 @@ Horizontal interpolation
     Interpolate masked values in rows of an image. For all pixels equal to one
     in the mask, find the closest pixel where mask is zero to the left and right
     and linearly interpolate the value in the current pixel based on the found
-    left and right values. If the mask goes to the left or right border of the
-    image and on the other side there are at least two non-masked pixels
-    :math:`x_1` and :math:`x_2`, compute the value in the current pixel
-    :math:`x` by (in case the mask goes to the right border, left is analogous)
-    :math:`f(x) = f(x_2) + (x - x_2) * (f(x_2) - f(x_1))`. In case there is only
-    one valid pixel on one of the borders and all the others are masked, use
-    that pixel's value in all the remaining ones.
+    left and right values. If :gobj:prop:`use-one-sided-gradient` is *TRUE* and
+    the mask goes to the left or right border of the image and on the other side
+    there are at least two non-masked pixels :math:`x_1` and :math:`x_2`,
+    compute the value in the current pixel :math:`x` by (in case the mask goes
+    to the right border, left is analogous) :math:`f(x) = f(x_2) + (x - x_2) *
+    (f(x_2) - f(x_1))`. In case :gobj:prop:`use-one-sided-gradient` is *FALSE*
+    or there is only one valid pixel on one of the borders and all the others
+    are masked, use that pixel's value in all the remaining ones.
+
+    .. gobj:prop:: use-one-sided-gradient:boolean
+
+        If *TRUE*, use two good pixels on one side to compute gradient and fill
+        the masked values accordingly (for the case the mask spans to the
+        border). If *FALSE*, just copy the last "good" pixel value to the masked
+        values.
+
 
 
 Stream transformations
