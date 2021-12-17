@@ -279,9 +279,10 @@ ufo_read_task_get_requisition (UfoTask *task,
                 return;
 
             if (priv->roi_y >= requisition->dims[1]) {
-                g_warning ("read: vertical ROI start %i >= height %zu",
-                           priv->roi_y, requisition->dims[1]);
-                priv->roi_y = 0;
+                g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                             "read: vertical ROI start %i >= height %zu",
+                             priv->roi_y, requisition->dims[1]);
+                return;
             }
 
             if (!priv->roi_height) {
@@ -289,9 +290,10 @@ ufo_read_task_get_requisition (UfoTask *task,
             }
             else {
                 if (priv->roi_y + priv->roi_height > requisition->dims[1]) {
-                    g_warning ("read: vertical ROI height %i >= height %zu",
-                               priv->roi_height, requisition->dims[1]);
-                    priv->roi_height = requisition->dims[1] - priv->roi_y;
+                    g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                                 "read: vertical ROI start + height %i >= height %zu",
+                                 priv->roi_y + priv->roi_height, requisition->dims[1]);
+                    return;
                 }
             }
             if (priv->image_start >= num_images) {
