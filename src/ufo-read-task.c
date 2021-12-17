@@ -278,6 +278,22 @@ ufo_read_task_get_requisition (UfoTask *task,
             if (!ufo_reader_get_meta (priv->reader, requisition, &num_images, &priv->depth, error))
                 return;
 
+            if (priv->roi_y >= requisition->dims[1]) {
+                g_warning ("read: vertical ROI start %i >= height %zu",
+                           priv->roi_y, requisition->dims[1]);
+                priv->roi_y = 0;
+            }
+
+            if (!priv->roi_height) {
+                priv->roi_height = requisition->dims[1] - priv->roi_y;
+            }
+            else {
+                if (priv->roi_y + priv->roi_height > requisition->dims[1]) {
+                    g_warning ("read: vertical ROI height %i >= height %zu",
+                               priv->roi_height, requisition->dims[1]);
+                    priv->roi_height = requisition->dims[1] - priv->roi_y;
+                }
+            }
             if (priv->image_start >= num_images) {
                 priv->image_start -= num_images;
             } else {
@@ -294,23 +310,6 @@ ufo_read_task_get_requisition (UfoTask *task,
          * allocate larger buffers than those with float elements.
          */
         priv->depth = UFO_BUFFER_DEPTH_32F;
-
-    if (priv->roi_y >= requisition->dims[1]) {
-        g_warning ("read: vertical ROI start %i >= height %zu",
-                   priv->roi_y, requisition->dims[1]);
-        priv->roi_y = 0;
-    }
-
-    if (!priv->roi_height) {
-        priv->roi_height = requisition->dims[1] - priv->roi_y;
-    }
-    else {
-        if (priv->roi_y + priv->roi_height > requisition->dims[1]) {
-            g_warning ("read: vertical ROI height %i >= height %zu",
-                       priv->roi_height, requisition->dims[1]);
-            priv->roi_height = requisition->dims[1] - priv->roi_y;
-        }
-    }
 
     /* update height for reduced vertical ROI and allow things like roi_height=1
      * and roi_step=20 */
