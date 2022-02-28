@@ -125,8 +125,7 @@ ufo_cone_beam_projection_weight_task_process (UfoTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
-    gfloat source_distance, detector_distance, overall_distance, magnification_recip, cos_angle;
-    gfloat center[2];
+    cl_float source_distance, detector_distance, overall_distance, magnification_recip, cos_angle, center[2];
 
     priv = UFO_CONE_BEAM_PROJECTION_WEIGHT_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
@@ -134,11 +133,11 @@ ufo_cone_beam_projection_weight_task_process (UfoTask *task,
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
-    cos_angle = cos (ufo_scarray_get_float (priv->axis_angle_x, priv->count));
-    center[0] = ufo_scarray_get_float (priv->center_position_x, priv->count);
-    center[1] = ufo_scarray_get_float (priv->center_position_z, priv->count);
-    source_distance = ufo_scarray_get_float (priv->source_distance, priv->count);
-    detector_distance = ufo_scarray_get_float (priv->detector_distance, priv->count);
+    cos_angle = (cl_float) cos (ufo_scarray_get_double (priv->axis_angle_x, priv->count));
+    center[0] = (cl_float) ufo_scarray_get_double (priv->center_position_x, priv->count);
+    center[1] = (cl_float) ufo_scarray_get_double (priv->center_position_z, priv->count);
+    source_distance = (cl_float) ufo_scarray_get_double (priv->source_distance, priv->count);
+    detector_distance = (cl_float) ufo_scarray_get_double (priv->detector_distance, priv->count);
     overall_distance = source_distance + detector_distance;
     magnification_recip = source_distance / overall_distance;
     if (cos_angle > 0.9999999f) {
@@ -258,47 +257,47 @@ ufo_cone_beam_projection_weight_task_class_init (UfoConeBeamProjectionWeightTask
     oclass->get_property = ufo_cone_beam_projection_weight_task_get_property;
     oclass->finalize = ufo_cone_beam_projection_weight_task_finalize;
 
-    GParamSpec *float_region_vals = g_param_spec_float ("float-region-values",
-                                                        "Float Region values",
-                                                        "Elements in float regions",
-                                                        -INFINITY,
-                                                        INFINITY,
-                                                        0.0f,
-                                                        G_PARAM_READWRITE);
+    GParamSpec *double_region_vals = g_param_spec_double ("double-region-values",
+                                                          "Double Region values",
+                                                          "Elements in double regions",
+                                                          -INFINITY,
+                                                          INFINITY,
+                                                          0.0,
+                                                          G_PARAM_READWRITE);
 
     properties[PROP_CENTER_POSITION_X] =
         g_param_spec_value_array ("center-position-x",
                                   "Global x center (horizontal in a projection) of the volume with respect to projections",
                                   "Global x center (horizontal in a projection) of the volume with respect to projections",
-                                  float_region_vals,
+                                  double_region_vals,
                                   G_PARAM_READWRITE);
 
     properties[PROP_CENTER_POSITION_Z] =
         g_param_spec_value_array ("center-position-z",
                                   "Global z center (vertical in a projection) of the volume with respect to projections",
                                   "Global z center (vertical in a projection) of the volume with respect to projections",
-                                  float_region_vals,
+                                  double_region_vals,
                                   G_PARAM_READWRITE);
 
     properties[PROP_SOURCE_DISTANCE] =
         g_param_spec_value_array ("source-distance",
                                   "Distance from source to the volume center",
                                   "Distance from source to the volume center",
-                                  float_region_vals,
+                                  double_region_vals,
                                   G_PARAM_READWRITE);
 
     properties[PROP_DETECTOR_DISTANCE] =
         g_param_spec_value_array ("detector-distance",
                                   "Distance from detector to the volume center",
                                   "Distance from detector to the volume center",
-                                  float_region_vals,
+                                  double_region_vals,
                                   G_PARAM_READWRITE);
 
     properties[PROP_AXIS_ANGLE_X] =
         g_param_spec_value_array("axis-angle-x",
                                  "Rotation axis rotation around the x-axis (laminographic angle [rad], 0 = tomography)",
                                  "Rotation axis rotation around the x-axis (laminographic angle [rad], 0 = tomography)",
-                                 float_region_vals,
+                                 double_region_vals,
                                  G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -312,10 +311,10 @@ ufo_cone_beam_projection_weight_task_init(UfoConeBeamProjectionWeightTask *self)
 {
     self->priv = UFO_CONE_BEAM_PROJECTION_WEIGHT_TASK_GET_PRIVATE(self);
 
-    self->priv->center_position_x = ufo_scarray_new (0, G_TYPE_FLOAT, NULL);
-    self->priv->center_position_z = ufo_scarray_new (0, G_TYPE_FLOAT, NULL);
-    self->priv->source_distance = ufo_scarray_new (0, G_TYPE_FLOAT, NULL);
-    self->priv->detector_distance = ufo_scarray_new (0, G_TYPE_FLOAT, NULL);
-    self->priv->axis_angle_x = ufo_scarray_new (1, G_TYPE_FLOAT, NULL);
+    self->priv->center_position_x = ufo_scarray_new (0, G_TYPE_DOUBLE, NULL);
+    self->priv->center_position_z = ufo_scarray_new (0, G_TYPE_DOUBLE, NULL);
+    self->priv->source_distance = ufo_scarray_new (0, G_TYPE_DOUBLE, NULL);
+    self->priv->detector_distance = ufo_scarray_new (0, G_TYPE_DOUBLE, NULL);
+    self->priv->axis_angle_x = ufo_scarray_new (1, G_TYPE_DOUBLE, NULL);
     self->priv->count = 0;
 }
