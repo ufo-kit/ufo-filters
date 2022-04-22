@@ -54,6 +54,7 @@ extern "C" {
 #endif
 
 #define CL_TARGET_OPENCL_VERSION 120
+#define GLIB_VERSION_MIN_REQUIRED GLIB_VERSION_2_38
 #ifdef __APPLE__
 #include <OpenCL/cl.h>
 #else
