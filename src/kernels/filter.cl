@@ -39,10 +39,15 @@ stripe_filter (global float *input,
     const int width = get_global_size(0);
     const int height = get_global_size(1);
     const int index = idy * get_global_size(0) + idx;
-    /* Swap frequencies for interleaved complex input */
-    /* No need to negate the second half of frequencies for Gaussian */
-    const float x = idx >= width >> 1 ? (width >> 1) - (idx >> 1) : idx >> 1;
-    const float x_weight = exp (- x * x / (2 * horizontal_sigma * horizontal_sigma));
+    float x_weight = 0;
+    if (horizontal_sigma != 0.0f) {
+        /* Do not consider the horizontal component at all => */
+        /* complete horizontal band will be cut out (useful for DMM stripes). */
+        /* Swap frequencies for interleaved complex input */
+        /* No need to negate the second half of frequencies for Gaussian */
+        const float x = idx >= width >> 1 ? (width >> 1) - (idx >> 1) : idx >> 1;
+        x_weight = exp (- x * x / (2 * horizontal_sigma * horizontal_sigma));
+    }
 
     if (vertical_sigma == 0.0f) {
         if (idy == 0) {

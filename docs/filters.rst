@@ -944,7 +944,10 @@ Stripe filtering
     Gaussian profile centered at 0 frequency if ``vertical-sigma`` is 0.
     Otherwise it applies also a vertical Gaussian profile (1 - Gaussian), which
     enables filtering of not perfectly vertical stripes, which is useful for
-    broader stripes and stripes which are not perfectly straight.
+    broader stripes and stripes which are not perfectly straight. If
+    ``horizontal-sigma`` is 0, only the vertical Gaussian profile is applied
+    (i.e. a horizontal stripe is cut out around ky=0). This is useful e.g. for
+    filtering DMM stripes.
 
     Example usage::
 
