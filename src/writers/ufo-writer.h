@@ -49,7 +49,8 @@ struct _UfoWriterIface {
     gboolean (*can_open) (UfoWriter     *writer,
                           const gchar   *filename);
     void     (*open)     (UfoWriter      *writer,
-                          const gchar    *filename);
+                          const gchar    *filename,
+                          gboolean        append);
     void     (*close)    (UfoWriter      *writer);
     void     (*write)    (UfoWriter      *writer,
                           UfoWriterImage *image);
@@ -58,7 +59,8 @@ struct _UfoWriterIface {
 gboolean ufo_writer_can_open (UfoWriter      *writer,
                               const gchar    *filename);
 void     ufo_writer_open     (UfoWriter      *writer,
-                              const gchar    *filename);
+                              const gchar    *filename,
+                              gboolean        append);
 void     ufo_writer_close    (UfoWriter      *writer);
 void     ufo_writer_write    (UfoWriter      *writer,
                               UfoWriterImage *image);

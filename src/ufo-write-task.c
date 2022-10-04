@@ -54,6 +54,7 @@ struct _UfoWriteTaskPrivate {
     gulong bytes_per_file;
     gulong num_written_bytes;
     gboolean append;
+    gboolean append_file;
     gsize width;
     gsize height;
 
@@ -102,6 +103,7 @@ enum {
     PROP_COUNTER_STEP,
     PROP_BYTES_PER_FILE,
     PROP_APPEND,
+    PROP_APPEND_FILE,
     PROP_BITS,
     PROP_MINIMUM,
     PROP_MAXIMUM,
@@ -369,7 +371,7 @@ retry:
                 goto retry;
             }
 
-            ufo_writer_open (priv->writer, filename);
+            ufo_writer_open (priv->writer, filename, priv->append_file);
             if (filename) {
                 g_free (filename);
             }
@@ -415,6 +417,9 @@ ufo_write_task_set_property (GObject *object,
             break;
         case PROP_APPEND:
             priv->append = g_value_get_boolean (value);
+            break;
+        case PROP_APPEND_FILE:
+            priv->append_file = g_value_get_boolean (value);
             break;
         case PROP_BITS:
             {
@@ -490,6 +495,9 @@ ufo_write_task_get_property (GObject *object,
             break;
         case PROP_APPEND:
             g_value_set_boolean (value, priv->append);
+            break;
+        case PROP_APPEND_FILE:
+            g_value_set_boolean (value, priv->append_file);
             break;
         case PROP_BITS:
             if (priv->depth == UFO_BUFFER_DEPTH_8U)
@@ -640,6 +648,13 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
             FALSE,
             G_PARAM_READWRITE);
 
+    properties[PROP_APPEND_FILE] =
+        g_param_spec_boolean ("append-file",
+            "If true the data is appended to files, otherwise overwritten",
+            "If true the data is appended to files, otherwise overwritten",
+            FALSE,
+            G_PARAM_READWRITE);
+
     properties[PROP_BITS] =
         g_param_spec_uint ("bits",
             "Number of bits per sample",
@@ -701,6 +716,7 @@ ufo_write_task_init(UfoWriteTask *self)
     self->priv->num_written_bytes = 0;
     self->priv->num_fmt_specifiers = 0;
     self->priv->append = FALSE;
+    self->priv->append_file = FALSE;
     self->priv->bits_per_sample = 32;
     self->priv->depth = UFO_BUFFER_DEPTH_32F;
     self->priv->minimum = G_MAXFLOAT;

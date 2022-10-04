@@ -62,8 +62,12 @@ ufo_jpeg_writer_can_open (UfoWriter *writer,
 
 static void
 ufo_jpeg_writer_open (UfoWriter *writer,
-                      const gchar *filename)
+                      const gchar *filename,
+                      gboolean append)
 {
+    if (append) {
+        g_error ("append-file is not supported by JPEG writer");
+    }
     UfoJpegWriterPrivate *priv;
 
     priv = UFO_JPEG_WRITER_GET_PRIVATE (writer);

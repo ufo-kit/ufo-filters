@@ -62,12 +62,17 @@ ufo_tiff_writer_can_open (UfoWriter *writer,
 
 static void
 ufo_tiff_writer_open (UfoWriter *writer,
-                      const gchar *filename)
+                      const gchar *filename,
+                      gboolean append)
 {
     UfoTiffWriterPrivate *priv;
+    char mode[3];
     
     priv = UFO_TIFF_WRITER_GET_PRIVATE (writer);
-    priv->tiff = TIFFOpen (filename, priv->bigtiff ? "w8" : "w");
+    mode[0] = append ? 'a' : 'w';
+    mode[1] = priv->bigtiff ? '8' : '\0';
+    mode[2] = '\0';
+    priv->tiff = TIFFOpen (filename, mode);
     priv->page = 0;
 }
 

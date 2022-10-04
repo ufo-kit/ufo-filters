@@ -51,12 +51,13 @@ ufo_raw_writer_can_open (UfoWriter *writer,
 
 static void
 ufo_raw_writer_open (UfoWriter *writer,
-                     const gchar *filename)
+                     const gchar *filename,
+                     gboolean append)
 {
     UfoRawWriterPrivate *priv;
     
     priv = UFO_RAW_WRITER_GET_PRIVATE (writer);
-    priv->fp = filename == NULL ? stdout : fopen (filename, "wb");
+    priv->fp = filename == NULL ? stdout : fopen (filename, append ? "ab" :  "wb");
 }
 
 static void

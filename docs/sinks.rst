@@ -44,6 +44,10 @@ File writer
 
         Append rather than overwrite if ``TRUE``.
 
+    .. gobj:prop:: append-file:boolean
+
+        Append to a file rather than overwrite if ``TRUE``.
+
     .. gobj:prop:: bits:uint
 
         Number of bits to store the data if applicable to the file format.

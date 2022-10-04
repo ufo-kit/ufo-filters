@@ -52,8 +52,12 @@ ufo_hdf5_writer_can_open (UfoWriter *writer,
 
 static void
 ufo_hdf5_writer_open (UfoWriter *writer,
-                      const gchar *filename)
+                      const gchar *filename,
+                      gboolean append)
 {
+    if (append) {
+        g_warning ("append-file has no effect by HDF5 writer");
+    }
     UfoHdf5WriterPrivate *priv;
     gchar *h5_filename;
     gchar **components;

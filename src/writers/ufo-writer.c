@@ -32,9 +32,10 @@ ufo_writer_can_open (UfoWriter *writer,
 
 void
 ufo_writer_open (UfoWriter *writer,
-                 const gchar *filename)
+                 const gchar *filename,
+                 gboolean append)
 {
-    UFO_WRITER_GET_IFACE (writer)->open (writer, filename);
+    UFO_WRITER_GET_IFACE (writer)->open (writer, filename, append);
 }
 
 void
