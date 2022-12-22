@@ -23,7 +23,7 @@ constant sampler_t volumeSampler_single = CLK_NORMALIZED_COORDS_FALSE |
 
 constant sampler_t volumeSampler_half = CLK_NORMALIZED_COORDS_FALSE |
                                           CLK_ADDRESS_CLAMP |
-                                          CLK_FILTER_NEAREST;
+                                          CLK_FILTER_LINEAR;
 
 constant sampler_t volumeSampler_int8 = CLK_NORMALIZED_COORDS_FALSE |
                                       CLK_ADDRESS_CLAMP_TO_EDGE |
