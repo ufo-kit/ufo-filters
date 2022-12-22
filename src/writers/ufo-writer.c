@@ -54,28 +54,30 @@ ufo_writer_write (UfoWriter *writer,
 static void
 get_min_max (UfoWriterImage *image, gfloat *src, gsize n_elements, gfloat *min, gfloat *max)
 {
-    if (image->max > -G_MAXFLOAT && image->min < G_MAXFLOAT) {
-        *max = image->max;
+    gboolean user_min = image->min < G_MAXFLOAT;
+    gboolean user_max = image->max > -G_MAXFLOAT;
+
+    if (user_min && user_max) {
         *min = image->min;
+        *max = image->max;
         return;
     }
-
-    /* TODO: We should issue a warning if only one of max or min was set by the
-     * user ... */
 
     gfloat cmax = -G_MAXFLOAT;
     gfloat cmin = G_MAXFLOAT;
 
     for (gsize i = 0; i < n_elements; i++) {
-        if (src[i] < cmin)
+        if (!user_min && src[i] < cmin) {
             cmin = src[i];
+        }
 
-        if (src[i] > cmax)
+        if (!user_max && src[i] > cmax) {
             cmax = src[i];
+        }
     }
 
-    *max = cmax;
-    *min = cmin;
+    *max = user_max ? image->max : cmax;
+    *min = user_min ? image->min : cmin;
 }
 
 static gsize
