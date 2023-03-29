@@ -280,5 +280,6 @@ ufo_memory_in_task_init(UfoMemoryInTask *self)
     self->priv->width = 1;
     self->priv->height = 1;
     self->priv->bitdepth = UFO_BUFFER_DEPTH_32F;
+    self->priv->bytes_per_pixel = 4;
     self->priv->number = 0;
 }
