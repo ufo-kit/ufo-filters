@@ -20,14 +20,20 @@
 kernel void
 filter (read_only image2d_t input,
         constant float *mask,
+        sampler_t sampler,
         const char second_pass,
         global float *output)
 {
-    const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE |
-                              CLK_ADDRESS_CLAMP_TO_EDGE |
-                              CLK_FILTER_NEAREST;
-
     int2 here = (int2) (get_global_id (0), get_global_id (1));
+    int2 shape = (int2) (get_global_size (0), get_global_size (1));
+    float2 norm_here = (float2) (
+        ((float) here.x + 0.5f) / ((float) shape.x),
+        ((float) here.y + 0.5f) / ((float) shape.y)
+    );
+    const float2 delta = (float2) (
+        1.0f / ((float) shape.x),
+        1.0f / ((float) shape.y)
+    );
     float data[9];
     float result;
 
@@ -37,15 +43,15 @@ filter (read_only image2d_t input,
      * Gigapixel/s with two passes.
      */
 
-    data[0] = read_imagef (input, sampler, (int2) (here.x - 1, here.y - 1)).x;
-    data[1] = read_imagef (input, sampler, (int2) (here.x + 0, here.y - 1)).x;
-    data[2] = read_imagef (input, sampler, (int2) (here.x + 1, here.y - 1)).x;
-    data[3] = read_imagef (input, sampler, (int2) (here.x - 1, here.y + 0)).x;
-    data[4] = read_imagef (input, sampler, (int2) (here.x + 0, here.y + 0)).x;
-    data[5] = read_imagef (input, sampler, (int2) (here.x + 1, here.y + 0)).x;
-    data[6] = read_imagef (input, sampler, (int2) (here.x - 1, here.y + 1)).x;
-    data[7] = read_imagef (input, sampler, (int2) (here.x + 0, here.y + 1)).x;
-    data[8] = read_imagef (input, sampler, (int2) (here.x + 1, here.y + 1)).x;
+    data[0] = read_imagef (input, sampler, (float2) (norm_here.x - delta.x, norm_here.y - delta.y)).x;
+    data[1] = read_imagef (input, sampler, (float2) (norm_here.x + 0,       norm_here.y - delta.y)).x;
+    data[2] = read_imagef (input, sampler, (float2) (norm_here.x + delta.x, norm_here.y - delta.y)).x;
+    data[3] = read_imagef (input, sampler, (float2) (norm_here.x - delta.x, norm_here.y + 0)).x;
+    data[4] = read_imagef (input, sampler, (float2) (norm_here.x + 0,       norm_here.y + 0)).x;
+    data[5] = read_imagef (input, sampler, (float2) (norm_here.x + delta.x, norm_here.y + 0)).x;
+    data[6] = read_imagef (input, sampler, (float2) (norm_here.x - delta.x, norm_here.y + delta.y)).x;
+    data[7] = read_imagef (input, sampler, (float2) (norm_here.x + 0,       norm_here.y + delta.y)).x;
+    data[8] = read_imagef (input, sampler, (float2) (norm_here.x + delta.x, norm_here.y + delta.y)).x;
 
     for (int i = 0; i < 9; i++)
         result += data[i] * mask[i];
@@ -60,5 +66,5 @@ filter (read_only image2d_t input,
         result = sqrt (result * result + second * second);
     }
 
-    output[here.y * get_global_size(0) + here.x] = result;
+    output[here.y * shape.x + here.x] = result;
 }

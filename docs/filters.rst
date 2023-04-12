@@ -492,6 +492,11 @@ Edge detection
         Edge filter (or operator) which is one of ``sobel``, ``laplace`` and
         ``prewitt``. By default, the ``sobel`` operator is used.
 
+    .. gobj:prop:: addressing-mode:enum
+
+        Addressing mode specifies the behavior for pixels falling outside the
+        original image. See OpenCL ``sampler_t`` documentation for more information.
+
 
 
 Gaussian blur
