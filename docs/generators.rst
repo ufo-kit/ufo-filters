@@ -140,6 +140,10 @@ Memory reader
 
         Specifies the number of items to read.
 
+    .. gobj:prop:: complex-layout:boolean
+
+        Treat input as interleaved complex64 data type (x[0] = Re(z[0]), x[1] = Im(z[0]), ...)
+
 
 ZeroMQ subscriber
 =================

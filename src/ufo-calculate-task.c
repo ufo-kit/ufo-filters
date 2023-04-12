@@ -156,6 +156,7 @@ ufo_calculate_task_process (UfoTask *task,
     UfoRequisition in_req;
     UfoGpuNode *node;
     UfoProfiler *profiler;
+    UfoBufferLayout layout = UFO_BUFFER_LAYOUT_REAL;
     cl_command_queue *cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
@@ -168,6 +169,7 @@ ufo_calculate_task_process (UfoTask *task,
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
+    layout = ufo_buffer_get_layout (inputs[0]);
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
@@ -185,6 +187,9 @@ ufo_calculate_task_process (UfoTask *task,
             break;
         default:
             g_warning ("Invalid number of dimensions");
+    }
+    if (layout == UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED) {
+        ufo_buffer_set_layout (output, UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED);
     }
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, priv->num_dimensions, global_work_size, NULL);

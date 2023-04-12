@@ -29,6 +29,7 @@ struct _UfoMemoryInTaskPrivate {
     UfoBufferDepth   bitdepth;
     guint   number;
     guint   read;
+    gboolean complex_layout;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -46,6 +47,7 @@ enum {
     PROP_HEIGHT,
     PROP_BITDEPTH,
     PROP_NUMBER,
+    PROP_COMPLEX_LAYOUT,
     N_PROPERTIES
 };
 
@@ -128,6 +130,9 @@ ufo_memory_in_task_generate (UfoTask *task,
     if (priv->bitdepth != UFO_BUFFER_DEPTH_32F)
         ufo_buffer_convert (output, priv->bitdepth);
 
+    if (priv->complex_layout) {
+        ufo_buffer_set_layout (output, UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED);
+    }
     priv->read++;
 
     return TRUE;
@@ -172,6 +177,9 @@ ufo_memory_in_task_set_property (GObject *object,
                     g_warning("Cannot set bitdepth other than 8, 16, 32.");
             }
             break;
+        case PROP_COMPLEX_LAYOUT:
+            priv->complex_layout = g_value_get_boolean (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -201,6 +209,9 @@ ufo_memory_in_task_get_property (GObject *object,
             break;
         case PROP_NUMBER:
             g_value_set_uint (value, priv->number);
+            break;
+        case PROP_COMPLEX_LAYOUT:
+            g_value_set_boolean (value, priv->complex_layout);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -269,6 +280,13 @@ ufo_memory_in_task_class_init (UfoMemoryInTaskClass *klass)
             1, 2 << 16, 1,
             G_PARAM_READWRITE);
 
+    properties[PROP_COMPLEX_LAYOUT] =
+        g_param_spec_boolean("complex-layout",
+            "Treat input as interleaved complex64 data type (x[0] = Re(z[0]), x[1] = Im(z[0]), ...)",
+            "Treat input as interleaved complex64 data type (x[0] = Re(z[0]), x[1] = Im(z[0]), ...)",
+            FALSE,
+            G_PARAM_READWRITE);
+
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
@@ -286,4 +304,5 @@ ufo_memory_in_task_init(UfoMemoryInTask *self)
     self->priv->bitdepth = UFO_BUFFER_DEPTH_32F;
     self->priv->bytes_per_pixel = 4;
     self->priv->number = 0;
+    self->priv->complex_layout = FALSE;
 }

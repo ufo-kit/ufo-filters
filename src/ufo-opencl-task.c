@@ -35,6 +35,7 @@ struct _UfoOpenCLTaskPrivate {
     gchar *source;
     gchar *opts;
     guint n_dims;
+    gboolean halve_width;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -52,6 +53,7 @@ enum {
     PROP_KERNEL,
     PROP_OPTIONS,
     PROP_NUM_DIMS,
+    PROP_HALVE_WIDTH,
     N_PROPERTIES
 };
 
@@ -94,9 +96,13 @@ ufo_opencl_task_process (UfoTask *task,
         layout = current;
     }
 
-    /* reduce global work size in x-direction for complex numbers */
-    if (layout == UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED)
-        requisition->dims[0] /= 2;
+    if (layout == UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED) {
+        ufo_buffer_set_layout (output, UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED);
+        if (priv->halve_width) {
+            /* reduce global work size in x-direction for complex numbers */
+            requisition->dims[0] /= 2;
+        }
+    }
 
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, priv->n_inputs, sizeof (cl_mem), &out_mem));
@@ -278,6 +284,9 @@ ufo_opencl_task_set_property (GObject *object,
         case PROP_NUM_DIMS:
             priv->n_dims = g_value_get_uint (value);
             break;
+        case PROP_HALVE_WIDTH:
+            priv->halve_width = g_value_get_boolean (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -307,6 +316,9 @@ ufo_opencl_task_get_property (GObject *object,
             break;
         case PROP_NUM_DIMS:
             g_value_set_uint (value, priv->n_dims);
+            break;
+        case PROP_HALVE_WIDTH:
+            g_value_set_boolean (value, priv->halve_width);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -362,6 +374,13 @@ ufo_opencl_task_class_init (UfoOpenCLTaskClass *klass)
             1, 3, 2,
             G_PARAM_READWRITE);
 
+    properties[PROP_HALVE_WIDTH] =
+        g_param_spec_boolean("halve-width",
+            "Use half the width of the input size for calculation if complex, i.e. account for x[0] = Re(z[0]), x[1] = Im(z[0]), ...",
+            "Use half the width of the input size for calculation if complex, i.e. account for x[0] = Re(z[0]), x[1] = Im(z[0]), ...",
+            TRUE,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -383,4 +402,5 @@ ufo_opencl_task_init (UfoOpenCLTask *self)
     priv->opts = g_strdup ("");
     priv->n_dims = 2;
     priv->n_inputs = 1;
+    priv->halve_width = TRUE;
 }

@@ -139,6 +139,10 @@ Generic OpenCL
 
         Number of dimensions the kernel works on. Must be in [1, 3].
 
+    .. gobj:prop:: halve-width:boolean
+
+        Use half the width of the input size for calculation if complex, i.e. account for x[0] = Re(z[0]), x[1] = Im(z[0]), ...
+
 
 Spatial transformation
 ======================
