@@ -35,6 +35,7 @@ struct _UfoCalculateTaskPrivate {
     cl_program program;
     cl_kernel kernel;
     gchar *expression;
+    guint num_dimensions;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -48,6 +49,7 @@ G_DEFINE_TYPE_WITH_CODE (UfoCalculateTask, ufo_calculate_task, UFO_TYPE_TASK_NOD
 enum {
     PROP_0,
     PROP_EXPRESSION,
+    PROP_DIMENSIONS,
     N_PROPERTIES
 };
 
@@ -58,12 +60,22 @@ make_kernel (UfoCalculateTaskPrivate *priv, UfoResources *resources, GError **er
 {
     const gchar *template = "kernel void calculate (global float *input, "\
                             "global float *output) {int x = get_global_id (0); "\
+                            "int size = get_global_size (0); "\
                             "float v = input[x]; output[x] = %s;}";
+    const gchar *template_2D = "kernel void calculate (global float *input, "\
+                               "global float *output) { "\
+                               "int x = get_global_id (0); "\
+                               "int y = get_global_id (1); "\
+                               "int width = get_global_size (0); "\
+                               "int height = get_global_size (1); "\
+                               "int index = y * width + x; "\
+                               "float v = input[index]; output[index] = %s;}";
+    const gchar *used_template = priv->num_dimensions == 1 ? template : template_2D;
     gchar default_expression[] = "0.0f";
     gchar *source, *expression;
         
     expression = priv->expression == NULL ? default_expression : priv->expression;
-    source = (gchar *) g_try_malloc (strlen (template) + strlen (expression));
+    source = (gchar *) g_try_malloc (strlen (used_template) + strlen (expression));
 
     if (source == NULL) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
@@ -74,7 +86,7 @@ make_kernel (UfoCalculateTaskPrivate *priv, UfoResources *resources, GError **er
     if (priv->kernel)
         UFO_RESOURCES_CHECK_SET_AND_RETURN (clReleaseKernel (priv->kernel), error);
 
-    if ((gsize) g_sprintf (source, template, expression) != strlen (source)) {
+    if ((gsize) g_sprintf (source, used_template, expression) != strlen (source)) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
                      "Could not write kernel soruce");
         return;
@@ -147,7 +159,7 @@ ufo_calculate_task_process (UfoTask *task,
     cl_command_queue *cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
-    gsize global_work_size = 1;
+    gsize global_work_size[2];
     guint i;
 
     priv = UFO_CALCULATE_TASK_GET_PRIVATE (task);
@@ -160,11 +172,22 @@ ufo_calculate_task_process (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
 
-    for (i = 0; i < in_req.n_dims; i++) {
-        global_work_size *= in_req.dims[i];
+    switch (priv->num_dimensions) {
+        case 1:
+            global_work_size[0] = 1;
+            for (i = 0; i < in_req.n_dims; i++) {
+                global_work_size[0] *= in_req.dims[i];
+            }
+            break;
+        case 2:
+            global_work_size[0] = in_req.dims[0];
+            global_work_size[1] = in_req.dims[1];
+            break;
+        default:
+            g_warning ("Invalid number of dimensions");
     }
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-    ufo_profiler_call (profiler, cmd_queue, priv->kernel, 1, &global_work_size, NULL);
+    ufo_profiler_call (profiler, cmd_queue, priv->kernel, priv->num_dimensions, global_work_size, NULL);
 
     return TRUE;
 }
@@ -180,6 +203,9 @@ ufo_calculate_task_set_property (GObject *object,
     switch (property_id) {
         case PROP_EXPRESSION:
             priv->expression = g_value_dup_string (value);
+            break;
+        case PROP_DIMENSIONS:
+            priv->num_dimensions = g_value_get_uint (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -198,6 +224,9 @@ ufo_calculate_task_get_property (GObject *object,
     switch (property_id) {
         case PROP_EXPRESSION:
             g_value_set_string (value, priv->expression ? priv->expression : "");
+            break;
+        case PROP_DIMENSIONS:
+            g_value_set_uint (value, priv->num_dimensions);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -253,6 +282,13 @@ ufo_calculate_task_class_init (UfoCalculateTaskClass *klass)
             "0.0f",
             G_PARAM_READWRITE);
 
+    properties[PROP_DIMENSIONS] =
+        g_param_spec_uint("dimensions",
+            "Number of dimensions from 1 to 2",
+            "Number of dimensions from 1 to 2",
+            1, 2, 1,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -264,4 +300,5 @@ ufo_calculate_task_init(UfoCalculateTask *self)
 {
     self->priv = UFO_CALCULATE_TASK_GET_PRIVATE(self);
     self->priv->expression = NULL;
+    self->priv->num_dimensions = 1;
 }
