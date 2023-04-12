@@ -25,6 +25,7 @@
 #endif
 
 #include "ufo-detect-edge-task.h"
+#include "common/ufo-addressing.h"
 
 
 typedef enum {
@@ -45,6 +46,8 @@ struct _UfoDetectEdgeTaskPrivate {
     cl_context context;
     cl_kernel kernel;
     cl_mem mask_mem;
+    cl_sampler sampler;
+    AddressingMode addressing_mode;
 };
 
 static gfloat FILTER_MASKS[][9] = {
@@ -70,10 +73,29 @@ G_DEFINE_TYPE_WITH_CODE (UfoDetectEdgeTask, ufo_detect_edge_task, UFO_TYPE_TASK_
 enum {
     PROP_0,
     PROP_TYPE,
+    PROP_ADDRESSING_MODE,
     N_PROPERTIES
 };
 
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
+
+static void
+change_sampler (UfoDetectEdgeTaskPrivate *priv)
+{
+    cl_int err;
+
+    if (priv->sampler) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseSampler (priv->sampler));
+    }
+
+    priv->sampler = clCreateSampler (priv->context,
+                                     (cl_bool) TRUE,
+                                     priv->addressing_mode,
+                                     CL_FILTER_NEAREST,
+                                     &err);
+
+    UFO_RESOURCES_CHECK_CLERR (err);
+}
 
 UfoNode *
 ufo_detect_edge_task_new (void)
@@ -92,6 +114,13 @@ ufo_detect_edge_task_setup (UfoTask *task,
     priv = UFO_DETECT_EDGE_TASK_GET_PRIVATE (task);
     priv->context = ufo_resources_get_context (resources);
     priv->kernel = ufo_resources_get_kernel (resources, "edge.cl", "filter", NULL, error);
+    if (priv->context) {
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
+    }
+    if (priv->kernel) {
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
+    }
+    change_sampler (priv);
 
     if (priv->mask_mem)
         UFO_RESOURCES_CHECK_SET_AND_RETURN (clReleaseMemObject (priv->mask_mem), error);
@@ -141,6 +170,7 @@ ufo_detect_edge_task_process (UfoTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_image;
     cl_mem out_mem;
+    cl_addressing_mode current_addressing_mode;
     gchar second_pass;
 
     priv = UFO_DETECT_EDGE_TASK_GET_PRIVATE (task);
@@ -149,11 +179,21 @@ ufo_detect_edge_task_process (UfoTask *task,
     in_image = ufo_buffer_get_device_image (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     second_pass = priv->type == FILTER_SOBEL || priv->type == FILTER_PREWITT;
+    /* change sampler mode if necessary */
+    UFO_RESOURCES_CHECK_CLERR (clGetSamplerInfo (priv->sampler,
+                                                 CL_SAMPLER_ADDRESSING_MODE,
+                                                 sizeof (cl_addressing_mode),
+                                                 &current_addressing_mode,
+                                                 NULL));
+    if (priv->addressing_mode != current_addressing_mode) {
+        change_sampler (priv);
+    }
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_image));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &priv->mask_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_char), &second_pass));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_sampler), &priv->sampler));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_char), &second_pass));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (cl_mem), &out_mem));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
@@ -175,6 +215,9 @@ ufo_detect_edge_task_set_property (GObject *object,
         case PROP_TYPE:
             priv->type = g_value_get_enum (value);
             break;
+        case PROP_ADDRESSING_MODE:
+            priv->addressing_mode = g_value_get_enum (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -195,6 +238,9 @@ ufo_detect_edge_task_get_property (GObject *object,
         case PROP_TYPE:
             g_value_set_enum (value, priv->type);
             break;
+        case PROP_ADDRESSING_MODE:
+            g_value_set_enum (value, priv->addressing_mode);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -211,6 +257,11 @@ ufo_detect_edge_task_finalize (GObject *object)
     if (priv->kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
         priv->kernel = NULL;
+    }
+
+    if (priv->sampler) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseSampler (priv->sampler));
+        priv->sampler = NULL;
     }
 
     if (priv->context) {
@@ -249,6 +300,14 @@ ufo_detect_edge_task_class_init (UfoDetectEdgeTaskClass *klass)
             FILTER_SOBEL,
             G_PARAM_READWRITE);
 
+    properties[PROP_ADDRESSING_MODE] =
+        g_param_spec_enum ("addressing-mode",
+            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
+            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
+            g_enum_register_static ("ufo_detect_edge_addressing_mode", addressing_values),
+            CL_ADDRESS_CLAMP,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -260,7 +319,5 @@ ufo_detect_edge_task_init(UfoDetectEdgeTask *self)
 {
     self->priv = UFO_DETECT_EDGE_TASK_GET_PRIVATE(self);
     self->priv->type = FILTER_SOBEL;
-    self->priv->context = NULL;
-    self->priv->kernel = NULL;
-    self->priv->mask_mem = NULL;
+    self->priv->addressing_mode = CL_ADDRESS_CLAMP_TO_EDGE;  /* history */
 }
