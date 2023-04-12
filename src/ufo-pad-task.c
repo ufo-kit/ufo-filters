@@ -188,8 +188,8 @@ ufo_pad_task_process (UfoTask *task,
         change_sampler (priv);
     }
 
-    input_shape[0] = in_req.dims[0] - 1;
-    input_shape[1] = in_req.dims[1] - 1;
+    input_shape[0] = in_req.dims[0];
+    input_shape[1] = in_req.dims[1];
 
     offset[0] = priv->x;
     offset[1] = priv->y;

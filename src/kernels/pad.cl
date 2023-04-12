@@ -24,8 +24,8 @@ kernel void pad (read_only image2d_t in_image,
                  const int2 offset)
 {
     int2 pixel = (int2) (get_global_id (0), get_global_id (1));
-    float2 norm_pixel = (float2) (((float) pixel.x - offset.x) / input_shape.x,
-                                  ((float) pixel.y - offset.y) / input_shape.y);
+    float2 norm_pixel = (float2) (((float) pixel.x - offset.x + 0.5f) / input_shape.x,
+                                  ((float) pixel.y - offset.y + 0.5f) / input_shape.y);
 
     result[pixel.y * get_global_size(0) + pixel.x] = read_imagef(in_image, sampler, norm_pixel).x;
 }
