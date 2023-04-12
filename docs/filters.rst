@@ -49,21 +49,29 @@ Arithmetic expressions
 
 .. gobj:class:: calculate
 
-    Calculate an arithmetic expression. You have access to the value stored in
-    the input buffer via the *v* letter in :gobj:prop:`expression` and to the
-    index of *v* via letter *x*. Please be aware that *v* is a floating point
-    number while *x* is an integer. This is useful if you have multidimensional
-    data and want to address only one dimension. Let's say the input is two
-    dimensional, 256 pixels wide and you want to fill the x-coordinate with *x*
-    for all respective y-coordinates (a gradient in x-direction). Then you can
-    write *expression="x % 256"*. Another example is the *sinc* function which
-    you would calculate as *expression="sin(v) / x"* for 1D input.
-    For more complex math or other operations please consider using
-    :ref:`OpenCL <generic-opencl-ref>`.
+    Calculate an arithmetic expression. If you choose one dimention you have
+    access to the value stored in the input buffer via the *v* letter in
+    :gobj:prop:`expression`, to the index of *v* via letter *x* and to the size
+    of the buffer via *size*. If you choose two dimentions, instead of *size*
+    you can access *width* and *height* and on top of *x* you also have the *y*
+    for the vertical coordinate and linearized *index* (computed as y * width +
+    x).  Please be aware that *v* is a floating point number while the rest of
+    the variables are integers. One dimension is useful if you have
+    multidimensional data and want to address only one dimension. Let's say the
+    input is two dimensional, 256 pixels wide and you want to fill the
+    x-coordinate with *x* for all respective y-coordinates (a gradient in
+    x-direction). Then you can write *expression="x % 256"*. Another example is
+    the *sinc* function which you would calculate as *expression="sin(v) / x"*
+    for 1D input.  For more complex math or other operations please consider
+    using :ref:`OpenCL <generic-opencl-ref>`.
 
     .. gobj:prop:: expression:string
 
         Arithmetic expression with math functions supported by OpenCL.
+
+    .. gobj:prop:: dimensions:uint
+
+        Number of dimensions in [1, 2].
 
 
 Statistics
