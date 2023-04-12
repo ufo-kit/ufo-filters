@@ -92,6 +92,12 @@ ufo_detect_edge_task_setup (UfoTask *task,
     priv = UFO_DETECT_EDGE_TASK_GET_PRIVATE (task);
     priv->context = ufo_resources_get_context (resources);
     priv->kernel = ufo_resources_get_kernel (resources, "edge.cl", "filter", NULL, error);
+    if (priv->context) {
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
+    }
+    if (priv->kernel) {
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
+    }
 
     if (priv->mask_mem)
         UFO_RESOURCES_CHECK_SET_AND_RETURN (clReleaseMemObject (priv->mask_mem), error);
@@ -260,7 +266,4 @@ ufo_detect_edge_task_init(UfoDetectEdgeTask *self)
 {
     self->priv = UFO_DETECT_EDGE_TASK_GET_PRIVATE(self);
     self->priv->type = FILTER_SOBEL;
-    self->priv->context = NULL;
-    self->priv->kernel = NULL;
-    self->priv->mask_mem = NULL;
 }
