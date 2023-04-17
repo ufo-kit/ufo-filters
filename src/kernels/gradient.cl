@@ -17,76 +17,114 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-float compute_horizontal (global float *input,
+
+enum {
+    UFO_FINITE_DIFFERENCE_FORWARD,
+    UFO_FINITE_DIFFERENCE_BACKWARD,
+    UFO_FINITE_DIFFERENCE_CENTRAL,
+};
+
+float get_pixel (read_only image2d_t input,
+                 sampler_t sampler,
+                 int x,
+                 int y)
+{
+    float2 norm_pixel = (float2) (((float) x + 0.5f) / get_image_width (input),
+                                  ((float) y + 0.5f) / get_image_height (input));
+
+    return read_imagef (input, sampler, norm_pixel).x;
+}
+
+float compute_finite_difference (read_only image2d_t input,
+                                 sampler_t sampler,
+                                 int finite_difference_type,
+                                 int idx,
+                                 int idy,
+                                 int dx,
+                                 int dy)
+{
+    float result;
+
+    switch (finite_difference_type) {
+        case UFO_FINITE_DIFFERENCE_FORWARD:
+            result = get_pixel (input, sampler, idx + dx, idy + dy) - get_pixel (input, sampler, idx, idy);
+            break;
+        case UFO_FINITE_DIFFERENCE_BACKWARD:
+            result = get_pixel (input, sampler, idx, idy) - get_pixel (input, sampler, idx - dx, idy - dy);
+            break;
+        case UFO_FINITE_DIFFERENCE_CENTRAL:
+            result =  0.5f * (get_pixel (input, sampler, idx + dx, idy + dy) - get_pixel (input, sampler, idx - dx, idy - dy));
+            break;
+        default:
+            result = NAN;
+            break;
+    }
+
+    return result;
+}
+
+float compute_horizontal (read_only image2d_t input,
+                          sampler_t sampler,
+                          int finite_difference_type,
                           int idx,
-                          int idy,
-                          int width) {
-    int dx = 1;
-    if (idx == width - 1) {
-        dx = 0;
-    } else if (idx == 0) {
-        dx = 2;
-    }
-
-    return 0.5f * (input[idy * width + idx + dx] - input[idy * width + idx + dx - 2]);
+                          int idy)
+{
+    return compute_finite_difference (input, sampler, finite_difference_type, idx, idy, 1, 0);
 }
 
-float compute_vertical (global float *input,
+float compute_vertical (read_only image2d_t input,
+                        sampler_t sampler,
+                        int finite_difference_type,
                         int idx,
-                        int idy,
-                        int width,
-                        int height) {
-    int dy = 1;
-    if (idy == height - 1) {
-        dy = 0;
-    } else if (idy == 0) {
-        dy = 2;
-    }
-
-    return 0.5f * (input[(idy + dy) * width + idx] - input[(idy + dy - 2) * width + idx]);
+                        int idy)
+{
+    return compute_finite_difference (input, sampler, finite_difference_type, idx, idy, 0, 1);
 }
 
-kernel void horizontal (global float *input,
+kernel void horizontal (read_only image2d_t input,
+                        sampler_t sampler,
+                        const int finite_difference_type,
                         global float *output)
 {
     int width = get_global_size (0);
     int idx = get_global_id (0);
     int idy = get_global_id (1);
 
-    output[idy * width + idx] = compute_horizontal (input, idx, idy, width);
+    output[idy * width + idx] = compute_horizontal (input, sampler, finite_difference_type, idx, idy);
 }
 
-kernel void vertical (global float *input,
+kernel void vertical (read_only image2d_t input,
+                      sampler_t sampler,
+                      const int finite_difference_type,
                       global float *output)
 {
     int width = get_global_size (0);
-    int height = get_global_size (1);
     int idx = get_global_id (0);
     int idy = get_global_id (1);
 
-    output[idy * width + idx] = compute_vertical (input, idx, idy, width, height);
+    output[idy * width + idx] = compute_vertical (input, sampler, finite_difference_type, idx, idy);
 }
 
-kernel void both (global float *input,
+kernel void both (read_only image2d_t input,
+                  sampler_t sampler,
+                  const int finite_difference_type,
                   global float *output)
 {
     int width = get_global_size (0);
-    int height = get_global_size (1);
     int idx = get_global_id (0);
     int idy = get_global_id (1);
-
-    output[idy * width + idx] = compute_vertical (input, idx, idy, width, height) +
-                                compute_horizontal (input, idx, idy, width);
+    output[idy * width + idx] = compute_horizontal (input, sampler, finite_difference_type, idx, idy) +
+                                compute_vertical (input, sampler, finite_difference_type, idx, idy);
 }
 
-kernel void both_abs (global float *input,
+kernel void both_abs (read_only image2d_t input,
+                      sampler_t sampler,
+                      const int finite_difference_type,
                       global float *output)
 {
     int width = get_global_size (0);
-    int height = get_global_size (1);
     int idx = get_global_id (0);
     int idy = get_global_id (1);
-
-    output[idy * width + idx] = fabs (compute_vertical (input, idx, idy, width, height)) +
-                                fabs (compute_horizontal (input, idx, idy, width));
+    output[idy * width + idx] = fabs (compute_horizontal (input, sampler, finite_difference_type, idx, idy)) +
+                                fabs (compute_vertical (input, sampler, finite_difference_type, idx, idy));
 }

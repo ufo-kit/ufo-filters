@@ -25,6 +25,7 @@
 #endif
 
 #include "ufo-gradient-task.h"
+#include "common/ufo-addressing.h"
 
 typedef enum {
     DIRECTION_HORIZONTAL,
@@ -42,9 +43,26 @@ static GEnumValue direction_values[] = {
     {0, NULL, NULL}
 };
 
+typedef enum {
+    UFO_FINITE_DIFFERENCE_FORWARD,
+    UFO_FINITE_DIFFERENCE_BACKWARD,
+    UFO_FINITE_DIFFERENCE_CENTRAL,
+} FiniteDifferenceType;
+
+static GEnumValue fd_values[] = {
+    {UFO_FINITE_DIFFERENCE_FORWARD,  "UFO_FINITE_DIFFERENCE_FORWARD",  "forward" },
+    {UFO_FINITE_DIFFERENCE_BACKWARD, "UFO_FINITE_DIFFERENCE_BACKWARD", "backward"},
+    {UFO_FINITE_DIFFERENCE_CENTRAL,  "UFO_FINITE_DIFFERENCE_CENTRAL",  "central" },
+    {0, NULL, NULL}
+};
+
 struct _UfoGradientTaskPrivate {
     Direction direction;
+    FiniteDifferenceType fd_type;
     cl_kernel kernel;
+    cl_sampler sampler;
+    cl_context context;
+    AddressingMode addressing_mode;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -58,10 +76,30 @@ G_DEFINE_TYPE_WITH_CODE (UfoGradientTask, ufo_gradient_task, UFO_TYPE_TASK_NODE,
 enum {
     PROP_0,
     PROP_DIRECTION,
+    PROP_FINITE_DIFFERENCE_TYPE,
+    PROP_ADDRESSING_MODE,
     N_PROPERTIES
 };
 
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
+
+static void
+change_sampler (UfoGradientTaskPrivate *priv)
+{
+    cl_int err;
+
+    if (priv->sampler) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseSampler (priv->sampler));
+    }
+
+    priv->sampler = clCreateSampler (priv->context,
+                                     (cl_bool) TRUE,
+                                     priv->addressing_mode,
+                                     CL_FILTER_NEAREST,
+                                     &err);
+
+    UFO_RESOURCES_CHECK_CLERR (err);
+}
 
 UfoNode *
 ufo_gradient_task_new (void)
@@ -75,9 +113,12 @@ ufo_gradient_task_setup (UfoTask *task,
                          GError **error)
 {
     UfoGradientTaskPrivate *priv = UFO_GRADIENT_TASK_GET_PRIVATE (task);
+    priv->context = ufo_resources_get_context (resources);
     priv->kernel = ufo_resources_get_kernel (resources, "gradient.cl",
                                              direction_values[priv->direction].value_nick,
                                              NULL, error);
+    change_sampler (priv);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
     UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
 }
 
@@ -119,14 +160,26 @@ ufo_gradient_task_process (UfoTask *task,
     UfoGpuNode *node;
     UfoProfiler *profiler;
     cl_command_queue cmd_queue;
-    cl_mem in_mem, out_mem;
+    cl_mem in_image, out_mem;
+    cl_addressing_mode current_addressing_mode;
 
     priv = UFO_GRADIENT_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
-    in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
+    in_image = ufo_buffer_get_device_image (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+
+    /* change sampler mode if necessary */
+    UFO_RESOURCES_CHECK_CLERR (clGetSamplerInfo (priv->sampler,
+                                                 CL_SAMPLER_ADDRESSING_MODE,
+                                                 sizeof (cl_addressing_mode),
+                                                 &current_addressing_mode,
+                                                 NULL));
+
+    if (priv->addressing_mode != current_addressing_mode) {
+        change_sampler (priv);
+    }
 
     switch (priv->direction) {
         case DIRECTION_BOTH:
@@ -146,8 +199,10 @@ ufo_gradient_task_process (UfoTask *task,
             break;
     }
 
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_image));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_sampler), &priv->sampler));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_int), &priv->fd_type));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_mem), &out_mem));
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
 
     return TRUE;
@@ -165,6 +220,12 @@ ufo_gradient_task_set_property (GObject *object,
     switch (property_id) {
         case PROP_DIRECTION:
             priv->direction = g_value_get_enum (value);
+            break;
+        case PROP_FINITE_DIFFERENCE_TYPE:
+            priv->fd_type = g_value_get_enum (value);
+            break;
+        case PROP_ADDRESSING_MODE:
+            priv->addressing_mode = g_value_get_enum (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -184,6 +245,12 @@ ufo_gradient_task_get_property (GObject *object,
         case PROP_DIRECTION:
             g_value_set_enum (value, priv->direction);
             break;
+        case PROP_FINITE_DIFFERENCE_TYPE:
+            g_value_set_enum (value, priv->fd_type);
+            break;
+        case PROP_ADDRESSING_MODE:
+            g_value_set_enum (value, priv->addressing_mode);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -197,6 +264,16 @@ ufo_gradient_task_finalize (GObject *object)
     if (priv->kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
         priv->kernel = NULL;
+    }
+
+    if (priv->sampler) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseSampler (priv->sampler));
+        priv->sampler = NULL;
+    }
+
+    if (priv->context) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
+        priv->context = NULL;
     }
 
     G_OBJECT_CLASS (ufo_gradient_task_parent_class)->finalize (object);
@@ -224,10 +301,26 @@ ufo_gradient_task_class_init (UfoGradientTaskClass *klass)
 
     properties[PROP_DIRECTION] =
         g_param_spec_enum ("direction",
-            "Direction (horizontal, vertical, both, both_abs)",
-            "Direction (horizontal, vertical, both, both_abs)",
+            "Direction (\"horizontal\", \"vertical\", \"both\", \"both_abs\")",
+            "Direction (\"horizontal\", \"vertical\", \"both\", \"both_abs\")",
             g_enum_register_static ("ufo_gradient_direction", direction_values),
             DIRECTION_HORIZONTAL,
+            G_PARAM_READWRITE);
+
+    properties[PROP_FINITE_DIFFERENCE_TYPE] =
+        g_param_spec_enum ("finite-difference-type",
+            "Finite difference type (\"forward\", \"backward\", \"central\")",
+            "Finite difference type (\"forward\", \"backward\", \"central\")",
+            g_enum_register_static ("ufo_gradient_finite_difference_type", fd_values),
+            UFO_FINITE_DIFFERENCE_CENTRAL,
+            G_PARAM_READWRITE);
+
+    properties[PROP_ADDRESSING_MODE] =
+        g_param_spec_enum ("addressing-mode",
+            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
+            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\", \"mirrored_repeat\")",
+            g_enum_register_static ("ufo_gradient_addressing_mode", addressing_values),
+            CL_ADDRESS_CLAMP,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -241,4 +334,6 @@ ufo_gradient_task_init(UfoGradientTask *self)
 {
     self->priv = UFO_GRADIENT_TASK_GET_PRIVATE(self);
     self->priv->direction = DIRECTION_HORIZONTAL;
+    self->priv->fd_type = UFO_FINITE_DIFFERENCE_CENTRAL;
+    self->priv->addressing_mode = CL_ADDRESS_CLAMP;
 }

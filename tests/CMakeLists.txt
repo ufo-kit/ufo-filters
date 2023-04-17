@@ -27,8 +27,14 @@ add_test(test_nlm
 add_test(test_multipage_readers
          ${BASH} "${CMAKE_CURRENT_SOURCE_DIR}/test-multipage-readers.sh")
 
+add_test(test_gradient
+         ${BASH} "${CMAKE_CURRENT_SOURCE_DIR}/test-gradient.sh")
+
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/make-input-multipage-readers
         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/tests)
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/check-multipage-readers
+        DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/tests)
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/check-gradient
         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/tests)

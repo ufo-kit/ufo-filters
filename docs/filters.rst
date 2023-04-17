@@ -535,6 +535,16 @@ Gradient
          Direction of the gradient, can be either ``horizontal``, ``vertical``,
          ``both`` or ``both_abs``.
 
+    .. gobj:prop:: finite-difference-type:enum
+
+         Direction of the gradient, can be either ``forward``, ``backward``,
+         or ``central``.
+
+    .. gobj:prop:: addressing-mode:enum
+
+        Addressing mode specifies the behavior for pixels falling outside the
+        original image. See OpenCL ``sampler_t`` documentation for more information.
+
 
 Non-local-means denoising
 -------------------------
