@@ -96,32 +96,58 @@ Memory reader
 
     Reads data from a pre-allocated memory region. Unlike input and output tasks
     this can be used to interface with other code more directly, e.g. to read
-    from a NumPy buffer::
+    from a NumPy buffer or an OpenCL buffer::
 
-        from gi.repository import Ufo
+        import gi
         import numpy as np
         import tifffile
+        gi.require_version("Ufo", "0.0")
+        from gi.repository import Ufo
 
 
-        ref = np.random.random((512, 512)).astype(np.float32)
+        USE_OPENCL = True
+
 
         pm = Ufo.PluginManager()
-        g = Ufo.TaskGraph()
-        sched = Ufo.Scheduler()
-        read = pm.get_task('memory-in')
-        write = pm.get_task('write')
+        sched = Ufo.FixedScheduler()
+        graph = Ufo.TaskGraph()
 
-        read.props.pointer = ref.__array_interface__['data'][0]
-        read.props.width = ref.shape[1]
-        read.props.height = ref.shape[0]
-        read.props.number = 1
+        mem_in = pm.get_task("memory-in")
+        writer = pm.get_task("write")
 
-        write.props.filename = 'out.tif'
+        n = 4096
+        mem_in.props.width = n
+        mem_in.props.height = n
+        mem_in.props.bitdepth = 32
+        mem_in.props.number = 1
 
-        g.connect_nodes(read, write)
-        sched.run(g)
+        writer.props.filename = "out.tif"
+        writer.props.tiff_bigtiff = False
 
-        out = tifffile.imread('out.tif')
+        if USE_OPENCL:
+            import pyopencl as cl
+            import pyopencl.array as pa
+
+            res = Ufo.Resources()
+            # Use UFO's OpenCL context
+            ctx = cl.Context.from_int_ptr(res.get_context())
+            queue = cl.CommandQueue(ctx, ctx.devices[0])
+            # And make sure UFO does not create a new one
+            sched.set_resources(res)
+
+            ref_buf = pa.arange(queue, n ** 2, dtype=np.float32).reshape(n, n)
+            mem_in.props.memory_location = "buffer"
+            mem_in.props.pointer = ref_buf.data.int_ptr
+            ref = ref_buf.get()  # For checking later
+        else:
+            ref = np.arange(n ** 2, dtype=np.float32).reshape(n, n)
+            mem_in.props.memory_location = "host"
+            mem_in.props.pointer = ref.__array_interface__["data"][0]
+
+        graph.connect_nodes(mem_in, writer)
+        sched.run(graph)
+
+        out = tifffile.imread("out.tif")
         assert np.sum(out - ref) == 0.0
 
     .. gobj:prop:: pointer:ulong
@@ -143,6 +169,10 @@ Memory reader
     .. gobj:prop:: complex-layout:boolean
 
         Treat input as interleaved complex64 data type (x[0] = Re(z[0]), x[1] = Im(z[0]), ...)
+
+    .. gobj:prop:: memory-location:enum
+
+        Location of the input memory [``host`` (RAM), ``buffer`` (OpenCL buffer)]
 
 
 ZeroMQ subscriber
