@@ -72,13 +72,12 @@ foreach(_src ${contrib_sxc_filter_SRCS})
     string(REGEX REPLACE "ufo-([^ \\.]+)-task.*" "\\1" task "${_src}")
 
     # build string to get miscalleanous sources
-    set(target "ufofilter${task}")
+    string(REPLACE "-" "_" _misc ${task})
 
     # create an option name and add this to disable filters
     set(_misc "${_misc}_misc_SRCS")
 
-    string(REPLACE "-" "" _targetname ${task})
-    set(target "ufofilter${_targetname}")
+    set(target "ufofilter${task}")
 
     # build single shared library per filter
     if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
