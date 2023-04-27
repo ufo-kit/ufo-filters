@@ -112,19 +112,31 @@ ufo_fft_task_get_requisition (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
     priv->param.zeropad = priv->zeropad;
-    priv->param.size[0] = priv->zeropad ? pow2round (in_req.dims[0]) : in_req.dims[0] / 2;
+    priv->param.batch = 1;
+
+    for (int i = 0; i < in_req.n_dims; i++) {
+        if (priv->param.size[i] != 1 && priv->param.size[i] < in_req.dims[i]) {
+            g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                                "Specified size smaller than input size");
+            return;
+        }
+    }
+
+    switch (priv->param.dimensions) {
+        case UFO_FFT_3D:
+            priv->param.size[2] = priv->zeropad ? pow2round (in_req.dims[2]) : in_req.dims[2];
+        case UFO_FFT_2D:
+            priv->param.size[1] = priv->zeropad ? pow2round (in_req.dims[1]) : in_req.dims[1];
+        case UFO_FFT_1D:
+            priv->param.size[0] = priv->zeropad ? pow2round (in_req.dims[0]) : in_req.dims[0];
+    }
 
     switch (priv->param.dimensions) {
         case UFO_FFT_1D:
-            priv->param.batch = in_req.n_dims == 2 ? in_req.dims[1] : 1;
-            break;
-
+            priv->param.batch *= in_req.n_dims >= 2 ? in_req.dims[1] : 1;
         case UFO_FFT_2D:
-            priv->param.size[1] = priv->zeropad ? pow2round (in_req.dims[1]) : in_req.dims[1];
-            priv->param.batch = in_req.n_dims == 3 ? in_req.dims[2] : 1;
-            break;
-
-        case UFO_FFT_3D:
+            priv->param.batch *= in_req.n_dims == 3 ? in_req.dims[2] : 1;
+        default:
             break;
     }
 
