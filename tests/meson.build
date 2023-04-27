@@ -7,7 +7,8 @@ tests = [
     'test-file-write-regression',
     'test-nlm',
     'test-multipage-readers',
-    'test-gradient'
+    'test-gradient',
+    'test-fft',
 ]
 
 tiffinfo = find_program('tiffinfo', required : false)
@@ -30,6 +31,10 @@ configure_file(input: 'check-multipage-readers',
 
 configure_file(input: 'check-gradient',
                output: 'check-gradient',
+               copy: true)
+
+configure_file(input: 'check-fft',
+               output: 'check-fft',
                copy: true)
 
 foreach t: tests

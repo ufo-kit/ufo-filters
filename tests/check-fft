@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+
+import sys
+import numpy as np
+import tifffile
+from numpy.fft import ifft, ifft2, ifftn
+
+
+def test(gt, ufo):
+    np.testing.assert_almost_equal(gt, ufo, decimal=4)
+
+
+def read_fft(path):
+    data = tifffile.imread(path)
+    if data.ndim == 3:
+        return data[:, :, ::2] + 1j * data[:, :, 1::2]
+    else:
+        return data[:, ::2] + 1j * data[:, 1::2]
+
+
+def main():
+    arr = tifffile.imread("fft-input.tif")
+
+    ufo_ft_2d_1d = read_fft("ufo-ft-2d-1.tif")
+    ufo_ft_2d_2d = read_fft("ufo-ft-2d-2.tif")
+    ufo_ift_2d_1d = tifffile.imread("ufo-ift-2d-1.tif")
+    ufo_ift_2d_2d = tifffile.imread("ufo-ift-2d-2.tif")
+
+    ufo_ft_3d_1d = read_fft("ufo-ft-3d-1.tif")
+    ufo_ft_3d_2d = read_fft("ufo-ft-3d-2.tif")
+    ufo_ft_3d_3d = read_fft("ufo-ft-3d-3.tif")
+    ufo_ift_3d_1d = tifffile.imread("ufo-ift-3d-1.tif")
+    ufo_ift_3d_2d = tifffile.imread("ufo-ift-3d-2.tif")
+    ufo_ift_3d_3d = tifffile.imread("ufo-ift-3d-3.tif")
+
+    # 2D input -> 1 or "height" number of batches
+    test(arr[0], ifft(ufo_ft_2d_1d))
+    test(arr[0], ifft2(ufo_ft_2d_2d))
+    test(arr[0], ufo_ift_2d_1d)
+    test(arr[0], ufo_ift_2d_2d)
+
+    # 3D input -> 1, "height", "depth * height" number of batches
+    test(arr, ifft(ufo_ft_3d_1d).real)
+    test(arr, ifft2(ufo_ft_3d_2d).real)
+    test(arr, ifftn(ufo_ft_3d_3d).real)
+    test(arr, ufo_ift_3d_1d)
+    test(arr, ufo_ift_3d_2d)
+    test(arr, ufo_ift_3d_3d)
+
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

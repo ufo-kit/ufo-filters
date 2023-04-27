@@ -34,6 +34,9 @@ add_test(test_gradient
 add_test(test_memin
          ${Python_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/test_memin.py")
 
+add_test(test_fft
+         ${BASH} "${CMAKE_CURRENT_SOURCE_DIR}/test-fft.sh")
+
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/make-input-multipage-readers
         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/tests)
 
@@ -41,4 +44,7 @@ file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/check-multipage-readers
         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/tests)
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/check-gradient
+        DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/tests)
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/check-fft
         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/tests)
