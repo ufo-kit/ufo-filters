@@ -170,7 +170,7 @@ ufo_ifft_task_process (UfoTask *task,
     cl_int width;
     cl_int height;
     cl_command_queue queue;
-    gfloat scale;
+    gfloat scale = 1.0f;
     gsize global_work_size[3];
 
     priv = UFO_IFFT_TASK_GET_PRIVATE (task);
@@ -186,11 +186,13 @@ ufo_ifft_task_process (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (priv->fft, queue, profiler, in_mem, in_mem, UFO_FFT_BACKWARD,
                                                 0, NULL, NULL));
 
-    /* Scale and reshape if necessary */
-    scale = 1.0f / ((gfloat) priv->param.size[0]);
-
-    if (priv->param.dimensions == UFO_FFT_2D) {
-        scale /= (gfloat) priv->param.size[1];
+    switch (priv->param.dimensions) {
+        case UFO_FFT_3D:
+            scale /= (gfloat) priv->param.size[2];
+        case UFO_FFT_2D:
+            scale /= (gfloat) priv->param.size[1];
+        case UFO_FFT_1D:
+            scale /= (gfloat) priv->param.size[0];
     }
 
     width = (cl_int) requisition->dims[0];
