@@ -17,12 +17,18 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define COMMON_SETUP                                                                                    \
+    int stride_x = 2 * get_global_size (0);                                                             \
+    int stride_y = stride_x * get_global_size (1);                                                      \
+    int idx = get_global_id (2) * stride_y + get_global_id (1) * stride_x + 2 * get_global_id (0);
+
+
 kernel void
 c_add (global float *in1,
        global float *in2,
        global float *out)
 {
-    int idx = get_global_id(1) * 2 * get_global_size(0) + 2 * get_global_id(0);
+    COMMON_SETUP;
 
     out[idx] = in1[idx] + in2[idx];
     out[idx+1] = in1[idx+1] + in2[idx+1];
@@ -33,7 +39,7 @@ c_mul (global float *in1,
        global float *in2,
        global float *out)
 {
-    int idx = get_global_id(1) * 2 * get_global_size(0) + 2 * get_global_id(0);
+    COMMON_SETUP;
     const float a = in1[idx];
     const float b = in1[idx+1];
     const float c = in2[idx];
@@ -48,7 +54,7 @@ c_div (global float *in1,
        global float *in2,
        global float *out)
 {
-    int idx = get_global_id(1) * 2 * get_global_size(0) + 2 * get_global_id(0);
+    COMMON_SETUP;
     const float a = in1[idx];
     const float b = in1[idx+1];
     const float c = in2[idx];
@@ -66,7 +72,7 @@ kernel void
 c_conj (global float *data,
         global float *out)
 {
-    int idx = get_global_id(1) * 2 * get_global_size(0) + 2 * get_global_id(0);
+    COMMON_SETUP;
     out[idx] = data[idx];
     out[idx+1] = -data[idx+1];
 }
