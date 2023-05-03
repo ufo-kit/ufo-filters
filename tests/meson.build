@@ -40,6 +40,7 @@ endforeach
 python_tests = [
     'test_memin',
     'test_fft',
+    'test_swap_quadrants',
 ]
 
 foreach t: python_tests

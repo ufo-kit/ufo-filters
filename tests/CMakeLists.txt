@@ -37,6 +37,9 @@ add_test(test_memin
 add_test(test_fft
          ${Python_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/test_fft.py")
 
+add_test(test_swap_quadrants
+         ${Python_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/test_swap_quadrants.py")
+
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/make-input-multipage-readers
         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/tests)
 
