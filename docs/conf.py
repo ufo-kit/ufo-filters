@@ -50,6 +50,11 @@ exclude_patterns = ['_build']
 pygments_style = None
 
 html_theme = 'sphinx_rtd_theme'
+html_static_path = ['_static']
+html_css_files = [
+    'css/custom.css'
+]
+html_style = 'css/custom.css'
 htmlhelp_basename = 'ufo-filtersdoc'
 
 latex_documents = [
