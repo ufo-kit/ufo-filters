@@ -545,5 +545,5 @@ ufo_fft_task_init (UfoFftTask *self)
         priv->user_size[i] = 0;
     }
     priv->param.batch = 1;
-    priv->param.zeropad = priv->zeropad = TRUE;
+    priv->param.zeropad = priv->zeropad = FALSE;
 }
