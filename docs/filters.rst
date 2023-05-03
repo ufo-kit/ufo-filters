@@ -887,7 +887,7 @@ Fast Fourier transform
     For every dimension, if size is not specified and
     :gobj:prop:`auto-zeropadding` is True, the input is padded to the next power
     of two. If it is False, the output has the same size as the input (via the
-    Chirp-z transform). Example usage::
+    Chirp-z transform from :cite:`chirpz`). Example usage::
 
         # Suppose input.tif is 3D and has the following size: width=17, height=15, depth=9
         # 3D transform, input size = output size

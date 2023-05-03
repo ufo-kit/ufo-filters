@@ -43,3 +43,9 @@ Additional notes
 
     changes
     copyright
+
+
+References
+==========
+
+.. bibliography::
