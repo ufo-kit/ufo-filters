@@ -872,13 +872,42 @@ Splitting channels
 Fourier domain
 ==============
 
+.. _fft-ref:
+
 Fast Fourier transform
 ----------------------
 
 .. gobj:class:: fft
 
-    Compute the Fourier spectrum of input data. If :gobj:prop:`dimensions` is one
-    but the input data is 2-dimensional, the 1-D FFT is computed for each row.
+    Compute the Fourier spectrum of input data. :gobj:prop:`dimensions`
+    specifies the dimensionality of the transform, it is independent from the
+    input dimensions. E.g. if you have 3D input, you can compute a 3D FT, a
+    batch of 2D FTs of every plane, or a batch of 1D FTs of every row. If you
+    have 2D input, you may compute a 2D FT or a batch of 1D FTs of every row.
+    For every dimension, if size is not specified and
+    :gobj:prop:`auto-zeropadding` is True, the input is padded to the next power
+    of two. If it is False, the output has the same size as the input (via the
+    Chirp-z transform). Example usage::
+
+        # Suppose input.tif is 3D and has the following size: width=17, height=15, depth=9
+        # 3D transform, input size = output size
+        ufo-launch read path=input.tif ! stack number=9 ! fft dimensions=3 ! ifft dimensions=3 ! slice ! write filename=inverse.tif
+        # 3D transform, auto zeropadding
+        ufo-launch read path=input.tif ! stack number=9 ! fft dimensions=3 auto-zeropadding=True ! ifft dimensions=3 ! slice ! write filename=inverse.tif
+        # 3D transform, custom size
+        ufo-launch read path=input.tif ! stack number=9 ! fft dimensions=3 size-x=20 size-y=64 size-z=10 ! ifft dimensions=3 ! slice ! write filename=inverse.tif
+        # Batch of nine 2D transforms
+        ufo-launch read path=input.tif ! stack number=9 ! fft dimensions=2 ! ifft dimensions=2 ! slice ! write filename=inverse.tif
+
+        # 2D transform
+        ufo-launch read path=input.tif number=1 ! fft dimensions=2 ! ifft dimensions=2 ! write filename=inverse.tif
+        # 2D transform, auto zeropadding
+        ufo-launch read path=input.tif number=1 ! fft dimensions=2 auto-zeropadding=True ! ifft dimensions=2 ! write filename=inverse.tif
+        # 2D transform, custom size
+        ufo-launch read path=input.tif number=1 ! fft dimensions=2 size-x=20 size-y=19 ! ifft dimensions=2 ! write filename=inverse.tif
+
+        # Batch of fifteen 1D transforms
+        ufo-launch read path=input.tif number=1 ! fft dimensions=1 ! ifft dimensions=1 ! write filename=inverse.tif
 
     .. gobj:prop:: auto-zeropadding:boolean
 
@@ -903,9 +932,10 @@ Fast Fourier transform
 
 .. gobj:class:: ifft
 
-    Compute the inverse Fourier of spectral input data. If
-    :gobj:prop:`dimensions` is one but the input data is 2-dimensional, the 1-D
-    FFT is computed for each row.
+    Compute the inverse Fourier of spectral input data (see :ref:`fft
+    <fft-ref>`) for details on how the transform works. You may crop the output
+    by setting the :gobj:prop:`crop-width` and :gobj:prop:`crop-height`
+    parameters, otherwise the output has the same size as the input.
 
     .. gobj:prop:: dimensions:uint
 
