@@ -156,3 +156,194 @@ ufo_fft_destroy (UfoFft *fft)
 
     g_free (fft);
 }
+
+/** ufo_fft_chirp_z:
+ *
+ * @fft: #UfoFft
+ * @param: #UfoFftParameter
+ * @queue: %cl_command_queue
+ * @profiler: #UfoProfiler
+ * @in_mem: %cl_mem
+ * @tmp_mem: %cl_mem for temporary large FFT
+ * @out_mem: %cl_mem for final FT result
+ * @coeffs_buffer: #UfoBuffer holding Chirp-z coefficients
+ * @f_coeffs_buffer: #UfoBuffer holding Fourier-transformed conjugated Chirp-z coefficients
+ * @coeffs_kernel: %cl_kernel for computing Chirp-z coefficients
+ * @mul_kernel: %cl_kernel for multiplying Chirp-z coefficients with input
+ * @c_mul_kernel: %cl_kernel for complex multiplication
+ * @pack_kernel: %cl_kernel for reducing FFT to FT
+ * @in_work_size: input 3D size
+ * @fft_work_size: FFT 3D size
+ * @ft_work_size: FT 3D size
+ * @work_n_dims: Number of dimensions for the computations (may be different
+ * from the dimensionality of the @param because we may do batching, e.g. have
+ * 2D input but perofm many 1D transforms)
+ * @crop_width: crop result to this
+ * @crop_height: crop result to this
+ * @direction: #UfoFftDirection, forward or backward transform
+ *
+ * Chirp-z transform to get non-power-of-two Fourier Transform. The code is basically doing this (Python):
+ *
+ *      # L2, N2, M2 are the intermediate sizes for FFT
+ *      # L, N, M are depth, height, width of the desired output size
+ *
+ *      l = fftfreq(L2, 1 / L2)
+ *      n = fftfreq(N2, 1 / N2)
+ *      m = fftfreq(M2, 1 / M2)
+ *      m, n, l = np.meshgrid(l, n, m, indexing='ij')
+ *      coeffs = np.exp(-1j * np.pi * (l ** 2 / L + n ** 2 / N + m ** 2 / M))
+ *      modulated = arr * coeffs[:L, :N, :M]
+ *      dft = coeffs[:L, :N, :M] * ifftn(fftn(modulated, s=(L2, N2, M2)) * fftn(1 / coeffs, s=(L2, N2, M2)))[:L, :N, :M]
+ *
+ *  The backward direction does the following (equivalent to swapping coeffs for their conjugates):
+ *      coeffs = np.exp(-1j * np.pi * (l ** 2 / L + n ** 2 / N + m ** 2 / M))
+ *      modulated = arr / coeffs[:L, :N, :M]
+ *      idft = 1 / coeffs[:L, :N, :M] * ifftn(fftn(modulated, s=(L2, N2, M2)) * fftn(coeffs, s=(L2, N2, M2)))[:L, :N, :M]
+ */
+void
+ufo_fft_chirp_z (UfoFft *fft,
+                 UfoFftParameter *param,
+                 cl_command_queue queue,
+                 UfoProfiler *profiler,
+                 /* Memory */
+                 cl_mem in_mem,
+                 cl_mem tmp_mem,
+                 cl_mem out_mem,
+                 UfoBuffer *coeffs_buffer,
+                 UfoBuffer *f_coeffs_buffer,
+                 /* Kernels */
+                 cl_kernel coeffs_kernel,
+                 cl_kernel mul_kernel,
+                 cl_kernel c_mul_kernel,
+                 cl_kernel pack_kernel,
+                 /* Sizes */
+                 gsize in_work_size[3],
+                 gsize fft_work_size[3],
+                 gsize ft_work_size[3],
+                 gsize work_n_dims,
+                 cl_int crop_width,
+                 cl_int crop_height,
+                 /* FFT or IFFT */
+                 UfoFftDirection direction)
+{
+    UfoRequisition fft_req;
+    cl_mem coeffs_mem, f_coeffs_mem;
+    cl_int intermediate_width, intermediate_height, plan_dimensions,
+           ft_width, ft_height, ft_depth, false_value = 0, true_value = 1;
+    gfloat scale = 1.0f;
+
+    plan_dimensions = (cl_int) param->dimensions;
+    intermediate_width  = (cl_int) fft_work_size[0];
+    intermediate_height = (cl_int) fft_work_size[1];
+    fft_req.n_dims = work_n_dims;
+    fft_req.dims[0] = fft_work_size[0] << 1;
+    fft_req.dims[1] = fft_work_size[1];
+    fft_req.dims[2] = fft_work_size[2];
+
+    ft_width  = (cl_int) ft_work_size[0];
+    ft_height = (cl_int) ft_work_size[1];
+    ft_depth  = (cl_int) ft_work_size[2];
+
+    if (ufo_buffer_cmp_dimensions (coeffs_buffer, &fft_req) != 0) {
+        /* First time or size changed, re-create the coefficients */
+        ufo_buffer_resize (coeffs_buffer, &fft_req);
+        ufo_buffer_resize (f_coeffs_buffer, &fft_req);
+        coeffs_mem = ufo_buffer_get_device_array (coeffs_buffer, queue);
+        f_coeffs_mem = ufo_buffer_get_device_array (f_coeffs_buffer, queue);
+
+        /* Compute Chirp-z coefficients (coeffs above) */
+        if (direction == UFO_FFT_FORWARD) {
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (coeffs_kernel, 0, sizeof (cl_mem), (gpointer) &coeffs_mem));
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (coeffs_kernel, 1, sizeof (cl_mem), (gpointer) &f_coeffs_mem));
+        } else {
+            /* Swap coeffs and f_coeffs because for IFFT [e^(ix) -> e^(-ix)], i.e. we need conjugates */
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (coeffs_kernel, 0, sizeof (cl_mem), (gpointer) &f_coeffs_mem));
+            UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (coeffs_kernel, 1, sizeof (cl_mem), (gpointer) &coeffs_mem));
+        }
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (coeffs_kernel, 2, sizeof (cl_int), &ft_width));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (coeffs_kernel, 3, sizeof (cl_int), &ft_height));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (coeffs_kernel, 4, sizeof (cl_int), &ft_depth));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (coeffs_kernel, 5, sizeof (cl_int), &plan_dimensions));
+        ufo_profiler_call (profiler, queue, coeffs_kernel, 3, fft_work_size, NULL);
+
+        UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (fft, queue, profiler,
+                                                    f_coeffs_mem, f_coeffs_mem,
+                                                    UFO_FFT_FORWARD,
+                                                    0, NULL, NULL));
+    } else {
+        /* Nothing changed, just used the pre-computed values */
+        coeffs_mem = ufo_buffer_get_device_array (coeffs_buffer, queue);
+        f_coeffs_mem = ufo_buffer_get_device_array (f_coeffs_buffer, queue);
+    }
+
+    /* Multiply input with Chirp-z coefficients (modulated = arr * coeffs[:L, :N, :M] above) */
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (mul_kernel, 0, sizeof (cl_mem), (gpointer) &tmp_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (mul_kernel, 1, sizeof (cl_mem), (gpointer) &in_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (mul_kernel, 2, sizeof (cl_mem), (gpointer) &coeffs_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (mul_kernel, 3, sizeof (cl_int), &intermediate_width));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (mul_kernel, 4, sizeof (cl_int), &intermediate_height));
+    if (direction == UFO_FFT_FORWARD) {
+        /* If we are computing FT, input data type is real */
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (mul_kernel, 5, sizeof (cl_int), &false_value));
+    } else {
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (mul_kernel, 5, sizeof (cl_int), &true_value));
+    }
+    ufo_profiler_call (profiler, queue, mul_kernel, 3, in_work_size, NULL);
+    /* FFT of modulated */
+    UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (fft, queue, profiler,
+                                                tmp_mem, tmp_mem,
+                                                UFO_FFT_FORWARD,
+                                                0, NULL, NULL));
+
+    /* Convolution by multiplication of the FFTs */
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (c_mul_kernel, 0, sizeof (cl_mem), (gpointer) &tmp_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (c_mul_kernel, 1, sizeof (cl_mem), (gpointer) &f_coeffs_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (c_mul_kernel, 2, sizeof (cl_mem), (gpointer) &tmp_mem));
+    ufo_profiler_call (profiler, queue, c_mul_kernel, fft_req.n_dims, fft_work_size, NULL);
+
+    /* IFFT */
+    UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (fft, queue, profiler,
+                                                tmp_mem, tmp_mem,
+                                                UFO_FFT_BACKWARD,
+                                                0, NULL, NULL));
+
+    /* Normalization by Chirp-z coefficients */
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (c_mul_kernel, 0, sizeof (cl_mem), (gpointer) &tmp_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (c_mul_kernel, 1, sizeof (cl_mem), (gpointer) &coeffs_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (c_mul_kernel, 2, sizeof (cl_mem), (gpointer) &tmp_mem));
+    ufo_profiler_call (profiler, queue, c_mul_kernel, fft_req.n_dims, fft_work_size, NULL);
+
+    /* Scale by the padded FFT size */
+    switch (param->dimensions) {
+        case UFO_FFT_3D:
+            scale /= (gfloat) param->size[2];
+        case UFO_FFT_2D:
+            scale /= (gfloat) param->size[1];
+        case UFO_FFT_1D:
+            scale /= (gfloat) param->size[0];
+    }
+
+    if (direction == UFO_FFT_BACKWARD) {
+        /* Scale by the actual Fourier Transform size */
+        switch (param->dimensions) {
+            case UFO_FFT_3D:
+                scale /= (gfloat) ft_depth;
+            case UFO_FFT_2D:
+                scale /= (gfloat) ft_height;
+            case UFO_FFT_1D:
+                scale /= (gfloat) ft_width;
+        }
+    }
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (pack_kernel, 0, sizeof (cl_mem), (gpointer) &tmp_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (pack_kernel, 1, sizeof (cl_mem), (gpointer) &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (pack_kernel, 2, sizeof (cl_int), &crop_width));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (pack_kernel, 3, sizeof (cl_int), &crop_height));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (pack_kernel, 4, sizeof (gfloat), &scale));
+    if (direction == UFO_FFT_FORWARD) {
+        /* If we are computing FT, resulting data type is complex */
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (pack_kernel, 5, sizeof (cl_int), &true_value));
+    } else {
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (pack_kernel, 5, sizeof (cl_int), &false_value));
+    }
+    ufo_profiler_call (profiler, queue, pack_kernel, fft_req.n_dims, fft_work_size, NULL);
+}

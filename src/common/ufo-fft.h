@@ -62,5 +62,25 @@ cl_int  ufo_fft_execute (UfoFft            *fft,
                          cl_event          *event_list,
                          cl_event          *event);
 void    ufo_fft_destroy (UfoFft            *fft);
+void    ufo_fft_chirp_z (UfoFft            *fft,
+                         UfoFftParameter   *param,
+                         cl_command_queue   queue,
+                         UfoProfiler       *profiler,
+                         cl_mem             in_mem,
+                         cl_mem             tmp_mem,
+                         cl_mem             out_mem,
+                         UfoBuffer         *coeffs_buffer,
+                         UfoBuffer         *f_coeffs_buffer,
+                         cl_kernel          coeffs_kernel,
+                         cl_kernel          mul_kernel,
+                         cl_kernel          c_mul_kernel,
+                         cl_kernel          pack_kernel,
+                         gsize              in_work_size[3],
+                         gsize              fft_work_size[3],
+                         gsize              ft_work_size[3],
+                         gsize              work_n_dims,
+                         cl_int             crop_width,
+                         cl_int             crop_height,
+                         UfoFftDirection    direction);
 
 #endif

@@ -27,6 +27,7 @@
 #endif
 
 #include "ufo-fft-task.h"
+#include "common/ufo-math.h"
 #include "common/ufo-fft.h"
 
 
@@ -35,9 +36,12 @@ struct _UfoFftTaskPrivate {
     UfoFftParameter param;
 
     cl_context context;
-    cl_kernel kernel;
+    cl_kernel spread_kernel, pack_kernel, coeffs_kernel, mul_kernel, c_mul_kernel;
 
     gboolean zeropad;
+
+    UfoBuffer *coeffs_buffer, *f_coeffs_buffer, *tmp_buffer;
+    gsize user_size[3], fft_work_size[3];
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -66,18 +70,6 @@ ufo_fft_task_new (void)
     return UFO_NODE (g_object_new (UFO_TYPE_FFT_TASK, NULL));
 }
 
-static guint32
-pow2round(guint32 x)
-{
-    --x;
-    x |= x >> 1;
-    x |= x >> 2;
-    x |= x >> 4;
-    x |= x >> 8;
-    x |= x >> 16;
-    return x+1;
-}
-
 static void
 ufo_fft_task_setup (UfoTask *task,
                     UfoResources *resources,
@@ -87,15 +79,44 @@ ufo_fft_task_setup (UfoTask *task,
 
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
 
-    if (priv->zeropad) {
-        priv->kernel = ufo_resources_get_kernel (resources, "fft.cl", "fft_spread", NULL, error);
-    }
+    priv->spread_kernel = ufo_resources_get_kernel (resources, "fft.cl", "fft_spread", NULL, error);
+    priv->pack_kernel = ufo_resources_get_kernel (resources, "fft.cl", "fft_pack", NULL, error);
+    priv->coeffs_kernel = ufo_resources_get_kernel (resources, "fft.cl", "fft_compute_chirp_coeffs", NULL, error);
+    priv->mul_kernel = ufo_resources_get_kernel (resources, "fft.cl", "fft_multiply_chirp_coeffs", NULL, error);
+    priv->c_mul_kernel = ufo_resources_get_kernel (resources, "complex.cl", "c_mul", NULL, error);
 
     priv->context = ufo_resources_get_context (resources);
     UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
 
-    if (priv->kernel != NULL)
-        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
+    if (priv->spread_kernel != NULL)
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->spread_kernel), error);
+
+    if (priv->pack_kernel != NULL) {
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->pack_kernel), error);
+    }
+
+    if (priv->coeffs_kernel != NULL) {
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->coeffs_kernel), error);
+    }
+
+    if (priv->mul_kernel != NULL) {
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->mul_kernel), error);
+    }
+
+    if (priv->c_mul_kernel != NULL) {
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->c_mul_kernel), error);
+    }
+
+    if (priv->coeffs_buffer == NULL) {
+        UfoRequisition requisition;
+        requisition.n_dims = 2;
+        requisition.dims[0] = 1;
+        requisition.dims[1] = 1;
+
+        priv->coeffs_buffer = ufo_buffer_new(&requisition, priv->context);
+        priv->f_coeffs_buffer = ufo_buffer_new(&requisition, priv->context);
+        priv->tmp_buffer = ufo_buffer_new(&requisition, priv->context);
+    }
 }
 
 static void
@@ -111,24 +132,43 @@ ufo_fft_task_get_requisition (UfoTask *task,
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
-    priv->param.zeropad = priv->zeropad;
     priv->param.batch = 1;
 
     for (int i = 0; i < in_req.n_dims; i++) {
-        if (priv->param.size[i] != 1 && priv->param.size[i] < in_req.dims[i]) {
-            g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
-                                "Specified size smaller than input size");
+        if (priv->user_size[i] != 0 && priv->user_size[i] < in_req.dims[i]) {
+            g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                         "Specified size must be greater than or equal to input size");
             return;
+        }
+        /* First the actual desired size */
+        if (priv->user_size[i] == 0) {
+            priv->fft_work_size[i] = in_req.dims[i];
+            if (priv->zeropad && i <= priv->param.dimensions - 1) {
+                /* History */
+                priv->fft_work_size[i] = 2 * ufo_math_compute_closest_smaller_power_of_2 (priv->fft_work_size[i] - 1);
+            }
+        } else {
+            priv->fft_work_size[i] = priv->user_size[i];
+        }
+        /* Up to this point FFT size and output size are the same */
+        requisition->dims[i] = i <= in_req.n_dims - 1 ? priv->fft_work_size[i] : 1;
+        /* Now the next power of two (if the desired size is not a power of 2 ->
+         * chirp-z -> next power of two of twice the size). Also do not pad if
+         * the dimension is a batching one. */
+        if (i <= priv->param.dimensions - 1) {
+            if (priv->fft_work_size[i] != 2 * ufo_math_compute_closest_smaller_power_of_2 (priv->fft_work_size[i] - 1)) {
+                priv->fft_work_size[i] = 2 * ufo_math_compute_closest_smaller_power_of_2 (2 * priv->fft_work_size[i] - 1);
+            }
         }
     }
 
     switch (priv->param.dimensions) {
         case UFO_FFT_3D:
-            priv->param.size[2] = priv->zeropad ? pow2round (in_req.dims[2]) : in_req.dims[2];
+            priv->param.size[2] = priv->fft_work_size[2];
         case UFO_FFT_2D:
-            priv->param.size[1] = priv->zeropad ? pow2round (in_req.dims[1]) : in_req.dims[1];
+            priv->param.size[1] = priv->fft_work_size[1];
         case UFO_FFT_1D:
-            priv->param.size[0] = priv->zeropad ? pow2round (in_req.dims[0]) : in_req.dims[0];
+            priv->param.size[0] = priv->fft_work_size[0];
     }
 
     switch (priv->param.dimensions) {
@@ -143,9 +183,9 @@ ufo_fft_task_get_requisition (UfoTask *task,
     queue = ufo_gpu_node_get_cmd_queue (UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task))));
     UFO_RESOURCES_CHECK_SET_AND_RETURN (ufo_fft_update (priv->fft, priv->context, queue, &priv->param), error);
 
-    *requisition = in_req;  /* keep third dimension for 2D batching */
-    requisition->dims[0] = 2 * priv->param.size[0];
-    requisition->dims[1] = priv->param.dimensions == UFO_FFT_1D ? in_req.dims[1] : priv->param.size[1];
+    requisition->n_dims = in_req.n_dims;
+    /* Complex interleaved */
+    requisition->dims[0] <<= 1;
 }
 
 static guint
@@ -173,7 +213,7 @@ ufo_fft_task_equal_real (UfoNode *n1,
                             UfoNode *n2)
 {
     g_return_val_if_fail (UFO_IS_FFT_TASK (n1) && UFO_IS_FFT_TASK (n2), FALSE);
-    return UFO_FFT_TASK (n1)->priv->kernel == UFO_FFT_TASK (n2)->priv->kernel;
+    return UFO_FFT_TASK (n1)->priv->spread_kernel == UFO_FFT_TASK (n2)->priv->spread_kernel;
 }
 
 static gboolean
@@ -183,16 +223,17 @@ ufo_fft_task_process (UfoTask *task,
                       UfoRequisition *requisition)
 {
     UfoFftTaskPrivate *priv;
-    UfoRequisition in_req;
+    UfoRequisition in_req, fft_req;
     UfoProfiler *profiler;
     cl_command_queue queue;
-    cl_mem in_mem;
-    cl_mem out_mem;
-    cl_int width;
-    cl_int height;
-    gsize global_work_size[3];
+    cl_mem in_mem, out_mem, tmp_mem;
+    cl_int in_width, in_height, in_depth;
+    gsize in_work_size[3], ft_work_size[3];
+    guint num_processed;
+    gboolean do_chirp = FALSE;
 
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
+    g_object_get (task, "num_processed", &num_processed, NULL);
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     queue = ufo_gpu_node_get_cmd_queue (UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task))));
     in_mem = ufo_buffer_get_device_array (inputs[0], queue);
@@ -201,28 +242,92 @@ ufo_fft_task_process (UfoTask *task,
     ufo_buffer_get_requisition (inputs[0], &in_req);
     ufo_buffer_set_layout (output, UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED);
 
-    if (priv->zeropad){
-        width = (cl_int) in_req.dims[0];
-        height = (cl_int) in_req.dims[1];
+    fft_req.n_dims = requisition->n_dims;
+    fft_req.dims[0] = priv->fft_work_size[0] << 1;
+    fft_req.dims[1] = priv->fft_work_size[1];
+    fft_req.dims[2] = priv->fft_work_size[2];
 
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), (gpointer) &out_mem));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), (gpointer) &in_mem));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_int), &width));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_int), &height));
+    in_work_size[0] = in_req.dims[0];
+    in_work_size[1] = in_req.n_dims >= 2 ? in_req.dims[1] : 1;
+    in_work_size[2] = in_req.n_dims == 3 ? in_req.dims[2] : 1;
 
-        global_work_size[0] = requisition->dims[0] >> 1;
-        global_work_size[1] = requisition->dims[1];
-        global_work_size[2] = requisition->n_dims == 3 ? requisition->dims[2] : 1;
+    in_width  = (cl_int) in_work_size[0];
+    in_height = (cl_int) in_work_size[1];
+    in_depth  = (cl_int) in_work_size[2];
+    ft_work_size[0] = requisition->dims[0] >> 1;
+    ft_work_size[1] = requisition->dims[1];
+    ft_work_size[2] = requisition->dims[2];
 
-        UFO_RESOURCES_CHECK_CLERR (clEnqueueNDRangeKernel (queue, priv->kernel,
-                                                           3, NULL, global_work_size, NULL,
-                                                           0, NULL, NULL));
+    /* Figure out if we need to do Chirp-z */
+    for (int i = 0; i < requisition->n_dims; i++) {
+        if (fft_req.dims[i] != requisition->dims[i]) {
+            /* If desired size is not power of 2 we need Chirp-z */
+            do_chirp = TRUE;
+            break;
+        }
     }
 
-    UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (priv->fft, queue, profiler,
-                                                priv->zeropad ? out_mem : in_mem,
-                                                out_mem, UFO_FFT_FORWARD,
-                                                0, NULL, NULL));
+    if (do_chirp) {
+        if (ufo_buffer_cmp_dimensions (priv->tmp_buffer, &fft_req) != 0) {
+            ufo_buffer_resize (priv->tmp_buffer, &fft_req);
+        }
+        tmp_mem = ufo_buffer_get_device_array (priv->tmp_buffer, queue);
+    } else {
+        /* Just one forward pass in the out_mem, which already has the correct size */
+        tmp_mem = out_mem;
+    }
+
+    /* Pad to the power of two, that happens always, no matter the size of the output */
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 0, sizeof (cl_mem), (gpointer) &tmp_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 1, sizeof (cl_mem), (gpointer) &in_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 2, sizeof (cl_int), &in_width));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 3, sizeof (cl_int), &in_height));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 4, sizeof (cl_int), &in_depth));
+    ufo_profiler_call (profiler, queue, priv->spread_kernel, 3, priv->fft_work_size, NULL);
+
+    if (do_chirp) {
+        ufo_fft_chirp_z (
+            priv->fft,
+            &priv->param,
+            queue,
+            profiler,
+            in_mem,
+            tmp_mem,
+            out_mem,
+            priv->coeffs_buffer,
+            priv->f_coeffs_buffer,
+            priv->coeffs_kernel,
+            priv->mul_kernel,
+            priv->c_mul_kernel,
+            priv->pack_kernel,
+            in_work_size,
+            priv->fft_work_size,
+            ft_work_size,
+            requisition->n_dims,
+            (cl_int) ft_work_size[0],
+            (cl_int) ft_work_size[1],
+            UFO_FFT_FORWARD
+        );
+    } else {
+        /* No Chirp-z needed -> do one pass and finish (classic FFT) */
+        UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (priv->fft, queue, profiler,
+                                                    tmp_mem, tmp_mem,
+                                                    UFO_FFT_FORWARD,
+                                                    0, NULL, NULL));
+    }
+
+    if (!num_processed) {
+        g_log ("fft",
+            G_LOG_LEVEL_DEBUG,
+            "FFT work sizes: input=(w=%lu, h=%lu, d=%lu, ND=%u), intermediate=(w=%lu, h=%lu, d=%lu, ND=%u), "
+            "output=(w=%lu, h=%lu, d=%lu, ND=%u), parameter=(w=%lu h=%lu d=%lu ND=%d batches=%lu), do_chirp=%d",
+            in_work_size[0], in_work_size[1], in_work_size[2], in_req.n_dims,
+            priv->fft_work_size[0], priv->fft_work_size[1], priv->fft_work_size[2], fft_req.n_dims,
+            requisition->dims[0] / 2, requisition->dims[1], requisition->dims[2], requisition->n_dims,
+            priv->param.size[0], priv->param.size[1], priv->param.size[2], priv->param.dimensions, priv->param.batch,
+            do_chirp
+        );
+    }
 
     return TRUE;
 }
@@ -234,9 +339,44 @@ ufo_fft_task_finalize (GObject *object)
 
     priv = UFO_FFT_TASK_GET_PRIVATE (object);
 
-    if (priv->kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel));
-        priv->kernel = NULL;
+    if (priv->spread_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->spread_kernel));
+        priv->spread_kernel = NULL;
+    }
+
+    if (priv->pack_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->pack_kernel));
+        priv->pack_kernel = NULL;
+    }
+
+    if (priv->coeffs_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->coeffs_kernel));
+        priv->coeffs_kernel = NULL;
+    }
+
+    if (priv->mul_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->mul_kernel));
+        priv->mul_kernel = NULL;
+    }
+
+    if (priv->c_mul_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->c_mul_kernel));
+        priv->c_mul_kernel = NULL;
+    }
+
+    if (priv->coeffs_buffer) {
+        g_object_unref(priv->coeffs_buffer);
+        priv->coeffs_buffer = NULL;
+    }
+
+    if (priv->f_coeffs_buffer) {
+        g_object_unref(priv->f_coeffs_buffer);
+        priv->f_coeffs_buffer = NULL;
+    }
+
+    if (priv->tmp_buffer) {
+        g_object_unref(priv->tmp_buffer);
+        priv->tmp_buffer = NULL;
     }
 
     if (priv->context) {
@@ -279,13 +419,13 @@ ufo_fft_task_set_property (GObject *object,
             priv->param.dimensions = g_value_get_uint (value);
             break;
         case PROP_SIZE_X:
-            priv->param.size[0] = g_value_get_uint (value);
+            priv->user_size[0] = g_value_get_uint (value);
             break;
         case PROP_SIZE_Y:
-            priv->param.size[1] = g_value_get_uint (value);
+            priv->user_size[1] = g_value_get_uint (value);
             break;
         case PROP_SIZE_Z:
-            priv->param.size[2] = g_value_get_uint (value);
+            priv->user_size[2] = g_value_get_uint (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -309,13 +449,13 @@ ufo_fft_task_get_property (GObject *object,
             g_value_set_uint (value, priv->param.dimensions);
             break;
         case PROP_SIZE_X:
-            g_value_set_uint (value, priv->param.size[0]);
+            g_value_set_uint (value, priv->user_size[0]);
             break;
         case PROP_SIZE_Y:
-            g_value_set_uint (value, priv->param.size[1]);
+            g_value_set_uint (value, priv->user_size[1]);
             break;
         case PROP_SIZE_Z:
-            g_value_set_uint (value, priv->param.size[2]);
+            g_value_set_uint (value, priv->user_size[2]);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -352,23 +492,23 @@ ufo_fft_task_class_init (UfoFftTaskClass *klass)
 
     properties[PROP_SIZE_X] =
         g_param_spec_uint("size-x",
-            "Size of the FFT transform in x-direction",
-            "Size of the FFT transform in x-direction",
-            1, 32768, 1,
+            "Size of the FFT transform in x-direction (zero-padded if larger than input)",
+            "Size of the FFT transform in x-direction (zero-padded if larger than input)",
+            0, 32768, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_SIZE_Y] =
         g_param_spec_uint("size-y",
-            "Size of the FFT transform in y-direction",
-            "Size of the FFT transform in y-direction",
-            1, 32768, 1,
+            "Size of the FFT transform in y-direction (zero-padded if larger than input)",
+            "Size of the FFT transform in y-direction (zero-padded if larger than input)",
+            0, 32768, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_SIZE_Z] =
         g_param_spec_uint("size-z",
-            "Size of the FFT transform in z-direction",
-            "Size of the FFT transform in z-direction",
-            1, 32768, 1,
+            "Size of the FFT transform in z-direction (zero-padded if larger than input)",
+            "Size of the FFT transform in z-direction (zero-padded if larger than input)",
+            0, 32768, 0,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -386,13 +526,24 @@ ufo_fft_task_init (UfoFftTask *self)
 
     self->priv = priv = UFO_FFT_TASK_GET_PRIVATE (self);
 
-    priv->kernel = NULL;
-    priv->zeropad = TRUE;
+    priv->spread_kernel = NULL;
+    priv->pack_kernel = NULL;
+    priv->coeffs_kernel = NULL;
+    priv->mul_kernel = NULL;
+    priv->c_mul_kernel = NULL;
+    priv->coeffs_buffer = NULL;
+    priv->f_coeffs_buffer = NULL;
+    priv->tmp_buffer = NULL;
     priv->fft = ufo_fft_new ();
     priv->param.dimensions = UFO_FFT_1D;
-    priv->param.size[0] = 1;
-    priv->param.size[1] = 1;
-    priv->param.size[2] = 1;
+    for (int i = 0; i < 3; i++) {
+        /* Size of the FFT plan */
+        priv->param.size[i] = 1;
+        /* Intermediate size for computing either full FFTs or batches */
+        priv->fft_work_size[i] = 1;
+        /* Final size possibly non-power-of-two, 0 = not specified*/
+        priv->user_size[i] = 0;
+    }
     priv->param.batch = 1;
     priv->param.zeropad = priv->zeropad = TRUE;
 }
