@@ -119,6 +119,7 @@ ufo_power_spectrum_task_process (UfoTask *task,
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
+    ufo_buffer_set_layout (output, UFO_BUFFER_LAYOUT_REAL);
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
