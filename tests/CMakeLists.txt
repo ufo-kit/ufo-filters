@@ -1,4 +1,5 @@
 find_program(BASH bash)
+find_package(Python REQUIRED)
 
 add_test(test_file_write_regression
          ${BASH} "${CMAKE_CURRENT_SOURCE_DIR}/test-file-write-regression.sh")
@@ -29,6 +30,9 @@ add_test(test_multipage_readers
 
 add_test(test_gradient
          ${BASH} "${CMAKE_CURRENT_SOURCE_DIR}/test-gradient.sh")
+
+add_test(test_memin
+         ${Python_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/test_memin.py")
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/make-input-multipage-readers
         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/tests)
