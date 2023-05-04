@@ -126,7 +126,6 @@ ufo_ifft_task_get_requisition (UfoTask *task,
     priv = UFO_IFFT_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &in_req);
 
-    priv->param.zeropad = FALSE;
     priv->param.batch = 1;
 
     for (int i = 0; i < in_req.n_dims; i++) {
@@ -496,5 +495,4 @@ ufo_ifft_task_init (UfoIfftTask *self)
         priv->user_size[i] = 0;
     }
     priv->param.batch = 1;
-    priv->param.zeropad = FALSE;
 }

@@ -93,7 +93,8 @@ ufo_fft_update (UfoFft *fft, cl_context context, cl_command_queue queue, UfoFftP
         UFO_RESOURCES_CHECK_CLERR (clfftSetPlanBatchSize (fft->amd_plan, param->batch));
         UFO_RESOURCES_CHECK_CLERR (clfftSetPlanPrecision (fft->amd_plan, CLFFT_SINGLE));
         UFO_RESOURCES_CHECK_CLERR (clfftSetLayout (fft->amd_plan, CLFFT_COMPLEX_INTERLEAVED, CLFFT_COMPLEX_INTERLEAVED));
-        UFO_RESOURCES_CHECK_CLERR (clfftSetResultLocation (fft->amd_plan, param->zeropad ? CLFFT_INPLACE : CLFFT_OUTOFPLACE));
+        /* We always need to provide zero-padded input -> CLFFT_INPLACE */
+        UFO_RESOURCES_CHECK_CLERR (clfftSetResultLocation (fft->amd_plan, CLFFT_INPLACE));
         UFO_RESOURCES_CHECK_CLERR (clfftBakePlan (fft->amd_plan, 1, &queue, NULL, NULL));
     }
 #else

@@ -37,7 +37,6 @@ typedef struct {
 
     gsize size[3];
     gsize batch;
-    gboolean zeropad;
 } UfoFftParameter;
 
 typedef enum {
