@@ -2,6 +2,7 @@ tests = [
     'test-149',
     'test-153',
     'test-161',
+    'test-177',
     'test-core-149',
     'test-file-write-regression',
     'test-nlm',
