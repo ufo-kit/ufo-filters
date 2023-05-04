@@ -128,6 +128,7 @@ ufo_fft_task_get_requisition (UfoTask *task,
     UfoFftTaskPrivate *priv;
     UfoRequisition in_req;
     cl_command_queue queue;
+    gboolean is_input_complex = ufo_buffer_get_layout (inputs[0]) == UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED;
 
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], &in_req);
@@ -143,6 +144,9 @@ ufo_fft_task_get_requisition (UfoTask *task,
         /* First the actual desired size */
         if (priv->user_size[i] == 0) {
             priv->fft_work_size[i] = in_req.dims[i];
+            if (i == 0 && is_input_complex) {
+                priv->fft_work_size[i] >>= 1;
+            }
             if (priv->zeropad && i <= priv->param.dimensions - 1) {
                 /* History */
                 priv->fft_work_size[i] = 2 * ufo_math_compute_closest_smaller_power_of_2 (priv->fft_work_size[i] - 1);
@@ -184,8 +188,11 @@ ufo_fft_task_get_requisition (UfoTask *task,
     UFO_RESOURCES_CHECK_SET_AND_RETURN (ufo_fft_update (priv->fft, priv->context, queue, &priv->param), error);
 
     requisition->n_dims = in_req.n_dims;
-    /* Complex interleaved */
     requisition->dims[0] <<= 1;
+    /* Dimensions higher than what input has are 1 by default */
+    for (int i = in_req.n_dims; i < 3; i++) {
+        requisition->dims[i] = 1;
+    }
 }
 
 static guint
@@ -231,6 +238,7 @@ ufo_fft_task_process (UfoTask *task,
     gsize in_work_size[3], ft_work_size[3];
     guint num_processed;
     gboolean do_chirp = FALSE;
+    gboolean is_input_complex = ufo_buffer_get_layout (inputs[0]) == UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED;
 
     priv = UFO_FFT_TASK_GET_PRIVATE (task);
     g_object_get (task, "num_processed", &num_processed, NULL);
@@ -248,12 +256,17 @@ ufo_fft_task_process (UfoTask *task,
     fft_req.dims[2] = priv->fft_work_size[2];
 
     in_work_size[0] = in_req.dims[0];
+    if (is_input_complex) {
+        /* Input is complex, thus real size is half the width */
+        in_work_size[0] >>= 1;
+    }
     in_work_size[1] = in_req.n_dims >= 2 ? in_req.dims[1] : 1;
     in_work_size[2] = in_req.n_dims == 3 ? in_req.dims[2] : 1;
 
     in_width  = (cl_int) in_work_size[0];
     in_height = (cl_int) in_work_size[1];
     in_depth  = (cl_int) in_work_size[2];
+
     ft_work_size[0] = requisition->dims[0] >> 1;
     ft_work_size[1] = requisition->dims[1];
     ft_work_size[2] = requisition->dims[2];
@@ -277,13 +290,18 @@ ufo_fft_task_process (UfoTask *task,
         tmp_mem = out_mem;
     }
 
-    /* Pad to the power of two, that happens always, no matter the size of the output */
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 0, sizeof (cl_mem), (gpointer) &tmp_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 1, sizeof (cl_mem), (gpointer) &in_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 2, sizeof (cl_int), &in_width));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 3, sizeof (cl_int), &in_height));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 4, sizeof (cl_int), &in_depth));
-    ufo_profiler_call (profiler, queue, priv->spread_kernel, 3, priv->fft_work_size, NULL);
+    if (is_input_complex) {
+        /* Input is complex, so already in frequency space -> no spreading */
+        ufo_buffer_copy (inputs[0], output);
+    } else {
+        /* Pad to the power of two, that happens always, no matter the size of the output */
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 0, sizeof (cl_mem), (gpointer) &tmp_mem));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 1, sizeof (cl_mem), (gpointer) &in_mem));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 2, sizeof (cl_int), &in_width));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 3, sizeof (cl_int), &in_height));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->spread_kernel, 4, sizeof (cl_int), &in_depth));
+        ufo_profiler_call (profiler, queue, priv->spread_kernel, 3, priv->fft_work_size, NULL);
+    }
 
     if (do_chirp) {
         ufo_fft_chirp_z (
