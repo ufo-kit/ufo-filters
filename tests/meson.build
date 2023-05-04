@@ -8,7 +8,6 @@ tests = [
     'test-nlm',
     'test-multipage-readers',
     'test-gradient',
-    'test-fft',
 ]
 
 tiffinfo = find_program('tiffinfo', required : false)
@@ -33,10 +32,6 @@ configure_file(input: 'check-gradient',
                output: 'check-gradient',
                copy: true)
 
-configure_file(input: 'check-fft',
-               output: 'check-fft',
-               copy: true)
-
 foreach t: tests
     test(t, find_program('@0@.sh'.format(t)), env: test_env)
 endforeach
@@ -44,6 +39,7 @@ endforeach
 # Python
 python_tests = [
     'test_memin',
+    'test_fft',
 ]
 
 foreach t: python_tests
