@@ -106,6 +106,20 @@ ufo_memory_in_task_get_requisition (UfoTask *task,
     UfoMemoryInTaskPrivate *priv;
 
     priv = UFO_MEMORY_IN_TASK_GET_PRIVATE (task);
+
+    if (priv->mem_in_location == UFO_MEMORY_IN_LOCATION_BUFFER) {
+        if (priv->bitdepth != UFO_BUFFER_DEPTH_32F) {
+            g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                         "OpenCL buffer must be float32");
+            return;
+        }
+        if (priv->complex_layout) {
+            g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                         "OpenCL buffer must be real");
+            return;
+        }
+    }
+
     requisition->n_dims = 2;
     requisition->dims[0] = priv->width;
     requisition->dims[1] = priv->height;
