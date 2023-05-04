@@ -919,15 +919,15 @@ Fast Fourier transform
 
     .. gobj:prop:: size-x:uint
 
-        Size of FFT transform in x-direction.
+        Size of FFT transform in x-direction, 0=automatic selection.
 
     .. gobj:prop:: size-y:uint
 
-        Size of FFT transform in y-direction.
+        Size of FFT transform in y-direction, 0=automatic selection.
 
     .. gobj:prop:: size-z:uint
 
-        Size of FFT transform in z-direction.
+        Size of FFT transform in z-direction, 0=automatic selection.
 
 
 .. gobj:class:: ifft
@@ -943,11 +943,11 @@ Fast Fourier transform
 
     .. gobj:prop:: crop-width:int
 
-        Width to crop output.
+        Width to crop output, 0=automatic selection.
 
     .. gobj:prop:: crop-height:int
 
-        Height to crop output.
+        Height to crop output, 0=automatic selection.
 
 
 .. gobj:class:: power-spectrum
