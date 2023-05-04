@@ -2,6 +2,7 @@ tests = [
     'test-149',
     'test-153',
     'test-161',
+    'test-177',
     'test-core-149',
     'test-file-write-regression',
     'test-nlm',
@@ -33,4 +34,16 @@ configure_file(input: 'check-gradient',
 
 foreach t: tests
     test(t, find_program('@0@.sh'.format(t)), env: test_env)
+endforeach
+
+# Python
+python_tests = [
+    'test_memin',
+]
+
+foreach t: python_tests
+    test(t, find_program('python'),
+         args: '@0@.py'.format(t),
+         env: test_env,
+         workdir: join_paths(meson.source_root(), 'tests'))
 endforeach

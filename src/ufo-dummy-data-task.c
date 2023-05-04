@@ -36,6 +36,7 @@ struct _UfoDummyDataTaskPrivate {
     gfloat init;
     gboolean use_init;
     gboolean metadata;
+    gboolean complex_layout;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -54,6 +55,7 @@ enum {
     PROP_NUMBER,
     PROP_INIT,
     PROP_METADATA,
+    PROP_COMPLEX_LAYOUT,
     N_PROPERTIES
 };
 
@@ -146,6 +148,10 @@ ufo_dummy_data_task_generate (UfoTask *task,
         ufo_buffer_set_metadata (output, "meta", &value);
     }
 
+    if (priv->complex_layout) {
+        ufo_buffer_set_layout (output, UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED);
+    }
+
     priv->current++;
     return TRUE;
 }
@@ -177,6 +183,9 @@ ufo_dummy_data_task_set_property (GObject *object,
             break;
         case PROP_METADATA:
             priv->metadata = g_value_get_boolean (value);
+            break;
+        case PROP_COMPLEX_LAYOUT:
+            priv->complex_layout = g_value_get_boolean (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -210,6 +219,9 @@ ufo_dummy_data_task_get_property (GObject *object,
             break;
         case PROP_METADATA:
             g_value_set_boolean (value, priv->metadata);
+            break;
+        case PROP_COMPLEX_LAYOUT:
+            g_value_set_boolean (value, priv->complex_layout);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -285,6 +297,13 @@ ufo_dummy_data_task_class_init (UfoDummyDataTaskClass *klass)
             FALSE,
             G_PARAM_READWRITE);
 
+    properties[PROP_COMPLEX_LAYOUT] =
+        g_param_spec_boolean("complex-layout",
+            "Make interleaved complex64 data type (x[0] = Re(z[0]), x[1] = Im(z[0]), ...)",
+            "Make interleaved complex64 data type (x[0] = Re(z[0]), x[1] = Im(z[0]), ...)",
+            FALSE,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -303,4 +322,5 @@ ufo_dummy_data_task_init(UfoDummyDataTask *self)
     self->priv->init = 0.0f;
     self->priv->use_init = FALSE;
     self->priv->metadata = FALSE;
+    self->priv->complex_layout = FALSE;
 }
