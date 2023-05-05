@@ -44,8 +44,12 @@ python_tests = [
 ]
 
 foreach t: python_tests
+    filename = '@0@.py'.format(t)
+    # Copy filename.py to tests/filename.py
+    configure_file(input: filename,
+                   output: filename,
+                   copy: true)
     test(t, find_program('python'),
-         args: '@0@.py'.format(t),
-         env: test_env,
-         workdir: join_paths(meson.source_root(), 'tests'))
+         args: join_paths(meson.current_build_dir(), filename),
+         env: test_env)
 endforeach
