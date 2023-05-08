@@ -887,7 +887,20 @@ Fast Fourier transform
     For every dimension, if size is not specified and
     :gobj:prop:`auto-zeropadding` is True, the input is padded to the next power
     of two. If it is False, the output has the same size as the input (via the
-    Chirp-z transform from :cite:`chirpz`). Example usage::
+    Chirp-z transform from :cite:`chirpz`).
+
+    Please note that Chirp-z needs to perform 2 padded-size FFTs and pads the
+    input to the next power of two of *double* the input size, so it can be
+    considerably slower than using :gobj:prop:`auto-zeropadding`. E.g. if the
+    input size is ``1023 x 1023`` pixels, `auto-zeropadding=True` pads the input
+    to ``1024 x 1024`` pixels. In the case of `auto-zeropadding=False` and no
+    user size specification (see parameters below), Chirp-z pads the input to
+    ``2048 x 2048``. On the top of that, it requires two FFTs with the padded
+    size, so in this case it is eight times slower than using
+    `auto-zeropadding=True` (factor of four for the padding in the two
+    dimensions and the additional factor of two for the two FFTs).
+
+    Example usage::
 
         # Suppose input.tif is 3D and has the following size: width=17, height=15, depth=9
         # 3D transform, input size = output size
