@@ -9,6 +9,7 @@ for image processing and tomographic reconstruction.
 You can get a list and extensive description of the filters in our
 [reference](http://ufo-filters.readthedocs.io).
 
+If you want to stay updated, subscribe to our [newsletter](mailto:sympa@lists.kit.edu?subject=subscribe%20ufo%20YourFirstName%20YourLastName). Simply leave the body of the e-mail empty and in the subject change ``YourFirstName YourLastName`` accordingly.
 
 ### License
 
