@@ -216,6 +216,7 @@ if have_clfft or with_oclfft
     endif
 
     common_fft = static_library('commonfft',
+        'common/ufo-math.c',
         'common/ufo-fft.c',
         dependencies: fft_deps,
     )

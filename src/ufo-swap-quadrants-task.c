@@ -111,6 +111,7 @@ ufo_swap_quadrants_task_process (UfoTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
+    cl_int width_mod, height_mod, width, height;
 
     priv = UFO_SWAP_QUADRANTS_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
@@ -123,26 +124,37 @@ ufo_swap_quadrants_task_process (UfoTask *task,
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
 
-    size_t local_work_size[] = {16,16};
+    size_t local_size[2] = {16, 16};
     size_t working_size[2];
     cl_kernel used_kernel;
 
-    if (requisition->dims[0]/2 == requisition->dims[1]) { //if complex
-        working_size[0] = requisition->dims[0]/2;
-        working_size[1] = requisition->dims[1]/2;
+    height = requisition->dims[1];
+    height_mod = requisition->dims[1] % 2;
+    if (ufo_buffer_get_layout (inputs[0]) == UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED) {
+        width = requisition->dims[0] / 2;
+        width_mod = (requisition->dims[0] / 2) % 2;
         used_kernel = priv->swap_quadrants_kernel_complex;
     }
-    else { //if real
-        working_size[0] = requisition->dims[0];
-        working_size[1] = requisition->dims[1]/2;
+    else {
+        width = requisition->dims[0];
+        width_mod = requisition->dims[0] % 2;
         used_kernel = priv->swap_quadrants_kernel_real;
     }
+    working_size[0] = width / 2 + width_mod;
+    working_size[1] = height / 2 + height_mod;
     /* execution */
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (used_kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (used_kernel, 1, sizeof (cl_mem), &out_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (used_kernel, 2, sizeof (cl_int), &width));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (used_kernel, 3, sizeof (cl_int), &height));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (used_kernel, 4, sizeof (cl_int), &width_mod));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (used_kernel, 5, sizeof (cl_int), &height_mod));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-    ufo_profiler_call (profiler, cmd_queue, used_kernel, requisition->n_dims, working_size, local_work_size);
+    ufo_profiler_call (
+        profiler, cmd_queue, used_kernel, requisition->n_dims, working_size,
+        working_size[0] % local_size[0] == 0 && working_size[1] % local_size[1] == 0 ? local_size : NULL
+    );
     
     return TRUE;
 }

@@ -23,43 +23,59 @@ typedef struct {
 } clFFT_Complex;
 
 kernel void
-swap_quadrants_kernel_real(global float *input, global float *output)
+swap_quadrants_kernel_real(global float *input,
+                           global float *output,
+                           const int width,
+                           const int height,
+                           const int width_mod,
+                           const int height_mod)
 {
-	const uint global_x_size = get_global_size(0);
+    int idx = get_global_id (0);
+    int idy = get_global_id (1);
+    int width_2 = width / 2;
+    int height_2 = height / 2;
 
-	int global_x_size2 = global_x_size/2;
-	int global_y_size2 = global_x_size2;
-
-	int g_idx = get_global_id(0);
-	int g_idy = get_global_id(1);
-			
-	if (g_idx < global_x_size2) {
-		output[g_idy * global_x_size + g_idx] = input[(global_y_size2 + g_idy) * global_x_size + (global_x_size2 + g_idx)];
-		output[(global_y_size2 + g_idy) * global_x_size + (global_x_size2 + g_idx)] = input[g_idy * global_x_size + g_idx];
-	}
-	else {
-		output[g_idy * global_x_size + g_idx] = input[(global_y_size2 + g_idy) * global_x_size + (g_idx - global_x_size2)];
-		output[(global_y_size2 + g_idy) * global_x_size + (g_idx - global_x_size2)] = input[g_idy * global_x_size + g_idx];
-	}
+    // Bottom left -> Top right
+    output[(idy + height_2) * width + idx + width_2] = input[idy * width + idx];
+    if (idy < height_2) {
+        // Top left -> bottom right
+        output[idy * width + idx + width_2] = input[(idy + height_2 + height_mod) * width + idx];
+    }
+    if (idx < width_2) {
+        // Bottom right -> top left
+        output[(idy + height_2) * width + idx] = input[idy * width + idx + width_2 + width_mod];
+    }
+    if (idx < width_2 && idy < height_2) {
+        // Top right -> bottom left
+        output[idy * width + idx] = input[(idy + height_2 + height_mod) * width + idx + width_2 + width_mod];
+    }
 }
 
 kernel void
-swap_quadrants_kernel_complex(global clFFT_Complex *input, global clFFT_Complex *output)
+swap_quadrants_kernel_complex(global clFFT_Complex *input,
+                              global clFFT_Complex *output,
+                              const int width,
+                              const int height,
+                              const int width_mod,
+                              const int height_mod)
 {
-	const uint global_x_size = get_global_size(0);
+    int idx = get_global_id (0);
+    int idy = get_global_id (1);
+    int width_2 = width / 2;
+    int height_2 = height / 2;
 
-	int global_x_size2 = global_x_size/2;
-	int global_y_size2 = global_x_size2;
-
-	int g_idx = get_global_id(0);
-	int g_idy = get_global_id(1);
-			
-	if (g_idx < global_x_size2) {
-		output[g_idy * global_x_size + g_idx] = input[(global_y_size2 + g_idy) * global_x_size + (global_x_size2 + g_idx)];
-		output[(global_y_size2 + g_idy) * global_x_size + (global_x_size2 + g_idx)] = input[g_idy * global_x_size + g_idx];
-	}
-	else {
-		output[g_idy * global_x_size + g_idx] = input[(global_y_size2 + g_idy) * global_x_size + (g_idx - global_x_size2)];
-		output[(global_y_size2 + g_idy) * global_x_size + (g_idx - global_x_size2)] = input[g_idy * global_x_size + g_idx];
-	}
+    // Bottom left -> Top right
+    output[(idy + height_2) * width + idx + width_2] = input[idy * width + idx];
+    if (idy < height_2) {
+        // Top left -> bottom right
+        output[idy * width + idx + width_2] = input[(idy + height_2 + height_mod) * width + idx];
+    }
+    if (idx < width_2) {
+        // Bottom right -> top left
+        output[(idy + height_2) * width + idx] = input[idy * width + idx + width_2 + width_mod];
+    }
+    if (idx < width_2 && idy < height_2) {
+        // Top right -> bottom left
+        output[idy * width + idx] = input[(idy + height_2 + height_mod) * width + idx + width_2 + width_mod];
+    }
 }

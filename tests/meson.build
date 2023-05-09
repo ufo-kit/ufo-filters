@@ -7,7 +7,7 @@ tests = [
     'test-file-write-regression',
     'test-nlm',
     'test-multipage-readers',
-    'test-gradient'
+    'test-gradient',
 ]
 
 tiffinfo = find_program('tiffinfo', required : false)
@@ -39,11 +39,17 @@ endforeach
 # Python
 python_tests = [
     'test_memin',
+    'test_fft',
+    'test_swap_quadrants',
 ]
 
 foreach t: python_tests
+    filename = '@0@.py'.format(t)
+    # Copy filename.py to tests/filename.py
+    configure_file(input: filename,
+                   output: filename,
+                   copy: true)
     test(t, find_program('python'),
-         args: '@0@.py'.format(t),
-         env: test_env,
-         workdir: join_paths(meson.source_root(), 'tests'))
+         args: join_paths(meson.current_build_dir(), filename),
+         env: test_env)
 endforeach

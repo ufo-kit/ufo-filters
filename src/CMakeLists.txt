@@ -111,9 +111,11 @@ set(filter_aux_SRCS
     common/ufo-fft.c)
 
 set(fft_aux_SRCS
+    common/ufo-math.c
     common/ufo-fft.c)
 
 set(ifft_aux_SRCS
+    common/ufo-math.c
     common/ufo-fft.c)
 
 set(retrieve_phase_aux_SRCS

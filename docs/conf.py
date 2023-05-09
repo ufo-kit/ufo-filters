@@ -36,22 +36,31 @@ copyright = u'%s, UFO Collaboration' % time.strftime('%Y')
 version = get_version()
 release = version
 
-extensions = ['sphinx.ext.mathjax', 'sphinxgobject']
+extensions = [
+    'sphinx.ext.mathjax',
+    'sphinxgobject',
+    'sphinxcontrib.bibtex'
+]
 templates_path = ['_templates']
 
 master_doc = 'index'
 source_suffix = '.rst'
 
 exclude_patterns = ['_build']
+pygments_style = None
 
-pygments_style = 'sphinx'
-
-html_theme = 'default'
-html_use_smartypants = True
+html_theme = 'sphinx_rtd_theme'
+html_static_path = ['_static']
+html_css_files = [
+    'css/custom.css'
+]
+html_style = 'css/custom.css'
 htmlhelp_basename = 'ufo-filtersdoc'
-
 
 latex_documents = [
   ('index', 'ufo-filters.tex', u'UFO Tasks Reference',
    u'Matthias Vogelgesang', 'manual'),
 ]
+
+bibtex_bibfiles = ['refs.bib']
+bibtex_reference_style = 'author_year'
