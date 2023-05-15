@@ -493,6 +493,13 @@ ufo_ifft_task_init (UfoIfftTask *self)
     UfoIfftTaskPrivate *priv;
     self->priv = priv = UFO_IFFT_TASK_GET_PRIVATE (self);
     priv->pack_kernel = NULL;
+    priv->coeffs_kernel = NULL;
+    priv->mul_kernel = NULL;
+    priv->c_mul_kernel = NULL;
+    priv->coeffs_buffer = NULL;
+    priv->f_coeffs_buffer = NULL;
+    priv->tmp_buffer = NULL;
+    priv->tmp_buffer_2 = NULL;
     priv->context = NULL;
     priv->fft = ufo_fft_new ();
     priv->param.dimensions = UFO_FFT_1D;
