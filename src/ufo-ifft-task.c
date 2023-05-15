@@ -201,7 +201,8 @@ ufo_ifft_task_equal_real (UfoNode *n1,
                           UfoNode *n2)
 {
     g_return_val_if_fail (UFO_IS_IFFT_TASK (n1) && UFO_IS_IFFT_TASK (n2), FALSE);
-    return TRUE;
+
+    return UFO_IFFT_TASK (n1)->priv->pack_kernel == UFO_IFFT_TASK (n2)->priv->pack_kernel;
 }
 
 static gboolean
