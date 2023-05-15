@@ -166,6 +166,8 @@ ufo_fft_destroy (UfoFft *fft)
  * @profiler: #UfoProfiler
  * @in_mem: %cl_mem
  * @tmp_mem: %cl_mem for temporary large FFT
+ * @tmp_mem_2: %cl_mem for temporary large forward FFT (inplace doesn't work
+ * with backward direction)
  * @out_mem: %cl_mem for final FT result
  * @coeffs_buffer: #UfoBuffer holding Chirp-z coefficients
  * @f_coeffs_buffer: #UfoBuffer holding Fourier-transformed conjugated Chirp-z coefficients
@@ -209,6 +211,7 @@ ufo_fft_chirp_z (UfoFft *fft,
                  /* Memory */
                  cl_mem in_mem,
                  cl_mem tmp_mem,
+                 cl_mem tmp_mem_2,
                  cl_mem out_mem,
                  UfoBuffer *coeffs_buffer,
                  UfoBuffer *f_coeffs_buffer,
@@ -292,9 +295,10 @@ ufo_fft_chirp_z (UfoFft *fft,
     ufo_profiler_call (profiler, queue, mul_kernel, 3, in_work_size, NULL);
     /* FFT of modulated */
     UFO_RESOURCES_CHECK_CLERR (ufo_fft_execute (fft, queue, profiler,
-                                                tmp_mem, tmp_mem,
+                                                tmp_mem, tmp_mem_2,
                                                 UFO_FFT_FORWARD,
                                                 0, NULL, NULL));
+    tmp_mem = tmp_mem_2;
 
     /* Convolution by multiplication of the FFTs */
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (c_mul_kernel, 0, sizeof (cl_mem), (gpointer) &tmp_mem));

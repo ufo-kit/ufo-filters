@@ -36,7 +36,7 @@ struct _UfoIfftTaskPrivate {
     cl_context context;
     cl_kernel pack_kernel, coeffs_kernel, mul_kernel, c_mul_kernel;
 
-    UfoBuffer *coeffs_buffer, *f_coeffs_buffer, *tmp_buffer;
+    UfoBuffer *coeffs_buffer, *f_coeffs_buffer, *tmp_buffer, *tmp_buffer_2;
     gsize user_size[3], fft_work_size[3];
 };
 
@@ -104,6 +104,7 @@ ufo_ifft_task_setup (UfoTask *task,
         priv->coeffs_buffer = ufo_buffer_new(&requisition, priv->context);
         priv->f_coeffs_buffer = ufo_buffer_new(&requisition, priv->context);
         priv->tmp_buffer = ufo_buffer_new(&requisition, priv->context);
+        priv->tmp_buffer_2 = ufo_buffer_new(&requisition, priv->context);
     }
 }
 
@@ -200,7 +201,8 @@ ufo_ifft_task_equal_real (UfoNode *n1,
                           UfoNode *n2)
 {
     g_return_val_if_fail (UFO_IS_IFFT_TASK (n1) && UFO_IS_IFFT_TASK (n2), FALSE);
-    return TRUE;
+
+    return UFO_IFFT_TASK (n1)->priv->pack_kernel == UFO_IFFT_TASK (n2)->priv->pack_kernel;
 }
 
 static gboolean
@@ -213,7 +215,7 @@ ufo_ifft_task_process (UfoTask *task,
     UfoRequisition in_req, fft_req;
     UfoProfiler *profiler;
     cl_command_queue queue;
-    cl_mem in_mem, out_mem, tmp_mem;
+    cl_mem in_mem, out_mem, tmp_mem, tmp_mem_2;
     cl_int out_width, out_height, false_value = 0;
     gsize in_work_size[3];
     gfloat scale = 1.0f;
@@ -254,8 +256,10 @@ ufo_ifft_task_process (UfoTask *task,
     if (do_chirp) {
         if (ufo_buffer_cmp_dimensions (priv->tmp_buffer, &fft_req) != 0) {
             ufo_buffer_resize (priv->tmp_buffer, &fft_req);
+            ufo_buffer_resize (priv->tmp_buffer_2, &fft_req);
         }
         tmp_mem = ufo_buffer_get_device_array (priv->tmp_buffer, queue);
+        tmp_mem_2 = ufo_buffer_get_device_array (priv->tmp_buffer_2, queue);
         ufo_fft_chirp_z (
             priv->fft,
             &priv->param,
@@ -263,6 +267,7 @@ ufo_ifft_task_process (UfoTask *task,
             profiler,
             in_mem,
             tmp_mem,
+            tmp_mem_2,
             out_mem,
             priv->coeffs_buffer,
             priv->f_coeffs_buffer,
@@ -361,6 +366,11 @@ ufo_ifft_task_finalize (GObject *object)
     if (priv->tmp_buffer) {
         g_object_unref(priv->tmp_buffer);
         priv->tmp_buffer = NULL;
+    }
+
+    if (priv->tmp_buffer_2) {
+        g_object_unref(priv->tmp_buffer_2);
+        priv->tmp_buffer_2 = NULL;
     }
 
     if (priv->context) {
@@ -483,6 +493,13 @@ ufo_ifft_task_init (UfoIfftTask *self)
     UfoIfftTaskPrivate *priv;
     self->priv = priv = UFO_IFFT_TASK_GET_PRIVATE (self);
     priv->pack_kernel = NULL;
+    priv->coeffs_kernel = NULL;
+    priv->mul_kernel = NULL;
+    priv->c_mul_kernel = NULL;
+    priv->coeffs_buffer = NULL;
+    priv->f_coeffs_buffer = NULL;
+    priv->tmp_buffer = NULL;
+    priv->tmp_buffer_2 = NULL;
     priv->context = NULL;
     priv->fft = ufo_fft_new ();
     priv->param.dimensions = UFO_FFT_1D;

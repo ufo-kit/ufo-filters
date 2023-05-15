@@ -30,7 +30,8 @@ def main(
     crop_height=None,
     dimensions=1,
     do_inverse=False,
-    auto_zeropadding=False
+    auto_zeropadding=False,
+    stack=True
 ):
     if output_shape is None:
         if auto_zeropadding:
@@ -91,15 +92,23 @@ def main(
     mem_out.props.pointer = out_numpy.__array_interface__['data'][0]
     mem_out.props.max_size = out_numpy.nbytes
 
-    graph.connect_nodes(mem_in, stack_task)
-    graph.connect_nodes(stack_task, fft_task)
-    if do_inverse:
-        graph.connect_nodes(fft_task, ifft_task)
-        graph.connect_nodes(ifft_task, slice_task)
+    if stack:
+        graph.connect_nodes(mem_in, stack_task)
+        graph.connect_nodes(stack_task, fft_task)
+        if do_inverse:
+            graph.connect_nodes(fft_task, ifft_task)
+            graph.connect_nodes(ifft_task, slice_task)
+        else:
+            graph.connect_nodes(fft_task, slice_task)
+        graph.connect_nodes(slice_task, mem_out)
     else:
-        graph.connect_nodes(fft_task, slice_task)
+        graph.connect_nodes(mem_in, fft_task)
+        if do_inverse:
+            graph.connect_nodes(fft_task, ifft_task)
+            graph.connect_nodes(ifft_task, mem_out)
+        else:
+            graph.connect_nodes(fft_task, mem_out)
 
-    graph.connect_nodes(slice_task, mem_out)
     sched.run(graph)
 
     # Check results
@@ -168,3 +177,4 @@ if __name__ == "__main__":
     # 1D custom crop
     main(input_shape, output_shape=(9, 17, 50), dimensions=1, crop_width=45, do_inverse=True)
     main(input_shape, dimensions=1, crop_width=25, do_inverse=True)
+    main((32, 32, 10), dimensions=2, do_inverse=True, auto_zeropadding=False, stack=False)
