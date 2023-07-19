@@ -285,6 +285,7 @@ ufo_filter_task_get_requisition (UfoTask *task,
 
     priv = UFO_FILTER_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], requisition);
+    gdouble int_part;
 
     if (priv->filter_mem == NULL) {
         cl_int cl_err;
@@ -292,6 +293,11 @@ ufo_filter_task_get_requisition (UfoTask *task,
         gfloat *coefficients;
 
         width = (guint) requisition->dims[0];
+        if (modf (log2 (width), &int_part) != 0.0) {
+            g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                         "Invalid filter input width %u, must be a power of two", width);
+            return;
+        }
         coefficients = g_malloc0 (width * sizeof (gfloat));
 
         coefficients[0] = 0.5 / width;
