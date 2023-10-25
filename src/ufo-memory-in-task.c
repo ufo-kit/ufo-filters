@@ -151,10 +151,11 @@ ufo_memory_in_task_generate (UfoTask *task,
 {
     UfoMemoryInTaskPrivate *priv;
     guint8 *data;
-    gsize size;
+    gsize size, offset;
 
     priv = UFO_MEMORY_IN_TASK_GET_PRIVATE (task);
     size = priv->width * priv->height * priv->bytes_per_pixel;
+    offset = priv->read * size;
 
     if (priv->read == priv->number)
         return FALSE;
@@ -165,8 +166,8 @@ ufo_memory_in_task_generate (UfoTask *task,
                 data = (guint8 *) ufo_buffer_get_host_array (output, NULL);
                 memcpy (
                     data,
-                    priv->pointer + (priv->read * priv->width * priv->height * priv->bytes_per_pixel),
-                    priv->width * priv->height * priv->bytes_per_pixel
+                    priv->pointer + offset,
+                    size
                 );
             }
             break;
@@ -206,7 +207,7 @@ ufo_memory_in_task_generate (UfoTask *task,
                         NULL
                     )
                 );
-                if (src_size != ufo_buffer_get_size (output)) {
+                if (src_size != priv->number * ufo_buffer_get_size (output)) {
                     g_error ("Input has wrong size");
                     return FALSE;
                 }
@@ -214,7 +215,8 @@ ufo_memory_in_task_generate (UfoTask *task,
                 errcode = clEnqueueCopyBuffer (cmd_queue,
                                                src_mem,
                                                dst_mem,
-                                               0, 0,
+                                               offset,
+                                               0,
                                                size,
                                                0, NULL, NULL);
 
@@ -419,7 +421,7 @@ ufo_memory_in_task_init(UfoMemoryInTask *self)
     self->priv->height = 1;
     self->priv->bitdepth = UFO_BUFFER_DEPTH_32F;
     self->priv->bytes_per_pixel = 4;
-    self->priv->number = 0;
+    self->priv->number = 1;
     self->priv->complex_layout = FALSE;
     self->priv->mem_in_location = UFO_MEMORY_IN_LOCATION_HOST;
 }
