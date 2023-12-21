@@ -105,7 +105,16 @@ ufo_flatten_task_get_mode (UfoTask *task)
 static int
 cmp_float (gconstpointer p1, gconstpointer p2)
 {
-    return (int) (*((const gfloat *) p1) - *((const gfloat *) p2));
+    gfloat val_1 = *((const gfloat *) p1);
+    gfloat val_2 = *((const gfloat *) p2);
+
+    if (val_1 < val_2) {
+        return -1;
+    } else if (val_1 == val_2) {
+        return 0;
+    } else {
+        return 1;
+    }
 }
 
 static gboolean
