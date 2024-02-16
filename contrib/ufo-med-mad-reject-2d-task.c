@@ -252,4 +252,6 @@ static void
 ufo_med_mad_reject_2d_task_init(UfoMedMadReject2DTask *self)
 {
   self->priv = UFO_MED_MAD_REJECT_2D_TASK_GET_PRIVATE(self);
+  self->priv->threshold = 3.0f;
+  self->priv->box_size = 3;
 }
