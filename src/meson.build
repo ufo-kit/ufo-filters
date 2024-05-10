@@ -112,7 +112,7 @@ tiff_dep = dependency('libtiff-4', required: false)
 hdf5_dep = dependency('hdf5', required: false)
 jpeg_dep = dependency('libjpeg', required: false)
 pangocairo_dep = dependency('pangocairo', required: false)
-opencv_dep = dependency('opencv', required: false)
+opencv_dep = dependency('opencv4', required: false)
 uca_dep = dependency('libuca', required: false)
 clblast_dep = dependency('clblast', required: false)
 clfft_dep = dependency('clFFT', required: false)
@@ -235,7 +235,7 @@ endif
 
 # lamino plugin
 
-python = find_program('python', required: false)
+python = find_program('python3', required: false)
 
 if python.found()
     shared_module('lamino-backproject',
