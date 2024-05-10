@@ -47,7 +47,7 @@ deps = [
 ]
 
 subdir('deps')
-subdir('docs')
+# subdir('docs')
 subdir('src')
 subdir('tests')
 
