@@ -60,7 +60,12 @@ filter_inner (global float *input,
         }
     }
 
-    output[idy * width + idx] = elements[MEDIAN_BOX_SIZE * MEDIAN_BOX_SIZE / 2];
+    if (MEDIAN_BOX_SIZE * MEDIAN_BOX_SIZE % 2) {
+        output[idy * width + idx] = elements[MEDIAN_BOX_SIZE * MEDIAN_BOX_SIZE / 2];
+    } else {
+        output[idy * width + idx] = (elements[MEDIAN_BOX_SIZE * MEDIAN_BOX_SIZE / 2]
+                                     + elements[MEDIAN_BOX_SIZE * MEDIAN_BOX_SIZE / 2 - 1]) / 2.0f;
+    }
 }
 
 kernel void

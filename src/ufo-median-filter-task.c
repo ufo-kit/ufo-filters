@@ -167,14 +167,7 @@ ufo_median_filter_task_set_property (GObject *object,
     switch (property_id) {
         case PROP_SIZE:
             {
-                guint new_size;
-
-                new_size = g_value_get_uint (value);
-
-                if ((new_size % 2) == 0)
-                    g_warning ("MedianFilter::size = %i is divisible by 2, ignoring it", new_size);
-                else
-                    priv->size = new_size;
+                priv->size = g_value_get_uint (value);
             }
             break;
         default:
