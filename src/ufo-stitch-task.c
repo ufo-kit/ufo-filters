@@ -153,7 +153,7 @@ compute_mean (UfoStitchTaskPrivate *priv,
 
     groups_per_roi_width = (priv->overlap + work_group_size - 1) / work_group_size;
     global_work_size[0] = groups_per_roi_width * work_group_size;
-    global_work_size[1] = height / GLOBAL_SUM_HEIGHT;
+    global_work_size[1] = height >= GLOBAL_SUM_HEIGHT ? height / GLOBAL_SUM_HEIGHT : 1;
     /* Number of output points (every work group produces 1 output value) */
     num_blocks = global_work_size[0] * global_work_size[1] / work_group_size,
     summed_blocks = (gfloat *) g_malloc (num_blocks * sizeof (gfloat));
