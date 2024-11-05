@@ -22,7 +22,8 @@ binning_2d (global float *input,
             global float *output,
             const unsigned size,
             const unsigned in_width,
-            const unsigned in_height)
+            const unsigned in_height,
+            const unsigned average)
 {
     const size_t idx = get_global_id (0);
     const size_t idy = get_global_id (1);
@@ -50,6 +51,10 @@ binning_2d (global float *input,
         }
     }
 
+    if (average) {
+        sum /= size * size;
+    }
+
     output[idy * width + idx] = sum;
 }
 
@@ -58,7 +63,8 @@ binning_3d (global float *input,
             global float *output,
             const unsigned size,
             const unsigned in_width,
-            const unsigned in_height)
+            const unsigned in_height,
+            const unsigned average)
 {
     const size_t idx = get_global_id (0);
     const size_t idy = get_global_id (1);
@@ -97,5 +103,8 @@ binning_3d (global float *input,
         }
     }
 
+    if (average) {
+        sum /= size * size * size;
+    }
     output[idz * height * width + idy * width + idx] = sum;
 }

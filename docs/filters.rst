@@ -210,11 +210,15 @@ Binning
 
 .. gobj:class:: bin
 
-    Bin a square of pixels by summing their values.
+    Bin a square of pixels by summing their values (and averaging if specified).
 
     .. gobj:prop:: size:uint
 
         Number of pixels in one direction to bin to a single pixel value.
+
+    .. gobj:prop:: average:bool
+
+        Average values instead of just summing them.
 
 
 Rescaling

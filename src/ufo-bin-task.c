@@ -29,6 +29,7 @@
 
 struct _UfoBinTaskPrivate {
     guint size;
+    guint average;
     cl_kernel kernel_2d;
     cl_kernel kernel_3d;
 };
@@ -44,6 +45,7 @@ G_DEFINE_TYPE_WITH_CODE (UfoBinTask, ufo_bin_task, UFO_TYPE_TASK_NODE,
 enum {
     PROP_0,
     PROP_SIZE,
+    PROP_AVERAGE,
     N_PROPERTIES
 };
 
@@ -141,6 +143,7 @@ ufo_bin_task_process (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 2, sizeof (guint), &priv->size));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (guint), &in_req.dims[0]));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (guint), &in_req.dims[1]));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 5, sizeof (guint), &priv->average));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, kernel, in_req.n_dims, requisition->dims, NULL);
@@ -160,6 +163,9 @@ ufo_bin_task_set_property (GObject *object,
         case PROP_SIZE:
             priv->size = g_value_get_uint (value);
             break;
+        case PROP_AVERAGE:
+            priv->average = g_value_get_boolean (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -177,6 +183,9 @@ ufo_bin_task_get_property (GObject *object,
     switch (property_id) {
         case PROP_SIZE:
             g_value_set_uint (value, priv->size);
+            break;
+        case PROP_AVERAGE:
+            g_value_set_boolean (value, priv->average);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -231,6 +240,13 @@ ufo_bin_task_class_init (UfoBinTaskClass *klass)
             2, 16, 2,
             G_PARAM_READWRITE);
 
+    properties[PROP_AVERAGE] =
+        g_param_spec_boolean ("average",
+            "Average values instead of just summing them",
+            "Average values instead of just summing them",
+            TRUE,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -242,4 +258,5 @@ ufo_bin_task_init(UfoBinTask *self)
 {
     self->priv = UFO_BIN_TASK_GET_PRIVATE(self);
     self->priv->size = 2;
+    self->priv->average = FALSE;
 }
