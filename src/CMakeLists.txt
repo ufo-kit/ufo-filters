@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 2.6)
 
 #{{{ Sources
 set(ufofilter_SRCS
+    ufo-augmented-lamino-task.c
     ufo-average-task.c
     ufo-backproject-task.c
     ufo-bin-task.c
