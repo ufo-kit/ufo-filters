@@ -3,7 +3,7 @@
 # Make input
 ufo-launch dummy-data width=8 height=8 number=1 ! calculate expression="'x'" ! write tiff-bigtiff=False filename=gradient-input.tif
 
-for direction in horizontal vertical both both_abs
+for direction in horizontal vertical both both_abs both_mag
 do
     for fd_type in forward backward central
     do

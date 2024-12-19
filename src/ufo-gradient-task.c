@@ -32,6 +32,7 @@ typedef enum {
     DIRECTION_VERTICAL,
     DIRECTION_BOTH,
     DIRECTION_BOTH_ABS,
+    DIRECTION_BOTH_MAG,
     DIRECTION_LAST
 } Direction;
 
@@ -40,6 +41,7 @@ static GEnumValue direction_values[] = {
     {DIRECTION_VERTICAL,        "DIRECTION_VERTICAL",       "vertical"   },
     {DIRECTION_BOTH,            "DIRECTION_BOTH",           "both"       },
     {DIRECTION_BOTH_ABS,        "DIRECTION_BOTH_ABS",       "both_abs"   },
+    {DIRECTION_BOTH_MAG,        "DIRECTION_BOTH_MAG",       "both_mag"   },
     {0, NULL, NULL}
 };
 
@@ -184,6 +186,7 @@ ufo_gradient_task_process (UfoTask *task,
     switch (priv->direction) {
         case DIRECTION_BOTH:
         case DIRECTION_BOTH_ABS:
+        case DIRECTION_BOTH_MAG:
         case DIRECTION_HORIZONTAL:
             if (requisition->dims[0] < 3) {
                 g_warning ("Skipping image with width less than 3");
@@ -301,8 +304,8 @@ ufo_gradient_task_class_init (UfoGradientTaskClass *klass)
 
     properties[PROP_DIRECTION] =
         g_param_spec_enum ("direction",
-            "Direction (\"horizontal\", \"vertical\", \"both\", \"both_abs\")",
-            "Direction (\"horizontal\", \"vertical\", \"both\", \"both_abs\")",
+            "Direction (\"horizontal\", \"vertical\", \"both\", \"both_abs\", \"both_mag\")",
+            "Direction (\"horizontal\", \"vertical\", \"both\", \"both_abs\", \"both_mag\")",
             g_enum_register_static ("ufo_gradient_direction", direction_values),
             DIRECTION_HORIZONTAL,
             G_PARAM_READWRITE);
