@@ -30,6 +30,10 @@ def main(direction, fd_type):
     elif direction == 'both_abs':
         g = np.abs(get_gradient(im, fd_type, 1))
         g += np.abs(get_gradient(im, fd_type, 0))
+    elif direction == 'both_mag':
+        horiz = get_gradient(im, fd_type, 1)
+        vert = get_gradient(im, fd_type, 0)
+        g = np.sqrt(horiz ** 2 + vert ** 2)
 
     try:
         np.testing.assert_equal(ufo, g)

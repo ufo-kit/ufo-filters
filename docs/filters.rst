@@ -537,7 +537,7 @@ Gradient
     .. gobj:prop:: direction:enum
 
          Direction of the gradient, can be either ``horizontal``, ``vertical``,
-         ``both`` or ``both_abs``.
+         ``both``, ``both_abs`` or ``both_mag``.
 
     .. gobj:prop:: finite-difference-type:enum
 

@@ -128,3 +128,19 @@ kernel void both_abs (read_only image2d_t input,
     output[idy * width + idx] = fabs (compute_horizontal (input, sampler, finite_difference_type, idx, idy)) +
                                 fabs (compute_vertical (input, sampler, finite_difference_type, idx, idy));
 }
+
+kernel void both_mag (read_only image2d_t input,
+                      sampler_t sampler,
+                      const int finite_difference_type,
+                      global float *output)
+{
+    int width = get_global_size (0);
+    int idx = get_global_id (0);
+    int idy = get_global_id (1);
+    float horiz, vert;
+
+    horiz = compute_horizontal (input, sampler, finite_difference_type, idx, idy);
+    vert = compute_vertical (input, sampler, finite_difference_type, idx, idy);
+
+    output[idy * width + idx] = sqrt (horiz * horiz + vert * vert);
+}
