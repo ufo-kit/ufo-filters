@@ -214,3 +214,48 @@ kernel void parallel_sum_2D (global float *input,
         output[get_group_id (1) * get_num_groups (0) + get_group_id (0)] = cache[0];
     }
 }
+
+
+kernel void parallel_argmax (global float *input,
+                             global float *output,
+                             global ulong *index_output,
+                             local float *cache,
+                             local ulong *index_cache,
+                             const ulong real_size,
+                             const int pixels_per_thread)
+{
+    int lid = get_local_id (0);
+    size_t gid = get_global_id (0);
+    size_t global_size = get_global_size (0);
+    float value = -INFINITY;
+    ulong index = 0;
+
+    for (int i = 0; i < pixels_per_thread; i++) {
+        if (gid < real_size) {
+            if (input[gid] > value) {
+                value = input[gid];
+                index = gid;
+            }
+        }
+        gid += global_size;
+    }
+
+    cache[lid] = value;
+    index_cache[lid] = index;
+    barrier (CLK_LOCAL_MEM_FENCE);
+
+    for (int block = get_local_size (0) >> 1; block > 0; block >>= 1) {
+        if (lid < block) {
+            if (cache[lid + block] > cache[lid]) {
+                cache[lid] = cache[lid + block];
+                index_cache[lid] = index_cache[lid + block];
+            }
+        }
+        barrier (CLK_LOCAL_MEM_FENCE);
+    }
+
+    if (lid == 0) {
+        output[get_group_id (0)] = cache[0];
+        index_output[get_group_id (0)] = index_cache[0];
+    }
+}
