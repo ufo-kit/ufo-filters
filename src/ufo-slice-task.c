@@ -119,6 +119,7 @@ ufo_slice_task_process (UfoTask *task,
     /* Move data */
     ufo_buffer_copy (inputs[0], priv->copy);
     ufo_buffer_copy_metadata (inputs[0], priv->copy);
+    ufo_buffer_set_layout (priv->copy, ufo_buffer_get_layout (inputs[0]));
 
     return FALSE;
 }
@@ -143,6 +144,7 @@ ufo_slice_task_generate (UfoTask *task,
     dst = ufo_buffer_get_host_array (output, NULL);
     memcpy (dst, src + priv->current * priv->size / sizeof(gfloat), priv->size);
     ufo_buffer_copy_metadata (priv->copy, output);
+    ufo_buffer_set_layout (output, ufo_buffer_get_layout (priv->copy));
     priv->current++;
 
     return TRUE;
