@@ -102,9 +102,16 @@ ufo_slice_task_process (UfoTask *task,
                         UfoRequisition *requisition)
 {
     UfoSliceTaskPrivate *priv;
+    UfoRequisition in_req;
 
     priv = UFO_SLICE_TASK_GET_PRIVATE (task);
-    priv->copy = ufo_buffer_dup (inputs[0]);
+    ufo_buffer_get_requisition (inputs[0], &in_req);
+
+    if (priv->copy == NULL) {
+        priv->copy = ufo_buffer_dup (inputs[0]);
+    } else if (ufo_buffer_cmp_dimensions (priv->copy, &in_req) != 0) {
+        ufo_buffer_resize (priv->copy, &in_req);
+    }
 
     /* Force CPU memory */
     ufo_buffer_get_host_array (priv->copy, NULL);
