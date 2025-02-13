@@ -124,7 +124,7 @@ ctf_multidistance_square(global float *distances,
         result += value * value;
     }
 
-    output[idy * width + idx] = num_distances * 0.5f * pow(10, regularize_rate) / (result + pow(10, -regularize_rate));
+    output[idy * width + idx] = 1.0f / (fabs (result) < 1e-7 ? 1e-3: result);
 }
 
 /**
@@ -142,7 +142,7 @@ ctf_multidistance_apply_distance(global float *input,
     COMMON_FREQUENCY_SETUP;
     CTF_MULTI_SETUP;
     int index = idy * 2 * width + 2 * idx;
-    float value = CTF_MULTI_VALUE(prefac, dist, regularize_rate) / num_distances;
+    float value = CTF_MULTI_VALUE(prefac, dist, regularize_rate);
 
     output[index] += input[index] * value;
     output[index + 1] += input[index + 1] * value;
