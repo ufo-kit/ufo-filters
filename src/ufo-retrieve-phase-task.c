@@ -202,6 +202,15 @@ ufo_filter_task_get_mode (UfoTask *task)
 }
 
 static gboolean
+ufo_retrieve_phase_task_equal_real (UfoNode *n1,
+                                    UfoNode *n2)
+{
+    g_return_val_if_fail (UFO_IS_RETRIEVE_PHASE_TASK (n1) && UFO_IS_RETRIEVE_PHASE_TASK (n2), FALSE);
+
+    return UFO_RETRIEVE_PHASE_TASK (n1)->priv->mult_by_value_kernel == UFO_RETRIEVE_PHASE_TASK (n2)->priv->mult_by_value_kernel;
+}
+
+static gboolean
 ufo_retrieve_phase_task_process (UfoTask *task,
                                  UfoBuffer **inputs,
                                  UfoBuffer *output,
@@ -473,6 +482,7 @@ static void
 ufo_retrieve_phase_task_class_init (UfoRetrievePhaseTaskClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+    UfoNodeClass *node_class = UFO_NODE_CLASS (klass);
 
     gobject_class->set_property = ufo_retrieve_phase_task_set_property;
     gobject_class->get_property = ufo_retrieve_phase_task_get_property;
@@ -559,6 +569,8 @@ ufo_retrieve_phase_task_class_init (UfoRetrievePhaseTaskClass *klass)
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
+
+    node_class->equal = ufo_retrieve_phase_task_equal_real;
 
     g_type_class_add_private (gobject_class, sizeof(UfoRetrievePhaseTaskPrivate));
 }
