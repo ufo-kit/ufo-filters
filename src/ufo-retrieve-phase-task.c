@@ -289,6 +289,7 @@ ufo_retrieve_phase_task_process (UfoTask *task,
     else {
         if (priv->method == METHOD_CTF_MULTI) {
             /* Sum input frequencies first, then proceed wth complex division */
+            cl_event event;
             in_sum_mem = clCreateBuffer (priv->context,
                                          CL_MEM_READ_WRITE,
                                          requisition->dims[0] * requisition->dims[1] * sizeof(float),
@@ -297,7 +298,10 @@ ufo_retrieve_phase_task_process (UfoTask *task,
             UFO_RESOURCES_CHECK_CLERR (cl_err);
             UFO_RESOURCES_CHECK_CLERR (clEnqueueFillBuffer (cmd_queue, in_sum_mem, &fill_pattern, sizeof (cl_float),
                                                             0, requisition->dims[0] * requisition->dims[1] * sizeof(float),
-                                                            0, NULL, NULL));
+                                                            0, NULL, &event));
+            UFO_RESOURCES_CHECK_CLERR (clWaitForEvents (1, &event));
+            UFO_RESOURCES_CHECK_CLERR (clReleaseEvent (event));
+
             for (i = 0; i < priv->distance->n_values; i++) {
                 distance = g_value_get_double (g_value_array_get_nth (priv->distance, i));
                 current_in_mem = ufo_buffer_get_device_array (inputs[i], cmd_queue);
@@ -319,7 +323,7 @@ ufo_retrieve_phase_task_process (UfoTask *task,
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 0, sizeof (cl_mem), &in_mem));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 1, sizeof (cl_mem), &filter_mem));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 2, sizeof (cl_mem), &out_mem));
-        ufo_profiler_call (profiler, cmd_queue, priv->mult_by_value_kernel, requisition->n_dims, requisition->dims, NULL);
+        ufo_profiler_call_blocking (profiler, cmd_queue, priv->mult_by_value_kernel, requisition->n_dims, requisition->dims, NULL);
 
         if (priv->method == METHOD_CTF_MULTI) {
             UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (in_sum_mem));
