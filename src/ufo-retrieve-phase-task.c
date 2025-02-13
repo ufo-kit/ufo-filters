@@ -242,6 +242,8 @@ ufo_retrieve_phase_task_process (UfoTask *task,
         global_work_size[0] >>= 1;
     }
 
+    lambda = 6.62606896e-34 * 299792458 / (priv->energy * 1.60217733e-16);
+
     if (ufo_buffer_cmp_dimensions (priv->filter_buffer, requisition) != 0) {
         ufo_buffer_resize (priv->filter_buffer, requisition);
         filter_mem = ufo_buffer_get_device_array (priv->filter_buffer, cmd_queue);
@@ -249,7 +251,6 @@ ufo_retrieve_phase_task_process (UfoTask *task,
         method_kernel = priv->kernels[(gint)priv->method];
 
         if (priv->method == METHOD_CTF_MULTI) {
-            lambda = 6.62606896e-34 * 299792458 / (priv->energy * 1.60217733e-16);
             distances = g_malloc0 (priv->distance->n_values * sizeof (gfloat));
             for (i = 0; i < priv->distance->n_values; i++) {
                 distances[i] = g_value_get_double (g_value_array_get_nth (priv->distance, i));
