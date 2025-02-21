@@ -186,6 +186,8 @@ compute_mean (UfoStitchTaskPrivate *priv,
     for (i = 0; i < num_blocks; i++)
         mean += summed_blocks[i];
 
+    g_free (summed_blocks);
+
     return mean / priv->overlap * height;
 }
 
@@ -425,6 +427,9 @@ ufo_stitch_task_init(UfoStitchTask *self)
 {
     self->priv = UFO_STITCH_TASK_GET_PRIVATE(self);
     self->priv->shift = 0;
+    self->priv->kernel = NULL;
+    self->priv->pad_kernel = NULL;
+    self->priv->sum_kernel = NULL;
     self->priv->adjust_mean = TRUE;
     self->priv->blend = FALSE;
 }
