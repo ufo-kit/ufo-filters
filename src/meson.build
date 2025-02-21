@@ -84,6 +84,7 @@ plugins = [
 fft_plugins = [
     'fft',
     'ifft',
+    'cross-correlate',
     'retrieve-phase',
 ]
 

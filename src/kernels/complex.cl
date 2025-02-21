@@ -78,6 +78,116 @@ c_conj (global float *data,
 }
 
 /**
+ * Compute cross-correlation in Fourier space:
+ *  conj(laplace * gauss * fft2(in1)) * fft2(laplace * gauss * in2).
+ *
+ * @in1: fft2 of the first input
+ * @in2: fft2 of the second input
+ * @gauss_sigma: sigma of the Gaussian for blurring (0 - disable)
+ * @apply_laplace: apply or not the Laplace operator
+ * @out: complex result
+ */
+kernel void
+c_crosscorr (global float *in1,
+             global float *in2,
+             const float gauss_sigma,
+             const int apply_laplace,
+             global float *out)
+{
+    int idx = get_global_id (0);
+    int idy = get_global_id (1);
+    int width = get_global_size (0);
+    int height = get_global_size (1);
+    int index = 2 * width * idy + 2 * idx;
+    float a, b, c, d, u, v, lap = 1.0f, gauss = 1.0f;
+
+    /* Put mean to zero, easier to review results */
+    if (index == 0) {
+        out[index] = 0.0f;
+        out[index + 1] = 0.0f;
+    } else {
+        if (apply_laplace || gauss_sigma > 0.0f) {
+            u = (float) ((idx >= (width >> 1) ? idx - width : idx)) / width;
+            v = (float) ((idy >= (height >> 1) ? idy - height : idy)) / height;
+            if (apply_laplace) {
+                /* Laplace operator to find edges */
+                lap = 16 * M_PI_F * M_PI_F * M_PI_F * M_PI_F * (u * u + v * v) * (u * u + v * v);
+            }
+            if (gauss_sigma > 0.0f) {
+                /* Gaussian blurring */
+                gauss = exp (-4 * M_PI_F * M_PI_F * gauss_sigma * (u * u + v * v));
+            }
+        }
+
+        a = in1[index];
+        /* Conjugation */
+        b = -in1[index + 1];
+        c = in2[index];
+        d = in2[index + 1];
+
+        out[index] = gauss * lap * (a * c - b * d);
+        out[index + 1] = gauss * lap * (b * c + a * d);
+    }
+}
+
+/**
+ * Compute cross-correlation in Fourier space at an arbitrary (non-integer) point:
+ *  output(x, y) = IDFT[conj(laplace * gauss * fft2(in1)) * fft2(laplace * gauss * in2)].
+ *
+ * @in1: fft2 of the first input
+ * @in2: fft2 of the second input
+ * @x: horizontal real space coordinate
+ * @y: vertical real space coordinate
+ * @gauss_sigma: sigma of the Gaussian for blurring (0 - disable)
+ * @apply_laplace: apply or not the Laplace operator
+ * @out: real result
+ */
+kernel void
+crosscorr_idft_2 (global float *in1,
+                  global float *in2,
+                  const float x,
+                  const float y,
+                  const float gauss_sigma,
+                  const int apply_laplace,
+                  global float *out)
+{
+    int idx = get_global_id (0);
+    int idy = get_global_id (1);
+    int width = get_global_size (0);
+    int height = get_global_size (1);
+    int index = 2 * width * idy + 2 * idx;
+    float a = 0.0f, b = 0.0f, c = 0.0f, d = 0.0f, tr, ti, sin_angle, cos_angle, arg, lap = 1.0f, gauss = 1.0f;
+    float u = (float) ((idx >= (width >> 1) ? idx - width : idx)) / width;
+    float v = (float) ((idy >= (height >> 1) ? idy - height : idy)) / height;
+
+    if (apply_laplace) {
+        /* Laplace operator to find edges */
+        lap = 16 * M_PI_F * M_PI_F * M_PI_F * M_PI_F * (u * u + v * v) * (u * u + v * v);
+    }
+    if (gauss_sigma > 0.0f) {
+        /* Gaussian blurring */
+        gauss = exp (-4 * M_PI_F * M_PI_F * gauss_sigma * (u * u + v * v));
+    }
+
+    if (index) {
+        /* Put mean to zero (index == 0), easier to review results */
+        a = in1[index];
+        /* Conjugation */
+        b = -in1[index + 1];
+        c = in2[index];
+        d = in2[index + 1];
+    }
+
+    tr = gauss * lap * (a * c - b * d);
+    ti = gauss * lap * (b * c + a * d);
+
+    arg = 2 * M_PI_F * (u * x + v * y);
+    sin_angle = sincos (arg, &cos_angle);
+
+    out[idy * width + idx] = tr * cos_angle - ti * sin_angle;
+}
+
+/**
  * Compute power spectrum.
  *
  * @data: complex input

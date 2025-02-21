@@ -476,6 +476,54 @@ Correlate
         Number of data items in the second data stream.
 
 
+Cross-correlate
+---------------
+
+.. gobj:class:: cross-correlate
+
+   Reads 1..N data streams of 2D Fourier transformed images and cross-correlates
+   them with respect to the first image of the first input stream. What happens
+   next depends on the :gobj:prop:`postproc`, see below. The output is 3D, if
+   :gobj:prop:`postproc` is ``align`` or ``output``, the amount of output images
+   equals the amount of input images. If it is ``pick-closest``, there will be
+   two output images. Unless :gobj:prop:`postproc` is ``output``, output images
+   are in Fourier space.
+
+
+    .. gobj:prop:: num-inputs:uint
+
+        Number if input streams
+
+    .. gobj:prop:: nth:uint
+
+        Cross-correlate every nth image (but still apply post-processing for
+        every image)
+
+    .. gobj:prop:: postproc:enum
+
+        ``align`` aligns all images with respect to the first one (shifts
+        horizontally and vertically), ``output`` performs inverse 2D Fourier
+        transform and outputs the cross-correlation result, ``pick-closest``
+        selects the image with strongest cross-correlation to the first one and
+        outputs the first one and the strongest one.
+
+    .. gobj:prop:: supersampling:uint
+
+        Calculates the horizontal and vertical shift with precition 1 /
+        ``supersasupersampling``
+
+    .. gobj:prop:: gauss-sigma:float
+
+        Sigma of the Gaussian filter applied to all inputs before
+        cross-correlation (gets rid of noise and blurs the input images in real
+        space)
+
+    .. gobj:prop:: apply-laplace:boolean
+
+        Apply Laplace operator (2nd order derivative) in order to detect edges
+        and perform cross-correlation on those.
+
+
 Filters
 =======
 
