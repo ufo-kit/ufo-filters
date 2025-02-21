@@ -207,6 +207,9 @@ ufo_cross_correlate_task_get_requisition (UfoTask *task,
     }
 
     if (!num_processed) {
+        if (priv->postproc == CROSS_CORR_OUTPUT && priv->supersampling > 1) {
+            g_warning ("postproc is `output`, supersampling > 1 will have no effect");
+        }
         g_log ("cross-corr", G_LOG_LEVEL_DEBUG, "out requisition (%lu, %lu, %lu, ndims=%u)",
                requisition->dims[0], requisition->dims[1], requisition->dims[2], requisition->n_dims);
     }
