@@ -165,3 +165,46 @@ fft_multiply_chirp_coeffs (global float *out,
     out[even_index    ] = value.x * coeffs[even_index] - value.y * coeffs[even_index + 1];
     out[even_index + 1] = value.y * coeffs[even_index] + value.x * coeffs[even_index + 1];
 }
+
+/**
+ * Shift real space coordinates by modulation in frequency space.
+ *
+ * @input: complex input
+ * @output: complex output
+ * @dx: horizontal real space shift
+ * @dy: vertical real space shift
+ */
+kernel void
+fft_modulate_xy (global float *input,
+                 global float *output,
+                 const float dx,
+                 const float dy)
+{
+    /* Real width, not 2x because of complex numbers */
+    int idx = get_global_id (0);
+    int idy = get_global_id (1);
+    int x = idx << 1;
+    int width = get_global_size (0);
+    int height = get_global_size (1);
+    float arg_x, arg_y, sin_x, cos_x, sin_y, cos_y;
+    float u = (float) ((idx >= (width >> 1) ? idx - width : idx)) / width;
+    float v = (float) ((idy >= (height >> 1) ? idy - height : idy)) / height;
+    float rx, ry;
+
+    float a = input[2 * width * idy + x];
+    float b = input[2 * width * idy + x + 1];
+
+    /* Horizontal and vertical modulation coeffs */
+    arg_x = -2 * M_PI_F * dx * u;
+    arg_y = -2 * M_PI_F * dy * v;
+    sin_x = sincos (arg_x, &cos_x);
+    sin_y = sincos (arg_y, &cos_y);
+
+    /* Horizontal modulation */
+    rx = a * cos_x - b * sin_x;
+    ry = b * cos_x + a * sin_x;
+
+    /* Vertical modulation */
+    output[2 * width * idy + x] = rx * cos_y - ry * sin_y;
+    output[2 * width * idy + x + 1] = b = ry * cos_y + rx * sin_y;
+}

@@ -112,6 +112,7 @@ ufo_stack_task_process (UfoTask *task,
 
     priv = UFO_STACK_TASK_GET_PRIVATE (task);
 
+    ufo_buffer_set_layout (output, ufo_buffer_get_layout (inputs[0]));
     size = ufo_buffer_get_size (inputs[0]);
     in_mem = (guint8 *) ufo_buffer_get_host_array (inputs[0], NULL);
     out_mem = (guint8 *) ufo_buffer_get_host_array (output, NULL);

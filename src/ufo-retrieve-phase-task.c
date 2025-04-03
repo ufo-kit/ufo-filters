@@ -62,7 +62,7 @@ struct _UfoRetrievePhaseTaskPrivate {
     cl_kernel *kernels;
     cl_kernel mult_by_value_kernel, ctf_multi_apply_dist_kernel;
     cl_context context;
-    UfoBuffer *filter_buffer;
+    UfoBuffer *filter_buffer, *tmp_buffer_cplx;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -144,6 +144,8 @@ ufo_retrieve_phase_task_setup (UfoTask *task,
         requisition.dims[1] = 1;
 
         priv->filter_buffer = ufo_buffer_new(&requisition, priv->context);
+        priv->tmp_buffer_cplx = ufo_buffer_new(&requisition, priv->context);
+        ufo_buffer_set_layout (priv->tmp_buffer_cplx, UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED);
     }
 
     for (int i = 0; i < N_METHODS; i++) {
@@ -171,6 +173,9 @@ ufo_retrieve_phase_task_get_requisition (UfoTask *task,
 
     priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (task);
     ufo_buffer_get_requisition (inputs[0], requisition);
+    requisition->n_dims = 2;
+    requisition->dims[2] = 1;
+
     if (priv->output_filter) {
         requisition->dims[0] >>= 1;
     }
@@ -184,21 +189,30 @@ ufo_retrieve_phase_task_get_requisition (UfoTask *task,
 static guint
 ufo_filter_task_get_num_inputs (UfoTask *task)
 {
-    UfoRetrievePhaseTaskPrivate *priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (task);
-
-    return MAX(1, priv->distance->n_values);
+    return 1;
 }
 
 static guint
 ufo_filter_task_get_num_dimensions (UfoTask *task, guint input)
 {
-    return 2;
+    UfoRetrievePhaseTaskPrivate *priv = UFO_RETRIEVE_PHASE_TASK_GET_PRIVATE (task);
+
+    return (priv->distance->n_values == 1 ? 2 : 3);
 }
 
 static UfoTaskMode
 ufo_filter_task_get_mode (UfoTask *task)
 {
     return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
+}
+
+static gboolean
+ufo_retrieve_phase_task_equal_real (UfoNode *n1,
+                                    UfoNode *n2)
+{
+    g_return_val_if_fail (UFO_IS_RETRIEVE_PHASE_TASK (n1) && UFO_IS_RETRIEVE_PHASE_TASK (n2), FALSE);
+
+    return UFO_RETRIEVE_PHASE_TASK (n1)->priv->mult_by_value_kernel == UFO_RETRIEVE_PHASE_TASK (n2)->priv->mult_by_value_kernel;
 }
 
 static gboolean
@@ -210,9 +224,10 @@ ufo_retrieve_phase_task_process (UfoTask *task,
     UfoRetrievePhaseTaskPrivate *priv;
     UfoGpuNode *node;
     UfoProfiler *profiler;
-    gsize global_work_size[3];
+    gsize global_work_size[3], cplx_nbytes;
     cl_int cl_err;
     guint i;
+    guint8 *tmp_host_mem, *in_host_mem;
     gfloat *distances, lambda, distance;
     gfloat fill_pattern = 0.0f;
 
@@ -233,6 +248,13 @@ ufo_retrieve_phase_task_process (UfoTask *task,
         global_work_size[0] >>= 1;
     }
 
+    if (ufo_buffer_cmp_dimensions (priv->tmp_buffer_cplx, requisition) != 0) {
+        ufo_buffer_resize (priv->tmp_buffer_cplx, requisition);
+    }
+    cplx_nbytes = ufo_buffer_get_size (priv->tmp_buffer_cplx);
+    in_host_mem = (guint8 *) ufo_buffer_get_host_array (inputs[0], NULL);
+    lambda = 6.62606896e-34 * 299792458 / (priv->energy * 1.60217733e-16);
+
     if (ufo_buffer_cmp_dimensions (priv->filter_buffer, requisition) != 0) {
         ufo_buffer_resize (priv->filter_buffer, requisition);
         filter_mem = ufo_buffer_get_device_array (priv->filter_buffer, cmd_queue);
@@ -240,7 +262,6 @@ ufo_retrieve_phase_task_process (UfoTask *task,
         method_kernel = priv->kernels[(gint)priv->method];
 
         if (priv->method == METHOD_CTF_MULTI) {
-            lambda = 6.62606896e-34 * 299792458 / (priv->energy * 1.60217733e-16);
             distances = g_malloc0 (priv->distance->n_values * sizeof (gfloat));
             for (i = 0; i < priv->distance->n_values; i++) {
                 distances[i] = g_value_get_double (g_value_array_get_nth (priv->distance, i));
@@ -280,6 +301,7 @@ ufo_retrieve_phase_task_process (UfoTask *task,
     else {
         if (priv->method == METHOD_CTF_MULTI) {
             /* Sum input frequencies first, then proceed wth complex division */
+            cl_event event;
             in_sum_mem = clCreateBuffer (priv->context,
                                          CL_MEM_READ_WRITE,
                                          requisition->dims[0] * requisition->dims[1] * sizeof(float),
@@ -288,10 +310,15 @@ ufo_retrieve_phase_task_process (UfoTask *task,
             UFO_RESOURCES_CHECK_CLERR (cl_err);
             UFO_RESOURCES_CHECK_CLERR (clEnqueueFillBuffer (cmd_queue, in_sum_mem, &fill_pattern, sizeof (cl_float),
                                                             0, requisition->dims[0] * requisition->dims[1] * sizeof(float),
-                                                            0, NULL, NULL));
+                                                            0, NULL, &event));
+            UFO_RESOURCES_CHECK_CLERR (clWaitForEvents (1, &event));
+            UFO_RESOURCES_CHECK_CLERR (clReleaseEvent (event));
+
             for (i = 0; i < priv->distance->n_values; i++) {
-                distance = g_value_get_double (g_value_array_get_nth (priv->distance, i));
-                current_in_mem = ufo_buffer_get_device_array (inputs[i], cmd_queue);
+                tmp_host_mem = (guint8 *) ufo_buffer_get_host_array (priv->tmp_buffer_cplx, NULL);
+                memcpy (tmp_host_mem, in_host_mem + i * cplx_nbytes, cplx_nbytes);
+                current_in_mem = ufo_buffer_get_device_array (priv->tmp_buffer_cplx, cmd_queue);
+                distance = (gfloat) g_value_get_double (g_value_array_get_nth (priv->distance, i));
                 UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->ctf_multi_apply_dist_kernel, 0, sizeof (cl_mem), &current_in_mem));
                 UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->ctf_multi_apply_dist_kernel, 1, sizeof (gfloat), &distance));
                 UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->ctf_multi_apply_dist_kernel, 2, sizeof (guint), &priv->distance->n_values));
@@ -310,7 +337,7 @@ ufo_retrieve_phase_task_process (UfoTask *task,
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 0, sizeof (cl_mem), &in_mem));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 1, sizeof (cl_mem), &filter_mem));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->mult_by_value_kernel, 2, sizeof (cl_mem), &out_mem));
-        ufo_profiler_call (profiler, cmd_queue, priv->mult_by_value_kernel, requisition->n_dims, requisition->dims, NULL);
+        ufo_profiler_call_blocking (profiler, cmd_queue, priv->mult_by_value_kernel, requisition->n_dims, requisition->dims, NULL);
 
         if (priv->method == METHOD_CTF_MULTI) {
             UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (in_sum_mem));
@@ -453,6 +480,11 @@ ufo_retrieve_phase_task_finalize (GObject *object)
         g_object_unref(priv->filter_buffer);
     }
 
+    if (priv->tmp_buffer_cplx) {
+        g_object_unref(priv->tmp_buffer_cplx);
+        priv->tmp_buffer_cplx = NULL;
+    }
+
     g_value_array_free (priv->distance);
 
     G_OBJECT_CLASS (ufo_retrieve_phase_task_parent_class)->finalize (object);
@@ -473,6 +505,7 @@ static void
 ufo_retrieve_phase_task_class_init (UfoRetrievePhaseTaskClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
+    UfoNodeClass *node_class = UFO_NODE_CLASS (klass);
 
     gobject_class->set_property = ufo_retrieve_phase_task_set_property;
     gobject_class->get_property = ufo_retrieve_phase_task_get_property;
@@ -560,6 +593,8 @@ ufo_retrieve_phase_task_class_init (UfoRetrievePhaseTaskClass *klass)
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
+    node_class->equal = ufo_retrieve_phase_task_equal_real;
+
     g_type_class_add_private (gobject_class, sizeof(UfoRetrievePhaseTaskPrivate));
 }
 
@@ -580,5 +615,6 @@ ufo_retrieve_phase_task_init(UfoRetrievePhaseTask *self)
     priv->frequency_cutoff = G_MAXFLOAT;
     priv->kernels = (cl_kernel *) g_malloc0(N_METHODS * sizeof(cl_kernel));
     priv->filter_buffer = NULL;
+    priv->tmp_buffer_cplx = NULL;
     priv->output_filter = FALSE;
 }

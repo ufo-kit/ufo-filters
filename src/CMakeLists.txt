@@ -11,6 +11,7 @@ set(ufofilter_SRCS
     ufo-calculate-task.c
     ufo-clip-task.c
     ufo-crop-task.c
+    ufo-cross-correlate-task.c
     ufo-cut-task.c
     ufo-cut-sinogram-task.c
     ufo-center-of-rotation-task.c
@@ -132,6 +133,10 @@ set(general_backproject_aux_SRCS
     common/ufo-conebeam.c
     common/ufo-scarray.c
     common/ufo-ctgeometry.c)
+
+set(cross_correlate_aux_SRCS
+    common/ufo-math.c
+    common/ufo-fft.c)
 
 set(non_local_means_aux_SRCS
     common/ufo-math.c

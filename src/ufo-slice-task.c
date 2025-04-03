@@ -102,9 +102,16 @@ ufo_slice_task_process (UfoTask *task,
                         UfoRequisition *requisition)
 {
     UfoSliceTaskPrivate *priv;
+    UfoRequisition in_req;
 
     priv = UFO_SLICE_TASK_GET_PRIVATE (task);
-    priv->copy = ufo_buffer_dup (inputs[0]);
+    ufo_buffer_get_requisition (inputs[0], &in_req);
+
+    if (priv->copy == NULL) {
+        priv->copy = ufo_buffer_dup (inputs[0]);
+    } else if (ufo_buffer_cmp_dimensions (priv->copy, &in_req) != 0) {
+        ufo_buffer_resize (priv->copy, &in_req);
+    }
 
     /* Force CPU memory */
     ufo_buffer_get_host_array (priv->copy, NULL);
@@ -112,6 +119,7 @@ ufo_slice_task_process (UfoTask *task,
     /* Move data */
     ufo_buffer_copy (inputs[0], priv->copy);
     ufo_buffer_copy_metadata (inputs[0], priv->copy);
+    ufo_buffer_set_layout (priv->copy, ufo_buffer_get_layout (inputs[0]));
 
     return FALSE;
 }
@@ -136,6 +144,7 @@ ufo_slice_task_generate (UfoTask *task,
     dst = ufo_buffer_get_host_array (output, NULL);
     memcpy (dst, src + priv->current * priv->size / sizeof(gfloat), priv->size);
     ufo_buffer_copy_metadata (priv->copy, output);
+    ufo_buffer_set_layout (output, ufo_buffer_get_layout (priv->copy));
     priv->current++;
 
     return TRUE;

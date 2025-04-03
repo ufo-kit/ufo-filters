@@ -71,7 +71,7 @@ qp_method(float2 prefac, float regularize_rate, float binary_filter_rate, float 
 {
     COMMON_SETUP;
 
-    if (sin_arg > M_PI_2_F && fabs (sin_value + pow(10, -regularize_rate)) < binary_filter_rate ||
+    if ((sin_arg > M_PI_2_F && fabs (sin_value + pow(10, -regularize_rate)) < binary_filter_rate) ||
         sin_arg >= frequency_cutoff || (idx == 0 && idy == 0))
         /* Zero frequency (idx == 0 && idy == 0) must be set to zero explicitly */
         output[idy * width + idx] = 0.0f;
@@ -85,7 +85,7 @@ qp2_method(float2 prefac, float regularize_rate, float binary_filter_rate, float
     COMMON_SETUP;
     float cacl_filter_value = 0.5f / (sin_value + pow(10, -regularize_rate));
 
-    if (sin_arg > M_PI_2_F && fabs(sin_value + pow(10, -regularize_rate)) < binary_filter_rate ||
+    if ((sin_arg > M_PI_2_F && fabs(sin_value + pow(10, -regularize_rate)) < binary_filter_rate) ||
         sin_arg >= frequency_cutoff || (idx == 0 && idy == 0))
         output[idy * width + idx] = sign(cacl_filter_value) / (2 * (binary_filter_rate + pow(10, -regularize_rate)));
     else
@@ -124,7 +124,7 @@ ctf_multidistance_square(global float *distances,
         result += value * value;
     }
 
-    output[idy * width + idx] = num_distances * 0.5f * pow(10, regularize_rate) / (result + pow(10, -regularize_rate));
+    output[idy * width + idx] = 1.0f / (fabs (result) < 1e-7 ? 1e-3: result);
 }
 
 /**
@@ -142,7 +142,7 @@ ctf_multidistance_apply_distance(global float *input,
     COMMON_FREQUENCY_SETUP;
     CTF_MULTI_SETUP;
     int index = idy * 2 * width + 2 * idx;
-    float value = CTF_MULTI_VALUE(prefac, dist, regularize_rate) / num_distances;
+    float value = CTF_MULTI_VALUE(prefac, dist, regularize_rate);
 
     output[index] += input[index] * value;
     output[index + 1] += input[index + 1] * value;
