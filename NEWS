@@ -1,3 +1,122 @@
+Version 0.17.0
+==============
+
+Fixes:
+
+- phase-retrieval.cl: fix warnings
+- stitch: fix memory leak and initialization
+- retrieve-phase: fix uninitialized lambda
+- slice: fix memory leak
+- memory-in: fix number parameter
+- docs: fix readthedocs build
+- fft: fix batch sizes
+- contrib: fix dashes in cmake
+- Fix padding
+- Fix undefined CL_TARGET_OPENCL_VERSION warning
+- med-mad-reject-2d: fix index overflow in sorting
+- gbp: fix compute mode enum
+- Fix static enum names
+- NLM: Fix copy-paste parameter description error
+- phase-retrieval: fix zero checks
+- Fix file writing test
+- Fix properties of transpose task
+- Fix rm-outliers boundary condition
+- Fix stripe_filter kernel
+- Fix ifft scale for crop width or height
+- fix CMake for zmq
+- phase retrieval: Fix filter values
+- genreco: Fix angular parameter check function
+- sphinx: Fix Directive import to work with Sphinx 1.8
+- Fix #170: add non-local-means filter
+
+Pull requests:
+
+- #239 from ufo-kit/multidistance-phaseretrieval
+- #237 from ufo-kit/gradient-magnitude
+- #235 from ufo-kit/memory-in-fix-number
+- #229 from ufo-kit/fix-cmake
+- #233 from ufo-kit/ifft-inplace
+- #232 from ufo-kit/fft
+- #227 from ufo-kit/filtering
+- #231 from ufo-kit/fix-memory-in
+- #228 from ufo-kit/gradient
+- #226 from ufo-kit/calculate-2d
+- #225 from ufo-kit/detect-edge-addressing-mode
+- #224 from ufo-kit/writer-min-max
+- #221 from ufo-kit/horizontal-sigma-0
+- #219 from ufo-kit/double-type-cone-weight
+- #218 from ufo-kit/horizontal-interpolate-just-copy
+- #216 from ufo-kit/image-step
+- #217 from ufo-kit/multidistance-phase-retrieval
+- #214 from harishkumar-harihara/add-stacked-backproject
+- #213 from ufo-kit/fix-stack
+- #207 from ufo-kit/non-dash-task-names
+- #205 from ufo-kit/directional-phaseretrieval
+- #206 from ufo-kit/opencl-warning
+- #201 from ufo-kit/disable-opencl-reduce-copying
+- #199 from ufo-kit/ordered-sliding-stack
+- #198 from ufo-kit/sliding-window
+- #197 from ufo-kit/add-power-spectrum
+- #194 from ufo-kit/conjugate
+- #192 from ufo-kit/fix-static-enum-names
+- #184 from ufo-kit/find-large-spots
+- #182 from ufo-kit/nlm
+- #191 from ufo-kit/fix-phaseretrieval
+- #187 from ufo-kit/enhance-forwardproject
+- #186 from ufo-kit/fix-transpose-task
+- #183 from ldorofeeva/master
+- #181 from ufo-kit/add-horizontal-interpolator
+- #179 from ufo-kit/filter-stripes-sigma
+- #178 from ufo-kit/fix-ifft
+- #176 from ufo-kit/fix-zmq
+- #175 from ufo-kit/phaseretrieval
+- #174 from ufo-kit/bigtiff
+- #173 from ufo-kit/fix-tiff-writer
+- #172 from ufo-kit/add-file-size-to-writer
+- #171 from mitya57/mitya57/sphinx1.8
+- #169 from ufo-kit/fix-find_program
+- #168 from ufo-kit/add-12bit-tiff-reader-support
+
+New filters:
+
+- cross-correlate
+- sliding-stack
+- power-spectrum
+- FindLargeSpots
+- HorizontalInterpolate
+- non-local-means
+
+Enhancements:
+
+- fft: Add Chirp-z to compute non-power-2 transforms
+- gradient: add finite-difference-type
+- calculate: add 2D support
+- detect-edge: add user-defined addressing-mode
+- horizontal-interpolate: add use-one-sided-gradient
+- retrieve-phase: Add multi-distance CTF support
+- read: add image-start and image-step properties
+- add stacked-backproject
+- pad: Add mirrored_repeat to the list
+- stripe-filter: add vertical sigma parameter
+- genreco: add spacial code for shifted source/det
+- opencl.cl: Add add, multiply and divide
+- write: add forgotten rescale to get_property
+- Add multi-page parameters to writer docs
+- complex: add c_abs_squared kernel
+- gpb: add RTX8000 properties
+- find-large-spots: add spot-threshold-mode property
+- NLM: Add estimate-sigma
+- NLM: Add fast version of the algorithm
+- NLM: add gaussian window
+- NLM: add smoothing control parameter *h*
+- Add axis-pos parameter to forwardproject
+- Add flat-field multiplier
+- Add Gaussian window to the stripe filter
+- tiff writer: Add photometric tag
+- Add bytes_per_file property to writer
+- Add 12 bit support to tiff reader
+
+
 Version 0.16.0
 ==============
 

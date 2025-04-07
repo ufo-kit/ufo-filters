@@ -1,6 +1,6 @@
 project('ufo-filters', 
     ['c', 'cpp'],
-    version: '0.16.0'
+    version: '0.17.0'
 )
 
 version = meson.project_version()
