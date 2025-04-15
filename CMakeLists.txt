@@ -77,7 +77,12 @@ endif ()
 #{{{ Subdirectories
 enable_testing()
 
-add_subdirectory(docs)
+option(WITH_DOCS "Build docs" ON)
+
+if (WITH_DOCS)
+    add_subdirectory(docs)
+endif ()
+
 add_subdirectory(deps)
 add_subdirectory(src)
 add_subdirectory(tests)

@@ -46,8 +46,12 @@ deps = [
     m_dep,
 ]
 
+docs = get_option('docs')
+if docs
+    subdir('docs')
+endif
+
 subdir('deps')
-subdir('docs')
 subdir('src')
 subdir('tests')
 

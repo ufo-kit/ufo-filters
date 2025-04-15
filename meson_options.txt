@@ -1,3 +1,6 @@
+option('docs', type: 'boolean', value: true,
+    description: 'Build docs')
+
 option('oclfft', type: 'boolean', value: true,
     description: 'Build Apple OpenCL FFT')
 
