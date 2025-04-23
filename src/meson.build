@@ -235,7 +235,7 @@ endif
 
 # lamino plugin
 
-python = find_program('python', required: false)
+python = find_program('python3', required: false)
 
 if python.found()
     shared_module('lamino-backproject',
