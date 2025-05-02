@@ -49,7 +49,7 @@ foreach t: python_tests
     configure_file(input: filename,
                    output: filename,
                    copy: true)
-    test(t, find_program('python'),
+    test(t, find_program('python3'),
          args: join_paths(meson.current_build_dir(), filename),
          env: test_env)
 endforeach
