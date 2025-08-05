@@ -407,8 +407,7 @@ ufo_online_backproject_task_process (UfoTask *task,
         /// TODO: The dimensionality of the work size would change when we incorporate the region
         // property. For the time being we assume that we are reconstructing all slices.
         const size_t bp_work_size[] = {in_req.dims[0], in_req.dims[0], in_req.dims[1] / 4};
-        const gfloat center_position_x = ufo_scarray_get_float(priv->center_position_x, 0);
-        printf("Axis value %.1f\n", center_position_x);
+        const gdouble center_position_x = ufo_scarray_get_double(priv->center_position_x, 0);
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 0, sizeof(cl_mem),
         &priv->device_texture_projections));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 1, sizeof(cl_mem),
