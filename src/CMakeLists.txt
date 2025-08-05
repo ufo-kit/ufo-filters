@@ -60,6 +60,7 @@ set(ufofilter_SRCS
     ufo-monitor-task.c
     ufo-non-local-means-task.c
     ufo-null-task.c
+    ufo-online-backproject-task.c
     ufo-opencl-task.c
     ufo-opencl-reduce-task.c
     ufo-ordfilt-task.c

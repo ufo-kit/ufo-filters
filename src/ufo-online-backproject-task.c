@@ -18,30 +18,48 @@
  */
 
 #include "config.h"
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <glib.h>
+#include <glib/gprintf.h>
 #ifdef __APPLE__
 #include <OpenCL/cl.h>
 #else
 #include <CL/cl.h>
 #endif
 
+#include <config.h>
+#include <common/ufo-math.h>
+#include "common/ufo-scarray.h"
 #include "ufo-online-backproject-task.h"
 
-
 struct _UfoOnlineBackprojectTaskPrivate {
+    // Settings
     guint burst;
     guint num_projections;
     UfoScarray *region;
     UfoScarray *center_position_x;
+    // OpenCL
     cl_context context;
     cl_kernel accumulate_kernel;
     cl_kernel backproject_kernel;
     cl_kernel distribute_kernel;
-    float *projections;
-    cl_mem volume;
-    // guint num_slices;
-    // guint num_slices_per_chunk;
-    // guint num_chunks;
-    // guint generated;
+    // Internal
+    UfoResources *resources;
+    guint num_slices;
+    guint generated;
+    gdouble overall_angle;
+    // Buffers
+    float *host_buffer_cosine;
+    float *host_buffer_sine;
+    cl_mem device_buffer_projections;
+    cl_mem device_texture_projections;
+    cl_mem device_buffer_cosine;
+    cl_mem device_buffer_sine;
+    cl_mem device_coalesced_slices;
+    cl_mem device_final_slices;
 };
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
@@ -130,38 +148,32 @@ ufo_online_backproject_task_get_mode (UfoTask *task)
  * back-project task and called once per task instance. We initialize all reusable resources here.
  */
 static void
-ufo_online_backproject_task_setup (UfoTask *task,
-                       UfoResources *resources,
-                       GError **error)
+ufo_online_backproject_task_setup (UfoTask *task, UfoResources *resources, GError **error)
 {
     UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(task);
     /// Instantiate resources
+    priv->resources = g_object_ref (resources);
     if (!priv->num_projections) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "Number of projections not set");
         return;
     }
-    priv->host_buffer_cosine = g_malloc0(priv->num_projections, sizeof(float));
-    priv->host_buffer_sine = g_malloc0(priv->num_projections, sizeof(float));
+    priv->host_buffer_cosine = g_malloc0(priv->num_projections * sizeof(float));
+    priv->host_buffer_sine = g_malloc0(priv->num_projections * sizeof(float));
     const float ang_delta = CL_M_PI_F / (float) priv->num_projections;
     for (uint32_t theta = 0; theta < priv->num_projections; theta++) {
         priv->host_buffer_cosine[theta] = (float) cosf(theta * ang_delta);
         priv->host_buffer_sine[theta] = (float) sinf(theta * ang_delta);
     }
     /// Instantiate OpenCL resources
-    cl_int cl_error;
     priv->context = ufo_resources_get_context(resources);
     UfoGpuNode *node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
-    priv->cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
     priv->accumulate_kernel = ufo_resources_get_kernel(resources, "online-backproject.cl",
-        "accumulate", NULL, cl_error);
-    UFO_RESOURCES_CHECK_CLERR (cl_error);
+        "accumulate", NULL, error);
     priv->backproject_kernel = ufo_resources_get_kernel(resources, "online-backproject.cl",
-        "backproject", NULL, cl_error);
-    UFO_RESOURCES_CHECK_CLERR (cl_error);
+        "backproject", NULL, error);
     priv->distribute_kernel = ufo_resources_get_kernel(resources, "online-backproject.cl",
-        "distribute", NULL, cl_error);
-    UFO_RESOURCES_CHECK_CLERR (cl_error);
+        "distribute", NULL, error);
     UFO_RESOURCES_CHECK_CLERR (clRetainKernel(priv->accumulate_kernel));
     UFO_RESOURCES_CHECK_CLERR (clRetainKernel(priv->backproject_kernel));
     UFO_RESOURCES_CHECK_CLERR (clRetainKernel(priv->distribute_kernel));
@@ -250,7 +262,7 @@ ufo_online_backproject_task_get_requisition (UfoTask *task,
     }
     if (!priv->device_coalesced_slices) {
         size_t coal_slice_size = requisition->dims[0] * requisition->dims[0] * (
-            priv->num_slices / 4) * sizeof(cl_float4)
+            priv->num_slices / 4) * sizeof(cl_float4);
         priv->device_coalesced_slices = clCreateBuffer(priv->context, CL_MEM_WRITE_ONLY,
             coal_slice_size, NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
@@ -378,8 +390,8 @@ ufo_online_backproject_task_process (UfoTask *task,
         &priv->device_buffer_projections));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 1, sizeof(cl_mem),
         &priv->device_texture_projections));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 2, sizeof(cl_uint),
-        &actual_burst));
+        // UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 2, sizeof(cl_uint),
+        // &actual_burst));
         const size_t accumulate_work_size[] = {in_req.dims[0], in_req.dims[1] / 4, actual_burst};
         ufo_profiler_call_blocking (profiler, cmd_queue, priv->accumulate_kernel, 3,
             accumulate_work_size, NULL);
@@ -395,10 +407,8 @@ ufo_online_backproject_task_process (UfoTask *task,
         /// TODO: The dimensionality of the work size would change when we incorporate the region
         // property. For the time being we assume that we are reconstructing all slices.
         const size_t bp_work_size[] = {in_req.dims[0], in_req.dims[0], in_req.dims[1] / 4};
-        if (!priv->center_position_x) {
-            g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "Rotation axis not set");
-            return;
-        }
+        const gfloat center_position_x = ufo_scarray_get_float(priv->center_position_x, 0);
+        printf("Axis value %.1f\n", center_position_x);
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 0, sizeof(cl_mem),
         &priv->device_texture_projections));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 1, sizeof(cl_mem),
@@ -408,7 +418,7 @@ ufo_online_backproject_task_process (UfoTask *task,
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 3, sizeof(cl_mem),
         &priv->device_buffer_sine));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 4, sizeof(cl_float),
-        &priv->center_position_x));
+        &center_position_x));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 5, sizeof(cl_uint),
         &actual_burst));
         ufo_profiler_call_blocking (profiler, cmd_queue, priv->backproject_kernel, 3,
@@ -434,6 +444,7 @@ ufo_online_backproject_task_generate (UfoTask *task,
 {
     UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(task);
     UfoGpuNode *node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
+    UfoProfiler *profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     cl_command_queue cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     /// NOTE: We deallocate all unnecessary resources before distributing the coalesced slices. This
     // should help reducing the memory footprint before generating final output.
@@ -512,16 +523,16 @@ ufo_online_backproject_task_generate (UfoTask *task,
     size_t slice_pitch = requisition->dims[1] * row_pitch;
     size_t src_origin[3] = {0, 0, priv->generated % priv->num_slices};
     size_t dst_origin[3] = {0, 0, 0};
-    size_t region[3] = {src_row_pitch, requisition->dims[1], 1};
+    size_t region[3] = {row_pitch, requisition->dims[1], 1};
     g_log ("gbp", G_LOG_LEVEL_DEBUG, "Generating slice %u", priv->generated + 1);
     g_log ("gbp", G_LOG_LEVEL_DEBUG, "src_origin: %lu %lu %lu", src_origin[0], src_origin[1], src_origin[2]);
     g_log ("gbp", G_LOG_LEVEL_DEBUG, "region: %lu %lu %lu", region[0], region[1], region[2]);
-    g_log ("gbp", G_LOG_LEVEL_DEBUG, "row pitch %lu, slice pitch %lu", src_row_pitch, src_slice_pitch);
+    g_log ("gbp", G_LOG_LEVEL_DEBUG, "row pitch %lu, slice pitch %lu", row_pitch, slice_pitch);
     UFO_RESOURCES_CHECK_CLERR (clEnqueueCopyBufferRect (cmd_queue,
                                                         priv->device_final_slices, out_mem,
                                                         src_origin, dst_origin, region,
-                                                        src_row_pitch, src_slice_pitch,
-                                                        src_row_pitch, 0, 0, NULL, NULL));
+                                                        row_pitch, slice_pitch,
+                                                        row_pitch, 0, 0, NULL, NULL));
     priv->generated++;
     return TRUE;
 }
@@ -542,7 +553,7 @@ ufo_online_backproject_task_set_property (GObject *object,
             ufo_scarray_get_value(priv->region, value);
             break;
         case PROP_CENTER_POSITION_X:
-            priv->center_position_x = g_value_get_double (value);
+            ufo_scarray_get_value (priv->center_position_x, value);
             break;
         case PROP_NUM_PROJECTIONS:
             priv->num_projections = g_value_get_uint(value);
@@ -569,7 +580,7 @@ ufo_online_backproject_task_get_property (GObject *object,
             ufo_scarray_set_value(priv->region, value);
             break;
         case PROP_CENTER_POSITION_X:
-            g_value_set_double(priv->center_position_x, value);
+            ufo_scarray_set_value (priv->center_position_x, value);
             break;
         case PROP_NUM_PROJECTIONS:
             g_value_set_uint(value, priv->num_projections);
@@ -578,6 +589,41 @@ ufo_online_backproject_task_get_property (GObject *object,
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
     }
+}
+
+static void
+ufo_online_backproject_task_finalize (GObject *object)
+{
+    UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(object);
+    if (priv->region) {
+        ufo_scarray_free(priv->region);
+        priv->region = NULL;
+    }
+    if (priv->accumulate_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->accumulate_kernel));
+        priv->accumulate_kernel = NULL;
+    }
+    if (priv->backproject_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->backproject_kernel));
+        priv->backproject_kernel = NULL;
+    }
+    if (priv->distribute_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->distribute_kernel));
+        priv->distribute_kernel = NULL;
+    }
+    if (priv->device_final_slices) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_final_slices));
+        priv->device_final_slices = NULL;
+    }
+    if (priv->context) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
+        priv->context = NULL;
+    }
+    if (priv->resources) {
+        g_object_unref (priv->resources);
+        priv->resources = NULL;
+    }
+    G_OBJECT_CLASS(ufo_online_backproject_task_parent_class)->finalize(object);
 }
 
 static void
@@ -624,10 +670,10 @@ ufo_online_backproject_task_class_init (UfoOnlineBackprojectTaskClass *klass)
             G_PARAM_READWRITE);
 
     properties[PROP_CENTER_POSITION_X] =
-        g_param_spec_double ("center-position-x",
-            "Position of rotation axis",
-            "Position of rotation axis",
-            -1.0, +32768.0, 0.0,
+        g_param_spec_value_array ("center-position-x",
+            "Global x center (horizontal in a projection) of the volume with respect to projections",
+            "Global x center (horizontal in a projection) of the volume with respect to projections",
+            double_region_vals,
             G_PARAM_READWRITE);
 
     properties[PROP_NUM_PROJECTIONS] =
@@ -646,19 +692,18 @@ ufo_online_backproject_task_class_init (UfoOnlineBackprojectTaskClass *klass)
 static void
 ufo_online_backproject_task_init(UfoOnlineBackprojectTask *self)
 {
-    self->priv = UFO_GENERAL_BACKPROJECT_TASK_GET_PRIVATE(self);
+    self->priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(self);
     self->priv->resources = NULL;
     /// OpenCL resources
     self->priv->context = NULL;
-    self->priv->cmd_queue = NULL;
-    priv->accumulate_kernel = NULL;
-    priv->backproject_kernel = NULL;
-    priv->distribute_kernel = NULL;
+    self->priv->accumulate_kernel = NULL;
+    self->priv->backproject_kernel = NULL;
+    self->priv->distribute_kernel = NULL;
     /// Properties
     self->priv->burst = 0;
     self->priv->overall_angle = G_PI;
     self->priv->num_projections = 0;
-    self->priv->center_position_x = 0.0;
+    self->priv->center_position_x = ufo_scarray_new(3, G_TYPE_DOUBLE, NULL);
     self->priv->region = ufo_scarray_new(3, G_TYPE_DOUBLE, NULL);
     self->priv->num_slices = 0;
     self->priv->generated = 0;
@@ -671,43 +716,4 @@ ufo_online_backproject_task_init(UfoOnlineBackprojectTask *self)
     self->priv->device_buffer_sine = NULL;
     self->priv->device_coalesced_slices = NULL;
     self->priv->device_final_slices = NULL;
-}
-
-static void
-ufo_online_backproject_task_finalize (GObject *object)
-{
-    UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(object);
-    if (priv->region) {
-        ufo_scarray_free(priv->region);
-        priv->region = NULL;
-    }
-    if (priv->accumulate_kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->accumulate_kernel));
-        priv->accumulate_kernel = NULL;
-    }
-    if (priv->backproject_kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->backproject_kernel));
-        priv->backproject_kernel = NULL;
-    }
-    if (priv->distribute_kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->distribute_kernel));
-        priv->distribute_kernel = NULL;
-    }
-    if (priv->device_final_slices) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_final_slices));
-        priv->device_final_slices = NULL;
-    }
-    if (priv->cmd_queue) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseCommandQueue (priv->cmd_queue));
-        priv->cmd_queue = NULL;
-    }
-    if (priv->context) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
-        priv->context = NULL;
-    }
-    if (priv->resources) {
-        g_object_unref (priv->resources);
-        priv->resources = NULL;
-    }
-    G_OBJECT_CLASS(ufo_online_backproject_task_parent_class)->finalize(object);
 }

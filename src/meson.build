@@ -162,6 +162,18 @@ shared_module('general-backproject',
     install_dir: plugin_install_dir,
 )
 
+shared_module('online-backproject',
+    sources: [
+        'ufo-online-backproject-task.c',
+        'common/ufo-math.c',
+        'common/ufo-scarray.c',
+    ],
+    dependencies: deps,
+    name_prefix: 'libufofilter',
+    install: true,
+    install_dir: plugin_install_dir,
+)
+
 shared_module('cone-beam-projection-weight',
     sources: [
         'ufo-cone-beam-projection-weight-task.c',
