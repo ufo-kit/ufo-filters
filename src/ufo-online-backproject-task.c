@@ -336,9 +336,13 @@ ufo_online_backproject_task_process (UfoTask *task,
         // number. Hence, this offset can be 0, 1, 2... and so on and when we perform modulo
         // operation on that with actual_burst we get the desired index. This modulo operation acts
         // as a guard that this index will never be out of bounds of the actual_burst size.
+        // Also, before computing index of the current projection in actual burst we check if actual
+        // burst size is not 0, because it is possible to have a situation when all the projections
+        // can be processed using complete bursts only. If that's the case following expression will
+        // evaluate actual_burst to 0 and we might land into division by zero issue.
         actual_burst = priv->num_projections % priv->burst;
-        idx_actual_burst = (processed_proj_count - (
-            priv->num_projections / priv->burst) * priv->burst) % actual_burst;
+        idx_actual_burst = actual_burst != 0 ? (processed_proj_count - (
+            priv->num_projections / priv->burst) * priv->burst) % actual_burst : 0;      
     } else {
         // Scenario: COMPLETE BURST (means we have not yet processed all the projections which can
         // be processed with complete bursts, in other words we can still have a complete burst)
@@ -494,7 +498,7 @@ ufo_online_backproject_task_generate (UfoTask *task,
     cl_mem out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     guint processed_proj_count;
     g_object_get (task, "num_processed", &processed_proj_count, NULL);
-    if (processed_proj_count != priv->num_projections) {
+    if (processed_proj_count < priv->num_projections) {
         // ERROR_CONDITION: Since generate is called at the end of processing all inputs here we
         // expect that all of the priv->num_projections number of projections are processed. If
         // that's not the case backprojection workflow encountered anomaly and we should not produce
