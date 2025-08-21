@@ -1,5 +1,5 @@
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
-const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_LINEAR;
+const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_LINEAR;
 
 kernel void
 accumulate(global float *in, write_only image2d_array_t out) {
@@ -8,8 +8,8 @@ accumulate(global float *in, write_only image2d_array_t out) {
     const int idz = get_global_id(2);
     const int size_x = get_global_size(0);
     const int size_y = get_global_size(1);
-    const int flat_y = 4 * idy;
     const int proj_offset = idz * size_x * (4 * size_y);
+    const int flat_y = 4 * idy;
     const int flat_idx0 = proj_offset + (flat_y + 0) * size_x + idx; 
     const int flat_idx1 = proj_offset + (flat_y + 1) * size_x + idx; 
     const int flat_idx2 = proj_offset + (flat_y + 2) * size_x + idx; 

@@ -154,29 +154,35 @@ ufo_online_backproject_task_setup (UfoTask *task, UfoResources *resources, GErro
     /// Instantiate resources
     priv->resources = g_object_ref (resources);
     if (!priv->num_projections) {
-        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "Number of projections not set");
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "number of projections not set");
         return;
     }
-    priv->host_buffer_cosine = g_malloc0(priv->num_projections * sizeof(float));
-    priv->host_buffer_sine = g_malloc0(priv->num_projections * sizeof(float));
+    /// Instantiate OpenCL resources
+    priv->context = ufo_resources_get_context(priv->resources);
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
+    
+    /// Instantiate Kernels
+    priv->accumulate_kernel = ufo_resources_get_kernel(priv->resources, "online-backproject.cl",
+        "accumulate", NULL, error);
+    priv->backproject_kernel = ufo_resources_get_kernel(priv->resources, "online-backproject.cl",
+        "backproject", NULL, error);
+    priv->distribute_kernel = ufo_resources_get_kernel(priv->resources, "online-backproject.cl",
+        "distribute", NULL, error);
+    if (priv->accumulate_kernel != NULL)
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->accumulate_kernel), error);
+    if (priv->backproject_kernel != NULL)
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->backproject_kernel), error);
+    if (priv->distribute_kernel != NULL)
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->distribute_kernel), error);
+
+    // Allocate host-side buffers for cosine and sine components.
+    priv->host_buffer_cosine = (float*) calloc(priv->num_projections, sizeof(float));
+    priv->host_buffer_sine = (float*) calloc(priv->num_projections, sizeof(float));
     const float ang_delta = CL_M_PI_F / (float) priv->num_projections;
     for (uint32_t theta = 0; theta < priv->num_projections; theta++) {
         priv->host_buffer_cosine[theta] = (float) cosf(theta * ang_delta);
         priv->host_buffer_sine[theta] = (float) sinf(theta * ang_delta);
     }
-    /// Instantiate OpenCL resources
-    priv->context = ufo_resources_get_context(resources);
-    UfoGpuNode *node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
-    UFO_RESOURCES_CHECK_CLERR (clRetainContext (priv->context));
-    priv->accumulate_kernel = ufo_resources_get_kernel(resources, "online-backproject.cl",
-        "accumulate", NULL, error);
-    priv->backproject_kernel = ufo_resources_get_kernel(resources, "online-backproject.cl",
-        "backproject", NULL, error);
-    priv->distribute_kernel = ufo_resources_get_kernel(resources, "online-backproject.cl",
-        "distribute", NULL, error);
-    UFO_RESOURCES_CHECK_CLERR (clRetainKernel(priv->accumulate_kernel));
-    UFO_RESOURCES_CHECK_CLERR (clRetainKernel(priv->backproject_kernel));
-    UFO_RESOURCES_CHECK_CLERR (clRetainKernel(priv->distribute_kernel));
 }
 
 /**
@@ -225,7 +231,7 @@ ufo_online_backproject_task_get_requisition (UfoTask *task,
     // Allocate device side ring buffer and additional buffer memories here because this is the
     // first place where we can know the projection shape.
     if (!priv->burst) {
-        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "Burst not set");
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "burst not set");
         return;
     }
     cl_int cl_error;
@@ -237,16 +243,19 @@ ufo_online_backproject_task_get_requisition (UfoTask *task,
             priv->burst * in_req.dims[0] * in_req.dims[1] * sizeof(float),
             NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
+        g_log ("obp", G_LOG_LEVEL_DEBUG, "req: created projection buffer: %u", priv -> burst);
     }
     if (!priv->device_buffer_cosine) {
         priv->device_buffer_cosine = clCreateBuffer(priv->context, CL_MEM_READ_ONLY,
             priv->burst * sizeof(float), NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
+        g_log ("obp", G_LOG_LEVEL_DEBUG, "req: created cosine buffer: %u", priv->burst);
     }
     if (!priv->device_buffer_sine) {
         priv->device_buffer_sine = clCreateBuffer(priv->context, CL_MEM_READ_ONLY,
             priv->burst * sizeof(float), NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
+        g_log ("obp", G_LOG_LEVEL_DEBUG, "req: created sine buffer: %u", priv->burst);
     }
     if (!priv->device_texture_projections) {
         cl_image_format fmt = {CL_RGBA, CL_HALF_FLOAT};
@@ -259,6 +268,8 @@ ufo_online_backproject_task_get_requisition (UfoTask *task,
         priv->device_texture_projections = clCreateImage(priv->context, CL_MEM_READ_WRITE,
             &fmt, &desc, NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
+        g_log ("obp", G_LOG_LEVEL_DEBUG, "req: created projection array: [x=%lu, y=%lu, z=%lu]",
+            desc.image_width, desc.image_height, desc.image_array_size);
     }
     if (!priv->device_coalesced_slices) {
         size_t coal_slice_size = requisition->dims[0] * requisition->dims[0] * (
@@ -272,6 +283,8 @@ ufo_online_backproject_task_get_requisition (UfoTask *task,
         UFO_RESOURCES_CHECK_CLERR (
             clEnqueueFillBuffer (cmd_queue, priv->device_coalesced_slices, &fill, sizeof(cl_float),
             0, coal_slice_size, 0, NULL, NULL));
+        g_log ("obp", G_LOG_LEVEL_DEBUG, "req: created coalesced slice buffer: [x=%lu, y=%lu, z=%u]",
+            requisition->dims[0], requisition->dims[0], priv->num_slices / 4);
     }
 }
 
@@ -294,6 +307,7 @@ ufo_online_backproject_task_process (UfoTask *task,
     UfoRequisition in_req;
     UfoGpuNode *node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cl_command_queue cmd_queue = ufo_gpu_node_get_cmd_queue (node);
+    UfoProfiler *profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_buffer_get_requisition (inputs[0], &in_req);
     /// NOTE: Determine whether we are at a complete burst or incomplete burst situation. Complete
     // burst means we are at a point when we can still process (priv->burst) number of subsequent
@@ -342,7 +356,7 @@ ufo_online_backproject_task_process (UfoTask *task,
         // evaluate actual_burst to 0 and we might land into division by zero issue.
         actual_burst = priv->num_projections % priv->burst;
         idx_actual_burst = actual_burst != 0 ? (processed_proj_count - (
-            priv->num_projections / priv->burst) * priv->burst) % actual_burst : 0;      
+            priv->num_projections / priv->burst) * priv->burst) % actual_burst : 0;
     } else {
         // Scenario: COMPLETE BURST (means we have not yet processed all the projections which can
         // be processed with complete bursts, in other words we can still have a complete burst)
@@ -388,14 +402,13 @@ ufo_online_backproject_task_process (UfoTask *task,
         // of projections in next kernel execution subtracting actual_burst from the global number
         // of current projection gives us the index we want.
         cl_uint global_proj_idx = (cl_uint) (processed_proj_count + 1 - actual_burst);
-        UfoProfiler *profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
+        g_log ("obp", G_LOG_LEVEL_DEBUG, "processing %u projections starting from %u", actual_burst,
+            global_proj_idx);
         /// Stage: ACCUMULATE (Packs four rows of the projection into one using RGBA format)
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 0, sizeof(cl_mem),
         &priv->device_buffer_projections));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 1, sizeof(cl_mem),
         &priv->device_texture_projections));
-        // UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 2, sizeof(cl_uint),
-        // &actual_burst));
         const size_t accumulate_work_size[] = {in_req.dims[0], in_req.dims[1] / 4, actual_burst};
         ufo_profiler_call_blocking (profiler, cmd_queue, priv->accumulate_kernel, 3,
             accumulate_work_size, NULL);
@@ -411,7 +424,7 @@ ufo_online_backproject_task_process (UfoTask *task,
         /// TODO: The dimensionality of the work size would change when we incorporate the region
         // property. For the time being we assume that we are reconstructing all slices.
         const size_t bp_work_size[] = {in_req.dims[0], in_req.dims[0], in_req.dims[1] / 4};
-        const gdouble center_position_x = ufo_scarray_get_double(priv->center_position_x, 0);
+        const cl_float center_position_x = (cl_float) ufo_scarray_get_double(priv->center_position_x, 0);
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 0, sizeof(cl_mem),
         &priv->device_texture_projections));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 1, sizeof(cl_mem),
@@ -429,6 +442,70 @@ ufo_online_backproject_task_process (UfoTask *task,
     }
     return TRUE;
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// TEST
+////////////////////////////////////////////////////////////////////////////////////////////////////
+#include <assert.h>
+#include <tiffio.h>
+typedef struct {
+    uint32_t x_dim; // width of individual frame
+    uint32_t y_dim; // height of individual frame
+    uint32_t num; // number of frames
+    uint32_t smpl_per_pxl; // channel information of the frames
+    uint32_t bits_per_smpl; // number of bits per channel
+    uint32_t padded_dim; // padded dimension (next power of 2 larger than 2 * width)
+} im_meta_t;
+
+void
+make_progress_bar(int step, int total_steps) {
+    uint8_t bar_width = 50;  // Width of the progress bar
+    float percentage = (float)step / total_steps;
+    uint32_t pos = percentage * bar_width;
+    printf("[");
+    for (uint8_t i = 0; i < bar_width; i++) {
+        if (i < pos) printf("=");
+        else if (i == pos) printf(">");
+        else printf(" ");
+    }
+    printf("] %d%%\r", (int)(percentage * 100));
+    fflush(stdout);
+}
+
+int
+array2tiff(const char *filepath, float *buffer, im_meta_t *meta) {
+    assert(meta != NULL && buffer != NULL);
+    printf("Writing Volume: (width=%u height=%u num=%u samples_per_pixel=%u bits_per_sample=%u)\n",
+        meta -> x_dim,
+        meta -> y_dim,
+        meta -> num,
+        meta -> smpl_per_pxl,
+        meta -> bits_per_smpl);
+    TIFF *tiff = TIFFOpen(filepath, "w8");
+    if (!tiff) return 1;
+    uint32_t ind_frame_size = meta -> y_dim * meta -> x_dim;
+    for (uint32_t i = 0; i < meta -> num; i++) {
+        make_progress_bar(i, meta->num);
+        TIFFSetField(tiff, TIFFTAG_IMAGEWIDTH, meta -> x_dim);
+        TIFFSetField(tiff, TIFFTAG_IMAGELENGTH, meta -> y_dim);
+        TIFFSetField(tiff, TIFFTAG_SAMPLESPERPIXEL, meta -> smpl_per_pxl);
+        TIFFSetField(tiff, TIFFTAG_BITSPERSAMPLE, meta -> bits_per_smpl);
+        TIFFSetField(tiff, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+        TIFFSetField(tiff, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+        TIFFSetField(tiff, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
+        TIFFSetField(tiff, TIFFTAG_ROWSPERSTRIP, TIFFDefaultStripSize (tiff, (uint32_t) - 1));
+        TIFFSetField(tiff, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
+        uint32_t stride = i * ind_frame_size;
+        for (uint32_t scl = 0; scl < meta -> y_dim; scl++) {
+            TIFFWriteScanline(tiff, buffer + stride + (scl * meta -> x_dim), scl, 0);
+        }
+        TIFFWriteDirectory(tiff);
+    }
+    printf("\n");
+    TIFFClose(tiff);
+    return CL_SUCCESS;
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /**
  * ufo_online_backproject_task_generate:
@@ -452,11 +529,11 @@ ufo_online_backproject_task_generate (UfoTask *task,
     /// NOTE: We deallocate all unnecessary resources before distributing the coalesced slices. This
     // should help reducing the memory footprint before generating final output.
     if (priv->host_buffer_cosine) {
-        g_free(priv->host_buffer_cosine);
+        free(priv->host_buffer_cosine);
         priv->host_buffer_cosine = NULL;
     }
     if (priv->host_buffer_sine) {
-        g_free(priv->host_buffer_sine);
+        free(priv->host_buffer_sine);
         priv->host_buffer_sine = NULL;
     }
     if (priv->device_buffer_projections) {
@@ -494,6 +571,20 @@ ufo_online_backproject_task_generate (UfoTask *task,
         UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_coalesced_slices));
         priv->device_coalesced_slices = NULL;
     }
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+    // TEST
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+    float *slices = (float*) calloc(priv->num_slices * requisition->dims[0] * requisition->dims[1] , sizeof(float));
+    size_t slices_size = priv->num_slices * requisition->dims[0] * requisition->dims[1] * sizeof(float);
+    assert(clEnqueueReadBuffer(
+        cmd_queue, priv->device_final_slices, CL_TRUE, 0, slices_size, slices, 0, NULL, NULL) == CL_SUCCESS);
+    im_meta_t outmeta = {requisition->dims[0], requisition->dims[1], priv->num_slices, 1, 32, 1024};
+    array2tiff("/home/ws/nj4412/workspace/projects/gpr/build/exp-slices.tiff", slices, &outmeta);
+    free(slices);
+    return FALSE;
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+
     /// Stage: OUTPUT
     cl_mem out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     guint processed_proj_count;
@@ -527,10 +618,11 @@ ufo_online_backproject_task_generate (UfoTask *task,
     size_t src_origin[3] = {0, 0, priv->generated % priv->num_slices};
     size_t dst_origin[3] = {0, 0, 0};
     size_t region[3] = {row_pitch, requisition->dims[1], 1};
-    g_log ("gbp", G_LOG_LEVEL_DEBUG, "Generating slice %u", priv->generated + 1);
-    g_log ("gbp", G_LOG_LEVEL_DEBUG, "src_origin: %lu %lu %lu", src_origin[0], src_origin[1], src_origin[2]);
-    g_log ("gbp", G_LOG_LEVEL_DEBUG, "region: %lu %lu %lu", region[0], region[1], region[2]);
-    g_log ("gbp", G_LOG_LEVEL_DEBUG, "row pitch %lu, slice pitch %lu", row_pitch, slice_pitch);
+    g_log ("obp", G_LOG_LEVEL_DEBUG, "generating slice %u", priv->generated + 1);
+    g_log ("obp", G_LOG_LEVEL_DEBUG, "src_origin: %lu %lu %lu",
+        src_origin[0], src_origin[1], src_origin[2]);
+    g_log ("obp", G_LOG_LEVEL_DEBUG, "region: %lu %lu %lu", region[0], region[1], region[2]);
+    g_log ("obp", G_LOG_LEVEL_DEBUG, "row pitch %lu, slice pitch %lu", row_pitch, slice_pitch);
     UFO_RESOURCES_CHECK_CLERR (clEnqueueCopyBufferRect (cmd_queue,
                                                         priv->device_final_slices, out_mem,
                                                         src_origin, dst_origin, region,
