@@ -88,15 +88,14 @@ ufo_online_backproject_task_new (void)
     return UFO_NODE (g_object_new (UFO_TYPE_ONLINE_BACKPROJECT_TASK, NULL));
 }
 
-
 /**
  * ufo_online_backproject_task_get_num_inputs:
+ * 
  * @task: A #UfoTask.
+ * @returns: Number of incoming projections at a time.
  *
- * Specifies the number of inputs for the online back-project task. Since we want to process each
- * single incoming projection, we specify that the task expects one input.
- *
- * Returns: Number of incoming projections at a time.
+ * Specifies the number of inputs for the task. Since we want to process each single incoming
+ * projection individually, task expects a single input. Called once for the task.
  */
 static guint
 ufo_online_backproject_task_get_num_inputs (UfoTask *task)
@@ -106,16 +105,16 @@ ufo_online_backproject_task_get_num_inputs (UfoTask *task)
 
 /**
  * ufo_online_backproject_task_get_num_dimensions:
+ * 
  * @task: A #UfoTask.
  * @input: Dimension of the input. 
+ * @returns: Number of dimensions for single incoming projection.
  * 
  * Specifies the number of dimensions of the input. A single incoming projection has 2 dimensions.
- * 
- * Returns: Number of dimensions for single incoming projection.
+ * Called once for the task.
  */
 static guint
-ufo_online_backproject_task_get_num_dimensions (UfoTask *task,
-                                             guint input)
+ufo_online_backproject_task_get_num_dimensions (UfoTask *task, guint input)
 {
     g_return_val_if_fail (input == 0, 0);
     return 2;
@@ -123,14 +122,14 @@ ufo_online_backproject_task_get_num_dimensions (UfoTask *task,
 
 /**
  * ufo_online_backproject_task_get_mode:
+ * 
  * @task: A #UfoTask.
+ * @returns: A bitwise OR of the task modes (#UfoTaskMode) that this task supports.
  * 
- * Specifies the mode in which the task operates. The online back-project task is designed to
- * process a stream of incoming projections, accumulating them in a buffer and then back-projecting
- * them onto a 3D volume. It operates in a reductor mode, meaning it expects to receive a stream of
- * inputs and produce an output and the task is designed to run on GPU devices.
- * 
- * Returns: A bitwise OR of the task modes that this task supports.
+ * Specifies the mode in which the task operates. This task is designed to process a stream of
+ * incoming projections in batches. It operates in a reductor mode, meaning it expects to receive a
+ * stream of inputs and produce an output and the task is intended to run on GPU devices. Called
+ * once for the task.
  */
 static UfoTaskMode
 ufo_online_backproject_task_get_mode (UfoTask *task)
@@ -140,28 +139,24 @@ ufo_online_backproject_task_get_mode (UfoTask *task)
 
 /**
  * ufo_online_backproject_task_setup:
+ * 
  * @task: A #UfoTask.
  * @resources: A #UfoResources instance containing the OpenCL context and kernels.
  * @error: A pointer to a #GError that will be set if an error occurs.
  * 
- * This function sets up the OpenCL and other runtime resources required for the online
- * back-project task and called once per task instance. We initialize all reusable resources here.
+ * Sets up the runtime resources required for the task. It initializes the OpenCL kernels and all
+ * host and device side buffers whose size is known during task setup. Called once for the task.
  */
 static void
 ufo_online_backproject_task_setup (UfoTask *task, UfoResources *resources, GError **error)
 {
     UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(task);
-    /// Instantiate resources
+    // Instantiate resources.
     priv->resources = g_object_ref (resources);
-    if (!priv->num_projections) {
-        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "number of projections not set");
-        return;
-    }
-    /// Instantiate OpenCL resources
+    // Instantiate OpenCL resources.
     priv->context = ufo_resources_get_context(priv->resources);
     UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
-    
-    /// Instantiate Kernels
+    // Instantiate Kernels
     priv->accumulate_kernel = ufo_resources_get_kernel(priv->resources, "online-backproject.cl",
         "accumulate", NULL, error);
     priv->backproject_kernel = ufo_resources_get_kernel(priv->resources, "online-backproject.cl",
@@ -174,8 +169,11 @@ ufo_online_backproject_task_setup (UfoTask *task, UfoResources *resources, GErro
         UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->backproject_kernel), error);
     if (priv->distribute_kernel != NULL)
         UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->distribute_kernel), error);
-
     // Allocate host-side buffers for cosine and sine components.
+    if (!priv->num_projections) {
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "number of projections not set");
+        return;
+    }
     priv->host_buffer_cosine = (float*) calloc(priv->num_projections, sizeof(float));
     priv->host_buffer_sine = (float*) calloc(priv->num_projections, sizeof(float));
     const float ang_delta = CL_M_PI_F / (float) priv->num_projections;
@@ -183,32 +181,52 @@ ufo_online_backproject_task_setup (UfoTask *task, UfoResources *resources, GErro
         priv->host_buffer_cosine[theta] = (float) cosf(theta * ang_delta);
         priv->host_buffer_sine[theta] = (float) sinf(theta * ang_delta);
     }
+    // Allocate device-side buffers for cosine and sine components.
+    if (!priv->burst) {
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "burst not set");
+        return;
+    }
+    cl_int cl_error;
+    if (!priv->device_buffer_cosine) {
+        priv->device_buffer_cosine = clCreateBuffer(priv->context, CL_MEM_READ_ONLY,
+            priv->burst * sizeof(float), NULL, &cl_error);
+        UFO_RESOURCES_CHECK_CLERR (cl_error);
+    }
+    if (!priv->device_buffer_sine) {
+        priv->device_buffer_sine = clCreateBuffer(priv->context, CL_MEM_READ_ONLY,
+            priv->burst * sizeof(float), NULL, &cl_error);
+        UFO_RESOURCES_CHECK_CLERR (cl_error);
+    }
 }
 
 /**
  * ufo_online_backproject_task_requisition:
+ * 
  * @task: A #UfoTask.
  * @inputs: Input #UfoBuffer resources. Number of buffers depends on `get_num_inputs` function.
  * @requisition: A #UfoRequisition to describe the dimensions of the output data.
  * @error: A pointer to a #GError that will be set if an error occurs.
  * 
- * Called for each iteration of the task right before process to calrify, which size of an
- * output buffer would be required depending on the inputs.
+ * Called for each iteration of the task right before `process` function to specify the output size
+ * for the given input size. It initializes those device-side resources whose size would be known
+ * in runtime only after the task execution starts.
+ * 
+ * NOTE: Conventionally, this function deals with input and output requisitions. A #UfoRequisition
+ * object captures the dimensionality information for the input and output for the task. Input
+ * requisition `in_req` is inferred from the input buffer (since we specified number of input as 1
+ * we expect the `inputs` array to have a single item). Output `requisition`, which this function
+ * receives as a parameter, is initialized according to the input requisition `in_req`. Output
+ * `requisition` initialized here becomes relevant, when we process output slices in generate
+ * function, because output buffers are initialized accordingly.
  */
 static void
-ufo_online_backproject_task_get_requisition (UfoTask *task,
-                                 UfoBuffer **inputs,
-                                 UfoRequisition *requisition,
-                                 GError **error)
+ufo_online_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
+    UfoRequisition *requisition, GError **error)
 {
     UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(task);
     UfoRequisition in_req;
     gdouble region_start, region_stop, region_step;
     ufo_buffer_get_requisition(inputs[0], &in_req);
-    /// NOTE: The argument `requisition` spcifies the dimensions of the output data that we will
-    // produce in the generate function. For our task we specify two dimensions because we want
-    // to produce 2D slices from generate. It is crucial to distinguish between `in_req`, which
-    // stands for the dimensions of the input and `requisition`.
     /// TODO: Region is disabled until we achieve a correct version of the task that processes all
     // slices, which is a simpler case to handle. Therefore all slices buffers are allocated with
     // full sizes for the time being and priv->num_slices is set to the full height of the
@@ -228,12 +246,7 @@ ufo_online_backproject_task_get_requisition (UfoTask *task,
     requisition->dims[0] = in_req.dims[0];
     requisition->dims[1] = in_req.dims[0];
     priv->num_slices = in_req.dims[1];
-    // Allocate device side ring buffer and additional buffer memories here because this is the
-    // first place where we can know the projection shape.
-    if (!priv->burst) {
-        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "burst not set");
-        return;
-    }
+    // Allocate device side ring-buffer and additional resources using requisitions.
     cl_int cl_error;
     UfoGpuNode *node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cl_command_queue cmd_queue = ufo_gpu_node_get_cmd_queue (node);
@@ -243,19 +256,6 @@ ufo_online_backproject_task_get_requisition (UfoTask *task,
             priv->burst * in_req.dims[0] * in_req.dims[1] * sizeof(float),
             NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
-        g_log ("obp", G_LOG_LEVEL_DEBUG, "req: created projection buffer: %u", priv -> burst);
-    }
-    if (!priv->device_buffer_cosine) {
-        priv->device_buffer_cosine = clCreateBuffer(priv->context, CL_MEM_READ_ONLY,
-            priv->burst * sizeof(float), NULL, &cl_error);
-        UFO_RESOURCES_CHECK_CLERR (cl_error);
-        g_log ("obp", G_LOG_LEVEL_DEBUG, "req: created cosine buffer: %u", priv->burst);
-    }
-    if (!priv->device_buffer_sine) {
-        priv->device_buffer_sine = clCreateBuffer(priv->context, CL_MEM_READ_ONLY,
-            priv->burst * sizeof(float), NULL, &cl_error);
-        UFO_RESOURCES_CHECK_CLERR (cl_error);
-        g_log ("obp", G_LOG_LEVEL_DEBUG, "req: created sine buffer: %u", priv->burst);
     }
     if (!priv->device_texture_projections) {
         cl_image_format fmt = {CL_RGBA, CL_HALF_FLOAT};
@@ -268,8 +268,6 @@ ufo_online_backproject_task_get_requisition (UfoTask *task,
         priv->device_texture_projections = clCreateImage(priv->context, CL_MEM_READ_WRITE,
             &fmt, &desc, NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
-        g_log ("obp", G_LOG_LEVEL_DEBUG, "req: created projection array: [x=%lu, y=%lu, z=%lu]",
-            desc.image_width, desc.image_height, desc.image_array_size);
     }
     if (!priv->device_coalesced_slices) {
         size_t coal_slice_size = requisition->dims[0] * requisition->dims[0] * (
@@ -277,31 +275,92 @@ ufo_online_backproject_task_get_requisition (UfoTask *task,
         priv->device_coalesced_slices = clCreateBuffer(priv->context, CL_MEM_WRITE_ONLY,
             coal_slice_size, NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
-        /// NOTE: We zero-fill the coalesced slices buffer because we add the backprojected values
-        // onto it in each burst.
+        // Zero-fill the coalesced slices buffer. Backprojected values are added to it during each
+        // kernel execution. 
         float fill = 0.0f;
         UFO_RESOURCES_CHECK_CLERR (
             clEnqueueFillBuffer (cmd_queue, priv->device_coalesced_slices, &fill, sizeof(cl_float),
             0, coal_slice_size, 0, NULL, NULL));
-        g_log ("obp", G_LOG_LEVEL_DEBUG, "req: created coalesced slice buffer: [x=%lu, y=%lu, z=%u]",
-            requisition->dims[0], requisition->dims[0], priv->num_slices / 4);
     }
 }
 
 /**
  * ufo_online_backproject_task_process:
+ * 
  * @task: A #UfoTask.
  * @inputs: Input #UfoBuffer resources. Number of buffers depends on `get_num_inputs` function.
- * @output: A #UfoBuffer having the output if any. Output buffer may not be used at this stage.
+ * @output: A #UfoBuffer having the output if any. Output buffer may not be used at this STAGE.
  * @requisition: A #UfoRequisition to describe the dimensions of the output data.
+ * @returns: TRUE until `process` should be called iteratively. FALSE marks the end of processing.
  * 
- * Called for each iteration of the task to process the input data.
+ * Called for each iteration of the task to process individual projections.
+ * 
+ * NOTE: To process incoming stream of projections in batches it function determines whether we are
+ * at a COMPLETE or INCOMPLETE burst (batch) scenario. COMPLETE burst means we have sufficient
+ * number of projections left to process out of total and therefore next kernel execution can happen
+ * over configured `priv->burst` projections. In contrast, INCOMPLETE burst means that we are
+ * approaching the end of processing and less then `priv->burst` projections are left to process.
+ * Following variables helps in distinguishing between two scenarios.
+ * 
+ * - `processed_proj_count`: Number of processed inputs/projections (tracked by ufo task node using
+ * `num_processed` variable internally) at any given point during execution.
+ * 
+ * - `actual_burst`: Actual number of projections that we can process with next kernel execution,
+ * means this is our runtime batch in practice. In COMPLETE burst scenario `actual_burst` is equal
+ * to `priv->burst`. In INCOMPLETE burst scenario `actual_burst` is lesser than `priv->burst`.
+ * 
+ * - `idx_actual_burst`: Index of current projection in actual burst. Modulo operator is used with
+ * `actual_burst` to compute this and prevent going out of bounds, therefore it ranges in
+ * [0, `actual_burst`).
+ * 
+ * Both the actual burst size and projection index in actual burst are needed to correctly update
+ * the ring buffer.
+ * 
+ * INCOMPLETE Burst: `(processed_proj_count >= (priv->num_projections / priv->burst) * priv->burst)`
+ * 
+ * Expression `(priv->num_projections / priv->burst) * priv->burst` tells us total number of
+ * projections we can process with configured `priv->burst`. If our current `processed_proj_count`
+ * exceeds that number it means we have less then `priv->burst` projections left to process out of
+ * `priv->num_projections`. In that case actual_burst would be remainder number of projections after
+ * processing all the complete bursts and this is then our current `actual_burst`.
+ * Next we calculate index of the current projection inside its own burst, `idx_actual_burst` by
+ * calculating the offset between current processed projection count and total number of projections
+ * that can be processed with complete burst. There are three specific details, that we want to keep
+ * in mind in this regard.
+ * 
+ * 1. `(priv->num_projections / priv->burst)` is an integer division and it yields the total number
+ * of complete bursts possible for `priv->num_projections` with burst size `priv->burst` and
+ * subsequently when `priv->burst` is multiplied to that we get the total number of projections
+ * covered by the complete bursts.
+ * 
+ * 2. `(processed_proj_count - (priv->num_projections / priv->burst) * priv->burst)` yields the
+ * offset between the 'current projection being processed' and 'total number of projections covered
+ * by the complete bursts'. Former is greater or equal to latter (our INCOMPLETE burst condition
+ * above). It means this control flow is only active when we are just processing
+ * `(priv->num_projections / priv->burst) * priv->burst]'th` projection or exceeded that number.
+ * Hence, this offset can be 0, 1, 2... and so on and when we perform modulo operation on that with
+ * `actual_burst` we get the desired index. This modulo operation acts as a guard that this index
+ * will never be out of bounds of the `actual_burst` size.
+ * 
+ * 3. `actual_burst != 0` safe-guards against division by zero problem. It is possible to have a
+ * situation, when all the projections can be processed using complete bursts only (e.g., 3000 % 24
+ * = 0). If that's the case expression `priv->num_projections % priv->burst` will compute
+ * `actual_burst` as 0 and we might land into division by zero situation.
+ * 
+ * COMPLETE Burst: `(processed_proj_count < (priv->num_projections / priv->burst) * priv->burst)`
+ * 
+ * In this simpler scenatio `actual_burst` would be the configured `priv->burst` because we have
+ * sufficient number of projections still left to process such that next kernel execution can happen
+ * for `priv->burst` projections. So we can directly set `actual_burst` accordingly. We calculate
+ * the `idx_actual_burst` using modulo operation of `processed_proj_count` by `actual_burst`, which
+ * calculates value in range [0, `actual_burst`). Crucial difference here is the `actual_burst`.
+ * In this scenario it is the configured size and in other case it is derived from the number of
+ * projections left to process.
+ * 
  */
 static gboolean
-ufo_online_backproject_task_process (UfoTask *task,
-                         UfoBuffer **inputs,
-                         UfoBuffer *output,
-                         UfoRequisition *requisition)
+ufo_online_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer *output,
+    UfoRequisition *requisition)
 {
     UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(task);
     UfoRequisition in_req;
@@ -309,102 +368,51 @@ ufo_online_backproject_task_process (UfoTask *task,
     cl_command_queue cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     UfoProfiler *profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_buffer_get_requisition (inputs[0], &in_req);
-    /// NOTE: Determine whether we are at a complete burst or incomplete burst situation. Complete
-    // burst means we are at a point when we can still process (priv->burst) number of subsequent
-    // projections. In contrast incomplete burst means that we are approaching the end of processing
-    // priv->num_projections and less then (priv->burst) number projections are left to process.
-    // processed_proj_count => Number of processed inputs/projections (tracked by ufo task node).
-    // actual_burst => Actual number of projection that we can process with next kernel execution.
-    // idx_actual_burst => Index of current projection in actual burst. In both scenarios we use
-    // modulo with actual burst to prevent going out of bounds.
-    // Both the actual burst size and projection index in actual burst is needed to correctly update
-    // and fetch projections from host side ring buffer.
     guint idx_actual_burst, processed_proj_count, actual_burst;
     g_object_get (task, "num_processed", &processed_proj_count, NULL);
     if (processed_proj_count >= (priv->num_projections / priv->burst) * priv->burst) {
-        // Scenario: INCOMPLETE BURST (means we have processed all the projections which we could
+        // Scenario: INCOMPLETE Burst (means we have processed all the projections which we could
         // process with complete bursts and number of projections left to process would not make a
         // a complete burst)
-
-        // Expression [(priv->num_projections / priv->burst) * priv->burst] tells us total number of
-        // projections we can process with the burst we have configured. If our currently processed
-        // projection count exceeds that number it means we have less then (priv->burst) projections
-        // left to process out of all priv->num_projections. In that case actual_burst would be
-        // remainder number of projections after processing all the complete bursts and this is then
-        // our current burst.
-        
-        // Next we calculate index of the current projection inside its own burst, idx_actual_burst.
-        // It is done by calculating the offset between current processed projection count and
-        // total number of projections that can be processed with complete burst. There are
-        // three specific details, that we want to keep in mind in this regard.
-        // 1. (priv->num_projections / priv->burst) is an integer division and it yields the total
-        // number of complete bursts possible for ptiv->num_projections projections when the burst
-        // size is given by priv->burst and subsequently when priv->burst is multiplied to that
-        // number we get the total number of projections covered by the complete bursts.
-        // 2. (processed_proj_count - (priv->num_projections / priv->burst) * priv->burst)
-        // expression below yields the offset between the current projection being processed and
-        // total number of projections covered by the complete bursts and simultaneously we should
-        // keep in mind that the former is greater or equal to latter (our if condition above). It
-        // means this control flow is only active when we are just processing
-        // [(priv->num_projections / priv->burst) * priv->burst]'th projection or exceeded that
-        // number. Hence, this offset can be 0, 1, 2... and so on and when we perform modulo
-        // operation on that with actual_burst we get the desired index. This modulo operation acts
-        // as a guard that this index will never be out of bounds of the actual_burst size.
-        // Also, before computing index of the current projection in actual burst we check if actual
-        // burst size is not 0, because it is possible to have a situation when all the projections
-        // can be processed using complete bursts only. If that's the case following expression will
-        // evaluate actual_burst to 0 and we might land into division by zero issue.
         actual_burst = priv->num_projections % priv->burst;
         idx_actual_burst = actual_burst != 0 ? (processed_proj_count - (
             priv->num_projections / priv->burst) * priv->burst) % actual_burst : 0;
     } else {
-        // Scenario: COMPLETE BURST (means we have not yet processed all the projections which can
+        // Scenario: COMPLETE Burst (means we have not yet processed all the projections which can
         // be processed with complete bursts, in other words we can still have a complete burst)
-
-        // In this simpler scenatio actual_burst would be the configured priv->burst since we have
-        // sufficient number of projections still left to process. So we can directly set
-        // actual_burst accordingly.
-        
-        // We calculate the projection index in actual burst, idx_actual_burst using a similar
-        // modulo operation as for the incomplete burst. Crucial difference between two control
-        // flows is the size of the actual_burst. In this case it is the configured size and in
-        // other case the size is derived.
         actual_burst = priv->burst;
         idx_actual_burst = processed_proj_count % actual_burst;
     }
     // Copy the current projection to its correct position of the device ring buffer. This requires
     // that we take note of the following.
-    // Offset: We need to correctly calculate the position of the device side ring buffer where
+    // - Offset: We need to correctly calculate the position of the device side ring buffer where
     // to update the current projection. While `in_req.dims[0] * in_req.dims[1] * sizeof(float)`
     // gives the size of each projection in bytes multiplying that by idx_actual_burst yields the
     // required offset from the start of the buffer because idx_actual_burst is the index of the
     // projection inside its burst.
-    // Size: in_req.dims[0] * in_req.dims[1] * sizeof(float) is the size of each projection in
+    // - Size: in_req.dims[0] * in_req.dims[1] * sizeof(float) is the size of each projection in
     // bytes.
     // Using offset and size we can update the device side ring buffer for each incoming projection.
     float *curr_proj_array =  ufo_buffer_get_host_array(inputs[0], cmd_queue);
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueWriteBuffer (
-            cmd_queue, priv->device_buffer_projections, CL_TRUE,
-            idx_actual_burst * in_req.dims[0] * in_req.dims[1] * sizeof(float), // Offset
-            in_req.dims[0] * in_req.dims[1] * sizeof(float), // Size
-            curr_proj_array, 0, NULL, NULL));
-    // Start processing projections once we have accumulated actual_burst number of projections,
-    // `idx_actual_burst` is the index of the current projection inside its burst and
-    // if (idx_actual_burst + 1) is equal to the current burst_size `actual_burst` then we are ready
-    // to dispatch the kernels.
+    UFO_RESOURCES_CHECK_CLERR (clEnqueueWriteBuffer (cmd_queue, priv->device_buffer_projections,
+        CL_TRUE,
+        idx_actual_burst * in_req.dims[0] * in_req.dims[1] * sizeof(float), // Offset
+        in_req.dims[0] * in_req.dims[1] * sizeof(float), // Size
+        curr_proj_array, 0, NULL, NULL));
+    // Dispatch kernels, once burst is ready. Since `idx_actual_burst` is the index of the current
+    // projection in its burst, if (idx_actual_burst + 1) is equal to the derived burst size we can
+    // process the batch.
     if (idx_actual_burst + 1 == actual_burst) {
-        // We compute the global index of the first projection to be processed in the actual
-        // burst. This index is especially useful for us to select the angular cosine and sine
-        // parameters from the host side buffer to device side since we also know the size of the
-        // actual burst. To compute this we use processed_proj_count which gives us the global
-        // number of projections which are already processed. Incrementing this by 1 gives us the
-        // global number of the current projection and since we want to process actual_burst number
-        // of projections in next kernel execution subtracting actual_burst from the global number
-        // of current projection gives us the index we want.
+        // We compute the global index of the first projection to be processed in the current
+        // burst. We need it to copy the rotation coefficients from the host side buffer to device
+        // side. Incrementing global index of the processed projections so far by 1 gives us the
+        // global index of the current projection and since we want to process `actual_burst` number
+        // of projections in next kernel execution subtracting it from the global index of current
+        // projection gives us the index we want.
         cl_uint global_proj_idx = (cl_uint) (processed_proj_count + 1 - actual_burst);
         g_log ("obp", G_LOG_LEVEL_DEBUG, "processing %u projections starting from %u", actual_burst,
             global_proj_idx);
-        /// Stage: ACCUMULATE (Packs four rows of the projection into one using RGBA format)
+        /// STAGE: ACCUMULATE (Packs four rows of the projection into one using RGBA format)
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 0, sizeof(cl_mem),
         &priv->device_buffer_projections));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 1, sizeof(cl_mem),
@@ -412,7 +420,7 @@ ufo_online_backproject_task_process (UfoTask *task,
         const size_t accumulate_work_size[] = {in_req.dims[0], in_req.dims[1] / 4, actual_burst};
         ufo_profiler_call_blocking (profiler, cmd_queue, priv->accumulate_kernel, 3,
             accumulate_work_size, NULL);
-        /// Stage: BACKPROJECT
+        /// STAGE: BACKPROJECT
         UFO_RESOURCES_CHECK_CLERR (clEnqueueWriteBuffer (
             cmd_queue, priv->device_buffer_cosine, CL_TRUE, 0,
             actual_burst * sizeof(float), priv->host_buffer_cosine + global_proj_idx,
@@ -437,121 +445,33 @@ ufo_online_backproject_task_process (UfoTask *task,
         &center_position_x));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 5, sizeof(cl_uint),
         &actual_burst));
-        ufo_profiler_call_blocking (profiler, cmd_queue, priv->backproject_kernel, 3,
-            bp_work_size, NULL);
+        ufo_profiler_call_blocking (profiler, cmd_queue, priv->backproject_kernel, 3, bp_work_size,
+            NULL);
     }
     return TRUE;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-// TEST
-////////////////////////////////////////////////////////////////////////////////////////////////////
-#include <assert.h>
-#include <tiffio.h>
-typedef struct {
-    uint32_t x_dim; // width of individual frame
-    uint32_t y_dim; // height of individual frame
-    uint32_t num; // number of frames
-    uint32_t smpl_per_pxl; // channel information of the frames
-    uint32_t bits_per_smpl; // number of bits per channel
-    uint32_t padded_dim; // padded dimension (next power of 2 larger than 2 * width)
-} im_meta_t;
-
-void
-make_progress_bar(int step, int total_steps) {
-    uint8_t bar_width = 50;  // Width of the progress bar
-    float percentage = (float)step / total_steps;
-    uint32_t pos = percentage * bar_width;
-    printf("[");
-    for (uint8_t i = 0; i < bar_width; i++) {
-        if (i < pos) printf("=");
-        else if (i == pos) printf(">");
-        else printf(" ");
-    }
-    printf("] %d%%\r", (int)(percentage * 100));
-    fflush(stdout);
-}
-
-int
-array2tiff(const char *filepath, float *buffer, im_meta_t *meta) {
-    assert(meta != NULL && buffer != NULL);
-    printf("Writing Volume: (width=%u height=%u num=%u samples_per_pixel=%u bits_per_sample=%u)\n",
-        meta -> x_dim,
-        meta -> y_dim,
-        meta -> num,
-        meta -> smpl_per_pxl,
-        meta -> bits_per_smpl);
-    TIFF *tiff = TIFFOpen(filepath, "w8");
-    if (!tiff) return 1;
-    uint32_t ind_frame_size = meta -> y_dim * meta -> x_dim;
-    for (uint32_t i = 0; i < meta -> num; i++) {
-        make_progress_bar(i, meta->num);
-        TIFFSetField(tiff, TIFFTAG_IMAGEWIDTH, meta -> x_dim);
-        TIFFSetField(tiff, TIFFTAG_IMAGELENGTH, meta -> y_dim);
-        TIFFSetField(tiff, TIFFTAG_SAMPLESPERPIXEL, meta -> smpl_per_pxl);
-        TIFFSetField(tiff, TIFFTAG_BITSPERSAMPLE, meta -> bits_per_smpl);
-        TIFFSetField(tiff, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
-        TIFFSetField(tiff, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-        TIFFSetField(tiff, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_MINISBLACK);
-        TIFFSetField(tiff, TIFFTAG_ROWSPERSTRIP, TIFFDefaultStripSize (tiff, (uint32_t) - 1));
-        TIFFSetField(tiff, TIFFTAG_SAMPLEFORMAT, SAMPLEFORMAT_IEEEFP);
-        uint32_t stride = i * ind_frame_size;
-        for (uint32_t scl = 0; scl < meta -> y_dim; scl++) {
-            TIFFWriteScanline(tiff, buffer + stride + (scl * meta -> x_dim), scl, 0);
-        }
-        TIFFWriteDirectory(tiff);
-    }
-    printf("\n");
-    TIFFClose(tiff);
-    return CL_SUCCESS;
-}
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 /**
  * ufo_online_backproject_task_generate:
+ * 
  * @task: A #UfoTask.
  * @output: A #UfoBuffer to contain the output from the task.
  * @requisition: A #UfoRequisition to describe the dimensions of the output data.
+ * @returns: TRUE until `generate` should be called iteratively. FALSE marks the end of generating.
  * 
- * Called at the end of all process iterations to generate the output from the task. This method
+ * Called at the end of all `process` iterations to generate the output from the task. This method
  * call will be repeated until it returns TRUE, means we still have slices to generate. At the end
- * of producing all slices it will return FALSE, which marks the end of generate.
+ * of producing all slices it will return FALSE, which marks the end of generate. Output requisition
+ * initialized during `_get_requisition` function earlier becomes relevant here when we request for
+ * device memory to copy the generated slice from the buffer.
  */
 static gboolean
-ufo_online_backproject_task_generate (UfoTask *task,
-                                       UfoBuffer *output,
-                                       UfoRequisition *requisition)
+ufo_online_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequisition *requisition)
 {
     UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(task);
     UfoGpuNode *node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     UfoProfiler *profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-    cl_command_queue cmd_queue = ufo_gpu_node_get_cmd_queue (node);
-    /// NOTE: We deallocate all unnecessary resources before distributing the coalesced slices. This
-    // should help reducing the memory footprint before generating final output.
-    if (priv->host_buffer_cosine) {
-        free(priv->host_buffer_cosine);
-        priv->host_buffer_cosine = NULL;
-    }
-    if (priv->host_buffer_sine) {
-        free(priv->host_buffer_sine);
-        priv->host_buffer_sine = NULL;
-    }
-    if (priv->device_buffer_projections) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_buffer_projections));
-        priv->device_buffer_projections = NULL;
-    }
-    if (priv->device_texture_projections) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_texture_projections));
-        priv->device_texture_projections = NULL;
-    }
-    if (priv->device_buffer_cosine) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_buffer_cosine));
-        priv->device_buffer_cosine = NULL;
-    }
-    if (priv->device_buffer_sine) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_buffer_sine));
-        priv->device_buffer_sine = NULL;
-    }
+    cl_command_queue cmd_queue = ufo_gpu_node_get_cmd_queue (node); 
     cl_int cl_error;
     if (!priv->device_final_slices) {
         priv->device_final_slices = clCreateBuffer(priv->context, CL_MEM_WRITE_ONLY,
@@ -559,41 +479,22 @@ ufo_online_backproject_task_generate (UfoTask *task,
             NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
     }
-    /// Stage: DISTRIBUTE (Spread the values packed into float4 buffer into separate slices)
-    const size_t dist_work_size[] = {requisition->dims[0], requisition->dims[1], priv->num_slices / 4};
+    /// STAGE: DISTRIBUTE (Spread the values packed into float4 buffer into separate slices)
+    const size_t dist_work_size[] = {
+        requisition->dims[0], requisition->dims[1], priv->num_slices / 4};
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 0, sizeof(cl_mem),
     &priv->device_coalesced_slices));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 1, sizeof(cl_mem),
     &priv->device_final_slices));
-    ufo_profiler_call_blocking (profiler, cmd_queue, priv->distribute_kernel, 3, dist_work_size, NULL);
-    // Clean up device resources for the coalesced slices.
-    if (priv->device_coalesced_slices) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_coalesced_slices));
-        priv->device_coalesced_slices = NULL;
-    }
-
-    ////////////////////////////////////////////////////////////////////////////////////////////////
-    // TEST
-    ////////////////////////////////////////////////////////////////////////////////////////////////
-    float *slices = (float*) calloc(priv->num_slices * requisition->dims[0] * requisition->dims[1] , sizeof(float));
-    size_t slices_size = priv->num_slices * requisition->dims[0] * requisition->dims[1] * sizeof(float);
-    assert(clEnqueueReadBuffer(
-        cmd_queue, priv->device_final_slices, CL_TRUE, 0, slices_size, slices, 0, NULL, NULL) == CL_SUCCESS);
-    im_meta_t outmeta = {requisition->dims[0], requisition->dims[1], priv->num_slices, 1, 32, 1024};
-    array2tiff("/home/ws/nj4412/workspace/projects/gpr/build/exp-slices.tiff", slices, &outmeta);
-    free(slices);
-    return FALSE;
-    ////////////////////////////////////////////////////////////////////////////////////////////////
-
-    /// Stage: OUTPUT
-    cl_mem out_mem = ufo_buffer_get_device_array (output, cmd_queue);
+    ufo_profiler_call_blocking (profiler, cmd_queue, priv->distribute_kernel, 3, dist_work_size,
+        NULL);
+    /// STAGE: OUTPUT
     guint processed_proj_count;
-    g_object_get (task, "num_processed", &processed_proj_count, NULL);
     if (processed_proj_count < priv->num_projections) {
         // ERROR_CONDITION: Since generate is called at the end of processing all inputs here we
         // expect that all of the priv->num_projections number of projections are processed. If
-        // that's not the case backprojection workflow encountered anomaly and we should not produce
-        // any slices.
+        // that's not the case backprojection workflow encountered an anomaly and we should not
+        // produce any slices.
         g_warning ("online-backproject received only %u projections out of %u "
                    "specified, no outuput will be generated", processed_proj_count,
                    priv->num_projections);
@@ -604,6 +505,7 @@ ufo_online_backproject_task_generate (UfoTask *task,
         // number of slices.  
         return FALSE;
     }
+    cl_mem out_mem = ufo_buffer_get_device_array (output, cmd_queue);
     /// NOTE: We copy each slice from the global slice buffer to the output buffer.
     // row_pitch => size in bytes for a row of the slice.
     // slice_pitch => size in bytes for the slice (#rows * row_size)
@@ -619,8 +521,8 @@ ufo_online_backproject_task_generate (UfoTask *task,
     size_t dst_origin[3] = {0, 0, 0};
     size_t region[3] = {row_pitch, requisition->dims[1], 1};
     g_log ("obp", G_LOG_LEVEL_DEBUG, "generating slice %u", priv->generated + 1);
-    g_log ("obp", G_LOG_LEVEL_DEBUG, "src_origin: %lu %lu %lu",
-        src_origin[0], src_origin[1], src_origin[2]);
+    g_log ("obp", G_LOG_LEVEL_DEBUG, "src_origin: %lu %lu %lu", src_origin[0], src_origin[1],
+        src_origin[2]);
     g_log ("obp", G_LOG_LEVEL_DEBUG, "region: %lu %lu %lu", region[0], region[1], region[2]);
     g_log ("obp", G_LOG_LEVEL_DEBUG, "row pitch %lu, slice pitch %lu", row_pitch, slice_pitch);
     UFO_RESOURCES_CHECK_CLERR (clEnqueueCopyBufferRect (cmd_queue,
@@ -633,10 +535,8 @@ ufo_online_backproject_task_generate (UfoTask *task,
 }
 
 static void
-ufo_online_backproject_task_set_property (GObject *object,
-                              guint property_id,
-                              const GValue *value,
-                              GParamSpec *pspec)
+ufo_online_backproject_task_set_property (GObject *object, guint property_id, const GValue *value,
+    GParamSpec *pspec)
 {
     UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(object);
 
@@ -660,10 +560,8 @@ ufo_online_backproject_task_set_property (GObject *object,
 }
 
 static void
-ufo_online_backproject_task_get_property (GObject *object,
-                              guint property_id,
-                              GValue *value,
-                              GParamSpec *pspec)
+ufo_online_backproject_task_get_property (GObject *object, guint property_id, GValue *value,
+    GParamSpec *pspec)
 {
     UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(object);
 
@@ -690,9 +588,29 @@ static void
 ufo_online_backproject_task_finalize (GObject *object)
 {
     UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(object);
-    if (priv->region) {
-        ufo_scarray_free(priv->region);
-        priv->region = NULL;
+    if (priv->device_buffer_projections) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_buffer_projections));
+        priv->device_buffer_projections = NULL;
+    }
+    if (priv->device_texture_projections) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_texture_projections));
+        priv->device_texture_projections = NULL;
+    }
+    if (priv->device_buffer_cosine) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_buffer_cosine));
+        priv->device_buffer_cosine = NULL;
+    }
+    if (priv->device_buffer_sine) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_buffer_sine));
+        priv->device_buffer_sine = NULL;
+    }
+    if (priv->device_coalesced_slices) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_coalesced_slices));
+        priv->device_coalesced_slices = NULL;
+    }
+    if (priv->device_final_slices) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_final_slices));
+        priv->device_final_slices = NULL;
     }
     if (priv->accumulate_kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->accumulate_kernel));
@@ -706,10 +624,6 @@ ufo_online_backproject_task_finalize (GObject *object)
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->distribute_kernel));
         priv->distribute_kernel = NULL;
     }
-    if (priv->device_final_slices) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_final_slices));
-        priv->device_final_slices = NULL;
-    }
     if (priv->context) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseContext (priv->context));
         priv->context = NULL;
@@ -717,6 +631,18 @@ ufo_online_backproject_task_finalize (GObject *object)
     if (priv->resources) {
         g_object_unref (priv->resources);
         priv->resources = NULL;
+    }
+    if (priv->region) {
+        ufo_scarray_free(priv->region);
+        priv->region = NULL;
+    }
+    if (priv->host_buffer_cosine) {
+        free(priv->host_buffer_cosine);
+        priv->host_buffer_cosine = NULL;
+    }
+    if (priv->host_buffer_sine) {
+        free(priv->host_buffer_sine);
+        priv->host_buffer_sine = NULL;
     }
     G_OBJECT_CLASS(ufo_online_backproject_task_parent_class)->finalize(object);
 }
@@ -737,11 +663,9 @@ static void
 ufo_online_backproject_task_class_init (UfoOnlineBackprojectTaskClass *klass)
 {
     GObjectClass *oclass = G_OBJECT_CLASS (klass);
-
     oclass->set_property = ufo_online_backproject_task_set_property;
     oclass->get_property = ufo_online_backproject_task_get_property;
     oclass->finalize = ufo_online_backproject_task_finalize;
-
     GParamSpec *double_region_vals = g_param_spec_double ("double-region-values",
                                                           "Double Region values",
                                                           "Elements in double regions",
@@ -749,7 +673,6 @@ ufo_online_backproject_task_class_init (UfoOnlineBackprojectTaskClass *klass)
                                                           INFINITY,
                                                           0.0,
                                                           G_PARAM_READWRITE);
-
     properties[PROP_BURST] =
         g_param_spec_uint ("burst",
             "Number of projections processed per one kernel invocation",
@@ -780,7 +703,6 @@ ufo_online_backproject_task_class_init (UfoOnlineBackprojectTaskClass *klass)
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
-
     g_type_class_add_private (oclass, sizeof(UfoOnlineBackprojectTaskPrivate));
 }
 
