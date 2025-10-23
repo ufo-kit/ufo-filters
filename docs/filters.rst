@@ -192,6 +192,26 @@ Rotation
         pixels, can be `nearest` or `linear`.
 
 
+Mapping coordinates
+-------------------
+
+.. gobj:class:: map-coordinates
+
+    Maps input image to new coordinates by interpolation. For every point in the
+    output, use the provided coordinates to find the input coordinate in the
+    given image. First input is the image, second the x coordinates, and third
+    the y coordinates.
+
+    .. gobj:prop:: addressing-mode:enum
+
+        Addressing mode specifies the behavior for pixels falling outside the
+        original image. See OpenCL ``sampler_t`` documentation for more information.
+
+    .. gobj:prop:: interpolation:enum
+
+        Specifies interpolation when a computed pixel coordinate falls between
+        pixels, can be `nearest` or `linear`.
+
 Flipping
 --------
 

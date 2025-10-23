@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2013 Karlsruhe Institute of Technology
+ * Copyright (C) 2011-2025 Karlsruhe Institute of Technology
  *
  * This file is part of Ufo.
  *
@@ -114,4 +114,20 @@ interpolate_mask_horizontally (global float *input,
    } else {
        output[offset + idx] = input[offset + idx];
    }
+}
+
+kernel void map_coordinates (read_only image2d_t input,
+                             global float *output,
+                             const sampler_t sampler,
+                             global float *x_positions,
+                             global float *y_positions)
+{
+    int idx = get_global_id (0);
+    int idy = get_global_id (1);
+    int width = get_global_size(0);
+    int index = idy * width + idx;
+    float x = x_positions[index] + 0.5f;
+    float y = y_positions[index] + 0.5f;
+
+    output[index] = read_imagef(input, sampler, (float2) (x, y)).x;
 }

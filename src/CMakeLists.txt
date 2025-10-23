@@ -49,6 +49,7 @@ set(ufofilter_SRCS
     ufo-loop-task.c
     ufo-map-color-task.c
     ufo-map-slice-task.c
+    ufo-map-coordinates-task.c
     ufo-mask-task.c
     ufo-measure-task.c
     ufo-measure-sharpness-task.c
