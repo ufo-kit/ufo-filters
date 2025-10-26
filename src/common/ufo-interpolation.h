@@ -31,11 +31,13 @@
 typedef enum {
     INTERPOLATE_NEAREST = CL_FILTER_NEAREST,
     INTERPOLATE_LINEAR = CL_FILTER_LINEAR,
+    INTERPOLATE_CUBIC
 } Interpolation;
 
 static GEnumValue interpolation_values[] = {
     { INTERPOLATE_NEAREST, "INTERPOLATE_NEAREST", "nearest" },
     { INTERPOLATE_LINEAR,  "INTERPOLATE_LINEAR",  "linear" },
+    { INTERPOLATE_CUBIC,  "INTERPOLATE_CUBIC",  "cubic" },
     { 0, NULL, NULL}
 };
 

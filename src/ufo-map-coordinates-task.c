@@ -34,7 +34,7 @@ struct _UfoMapCoordinatesTaskPrivate {
     Interpolation interpolation;
 
     cl_context context;
-    cl_kernel kernel;
+    cl_kernel kernel, kernel_cubic;
     cl_sampler sampler;
 };
 
@@ -72,14 +72,21 @@ ufo_map_coordinates_task_setup (UfoTask *task,
     priv = UFO_MAP_COORDINATES_TASK_GET_PRIVATE (task);
     priv->context = ufo_resources_get_context (resources);
     priv->kernel = ufo_resources_get_kernel (resources, "interpolator.cl", "map_coordinates", NULL, error);
+    priv->kernel_cubic = ufo_resources_get_kernel (resources, "interpolator.cl", "map_coordinates_cubic", NULL, error);
     /* Normalized coordinates are necessary for repeat addressing mode */
-    priv->sampler = clCreateSampler (priv->context, (cl_bool) FALSE, priv->addressing_mode, priv->interpolation, &cl_error);
+    if (priv->interpolation != INTERPOLATE_CUBIC) {
+        priv->sampler = clCreateSampler (priv->context, (cl_bool) FALSE, priv->addressing_mode, priv->interpolation, &cl_error);
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (cl_error, error);
+    }
 
     UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
-    UFO_RESOURCES_CHECK_SET_AND_RETURN (cl_error, error);
 
     if (priv->kernel) {
         UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel), error);
+    }
+
+    if (priv->kernel_cubic) {
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernel_cubic), error);
     }
 }
 
@@ -129,23 +136,35 @@ ufo_map_coordinates_task_process (UfoTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_mem, x_mem, y_mem;
     cl_mem out_mem;
+    cl_kernel kernel;
 
     priv = UFO_MAP_COORDINATES_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
-    in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
     x_mem = ufo_buffer_get_device_array (inputs[1], cmd_queue);
     y_mem = ufo_buffer_get_device_array (inputs[2], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
 
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_sampler), &priv->sampler));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_mem), &x_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 4, sizeof (cl_mem), &y_mem));
+    if (priv->interpolation == INTERPOLATE_CUBIC) {
+        in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
+        kernel = priv->kernel_cubic;
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 0, sizeof (cl_mem), &in_mem));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 1, sizeof (cl_mem), &out_mem));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 2, sizeof (cl_mem), &x_mem));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (cl_mem), &y_mem));
+    } else {
+        /* Nearest neighbor or linear via texture memory */
+        in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
+        kernel = priv->kernel;
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 0, sizeof (cl_mem), &in_mem));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 1, sizeof (cl_mem), &out_mem));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 2, sizeof (cl_sampler), &priv->sampler));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (cl_mem), &x_mem));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (cl_mem), &y_mem));
+    }
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-    ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);
+    ufo_profiler_call (profiler, cmd_queue, kernel, 2, requisition->dims, NULL);
 
     return TRUE;
 }
@@ -205,6 +224,11 @@ ufo_map_coordinates_task_finalize (GObject *object)
         priv->kernel = NULL;
     }
 
+    if (priv->kernel_cubic) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernel_cubic));
+        priv->kernel_cubic = NULL;
+    }
+
     if (priv->sampler) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseSampler (priv->sampler));
         priv->sampler = NULL;
@@ -248,8 +272,8 @@ ufo_map_coordinates_task_class_init (UfoMapCoordinatesTaskClass *klass)
 
     properties[PROP_INTERPOLATION] =
         g_param_spec_enum ("interpolation",
-            "Interpolation (\"nearest\" or \"linear\")",
-            "Interpolation (\"nearest\" or \"linear\")",
+            "Interpolation (\"nearest\", \"linear\", or \"cubic\")",
+            "Interpolation (\"nearest\", \"linear\", or \"cubic\")",
             g_enum_register_static ("ufo_map_coords_interpolation", interpolation_values),
             CL_FILTER_LINEAR,
             G_PARAM_READWRITE);

@@ -206,11 +206,13 @@ Mapping coordinates
 
         Addressing mode specifies the behavior for pixels falling outside the
         original image. See OpenCL ``sampler_t`` documentation for more information.
+        This option is only considered for `nearest` and `linear`
+        interpolation. For `cubic` the edge pixel value is used.
 
     .. gobj:prop:: interpolation:enum
 
         Specifies interpolation when a computed pixel coordinate falls between
-        pixels, can be `nearest` or `linear`.
+        pixels, can be `nearest`, `linear` or `cubic`.
 
 Flipping
 --------
