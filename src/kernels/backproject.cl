@@ -93,3 +93,52 @@ backproject_tex (read_only image2d_t sinogram,
     slice[idy * get_global_size(0) + idx] = sum * M_PI_F / n_projections;
 }
 
+inline float get_sino_point(global float *sino, int x, int y, int width, int height)
+{
+    x = clamp (x, 0, width - 1);
+    y = clamp (y, 0, height - 1);
+
+    return sino[y * width + x];
+}
+
+kernel void
+backproject_cubic (global float *sinogram,
+                   global float *slice,
+                   constant float *sin_lut,
+                   constant float *cos_lut,
+                   const unsigned int x_offset,
+                   const unsigned int y_offset,
+                   const unsigned int angle_offset,
+                   const unsigned n_projections,
+                   const float axis_pos)
+{
+    const int idx = get_global_id(0);
+    const int idy = get_global_id(1);
+    const int width = get_global_size(0);
+    const int height = get_global_size(1);
+    const float bx = idx - axis_pos + x_offset + 0.5f;
+    const float by = idy - axis_pos + y_offset + 0.5f;
+    float sum = 0.0f;
+    float4 A_0 = (float4)( 2.0f, -2.0f,  1.0f,  1.0f);
+    float4 A_1 = (float4)(-3.0f,  3.0f, -2.0f, -1.0f);
+    float4 A_2 = (float4)( 0.0f,  0.0f,  1.0f,  0.0f);
+    float4 A_3 = (float4)( 1.0f,  0.0f,  0.0f,  0.0f);
+    float xif, xf, tmp;
+    int xi;
+    float4 data;
+
+    for(int proj = 0; proj < n_projections; proj++) {
+        float h = axis_pos + bx * cos_lut[angle_offset + proj] + by * sin_lut[angle_offset + proj] - 0.5f;
+        xf = modf (h, &xif);
+        xi = (int) xif;
+        tmp    = get_sino_point (sinogram, xi - 1, proj, width, height);
+        data.x = get_sino_point (sinogram,     xi, proj, width, height);
+        data.y = get_sino_point (sinogram, xi + 1, proj, width, height);
+        data.z = get_sino_point (sinogram, xi + 2, proj, width, height);
+        data.w = data.z - data.x;
+        data.z = data.y - tmp;
+        sum += dot (A_0, data) * xf * xf * xf + dot (A_1, data) * xf * xf + dot (A_2, data) * xf + dot(A_3, data);
+    }
+
+    slice[idy * width + idx] = sum * M_PI_F / n_projections;
+}
