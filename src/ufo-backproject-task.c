@@ -30,12 +30,14 @@
 
 typedef enum {
     MODE_NEAREST,
-    MODE_TEXTURE
+    MODE_TEXTURE,
+    MODE_CUBIC
 } Mode;
 
 static GEnumValue mode_values[] = {
     { MODE_NEAREST, "MODE_NEAREST", "nearest" },
     { MODE_TEXTURE, "MODE_TEXTURE", "texture" },
+    { MODE_CUBIC, "MODE_CUBIC", "cubic" },
     { 0, NULL, NULL}
 };
 
@@ -43,6 +45,7 @@ struct _UfoBackprojectTaskPrivate {
     cl_context context;
     cl_kernel nearest_kernel;
     cl_kernel texture_kernel;
+    cl_kernel cubic_kernel;
     cl_mem sin_lut;
     cl_mem cos_lut;
     gfloat *host_sin_lut;
@@ -113,13 +116,19 @@ ufo_backproject_task_process (UfoTask *task,
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
 
-    if (priv->mode == MODE_TEXTURE) {
-        in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
-        kernel = priv->texture_kernel;
-    }
-    else {
-        in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
-        kernel = priv->nearest_kernel;
+    switch (priv->mode) {
+        case MODE_NEAREST:
+            in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
+            kernel = priv->nearest_kernel;
+            break;
+        case MODE_TEXTURE:
+            in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
+            kernel = priv->texture_kernel;
+            break;
+        case MODE_CUBIC:
+            in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
+            kernel = priv->cubic_kernel;
+            break;
     }
 
     /* Guess axis position if they are not provided by the user. */
@@ -161,6 +170,7 @@ ufo_backproject_task_setup (UfoTask *task,
     priv->context = ufo_resources_get_context (resources);
     priv->nearest_kernel = ufo_resources_get_kernel (resources, "backproject.cl", "backproject_nearest", NULL, error);
     priv->texture_kernel = ufo_resources_get_kernel (resources, "backproject.cl", "backproject_tex", NULL, error);
+    priv->cubic_kernel = ufo_resources_get_kernel (resources, "backproject.cl", "backproject_cubic", NULL, error);
 
     UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
 
@@ -169,6 +179,9 @@ ufo_backproject_task_setup (UfoTask *task,
 
     if (priv->texture_kernel != NULL)
         UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->texture_kernel), error);
+
+    if (priv->cubic_kernel != NULL)
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->cubic_kernel), error);
 }
 
 static cl_mem
@@ -314,6 +327,11 @@ ufo_backproject_task_finalize (GObject *object)
     if (priv->texture_kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->texture_kernel));
         priv->texture_kernel = NULL;
+    }
+
+    if (priv->cubic_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->cubic_kernel));
+        priv->cubic_kernel = NULL;
     }
 
     if (priv->context) {
@@ -476,8 +494,8 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
 
     properties[PROP_MODE] =
         g_param_spec_enum ("mode",
-            "Backprojection mode (\"nearest\", \"texture\")",
-            "Backprojection mode (\"nearest\", \"texture\")",
+            "Backprojection mode (\"nearest\", \"texture\", \"cubic\")",
+            "Backprojection mode (\"nearest\", \"texture\", \"cubic\")",
             g_enum_register_static ("ufo_backproject_mode", mode_values),
             MODE_TEXTURE, G_PARAM_READWRITE);
 
@@ -524,6 +542,7 @@ ufo_backproject_task_init (UfoBackprojectTask *self)
     self->priv = priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (self);
     priv->nearest_kernel = NULL;
     priv->texture_kernel = NULL;
+    priv->cubic_kernel = NULL;
     priv->n_projections = 0;
     priv->offset = 0;
     priv->axis_pos = -1.0;

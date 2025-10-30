@@ -1206,7 +1206,7 @@ Tomographic backprojection
 
     .. gobj:prop:: mode:enum
 
-        Reconstruction mode which can be either ``nearest`` or ``texture``.
+        Reconstruction mode which can be ``nearest``, ``texture`` or ``cubic``.
 
     .. gobj:prop:: roi-x:uint
 
