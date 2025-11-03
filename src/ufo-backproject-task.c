@@ -27,25 +27,27 @@
 #include <math.h>
 #include "ufo-backproject-task.h"
 
+#define PIXELS_PER_THREAD 8
 
 typedef enum {
     MODE_NEAREST,
     MODE_TEXTURE,
-    MODE_CUBIC
+    MODE_LINEAR,
+    MODE_CUBIC,
+    NUM_MODES
 } Mode;
 
 static GEnumValue mode_values[] = {
     { MODE_NEAREST, "MODE_NEAREST", "nearest" },
     { MODE_TEXTURE, "MODE_TEXTURE", "texture" },
-    { MODE_CUBIC, "MODE_CUBIC", "cubic" },
+    { MODE_LINEAR,  "MODE_LINEAR",  "linear" },
+    { MODE_CUBIC,   "MODE_CUBIC",   "cubic" },
     { 0, NULL, NULL}
 };
 
 struct _UfoBackprojectTaskPrivate {
     cl_context context;
-    cl_kernel nearest_kernel;
-    cl_kernel texture_kernel;
-    cl_kernel cubic_kernel;
+    cl_kernel kernels[NUM_MODES];
     cl_mem sin_lut;
     cl_mem cos_lut;
     gfloat *host_sin_lut;
@@ -105,37 +107,65 @@ ufo_backproject_task_process (UfoTask *task,
     UfoBackprojectTaskPrivate *priv;
     UfoGpuNode *node;
     UfoProfiler *profiler;
+    UfoRequisition in_req;
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
     cl_kernel kernel;
+    cl_int sino_width, width, height;
+    cl_int between_0_180 = 1;
+    guint num_processed;
     gfloat axis_pos;
+    GValue *work_group_size_gvalue;
+    /* TODO downsize like in transpose until GPU max work group size is satisfied */
+    gsize local_size[2], global_size[2];
 
     priv = UFO_BACKPROJECT_TASK (task)->priv;
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
+    ufo_buffer_get_requisition (inputs[0], &in_req);
 
-    switch (priv->mode) {
-        case MODE_NEAREST:
-            in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
-            kernel = priv->nearest_kernel;
-            break;
-        case MODE_TEXTURE:
-            in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
-            kernel = priv->texture_kernel;
-            break;
-        case MODE_CUBIC:
-            in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
-            kernel = priv->cubic_kernel;
-            break;
+    kernel = priv->kernels[priv->mode];
+
+    /* We need an image if mode is texture, otherwise just the array */
+    if (priv->mode == MODE_TEXTURE) {
+        in_mem = ufo_buffer_get_device_image (inputs[0], cmd_queue);
+    } else {
+        in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
+    }
+
+    if (priv->mode == MODE_LINEAR || priv->mode == MODE_CUBIC) {
+        /* We get better performance if we do not need to check for left shift
+         * in the kernels, so figure this out here and make a global flag */
+        if (priv->angle_offset < 0.0 || priv->angle_offset > M_PI
+            || priv->angle_offset + (priv->n_projections - 1) * priv->real_angle_step < 0.0
+            || priv->angle_offset + (priv->n_projections - 1) * priv->real_angle_step > M_PI) {
+            between_0_180 = 0;
+        }
+        in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
+        work_group_size_gvalue = ufo_gpu_node_get_info (node, UFO_GPU_NODE_INFO_MAX_WORK_GROUP_SIZE);
+        /* Use maximum possible work group size as width and height one */
+        local_size[0] = g_value_get_ulong (work_group_size_gvalue);
+        local_size[1] = 1;
+        g_value_unset (work_group_size_gvalue);
+        global_size[0] = ((requisition->dims[0] - 1) / local_size[0] + 1) * local_size[0];
+        /* Global size has PIXELS_PER_THREAD less rows because one thread
+         * processes PIXELS_PER_THREAD rows */
+        global_size[1] = ((requisition->dims[1] - 1) / PIXELS_PER_THREAD + 1);
+        width = (cl_int) requisition->dims[0];
+        height = (cl_int) requisition->dims[1];
+        sino_width = (cl_int) in_req.dims[0];
+        g_object_get (task, "num_processed", &num_processed, NULL);
+        if (num_processed == 0) {
+            g_debug ("backproject: angles between 0 - 180: %d", between_0_180);
+            g_debug ("backproject: global size: %lu %lu, local size: %lu %lu, sino width and height: %d %u",
+                     global_size[0], global_size[1], local_size[0], local_size[1], sino_width, priv->burst_projections);
+        }
     }
 
     /* Guess axis position if they are not provided by the user. */
     if (priv->axis_pos <= 0.0) {
-        UfoRequisition in_req;
-
-        ufo_buffer_get_requisition (inputs[0], &in_req);
         axis_pos = (gfloat) ((gfloat) in_req.dims[0]) / 2.0f;
     }
     else {
@@ -153,7 +183,18 @@ ufo_backproject_task_process (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 8, sizeof (gfloat), &axis_pos));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-    ufo_profiler_call (profiler, cmd_queue, kernel, 2, requisition->dims, NULL);
+
+    if (priv->mode == MODE_LINEAR || priv->mode == MODE_CUBIC) {
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 9, sizeof (cl_int), &width));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 10, sizeof (cl_int), &height));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 11, sizeof (cl_int), &sino_width));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 12, sizeof (cl_int), &between_0_180));
+        ufo_profiler_call (profiler, cmd_queue, kernel, 2, global_size, local_size);
+        /* UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 9, sizeof (cl_int), &sino_width)); */
+        /* ufo_profiler_call (profiler, cmd_queue, kernel, 2, requisition->dims, NULL); */
+    } else {
+        ufo_profiler_call (profiler, cmd_queue, kernel, 2, requisition->dims, NULL);
+    }
 
     return TRUE;
 }
@@ -168,20 +209,19 @@ ufo_backproject_task_setup (UfoTask *task,
     priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (task);
 
     priv->context = ufo_resources_get_context (resources);
-    priv->nearest_kernel = ufo_resources_get_kernel (resources, "backproject.cl", "backproject_nearest", NULL, error);
-    priv->texture_kernel = ufo_resources_get_kernel (resources, "backproject.cl", "backproject_tex", NULL, error);
-    priv->cubic_kernel = ufo_resources_get_kernel (resources, "backproject.cl", "backproject_cubic", NULL, error);
+    priv->kernels[MODE_NEAREST] = ufo_resources_get_kernel (resources, "backproject.cl", "backproject_nearest", NULL, error);
+    priv->kernels[MODE_TEXTURE] = ufo_resources_get_kernel (resources, "backproject.cl", "backproject_tex", NULL, error);
+    priv->kernels[MODE_LINEAR] = ufo_resources_get_kernel (resources, "backproject.cl", "backproject_linear", NULL, error);
+    priv->kernels[MODE_CUBIC] = ufo_resources_get_kernel (resources, "backproject.cl", "backproject_cubic", NULL, error);
 
     UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
 
-    if (priv->nearest_kernel != NULL)
-        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->nearest_kernel), error);
+    for (int i = 0; i < NUM_MODES; i++) {
+        if (priv->kernels[i] != NULL) {
+            UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->kernels[i]), error);
+        }
+    }
 
-    if (priv->texture_kernel != NULL)
-        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->texture_kernel), error);
-
-    if (priv->cubic_kernel != NULL)
-        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->cubic_kernel), error);
 }
 
 static cl_mem
@@ -304,7 +344,7 @@ ufo_backproject_task_equal_real (UfoNode *n1,
                             UfoNode *n2)
 {
     g_return_val_if_fail (UFO_IS_BACKPROJECT_TASK (n1) && UFO_IS_BACKPROJECT_TASK (n2), FALSE);
-    return UFO_BACKPROJECT_TASK (n1)->priv->texture_kernel == UFO_BACKPROJECT_TASK (n2)->priv->texture_kernel;
+    return UFO_BACKPROJECT_TASK (n1)->priv->kernels[0] == UFO_BACKPROJECT_TASK (n2)->priv->kernels[0];
 }
 
 static void
@@ -319,19 +359,11 @@ ufo_backproject_task_finalize (GObject *object)
     g_free (priv->host_sin_lut);
     g_free (priv->host_cos_lut);
 
-    if (priv->nearest_kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->nearest_kernel));
-        priv->nearest_kernel = NULL;
-    }
-
-    if (priv->texture_kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->texture_kernel));
-        priv->texture_kernel = NULL;
-    }
-
-    if (priv->cubic_kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->cubic_kernel));
-        priv->cubic_kernel = NULL;
+    for (int i = 0; i < NUM_MODES; i++) {
+        if (priv->kernels[i]) {
+            UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->kernels[i]));
+            priv->kernels[i] = NULL;
+        }
     }
 
     if (priv->context) {
@@ -540,9 +572,9 @@ ufo_backproject_task_init (UfoBackprojectTask *self)
 {
     UfoBackprojectTaskPrivate *priv;
     self->priv = priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (self);
-    priv->nearest_kernel = NULL;
-    priv->texture_kernel = NULL;
-    priv->cubic_kernel = NULL;
+    for (int i = 0; i < NUM_MODES; i++) {
+        priv->kernels[i] = NULL;
+    }
     priv->n_projections = 0;
     priv->offset = 0;
     priv->axis_pos = -1.0;
