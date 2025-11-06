@@ -27,7 +27,7 @@
 #include <math.h>
 #include "ufo-backproject-task.h"
 
-#define PIXELS_PER_THREAD 8
+#define PIXELS_PER_THREAD 16
 
 typedef enum {
     MODE_NEAREST,
