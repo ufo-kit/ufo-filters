@@ -69,6 +69,7 @@ struct _UfoBackprojectTaskPrivate {
     gint pack, num_packed, current;
     gint sino_width;
     gboolean inputs_stopped;
+    gsize local_size[2];
     Mode mode;
 };
 
@@ -116,7 +117,7 @@ backproject_new (UfoTask *task, UfoRequisition *requisition)
     guint num_processed;
     GValue *work_group_size_gvalue;
     /* TODO downsize like in transpose until GPU max work group size is satisfied */
-    gsize local_size[2], global_size[2];
+    gsize global_size[2];
 
     priv = UFO_BACKPROJECT_TASK_GET_PRIVATE (task);
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
@@ -131,12 +132,15 @@ backproject_new (UfoTask *task, UfoRequisition *requisition)
         || priv->angle_offset + (priv->n_projections - 1) * priv->real_angle_step > M_PI) {
         between_0_180 = 0;
     }
-    work_group_size_gvalue = ufo_gpu_node_get_info (node, UFO_GPU_NODE_INFO_MAX_WORK_GROUP_SIZE);
-    /* Use maximum possible work group size as width and height one */
-    local_size[0] = g_value_get_ulong (work_group_size_gvalue) / priv->pack;
-    local_size[1] = 1;
-    g_value_unset (work_group_size_gvalue);
-    global_size[0] = ((requisition->dims[0] - 1) / local_size[0] + 1) * local_size[0];
+    if (!priv->local_size[0]) {
+        work_group_size_gvalue = ufo_gpu_node_get_info (node, UFO_GPU_NODE_INFO_MAX_WORK_GROUP_SIZE);
+        /* Use maximum possible work group size as width and height one. For
+         * packed kernels maximum local size leads to CL_OUT_OF_RESOURCES, so
+         * use only 1 / priv->pack of the maximum by default. */
+        priv->local_size[0] = g_value_get_ulong (work_group_size_gvalue) / priv->pack;
+        g_value_unset (work_group_size_gvalue);
+    }
+    global_size[0] = ((requisition->dims[0] - 1) / priv->local_size[0] + 1) * priv->local_size[0];
     /* Global size has PIXELS_PER_THREAD less rows because one thread
      * processes PIXELS_PER_THREAD rows */
     global_size[1] = ((requisition->dims[1] - 1) / PIXELS_PER_THREAD + 1);
@@ -146,7 +150,7 @@ backproject_new (UfoTask *task, UfoRequisition *requisition)
     if (num_processed == priv->pack - 1) {
         g_debug ("backproject: angles between 0 - 180: %d", between_0_180);
         g_debug ("backproject: global size: %lu %lu, local size: %lu %lu, sino width and height: %d %u",
-                 global_size[0], global_size[1], local_size[0], local_size[1], priv->sino_width, priv->burst_projections);
+                 global_size[0], global_size[1], priv->local_size[0], priv->local_size[1], priv->sino_width, priv->burst_projections);
     }
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 0, sizeof (cl_mem), &priv->sino_stack_mem));
@@ -162,7 +166,15 @@ backproject_new (UfoTask *task, UfoRequisition *requisition)
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 10, sizeof (cl_int), &height));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 11, sizeof (cl_int), &priv->sino_width));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 12, sizeof (cl_int), &between_0_180));
-    ufo_profiler_call (profiler, cmd_queue, kernel, 2, global_size, local_size);
+    while (ufo_profiler_call (profiler, cmd_queue, kernel, 2, global_size, priv->local_size)) {
+        /* If 1 / priv->pack is still too large, keep halving until OpenCL is satisfied */
+        g_warning ("local size %lu too large, reducing by 2", priv->local_size[0]);
+        priv->local_size[0] /= 2;
+        if (!priv->local_size[0]) {
+            g_error ("No suitable local size was found");
+            break;
+        }
+    }
 }
 
 static gboolean
@@ -735,5 +747,7 @@ ufo_backproject_task_init (UfoBackprojectTask *self)
     priv->pack = 1;
     priv->current = 0;
     priv->inputs_stopped = FALSE;
+    priv->local_size[0] = 0;
+    priv->local_size[1] = 1;
     g_signal_connect (self, "inputs_stopped", (GCallback) inputs_stopped_callback, NULL);
 }
