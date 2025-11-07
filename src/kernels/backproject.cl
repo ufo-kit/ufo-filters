@@ -150,8 +150,8 @@ backproject_cubic_naive (global float *sinogram,
 }
 
 kernel void
-backproject_linear (global float *sinogram,
-                    global float *slice,
+backproject_linear (global float4 *sinogram,
+                    global float4 *slice,
                     constant float *sin_lut,
                     constant float *cos_lut,
                     const unsigned int x_offset,
@@ -172,10 +172,10 @@ backproject_linear (global float *sinogram,
     int group_width = get_local_size (0);
     float bx = idx - axis_pos + x_offset + 0.5f;
     float by, cos_angle, sin_angle;
-    float sum[PIXELS_PER_THREAD];
+    float4 sum[PIXELS_PER_THREAD];
     float xif, xf, tmp;
     int xi, xi_last, j_stop;
-    float sino_local[2];
+    float4 sino_local[2];
 
     if (idx >= width) {
         return;
@@ -184,7 +184,7 @@ backproject_linear (global float *sinogram,
     j_stop = min (PIXELS_PER_THREAD, height - gy * PIXELS_PER_THREAD);
 
     for (int j = 0; j < j_stop; j++) {
-        sum[j] = 0.0f;
+        sum[j] = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
     }
 
     for (int proj = 0; proj < n_projections; proj++) {
@@ -233,8 +233,8 @@ backproject_linear (global float *sinogram,
 }
 
 kernel void
-backproject_cubic (global float *sinogram,
-                   global float *slice,
+backproject_cubic (global float4 *sinogram,
+                   global float4 *slice,
                    constant float *sin_lut,
                    constant float *cos_lut,
                    const unsigned int x_offset,
@@ -255,11 +255,11 @@ backproject_cubic (global float *sinogram,
     int group_width = get_local_size (0);
     float bx = idx - axis_pos + x_offset + 0.5f;
     float by, cos_angle, sin_angle;
-    float sum[PIXELS_PER_THREAD];
+    float4 sum[PIXELS_PER_THREAD];
     float xif, xf, tmp;
     int xi, xi_last, j_stop;
-    float d_1, d_2;
-    float sino_local[4];
+    float4 d_1, d_2;
+    float4 sino_local[4];
 
     if (idx >= width) {
         return;
@@ -268,7 +268,7 @@ backproject_cubic (global float *sinogram,
     j_stop = min (PIXELS_PER_THREAD, height - gy * PIXELS_PER_THREAD);
 
     for (int j = 0; j < j_stop; j++) {
-        sum[j] = 0.0f;
+        sum[j] = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
     }
 
     for (int proj = 0; proj < n_projections; proj++) {
@@ -330,4 +330,24 @@ backproject_cubic (global float *sinogram,
         idy = gy * PIXELS_PER_THREAD + j;
         slice[idy * width + idx] = sum[j] * M_PI_F / n_projections;
     }
+}
+
+kernel void
+interleave (global float *sinogram,
+            global float *stack,
+            int offset)
+{
+    const int idx = get_global_id(0);
+
+    stack[4 * idx + offset] = sinogram[idx];
+}
+
+kernel void
+uninterleave (global float *slice,
+              global float *stack,
+              int offset)
+{
+    const int idx = get_global_id(0);
+
+    slice[idx] = stack[4 * idx + offset];
 }
