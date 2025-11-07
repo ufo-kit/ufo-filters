@@ -17,6 +17,8 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define PIXELS_PER_THREAD 16
+
 constant sampler_t volumeSampler = CLK_NORMALIZED_COORDS_FALSE |
                                    CLK_ADDRESS_CLAMP |
                                    CLK_FILTER_LINEAR;
@@ -93,3 +95,259 @@ backproject_tex (read_only image2d_t sinogram,
     slice[idy * get_global_size(0) + idx] = sum * M_PI_F / n_projections;
 }
 
+inline float get_sino_point (global float *sino, int x, int y, int width, int height)
+{
+    x = clamp (x, 0, width - 1);
+    y = clamp (y, 0, height - 1);
+
+    return sino[y * width + x];
+}
+
+/* *backproject_cubic* is an optimized version of this kernel, which is easy to
+ * understand and can be used for correctness testing */
+kernel void
+backproject_cubic_naive (global float *sinogram,
+                         global float *slice,
+                         constant float *sin_lut,
+                         constant float *cos_lut,
+                         const unsigned int x_offset,
+                         const unsigned int y_offset,
+                         const unsigned int angle_offset,
+                         const unsigned n_projections,
+                         const float axis_pos,
+                         const int sino_width)
+{
+    int idx = get_global_id(0);
+    int idy = get_global_id(1);
+    int width = get_global_size(0);
+    int height = get_global_size(1);
+    float bx = idx - axis_pos + x_offset + 0.5f;
+    float by = idy - axis_pos + y_offset + 0.5f;
+    float sum = 0.0f;
+    float4 A_0 = (float4)( 2.0f, -2.0f,  1.0f,  1.0f);
+    float4 A_1 = (float4)(-3.0f,  3.0f, -2.0f, -1.0f);
+    float4 A_2 = (float4)( 0.0f,  0.0f,  1.0f,  0.0f);
+    float4 A_3 = (float4)( 1.0f,  0.0f,  0.0f,  0.0f);
+    float xif, xf, tmp;
+    int xi;
+    float4 data;
+
+
+    for (int proj = 0; proj < n_projections; proj++) {
+        float h = axis_pos + bx * cos_lut[angle_offset + proj] + by * sin_lut[angle_offset + proj] - 0.5f;
+        xf = modf (h, &xif);
+        xi = (int) xif;
+        tmp    = get_sino_point (sinogram, xi - 1, proj, sino_width, height);
+        data.x = get_sino_point (sinogram,     xi, proj, sino_width, height);
+        data.y = get_sino_point (sinogram, xi + 1, proj, sino_width, height);
+        data.z = get_sino_point (sinogram, xi + 2, proj, sino_width, height);
+        data.w = data.z - data.x;
+        data.z = data.y - tmp;
+        sum += dot (A_0, data) * xf * xf * xf + dot (A_1, data) * xf * xf + dot (A_2, data) * xf + dot(A_3, data);
+    }
+
+    slice[idy * width + idx] = sum * M_PI_F / n_projections;
+}
+
+kernel void
+backproject_linear (global float4 *sinogram,
+                    global float4 *slice,
+                    constant float *sin_lut,
+                    constant float *cos_lut,
+                    const unsigned int x_offset,
+                    const unsigned int y_offset,
+                    const unsigned int angle_offset,
+                    const unsigned n_projections,
+                    const float axis_pos,
+                    const int width,
+                    const int height,
+                    const int sino_width,
+                    const int between_0_180)
+{
+    int idx = get_global_id(0);
+    int idy;
+    int lx = get_local_id (0);
+    int gx = get_group_id (0);
+    int gy = get_group_id (1);
+    int group_width = get_local_size (0);
+    float bx = idx - axis_pos + x_offset + 0.5f;
+    float by, cos_angle, sin_angle;
+    float4 sum[PIXELS_PER_THREAD];
+    float xif, xf, tmp;
+    int xi, xi_last, j_stop;
+    float4 sino_local[2];
+
+    if (idx >= width) {
+        return;
+    }
+
+    j_stop = min (PIXELS_PER_THREAD, height - gy * PIXELS_PER_THREAD);
+
+    for (int j = 0; j < j_stop; j++) {
+        sum[j] = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+
+    for (int proj = 0; proj < n_projections; proj++) {
+        cos_angle = cos_lut[angle_offset + proj];
+        sin_angle = sin_lut[angle_offset + proj];
+        tmp = axis_pos + bx * cos_angle - 0.5f;
+
+        for (int j = 0; j < j_stop; j++) {
+            idy = gy * PIXELS_PER_THREAD + j;
+            by = idy - axis_pos + y_offset + 0.5f;
+            xf = modf (tmp + by * sin_angle, &xif);
+            xi = (int) xif;
+
+            if (j == 0) {
+                /* Initialization: load four neighbors and compute central
+                 * difference derivatives. */
+                xi_last = xi;
+                sino_local[0] = sinogram[proj * sino_width + clamp (xi    , 0, sino_width - 1)];
+                sino_local[1] = sinogram[proj * sino_width + clamp (xi + 1, 0, sino_width - 1)];
+            }
+            if (xi > xi_last) {
+                /* Difference to the pixel below can be at most 1 when angle is
+                 * 90 degrees, otherwise it is definitely less than one. This is
+                 * the case when shift is positive, so we replace the right
+                 * pixel. We shift all pixels and load a new one, this is way
+                 * faster than ring buffer rotation. */
+                sino_local[0] = sino_local[1];
+                sino_local[1] = sinogram[proj * sino_width + clamp (xi + 1, 0, sino_width - 1)];
+            }
+            if (!between_0_180 && xi < xi_last) {
+                /* This is for angles between 180 - 360 degrees, where the shift
+                 * is negative. We replace the left pixel. */
+                sino_local[1] = sino_local[0];
+                sino_local[0] = sinogram[proj * sino_width + clamp (xi, 0, sino_width - 1)];
+            }
+
+            sum[j] += sino_local[0] * (1.0f - xf) + sino_local[1] * xf;
+            xi_last = xi;
+        }
+    }
+
+    for (int j = 0; j < j_stop; j++) {
+        idy = gy * PIXELS_PER_THREAD + j;
+        slice[idy * width + idx] = sum[j] * M_PI_F / n_projections;
+    }
+}
+
+kernel void
+backproject_cubic (global float4 *sinogram,
+                   global float4 *slice,
+                   constant float *sin_lut,
+                   constant float *cos_lut,
+                   const unsigned int x_offset,
+                   const unsigned int y_offset,
+                   const unsigned int angle_offset,
+                   const unsigned n_projections,
+                   const float axis_pos,
+                   const int width,
+                   const int height,
+                   const int sino_width,
+                   const int between_0_180)
+{
+    int idx = get_global_id(0);
+    int idy;
+    int lx = get_local_id (0);
+    int gx = get_group_id (0);
+    int gy = get_group_id (1);
+    int group_width = get_local_size (0);
+    float bx = idx - axis_pos + x_offset + 0.5f;
+    float by, cos_angle, sin_angle;
+    float4 sum[PIXELS_PER_THREAD];
+    float xif, xf, tmp;
+    int xi, xi_last, j_stop;
+    float4 d_1, d_2;
+    float4 sino_local[4];
+
+    if (idx >= width) {
+        return;
+    }
+
+    j_stop = min (PIXELS_PER_THREAD, height - gy * PIXELS_PER_THREAD);
+
+    for (int j = 0; j < j_stop; j++) {
+        sum[j] = (float4)(0.0f, 0.0f, 0.0f, 0.0f);
+    }
+
+    for (int proj = 0; proj < n_projections; proj++) {
+        cos_angle = cos_lut[proj];
+        sin_angle = sin_lut[proj];
+        tmp = axis_pos + bx * cos_angle - 0.5f;
+
+        for (int j = 0; j < j_stop; j++) {
+            idy = gy * PIXELS_PER_THREAD + j;
+            by = idy - axis_pos + y_offset + 0.5f;
+            xf = modf (tmp + by * sin_angle, &xif);
+            xi = (int) xif;
+
+            if (j == 0) {
+                /* Initialization: load four neighbors and compute central
+                 * difference derivatives. */
+                xi_last = xi;
+                for (int i = 0; i < 4; i++) {
+                    sino_local[i] = sinogram[proj * sino_width + clamp (xi - 1 + i, 0, sino_width - 1)];
+                }
+                d_1 = sino_local[2] - sino_local[0];
+                d_2 = sino_local[3] - sino_local[1];
+            }
+            if (xi > xi_last) {
+                /* Difference to the pixel below can be at most 1 when angle is
+                 * 90 degrees, otherwise it is definitely less than one. This is
+                 * the case when shift is positive, so we replace the right
+                 * pixel. We shift all pixels and load a new one, this is way
+                 * faster than ring buffer rotation. */
+                sino_local[0] = sino_local[1];
+                sino_local[1] = sino_local[2];
+                sino_local[2] = sino_local[3];
+                sino_local[3] = sinogram[proj * sino_width + clamp (xi + 2, 0, sino_width - 1)];
+                /* Recalculate derivatives */
+                d_1 = sino_local[2] - sino_local[0];
+                d_2 = sino_local[3] - sino_local[1];
+            }
+            if (!between_0_180 && xi < xi_last) {
+                /* This is for angles between 180 - 360 degrees, where the shift
+                 * is negative. */
+                sino_local[3] = sino_local[2];
+                sino_local[2] = sino_local[1];
+                sino_local[1] = sino_local[0];
+                sino_local[0] = sinogram[proj * sino_width + clamp (xi - 1, 0, sino_width - 1)];
+                /* Recalculate derivatives */
+                d_1 = sino_local[2] - sino_local[0];
+                d_2 = sino_local[3] - sino_local[1];
+            }
+
+            sum[j] +=
+                xf * xf * xf * (2 * (sino_local[1] - sino_local[2]) + d_1 + d_2)
+                + xf * xf * (3 * (sino_local[2] - sino_local[1]) - 2 * d_1 - d_2)
+                + xf * d_1 + sino_local[1];
+            xi_last = xi;
+        }
+    }
+
+    for (int j = 0; j < j_stop; j++) {
+        idy = gy * PIXELS_PER_THREAD + j;
+        slice[idy * width + idx] = sum[j] * M_PI_F / n_projections;
+    }
+}
+
+kernel void
+interleave (global float *sinogram,
+            global float *stack,
+            int offset)
+{
+    const int idx = get_global_id(0);
+
+    stack[4 * idx + offset] = sinogram[idx];
+}
+
+kernel void
+uninterleave (global float *slice,
+              global float *stack,
+              int offset)
+{
+    const int idx = get_global_id(0);
+
+    slice[idx] = stack[4 * idx + offset];
+}
