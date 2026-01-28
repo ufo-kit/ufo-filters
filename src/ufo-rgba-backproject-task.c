@@ -33,14 +33,15 @@
 #include <config.h>
 #include <common/ufo-math.h>
 #include "common/ufo-scarray.h"
-#include "ufo-online-backproject-task.h"
+#include "ufo-rgba-backproject-task.h"
 
-struct _UfoOnlineBackprojectTaskPrivate {
+struct _UfoRGBABackprojectTaskPrivate {
     // Settings
     guint burst;
     guint num_projections;
-    UfoScarray *region;
     UfoScarray *center_position_x;
+    UfoScarray *center_position_z;
+    UfoScarray *region;
     // OpenCL
     cl_context context;
     cl_kernel accumulate_kernel;
@@ -48,9 +49,11 @@ struct _UfoOnlineBackprojectTaskPrivate {
     cl_kernel distribute_kernel;
     // Internal
     UfoResources *resources;
-    guint num_slices;
-    guint generated;
+    gsize num_slices_actual;
+    gsize num_slices_processing;
+    gsize generated;
     gdouble overall_angle;
+    gboolean can_alloc_dev_mem;
     // Buffers
     float *host_buffer_cosine;
     float *host_buffer_sine;
@@ -64,64 +67,65 @@ struct _UfoOnlineBackprojectTaskPrivate {
 
 static void ufo_task_interface_init (UfoTaskIface *iface);
 
-G_DEFINE_TYPE_WITH_CODE (UfoOnlineBackprojectTask, ufo_online_backproject_task, UFO_TYPE_TASK_NODE,
+G_DEFINE_TYPE_WITH_CODE (UfoRGBABackprojectTask, ufo_rgba_backproject_task, UFO_TYPE_TASK_NODE,
                          G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
                                                 ufo_task_interface_init))
 
-#define UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), \
-UFO_TYPE_ONLINE_BACKPROJECT_TASK, UfoOnlineBackprojectTaskPrivate))
+#define UFO_RGBA_BACKPROJECT_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), \
+UFO_TYPE_RGBA_BACKPROJECT_TASK, UfoRGBABackprojectTaskPrivate))
 
 enum {
     PROP_0,
     PROP_BURST,
-    PROP_REGION,
-    PROP_CENTER_POSITION_X,
     PROP_NUM_PROJECTIONS,
+    PROP_CENTER_POSITION_X,
+    PROP_CENTER_POSITION_Z,
+    PROP_REGION,
     N_PROPERTIES
 };
 
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoNode *
-ufo_online_backproject_task_new (void)
+ufo_rgba_backproject_task_new (void)
 {
-    return UFO_NODE (g_object_new (UFO_TYPE_ONLINE_BACKPROJECT_TASK, NULL));
+    return UFO_NODE (g_object_new (UFO_TYPE_RGBA_BACKPROJECT_TASK, NULL));
 }
 
 /**
- * ufo_online_backproject_task_get_num_inputs:
+ * ufo_rgba_backproject_task_get_num_inputs:
  * 
  * @task: A #UfoTask.
  * @returns: Number of incoming projections at a time.
  *
  * Specifies the number of inputs for the task. Since we want to process each single incoming
- * projection individually, task expects a single input. Called once for the task.
+ * projection individually, task expects a single input. Called once for the task object.
  */
 static guint
-ufo_online_backproject_task_get_num_inputs (UfoTask *task)
+ufo_rgba_backproject_task_get_num_inputs (UfoTask *task)
 {
     return 1;
 }
 
 /**
- * ufo_online_backproject_task_get_num_dimensions:
+ * ufo_rgba_backproject_task_get_num_dimensions:
  * 
  * @task: A #UfoTask.
  * @input: Dimension of the input. 
  * @returns: Number of dimensions for single incoming projection.
  * 
  * Specifies the number of dimensions of the input. A single incoming projection has 2 dimensions.
- * Called once for the task.
+ * Called once for the task object.
  */
 static guint
-ufo_online_backproject_task_get_num_dimensions (UfoTask *task, guint input)
+ufo_rgba_backproject_task_get_num_dimensions (UfoTask *task, guint input)
 {
     g_return_val_if_fail (input == 0, 0);
     return 2;
 }
 
 /**
- * ufo_online_backproject_task_get_mode:
+ * ufo_rgba_backproject_task_get_mode:
  * 
  * @task: A #UfoTask.
  * @returns: A bitwise OR of the task modes (#UfoTaskMode) that this task supports.
@@ -129,39 +133,39 @@ ufo_online_backproject_task_get_num_dimensions (UfoTask *task, guint input)
  * Specifies the mode in which the task operates. This task is designed to process a stream of
  * incoming projections in batches. It operates in a reductor mode, meaning it expects to receive a
  * stream of inputs and produce an output and the task is intended to run on GPU devices. Called
- * once for the task.
+ * once for the task object.
  */
 static UfoTaskMode
-ufo_online_backproject_task_get_mode (UfoTask *task)
+ufo_rgba_backproject_task_get_mode (UfoTask *task)
 {
     return UFO_TASK_MODE_REDUCTOR | UFO_TASK_MODE_GPU;
 }
 
 /**
- * ufo_online_backproject_task_setup:
+ * ufo_rgba_backproject_task_setup:
  * 
  * @task: A #UfoTask.
  * @resources: A #UfoResources instance containing the OpenCL context and kernels.
  * @error: A pointer to a #GError that will be set if an error occurs.
  * 
  * Sets up the runtime resources required for the task. It initializes the OpenCL kernels and all
- * host and device side buffers whose size is known during task setup. Called once for the task.
+ * host and device buffers whose size is known during task setup. Called once for the task.
  */
 static void
-ufo_online_backproject_task_setup (UfoTask *task, UfoResources *resources, GError **error)
+ufo_rgba_backproject_task_setup (UfoTask *task, UfoResources *resources, GError **error)
 {
-    UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(task);
+    UfoRGBABackprojectTaskPrivate *priv = UFO_RGBA_BACKPROJECT_TASK_GET_PRIVATE(task);
     // Instantiate resources.
     priv->resources = g_object_ref (resources);
     // Instantiate OpenCL resources.
     priv->context = ufo_resources_get_context(priv->resources);
     UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
     // Instantiate Kernels
-    priv->accumulate_kernel = ufo_resources_get_kernel(priv->resources, "online-backproject.cl",
+    priv->accumulate_kernel = ufo_resources_get_kernel(priv->resources, "rgba-backproject.cl",
         "accumulate", NULL, error);
-    priv->backproject_kernel = ufo_resources_get_kernel(priv->resources, "online-backproject.cl",
+    priv->backproject_kernel = ufo_resources_get_kernel(priv->resources, "rgba-backproject.cl",
         "backproject", NULL, error);
-    priv->distribute_kernel = ufo_resources_get_kernel(priv->resources, "online-backproject.cl",
+    priv->distribute_kernel = ufo_resources_get_kernel(priv->resources, "rgba-backproject.cl",
         "distribute", NULL, error);
     if (priv->accumulate_kernel != NULL)
         UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->accumulate_kernel), error);
@@ -197,18 +201,34 @@ ufo_online_backproject_task_setup (UfoTask *task, UfoResources *resources, GErro
             priv->burst * sizeof(float), NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
     }
+    // Determine number of slices to back project and produce depending on region parameter.
+    gdouble region_start, region_stop, region_step;
+    if (UFO_MATH_ARE_ALMOST_EQUAL (ufo_scarray_get_double (priv->region, 2), 0)) {
+        region_start = 0.0f;
+        region_stop = 1.0f;
+        region_step = 1.0f;
+    } else {
+        region_start = ufo_scarray_get_double(priv->region, 0);
+        region_stop = ufo_scarray_get_double(priv->region, 1);
+        region_step = ufo_scarray_get_double(priv->region, 2);
+    }
+    g_log ("rbp", G_LOG_LEVEL_DEBUG, "region: [start=%g, stop=%g, step=%g]",
+        region_start, region_stop, region_step);
+    priv->num_slices_actual = (gsize) ceil((region_stop - region_start) / region_step);
+    priv->num_slices_processing = (gsize)(ceil((gdouble) priv->num_slices_actual / (gdouble) 4) * 4);
+    g_log ("rbp", G_LOG_LEVEL_DEBUG, "backprojecting %lu", priv->num_slices_processing);
 }
 
 /**
- * ufo_online_backproject_task_requisition:
+ * ufo_rgba_backproject_task_requisition:
  * 
  * @task: A #UfoTask.
  * @inputs: Input #UfoBuffer resources. Number of buffers depends on `get_num_inputs` function.
- * @requisition: A #UfoRequisition to describe the dimensions of the output data.
+ * @requisition: A #UfoRequisition to describe the dimensions of the O/P data.
  * @error: A pointer to a #GError that will be set if an error occurs.
  * 
- * Called for each iteration of the task right before `process` function to specify the output size
- * for the given input size. It initializes those device-side resources whose size would be known
+ * Called for each iteration of the task right before `process` function to specify the O/P size
+ * for the given I/P size. It initializes those device-side resources whose size would be known
  * in runtime only after the task execution starts.
  * 
  * NOTE: Conventionally, this function deals with input and output requisitions. A #UfoRequisition
@@ -220,40 +240,42 @@ ufo_online_backproject_task_setup (UfoTask *task, UfoResources *resources, GErro
  * function, because output buffers are initialized accordingly.
  */
 static void
-ufo_online_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
+ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
     UfoRequisition *requisition, GError **error)
 {
-    UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(task);
+    UfoRGBABackprojectTaskPrivate *priv = UFO_RGBA_BACKPROJECT_TASK_GET_PRIVATE(task);
+    UfoGpuNode *node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     UfoRequisition in_req;
-    gdouble region_start, region_stop, region_step;
     ufo_buffer_get_requisition(inputs[0], &in_req);
-    /// TODO: Region is disabled until we achieve a correct version of the task that processes all
-    // slices, which is a simpler case to handle. Therefore all slices buffers are allocated with
-    // full sizes for the time being and priv->num_slices is set to the full height of the
-    // projection. When we implement region requisition, num_slices and buffer sizes would be adapted
-    // accordingly.
-    // if (ufo_scarray_get_double(priv->region, 2) == 0.0) {
-    //     region_start = 0.0f;
-    //     region_stop = 1.0f;
-    //     region_step = 1.0f;
-    // } else {
-    //     region_start = ufo_scarray_get_double(priv->region, 0);
-    //     region_stop = ufo_scarray_get_double(priv->region, 1);
-    //     region_step = ufo_scarray_get_double(priv->region, 2);
-    // }
-    // priv->num_slices = (guint) ceil((region_stop - region_start) / region_step);
+    // Set output size requisition.
     requisition->n_dims = 2;
     requisition->dims[0] = in_req.dims[0];
     requisition->dims[1] = in_req.dims[0];
-    priv->num_slices = in_req.dims[1];
+    // Check feasibility for memory allocation.
+    if (!priv->can_alloc_dev_mem) {
+        // Check feasibility of device memory allocation.
+        gsize projections_size = priv->burst * in_req.dims[0] * priv->num_slices_processing * sizeof (cl_float);
+        gsize slice_size = requisition->dims[0] * requisition->dims[1] * sizeof(cl_float);
+        gsize volume_size = slice_size * priv->num_slices_processing;
+        GValue *max_mem_alloc_size_gvalue = ufo_gpu_node_get_info (node, UFO_GPU_NODE_INFO_MAX_MEM_ALLOC_SIZE);
+        // Even if a card claims to be able to allocate more than 4 GB (e.g. RTX* 8000) we get OpenCL
+        // errors, so limit it to 4 GB
+        cl_ulong max_mem_alloc_size = MIN (g_value_get_ulong (max_mem_alloc_size_gvalue), ((cl_ulong) 1) << 32);
+        g_value_unset (max_mem_alloc_size_gvalue);
+        if (projections_size + volume_size > max_mem_alloc_size) {
+            g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                                    "volume size doesn't fit to memory");
+            return;
+        }
+        priv->can_alloc_dev_mem = TRUE;
+    }
     // Allocate device side ring-buffer and additional resources using requisitions.
     cl_int cl_error;
-    UfoGpuNode *node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cl_command_queue cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     if (!priv->device_buffer_projections) {
         priv->device_buffer_projections = clCreateBuffer(
             priv->context, CL_MEM_READ_ONLY,
-            priv->burst * in_req.dims[0] * in_req.dims[1] * sizeof(float),
+            priv->burst * in_req.dims[0] * priv->num_slices_processing * sizeof(float),
             NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
     }
@@ -262,7 +284,7 @@ ufo_online_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
         cl_image_desc desc = {0};
         desc.image_type = CL_MEM_OBJECT_IMAGE2D_ARRAY;
         desc.image_width = in_req.dims[0];
-        desc.image_height = in_req.dims[1] / 4;
+        desc.image_height = priv->num_slices_processing / 4;
         desc.image_depth = 0;
         desc.image_array_size = priv->burst;
         priv->device_texture_projections = clCreateImage(priv->context, CL_MEM_READ_WRITE,
@@ -271,7 +293,7 @@ ufo_online_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
     }
     if (!priv->device_coalesced_slices) {
         size_t coal_slice_size = requisition->dims[0] * requisition->dims[0] * (
-            priv->num_slices / 4) * sizeof(cl_float4);
+            priv->num_slices_processing / 4) * sizeof(cl_float4);
         priv->device_coalesced_slices = clCreateBuffer(priv->context, CL_MEM_WRITE_ONLY,
             coal_slice_size, NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
@@ -285,17 +307,19 @@ ufo_online_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
 }
 
 /**
- * ufo_online_backproject_task_process:
+ * ufo_rgba_backproject_task_process:
  * 
  * @task: A #UfoTask.
  * @inputs: Input #UfoBuffer resources. Number of buffers depends on `get_num_inputs` function.
- * @output: A #UfoBuffer having the output if any. Output buffer may not be used at this STAGE.
- * @requisition: A #UfoRequisition to describe the dimensions of the output data.
+ * @output: A #UfoBuffer having the output if any. Output buffer may not be used at this stage,
+ * which is especially true since this task operates in UFO_TASK_MODE_REDUCTOR, hence output of the
+ * task would take place in generate function.
+ * @requisition: A #UfoRequisition to describe the dimensions of the O/P data.
  * @returns: TRUE until `process` should be called iteratively. FALSE marks the end of processing.
  * 
  * Called for each iteration of the task to process individual projections.
  * 
- * NOTE: To process incoming stream of projections in batches it function determines whether we are
+ * NOTE: To process incoming stream of projections in batches the function determines whether we are
  * at a COMPLETE or INCOMPLETE burst (batch) scenario. COMPLETE burst means we have sufficient
  * number of projections left to process out of total and therefore next kernel execution can happen
  * over configured `priv->burst` projections. In contrast, INCOMPLETE burst means that we are
@@ -359,10 +383,10 @@ ufo_online_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
  * 
  */
 static gboolean
-ufo_online_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer *output,
+ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer *output,
     UfoRequisition *requisition)
 {
-    UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(task);
+    UfoRGBABackprojectTaskPrivate *priv = UFO_RGBA_BACKPROJECT_TASK_GET_PRIVATE(task);
     UfoRequisition in_req;
     UfoGpuNode *node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     cl_command_queue cmd_queue = ufo_gpu_node_get_cmd_queue (node);
@@ -386,19 +410,21 @@ ufo_online_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffe
     // Copy the current projection to its correct position of the device ring buffer. This requires
     // that we take note of the following.
     // - Offset: We need to correctly calculate the position of the device side ring buffer where
-    // to update the current projection. While `in_req.dims[0] * in_req.dims[1] * sizeof(float)`
+    // to update the current projection. While `in_req.dims[0] * priv->num_slices_processing * sizeof(float)`
     // gives the size of each projection in bytes multiplying that by idx_actual_burst yields the
     // required offset from the start of the buffer because idx_actual_burst is the index of the
     // projection inside its burst.
-    // - Size: in_req.dims[0] * in_req.dims[1] * sizeof(float) is the size of each projection in
+    // - Size: in_req.dims[0] * priv->num_slices_processing * sizeof(float) is the size of each projection in
     // bytes.
     // Using offset and size we can update the device side ring buffer for each incoming projection.
     float *curr_proj_array =  ufo_buffer_get_host_array(inputs[0], cmd_queue);
+    /// TODO: Projection offset depends upon center_position_z as well.
+    gsize projection_offset = (gsize) ufo_scarray_get_double(priv->region, 0) * in_req.dims[0] * sizeof(float);
     UFO_RESOURCES_CHECK_CLERR (clEnqueueWriteBuffer (cmd_queue, priv->device_buffer_projections,
         CL_TRUE,
-        idx_actual_burst * in_req.dims[0] * in_req.dims[1] * sizeof(float), // Offset
-        in_req.dims[0] * in_req.dims[1] * sizeof(float), // Size
-        curr_proj_array, 0, NULL, NULL));
+        idx_actual_burst * in_req.dims[0] * priv->num_slices_processing * sizeof(float), // Offset
+        in_req.dims[0] * priv->num_slices_processing * sizeof(float), // Size
+        curr_proj_array + projection_offset, 0, NULL, NULL));
     // Dispatch kernels, once burst is ready. Since `idx_actual_burst` is the index of the current
     // projection in its burst, if (idx_actual_burst + 1) is equal to the derived burst size we can
     // process the batch.
@@ -410,14 +436,14 @@ ufo_online_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffe
         // of projections in next kernel execution subtracting it from the global index of current
         // projection gives us the index we want.
         cl_uint global_proj_idx = (cl_uint) (processed_proj_count + 1 - actual_burst);
-        g_log ("obp", G_LOG_LEVEL_DEBUG, "processing %u projections starting from %u", actual_burst,
+        g_log ("rbp", G_LOG_LEVEL_DEBUG, "processing %u projections starting from %u", actual_burst,
             global_proj_idx);
         /// STAGE: ACCUMULATE (Packs four rows of the projection into one using RGBA format)
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 0, sizeof(cl_mem),
         &priv->device_buffer_projections));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 1, sizeof(cl_mem),
         &priv->device_texture_projections));
-        const size_t accumulate_work_size[] = {in_req.dims[0], in_req.dims[1] / 4, actual_burst};
+        const size_t accumulate_work_size[] = {in_req.dims[0], priv->num_slices_processing / 4, actual_burst};
         ufo_profiler_call_blocking (profiler, cmd_queue, priv->accumulate_kernel, 3,
             accumulate_work_size, NULL);
         /// STAGE: BACKPROJECT
@@ -431,7 +457,7 @@ ufo_online_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffe
             0, NULL, NULL));
         /// TODO: The dimensionality of the work size would change when we incorporate the region
         // property. For the time being we assume that we are reconstructing all slices.
-        const size_t bp_work_size[] = {in_req.dims[0], in_req.dims[0], in_req.dims[1] / 4};
+        const size_t bp_work_size[] = {in_req.dims[0], in_req.dims[0], priv->num_slices_processing / 4};
         const cl_float center_position_x = (cl_float) ufo_scarray_get_double(priv->center_position_x, 0);
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 0, sizeof(cl_mem),
         &priv->device_texture_projections));
@@ -452,7 +478,7 @@ ufo_online_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffe
 }
 
 /**
- * ufo_online_backproject_task_generate:
+ * ufo_rgba_backproject_task_generate:
  * 
  * @task: A #UfoTask.
  * @output: A #UfoBuffer to contain the output from the task.
@@ -466,22 +492,22 @@ ufo_online_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffe
  * device memory to copy the generated slice from the buffer.
  */
 static gboolean
-ufo_online_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequisition *requisition)
+ufo_rgba_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequisition *requisition)
 {
-    UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(task);
+    UfoRGBABackprojectTaskPrivate *priv = UFO_RGBA_BACKPROJECT_TASK_GET_PRIVATE(task);
     UfoGpuNode *node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     UfoProfiler *profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     cl_command_queue cmd_queue = ufo_gpu_node_get_cmd_queue (node); 
     cl_int cl_error;
     if (!priv->device_final_slices) {
         priv->device_final_slices = clCreateBuffer(priv->context, CL_MEM_WRITE_ONLY,
-            requisition->dims[0] * requisition->dims[1] * priv->num_slices * sizeof(cl_float),
+            requisition->dims[0] * requisition->dims[1] * priv->num_slices_processing * sizeof(cl_float),
             NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
     }
     /// STAGE: DISTRIBUTE (Spread the values packed into float4 buffer into separate slices)
     const size_t dist_work_size[] = {
-        requisition->dims[0], requisition->dims[1], priv->num_slices / 4};
+        requisition->dims[0], requisition->dims[1], priv->num_slices_processing / 4};
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 0, sizeof(cl_mem),
     &priv->device_coalesced_slices));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 1, sizeof(cl_mem),
@@ -490,17 +516,18 @@ ufo_online_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequi
         NULL);
     /// STAGE: OUTPUT
     guint processed_proj_count;
+    g_object_get (task, "num_processed", &processed_proj_count, NULL);
     if (processed_proj_count < priv->num_projections) {
         // ERROR_CONDITION: Since generate is called at the end of processing all inputs here we
         // expect that all of the priv->num_projections number of projections are processed. If
         // that's not the case backprojection workflow encountered an anomaly and we should not
         // produce any slices.
-        g_warning ("online-backproject received only %u projections out of %u "
+        g_warning ("rgba-backproject received only %u projections out of %u "
                    "specified, no outuput will be generated", processed_proj_count,
                    priv->num_projections);
         return FALSE;
     }
-    if (priv->generated >= priv->num_slices) {
+    if (priv->generated >= priv->num_slices_actual) {
         // EXIT_CONDITION: No need to process further if we have already generated the required
         // number of slices.  
         return FALSE;
@@ -517,14 +544,14 @@ ufo_online_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequi
     // each slice, hence depth is 1.
     size_t row_pitch = requisition->dims[0] * sizeof(float);
     size_t slice_pitch = requisition->dims[1] * row_pitch;
-    size_t src_origin[3] = {0, 0, priv->generated % priv->num_slices};
+    size_t src_origin[3] = {0, 0, priv->generated % priv->num_slices_actual};
     size_t dst_origin[3] = {0, 0, 0};
     size_t region[3] = {row_pitch, requisition->dims[1], 1};
-    g_log ("obp", G_LOG_LEVEL_DEBUG, "generating slice %u", priv->generated + 1);
-    g_log ("obp", G_LOG_LEVEL_DEBUG, "src_origin: %lu %lu %lu", src_origin[0], src_origin[1],
+    g_log ("rbp", G_LOG_LEVEL_DEBUG, "generating slice %lu", priv->generated + 1);
+    g_log ("rbp", G_LOG_LEVEL_DEBUG, "src_origin: %lu %lu %lu", src_origin[0], src_origin[1],
         src_origin[2]);
-    g_log ("obp", G_LOG_LEVEL_DEBUG, "region: %lu %lu %lu", region[0], region[1], region[2]);
-    g_log ("obp", G_LOG_LEVEL_DEBUG, "row pitch %lu, slice pitch %lu", row_pitch, slice_pitch);
+    g_log ("rbp", G_LOG_LEVEL_DEBUG, "region: %lu %lu %lu", region[0], region[1], region[2]);
+    g_log ("rbp", G_LOG_LEVEL_DEBUG, "row pitch %lu, slice pitch %lu", row_pitch, slice_pitch);
     UFO_RESOURCES_CHECK_CLERR (clEnqueueCopyBufferRect (cmd_queue,
                                                         priv->device_final_slices, out_mem,
                                                         src_origin, dst_origin, region,
@@ -535,23 +562,26 @@ ufo_online_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequi
 }
 
 static void
-ufo_online_backproject_task_set_property (GObject *object, guint property_id, const GValue *value,
+ufo_rgba_backproject_task_set_property (GObject *object, guint property_id, const GValue *value,
     GParamSpec *pspec)
 {
-    UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(object);
+    UfoRGBABackprojectTaskPrivate *priv = UFO_RGBA_BACKPROJECT_TASK_GET_PRIVATE(object);
 
     switch (property_id) {
         case PROP_BURST:
             priv->burst = g_value_get_uint(value);
             break;
-        case PROP_REGION:
-            ufo_scarray_get_value(priv->region, value);
+        case PROP_NUM_PROJECTIONS:
+            priv->num_projections = g_value_get_uint(value);
             break;
         case PROP_CENTER_POSITION_X:
             ufo_scarray_get_value (priv->center_position_x, value);
             break;
-        case PROP_NUM_PROJECTIONS:
-            priv->num_projections = g_value_get_uint(value);
+        case PROP_CENTER_POSITION_Z:
+            ufo_scarray_get_value (priv->center_position_z, value);
+            break;
+        case PROP_REGION:
+            ufo_scarray_get_value(priv->region, value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -560,23 +590,26 @@ ufo_online_backproject_task_set_property (GObject *object, guint property_id, co
 }
 
 static void
-ufo_online_backproject_task_get_property (GObject *object, guint property_id, GValue *value,
+ufo_rgba_backproject_task_get_property (GObject *object, guint property_id, GValue *value,
     GParamSpec *pspec)
 {
-    UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(object);
+    UfoRGBABackprojectTaskPrivate *priv = UFO_RGBA_BACKPROJECT_TASK_GET_PRIVATE(object);
 
     switch (property_id) {
         case PROP_BURST:
             g_value_set_uint(value, priv->burst);
             break;
-        case PROP_REGION:
-            ufo_scarray_set_value(priv->region, value);
+        case PROP_NUM_PROJECTIONS:
+            g_value_set_uint(value, priv->num_projections);
             break;
         case PROP_CENTER_POSITION_X:
             ufo_scarray_set_value (priv->center_position_x, value);
             break;
-        case PROP_NUM_PROJECTIONS:
-            g_value_set_uint(value, priv->num_projections);
+        case PROP_CENTER_POSITION_Z:
+            ufo_scarray_set_value (priv->center_position_z, value);
+            break;
+        case PROP_REGION:
+            ufo_scarray_set_value(priv->region, value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -585,9 +618,9 @@ ufo_online_backproject_task_get_property (GObject *object, guint property_id, GV
 }
 
 static void
-ufo_online_backproject_task_finalize (GObject *object)
+ufo_rgba_backproject_task_finalize (GObject *object)
 {
-    UfoOnlineBackprojectTaskPrivate *priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(object);
+    UfoRGBABackprojectTaskPrivate *priv = UFO_RGBA_BACKPROJECT_TASK_GET_PRIVATE(object);
     if (priv->device_buffer_projections) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_buffer_projections));
         priv->device_buffer_projections = NULL;
@@ -644,28 +677,39 @@ ufo_online_backproject_task_finalize (GObject *object)
         free(priv->host_buffer_sine);
         priv->host_buffer_sine = NULL;
     }
-    G_OBJECT_CLASS(ufo_online_backproject_task_parent_class)->finalize(object);
+    G_OBJECT_CLASS(ufo_rgba_backproject_task_parent_class)->finalize(object);
 }
+
+/**
+ * Following initialization functions,
+ * * ufo_task_interface_init: points
+ * * ufo_rgba_backproject_task_class_init
+ * * ufo_rgba_backproject_task_init
+ * * serve mainly two different purposes,
+ * 1) point to concrete implementations of virtual functions defined in the interface UfoTaskIface
+ * and base UfoTask.
+ * 2) assign initial values for the class attributes.
+ */
 
 static void
 ufo_task_interface_init (UfoTaskIface *iface)
 {
-    iface->setup = ufo_online_backproject_task_setup;
-    iface->get_num_inputs = ufo_online_backproject_task_get_num_inputs;
-    iface->get_num_dimensions = ufo_online_backproject_task_get_num_dimensions;
-    iface->get_mode = ufo_online_backproject_task_get_mode;
-    iface->get_requisition = ufo_online_backproject_task_get_requisition;
-    iface->process = ufo_online_backproject_task_process;
-    iface->generate = ufo_online_backproject_task_generate;
+    iface->setup = ufo_rgba_backproject_task_setup;
+    iface->get_num_inputs = ufo_rgba_backproject_task_get_num_inputs;
+    iface->get_num_dimensions = ufo_rgba_backproject_task_get_num_dimensions;
+    iface->get_mode = ufo_rgba_backproject_task_get_mode;
+    iface->get_requisition = ufo_rgba_backproject_task_get_requisition;
+    iface->process = ufo_rgba_backproject_task_process;
+    iface->generate = ufo_rgba_backproject_task_generate;
 }
 
 static void
-ufo_online_backproject_task_class_init (UfoOnlineBackprojectTaskClass *klass)
+ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
 {
     GObjectClass *oclass = G_OBJECT_CLASS (klass);
-    oclass->set_property = ufo_online_backproject_task_set_property;
-    oclass->get_property = ufo_online_backproject_task_get_property;
-    oclass->finalize = ufo_online_backproject_task_finalize;
+    oclass->set_property = ufo_rgba_backproject_task_set_property;
+    oclass->get_property = ufo_rgba_backproject_task_get_property;
+    oclass->finalize = ufo_rgba_backproject_task_finalize;
     GParamSpec *double_region_vals = g_param_spec_double ("double-region-values",
                                                           "Double Region values",
                                                           "Elements in double regions",
@@ -679,12 +723,12 @@ ufo_online_backproject_task_class_init (UfoOnlineBackprojectTaskClass *klass)
             "Number of projections processed per one kernel invocation",
             0, 128, 24,
             G_PARAM_READWRITE);
-
-    properties[PROP_REGION] =
-        g_param_spec_value_array ("region",
-            "Region for the parameter along z-axis as (from, to, step)",
-            "Region for the parameter along z-axis as (from, to, step)",
-            double_region_vals,
+    
+    properties[PROP_NUM_PROJECTIONS] =
+        g_param_spec_uint ("num-projections",
+            "Number of projections",
+            "Number of projections",
+            0, 32768, 0,
             G_PARAM_READWRITE);
 
     properties[PROP_CENTER_POSITION_X] =
@@ -694,22 +738,29 @@ ufo_online_backproject_task_class_init (UfoOnlineBackprojectTaskClass *klass)
             double_region_vals,
             G_PARAM_READWRITE);
 
-    properties[PROP_NUM_PROJECTIONS] =
-        g_param_spec_uint ("num-projections",
-            "Number of projections",
-            "Number of projections",
-            0, 32768, 0,
+    properties[PROP_CENTER_POSITION_Z] =
+        g_param_spec_value_array ("center-position-z",
+            "Global z center (vertical in a projection) of the volume with respect to projections",
+            "Global z center (vertical in a projection) of the volume with respect to projections",
+            double_region_vals,
+            G_PARAM_READWRITE);
+
+    properties[PROP_REGION] =
+        g_param_spec_value_array ("region",
+            "Region for the parameter along z-axis as (from, to, step)",
+            "Region for the parameter along z-axis as (from, to, step)",
+            double_region_vals,
             G_PARAM_READWRITE);
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
-    g_type_class_add_private (oclass, sizeof(UfoOnlineBackprojectTaskPrivate));
+    g_type_class_add_private (oclass, sizeof(UfoRGBABackprojectTaskPrivate));
 }
 
 static void
-ufo_online_backproject_task_init(UfoOnlineBackprojectTask *self)
+ufo_rgba_backproject_task_init(UfoRGBABackprojectTask *self)
 {
-    self->priv = UFO_ONLINE_BACKPROJECT_TASK_GET_PRIVATE(self);
+    self->priv = UFO_RGBA_BACKPROJECT_TASK_GET_PRIVATE(self);
     self->priv->resources = NULL;
     /// OpenCL resources
     self->priv->context = NULL;
@@ -717,13 +768,16 @@ ufo_online_backproject_task_init(UfoOnlineBackprojectTask *self)
     self->priv->backproject_kernel = NULL;
     self->priv->distribute_kernel = NULL;
     /// Properties
-    self->priv->burst = 0;
     self->priv->overall_angle = G_PI;
+    self->priv->burst = 0;
     self->priv->num_projections = 0;
     self->priv->center_position_x = ufo_scarray_new(3, G_TYPE_DOUBLE, NULL);
-    self->priv->region = ufo_scarray_new(3, G_TYPE_DOUBLE, NULL);
-    self->priv->num_slices = 0;
+    self->priv->center_position_z = ufo_scarray_new(3, G_TYPE_DOUBLE, NULL);
+    self->priv->region = ufo_scarray_new(3, G_TYPE_INT, NULL);
+    self->priv->num_slices_actual = 0;
+    self->priv->num_slices_processing = 0;
     self->priv->generated = 0;
+    self->priv->can_alloc_dev_mem = FALSE;
     /// Internal buffers
     self->priv->device_buffer_projections = NULL;
     self->priv->device_texture_projections = NULL;

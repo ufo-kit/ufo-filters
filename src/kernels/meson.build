@@ -29,7 +29,7 @@ kernel_files = [
     'metaballs.cl',
     'morphology.cl',
     'nlm.cl',
-    'online-backproject.cl',
+    'rgba-backproject.cl',
     'ordfilt.cl',
     'opencl.cl',
     'opencl-reduce.cl',

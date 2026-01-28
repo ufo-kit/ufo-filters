@@ -162,9 +162,9 @@ shared_module('general-backproject',
     install_dir: plugin_install_dir,
 )
 
-shared_module('online-backproject',
+shared_module('rgba-backproject',
     sources: [
-        'ufo-online-backproject-task.c',
+        'ufo-rgba-backproject-task.c',
         'common/ufo-math.c',
         'common/ufo-scarray.c',
     ],
