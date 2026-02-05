@@ -35,6 +35,15 @@
 #include "common/ufo-scarray.h"
 #include "ufo-rgba-backproject-task.h"
 
+static void ufo_task_interface_init (UfoTaskIface *iface);
+
+G_DEFINE_TYPE_WITH_CODE (UfoRGBABackprojectTask, ufo_rgba_backproject_task, UFO_TYPE_TASK_NODE,
+                         G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
+                                                ufo_task_interface_init))
+
+#define UFO_RGBA_BACKPROJECT_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), \
+UFO_TYPE_RGBA_BACKPROJECT_TASK, UfoRGBABackprojectTaskPrivate))
+
 struct _UfoRGBABackprojectTaskPrivate {
     // Settings
     guint burst;
@@ -54,6 +63,7 @@ struct _UfoRGBABackprojectTaskPrivate {
     gsize generated;
     gdouble overall_angle;
     gboolean can_alloc_dev_mem;
+    gdouble region_start, region_stop, region_step;
     // Buffers
     float *host_buffer_cosine;
     float *host_buffer_sine;
@@ -64,15 +74,6 @@ struct _UfoRGBABackprojectTaskPrivate {
     cl_mem device_coalesced_slices;
     cl_mem device_final_slices;
 };
-
-static void ufo_task_interface_init (UfoTaskIface *iface);
-
-G_DEFINE_TYPE_WITH_CODE (UfoRGBABackprojectTask, ufo_rgba_backproject_task, UFO_TYPE_TASK_NODE,
-                         G_IMPLEMENT_INTERFACE (UFO_TYPE_TASK,
-                                                ufo_task_interface_init))
-
-#define UFO_RGBA_BACKPROJECT_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), \
-UFO_TYPE_RGBA_BACKPROJECT_TASK, UfoRGBABackprojectTaskPrivate))
 
 enum {
     PROP_0,
@@ -202,21 +203,28 @@ ufo_rgba_backproject_task_setup (UfoTask *task, UfoResources *resources, GError 
         UFO_RESOURCES_CHECK_CLERR (cl_error);
     }
     // Determine number of slices to back project and produce depending on region parameter.
-    gdouble region_start, region_stop, region_step;
     if (UFO_MATH_ARE_ALMOST_EQUAL (ufo_scarray_get_double (priv->region, 2), 0)) {
-        region_start = 0.0f;
-        region_stop = 1.0f;
-        region_step = 1.0f;
+        priv->region_start = 0.0f;
+        priv->region_stop = 1.0f;
+        priv->region_step = 1.0f;
     } else {
-        region_start = ufo_scarray_get_double(priv->region, 0);
-        region_stop = ufo_scarray_get_double(priv->region, 1);
-        region_step = ufo_scarray_get_double(priv->region, 2);
+        priv->region_start = ufo_scarray_get_double(priv->region, 0);
+        priv->region_stop = ufo_scarray_get_double(priv->region, 1);
+        priv->region_step = ufo_scarray_get_double(priv->region, 2);
     }
-    g_log ("rbp", G_LOG_LEVEL_DEBUG, "region: [start=%g, stop=%g, step=%g]",
-        region_start, region_stop, region_step);
-    priv->num_slices_actual = (gsize) ceil((region_stop - region_start) / region_step);
+    priv->num_slices_actual = (gsize) ceil((priv->region_stop - priv->region_start) / priv->region_step);
     priv->num_slices_processing = (gsize)(ceil((gdouble) priv->num_slices_actual / (gdouble) 4) * 4);
-    g_log ("rbp", G_LOG_LEVEL_DEBUG, "backprojecting %lu", priv->num_slices_processing);
+    
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "number of projections: %u", priv->num_projections);
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "burst size: %u", priv->burst);
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "center position-x: %f",
+        (cl_float) ufo_scarray_get_double(priv->center_position_x, 0));
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "center position-z: %u",
+        (cl_int) ufo_scarray_get_double(priv->center_position_z, 0));
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "region specified: [start=%g, stop=%g, step=%g]",
+        priv->region_start, priv->region_stop, priv->region_step);
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "#slices processed: %lu", priv->num_slices_processing);
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "#slices generated: %lu", priv->num_slices_actual);
 }
 
 /**
@@ -274,9 +282,11 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
     cl_command_queue cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     if (!priv->device_buffer_projections) {
         priv->device_buffer_projections = clCreateBuffer(
-            priv->context, CL_MEM_READ_ONLY,
-            priv->burst * in_req.dims[0] * priv->num_slices_processing * sizeof(float),
-            NULL, &cl_error);
+            priv->context,
+            CL_MEM_READ_ONLY,
+            priv->burst * in_req.dims[0] * in_req.dims[1] * sizeof(float),
+            NULL,
+            &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
     }
     if (!priv->device_texture_projections) {
@@ -418,13 +428,16 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
     // bytes.
     // Using offset and size we can update the device side ring buffer for each incoming projection.
     float *curr_proj_array =  ufo_buffer_get_host_array(inputs[0], cmd_queue);
-    /// TODO: Projection offset depends upon center_position_z as well.
-    gsize projection_offset = (gsize) ufo_scarray_get_double(priv->region, 0) * in_req.dims[0] * sizeof(float);
-    UFO_RESOURCES_CHECK_CLERR (clEnqueueWriteBuffer (cmd_queue, priv->device_buffer_projections,
-        CL_TRUE,
-        idx_actual_burst * in_req.dims[0] * priv->num_slices_processing * sizeof(float), // Offset
-        in_req.dims[0] * priv->num_slices_processing * sizeof(float), // Size
-        curr_proj_array + projection_offset, 0, NULL, NULL));
+    UFO_RESOURCES_CHECK_CLERR (
+        clEnqueueWriteBuffer (
+            cmd_queue,
+            priv->device_buffer_projections,
+            CL_TRUE,
+            idx_actual_burst * in_req.dims[0] * in_req.dims[1] * sizeof(float), // Offset
+            in_req.dims[0] * in_req.dims[1] * sizeof(float), // Size
+            curr_proj_array, 0, NULL, NULL
+        )
+    );
     // Dispatch kernels, once burst is ready. Since `idx_actual_burst` is the index of the current
     // projection in its burst, if (idx_actual_burst + 1) is equal to the derived burst size we can
     // process the batch.
@@ -436,13 +449,22 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
         // of projections in next kernel execution subtracting it from the global index of current
         // projection gives us the index we want.
         cl_uint global_proj_idx = (cl_uint) (processed_proj_count + 1 - actual_burst);
-        g_log ("rbp", G_LOG_LEVEL_DEBUG, "processing %u projections starting from %u", actual_burst,
+        g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "processing %u projections starting from %u", actual_burst,
             global_proj_idx);
         /// STAGE: ACCUMULATE (Packs four rows of the projection into one using RGBA format)
+        cl_int row_start = (cl_int) priv->region_start;
+        cl_int row_step = (cl_int) priv->region_step;
+        cl_int projection_height = (cl_int) in_req.dims[1];
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 0, sizeof(cl_mem),
         &priv->device_buffer_projections));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 1, sizeof(cl_mem),
         &priv->device_texture_projections));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 2, sizeof(cl_int),
+        &row_start));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 3, sizeof(cl_int),
+        &row_step));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 4, sizeof(cl_int),
+        &projection_height));
         const size_t accumulate_work_size[] = {in_req.dims[0], priv->num_slices_processing / 4, actual_burst};
         ufo_profiler_call_blocking (profiler, cmd_queue, priv->accumulate_kernel, 3,
             accumulate_work_size, NULL);
@@ -547,11 +569,11 @@ ufo_rgba_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequisi
     size_t src_origin[3] = {0, 0, priv->generated % priv->num_slices_actual};
     size_t dst_origin[3] = {0, 0, 0};
     size_t region[3] = {row_pitch, requisition->dims[1], 1};
-    g_log ("rbp", G_LOG_LEVEL_DEBUG, "generating slice %lu", priv->generated + 1);
-    g_log ("rbp", G_LOG_LEVEL_DEBUG, "src_origin: %lu %lu %lu", src_origin[0], src_origin[1],
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "generating slice %lu", priv->generated + 1);
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "src_origin: %lu %lu %lu", src_origin[0], src_origin[1],
         src_origin[2]);
-    g_log ("rbp", G_LOG_LEVEL_DEBUG, "region: %lu %lu %lu", region[0], region[1], region[2]);
-    g_log ("rbp", G_LOG_LEVEL_DEBUG, "row pitch %lu, slice pitch %lu", row_pitch, slice_pitch);
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "region: %lu %lu %lu", region[0], region[1], region[2]);
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "row pitch %lu, slice pitch %lu", row_pitch, slice_pitch);
     UFO_RESOURCES_CHECK_CLERR (clEnqueueCopyBufferRect (cmd_queue,
                                                         priv->device_final_slices, out_mem,
                                                         src_origin, dst_origin, region,
