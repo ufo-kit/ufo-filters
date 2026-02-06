@@ -65,7 +65,7 @@ struct _UfoRGBABackprojectTaskPrivate {
     gsize num_slices_processing;
     gsize generated;
     gdouble overall_angle;
-    gboolean can_alloc_dev_mem;
+    gboolean region_params_checked;
     gdouble region_start, region_stop, region_step;
     // Buffers
     float *host_buffer_cosine;
@@ -212,30 +212,12 @@ ufo_rgba_backproject_task_setup (UfoTask *task, UfoResources *resources, GError 
             priv->burst * sizeof(float), NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
     }
-    // Determine number of slices to back project and produce depending on region parameter.
-    if (UFO_MATH_ARE_ALMOST_EQUAL (ufo_scarray_get_double (priv->region, 2), 0)) {
-        priv->region_start = 0.0f;
-        priv->region_stop = 1.0f;
-        priv->region_step = 1.0f;
-    } else {
-        priv->region_start = ufo_scarray_get_double(priv->region, 0);
-        priv->region_stop = ufo_scarray_get_double(priv->region, 1);
-        priv->region_step = ufo_scarray_get_double(priv->region, 2);
-    }
-    priv->num_slices_actual = (gsize) ceil((priv->region_stop - priv->region_start) / priv->region_step);
-    priv->num_slices_processing = (gsize)(ceil((gdouble) priv->num_slices_actual / (gdouble) 4) * 4);
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "burst size: %u", priv->burst);
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "number of projections: %u", priv->num_projections);
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "overall angle: %f", priv->overall_angle);
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "center position-x: %f",
         (cl_float) ufo_scarray_get_double(priv->center_position_x, 0));
-    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "center position-z: %u",
-        (cl_int) ufo_scarray_get_double(priv->center_position_z, 0));
-    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "region specified: [start=%g, stop=%g, step=%g]",
-        priv->region_start, priv->region_stop, priv->region_step);
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "addressing mode: %u", priv->addressing_mode);
-    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "#slices processed: %lu", priv->num_slices_processing);
-    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "#slices generated: %lu", priv->num_slices_actual);
 }
 
 /**
@@ -270,25 +252,70 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
     requisition->n_dims = 2;
     requisition->dims[0] = in_req.dims[0];
     requisition->dims[1] = in_req.dims[0];
-    // Check feasibility for memory allocation.
-    if (!priv->can_alloc_dev_mem) {
-        // Check feasibility of device memory allocation.
+    // Check region parameters to determine number of slices to be processed and produced along
+    // with the feasibility of device memory allocation.
+    // Parameter center_position_z specifies a reference point for region parameter. Region parameter
+    // consists of [start, stop, step] among which start and stop can be -ve or +ve but step must
+    // always be +ve. Moreover stop must be greater than start. Using center_position_z, start and
+    // stop we translate the actual z positions of starting and ending slices to be reconstructed
+    // with respect to the actual height of the projection. Derives z positions must be within the
+    // bound of actual height of the projection.
+    if (!priv->region_params_checked) {
+        gdouble _region_start, _region_stop, _region_step, _center_position_z;
+        _center_position_z = ufo_scarray_get_double(priv->center_position_z, 0);
+        if (UFO_MATH_ARE_ALMOST_EQUAL (ufo_scarray_get_double (priv->region, 2), 0)) {
+            _region_start = 0.0f;
+            _region_stop = 1.0f;
+            _region_step = 1.0f;
+        } else {
+            _region_start = ufo_scarray_get_double(priv->region, 0);
+            _region_stop = ufo_scarray_get_double(priv->region, 1);
+            _region_step = ufo_scarray_get_double(priv->region, 2);
+        }
+        if ((cl_int) _region_stop <= (cl_int) _region_start || (cl_int) _region_step <= 0) {
+            g_set_error_literal (
+                error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                "region start has to be less than region stop and region step has to be positive");
+            return;
+        }
+        _region_start += _center_position_z;
+        _region_stop += _center_position_z;
+        if ((cl_int) _region_start < 0 || (cl_int) _region_stop > (in_req.dims[1] - 1)) {
+            g_set_error_literal (
+                error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                "specified slice region is out of bound");
+            return;
+        }
+        priv->region_start = _region_start;
+        priv->region_stop = _region_stop;
+        priv->region_step = _region_step;
+        g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "center position-z: %u", (cl_int) _center_position_z);
+        g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "region to be reconstructed: [start=%g, stop=%g, step=%g]",
+            priv->region_start, priv->region_stop, priv->region_step);
+        priv->num_slices_actual = (gsize) ceil((priv->region_stop - priv->region_start) / priv->region_step);
+        priv->num_slices_processing = (gsize)(ceil((gdouble) priv->num_slices_actual / (gdouble) 4) * 4);
         gsize projections_size = priv->burst * in_req.dims[0] * priv->num_slices_processing * sizeof (cl_float);
         gsize slice_size = requisition->dims[0] * requisition->dims[1] * sizeof(cl_float);
         gsize volume_size = slice_size * priv->num_slices_processing;
         GValue *max_mem_alloc_size_gvalue = ufo_gpu_node_get_info (node, UFO_GPU_NODE_INFO_MAX_MEM_ALLOC_SIZE);
         // Even if a card claims to be able to allocate more than 4 GB (e.g. RTX* 8000) we get OpenCL
-        // errors, so limit it to 4 GB
-        cl_ulong max_mem_alloc_size = MIN (g_value_get_ulong (max_mem_alloc_size_gvalue), ((cl_ulong) 1) << 32);
+        // errors, so limit it to 4 GB.
+        cl_ulong max_mem_alloc_size = MIN (
+            g_value_get_ulong (max_mem_alloc_size_gvalue), ((cl_ulong) 1) << 32);
         g_value_unset (max_mem_alloc_size_gvalue);
         if (projections_size + volume_size > max_mem_alloc_size) {
-            g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
-                                    "volume size doesn't fit to memory");
+            g_set_error_literal (
+                error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
+                "volume size doesn't fit to memory");
             return;
         }
-        priv->can_alloc_dev_mem = TRUE;
+        g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "#slices processed: %lu", priv->num_slices_processing);
+        g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "#slices produced: %lu", priv->num_slices_actual);
+        priv->region_params_checked = TRUE;
     }
-    // Allocate device side ring-buffer and additional resources using requisitions.
+    // Allocate device side ring-buffer and additional resources using requisitions. Projection
+    // ring buffer contains burst number of full projections as the region stride is handled by
+    // accumulate kernel.
     cl_int cl_error;
     cl_command_queue cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     if (!priv->device_buffer_projections) {
@@ -318,7 +345,7 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
         priv->device_coalesced_slices = clCreateBuffer(priv->context, CL_MEM_WRITE_ONLY,
             coal_slice_size, NULL, &cl_error);
         UFO_RESOURCES_CHECK_CLERR (cl_error);
-        // Zero-fill the coalesced slices buffer. Backprojected values are added to it during each
+        // Zero-fill the coalesced slices buffer. Back-projected values are added to it during each
         // kernel execution. 
         float fill = 0.0f;
         UFO_RESOURCES_CHECK_CLERR (
@@ -394,7 +421,7 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
  * 
  * COMPLETE Burst: `(processed_proj_count < (priv->num_projections / priv->burst) * priv->burst)`
  * 
- * In this simpler scenatio `actual_burst` would be the configured `priv->burst` because we have
+ * In this simpler scenario `actual_burst` would be the configured `priv->burst` because we have
  * sufficient number of projections still left to process such that next kernel execution can happen
  * for `priv->burst` projections. So we can directly set `actual_burst` accordingly. We calculate
  * the `idx_actual_burst` using modulo operation of `processed_proj_count` by `actual_burst`, which
@@ -725,6 +752,7 @@ ufo_rgba_backproject_task_finalize (GObject *object)
         priv->host_buffer_sine = NULL;
     }
     G_OBJECT_CLASS(ufo_rgba_backproject_task_parent_class)->finalize(object);
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "finalize: resources deallocated");
 }
 
 /**
@@ -768,6 +796,10 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
         g_param_spec_uint ("burst",
             "Number of projections processed per one kernel invocation",
             "Number of projections processed per one kernel invocation",
+            // Benchmarking showed that with 24 projections being processed together we land with
+            // the most optimal runtime efficiency. The runtime for each back-projection kernel
+            // invocation is bottle-necked by the loop over the number of projections. Beyond 24
+            // projections we tend to hit the plateau in reduction of total back-projection runtime.
             0, 128, 24,
             G_PARAM_READWRITE);
     
@@ -831,7 +863,7 @@ ufo_rgba_backproject_task_init(UfoRGBABackprojectTask *self)
     self->priv->backproject_kernel = NULL;
     self->priv->distribute_kernel = NULL;
     /// Properties
-    self->priv->overall_angle = 2 * G_PI;
+    self->priv->overall_angle = 2 * CL_M_PI_F;
     self->priv->burst = 0;
     self->priv->num_projections = 0;
     self->priv->center_position_x = ufo_scarray_new(3, G_TYPE_DOUBLE, NULL);
@@ -842,7 +874,7 @@ ufo_rgba_backproject_task_init(UfoRGBABackprojectTask *self)
     self->priv->num_slices_actual = 0;
     self->priv->num_slices_processing = 0;
     self->priv->generated = 0;
-    self->priv->can_alloc_dev_mem = FALSE;
+    self->priv->region_params_checked = FALSE;
     /// Internal buffers
     self->priv->device_buffer_projections = NULL;
     self->priv->device_texture_projections = NULL;
