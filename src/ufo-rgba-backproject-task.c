@@ -32,6 +32,7 @@
 
 #include <config.h>
 #include <common/ufo-math.h>
+#include "common/ufo-addressing.h"
 #include "common/ufo-scarray.h"
 #include "ufo-rgba-backproject-task.h"
 
@@ -56,6 +57,8 @@ struct _UfoRGBABackprojectTaskPrivate {
     cl_kernel accumulate_kernel;
     cl_kernel backproject_kernel;
     cl_kernel distribute_kernel;
+    cl_addressing_mode addressing_mode;
+    cl_sampler sampler;
     // Internal
     UfoResources *resources;
     gsize num_slices_actual;
@@ -79,9 +82,11 @@ enum {
     PROP_0,
     PROP_BURST,
     PROP_NUM_PROJECTIONS,
+    PROP_OVERALL_ANGLE,
     PROP_CENTER_POSITION_X,
     PROP_CENTER_POSITION_Z,
     PROP_REGION,
+    PROP_ADDRESSING_MODE,
     N_PROPERTIES
 };
 
@@ -174,6 +179,11 @@ ufo_rgba_backproject_task_setup (UfoTask *task, UfoResources *resources, GError 
         UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->backproject_kernel), error);
     if (priv->distribute_kernel != NULL)
         UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->distribute_kernel), error);
+    // Instantiate sampler
+    cl_int cl_err;
+    priv->sampler = clCreateSampler (
+        priv->context, (cl_bool) FALSE, priv->addressing_mode, CL_FILTER_LINEAR, &cl_err);
+    UFO_RESOURCES_CHECK_CLERR (cl_err);
     // Allocate host-side buffers for cosine and sine components.
     if (!priv->num_projections) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "number of projections not set");
@@ -181,7 +191,7 @@ ufo_rgba_backproject_task_setup (UfoTask *task, UfoResources *resources, GError 
     }
     priv->host_buffer_cosine = (float*) calloc(priv->num_projections, sizeof(float));
     priv->host_buffer_sine = (float*) calloc(priv->num_projections, sizeof(float));
-    const float ang_delta = CL_M_PI_F / (float) priv->num_projections;
+    const float ang_delta = priv->overall_angle / (float) priv->num_projections;
     for (uint32_t theta = 0; theta < priv->num_projections; theta++) {
         priv->host_buffer_cosine[theta] = (float) cosf(theta * ang_delta);
         priv->host_buffer_sine[theta] = (float) sinf(theta * ang_delta);
@@ -214,15 +224,16 @@ ufo_rgba_backproject_task_setup (UfoTask *task, UfoResources *resources, GError 
     }
     priv->num_slices_actual = (gsize) ceil((priv->region_stop - priv->region_start) / priv->region_step);
     priv->num_slices_processing = (gsize)(ceil((gdouble) priv->num_slices_actual / (gdouble) 4) * 4);
-    
-    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "number of projections: %u", priv->num_projections);
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "burst size: %u", priv->burst);
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "number of projections: %u", priv->num_projections);
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "overall angle: %f", priv->overall_angle);
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "center position-x: %f",
         (cl_float) ufo_scarray_get_double(priv->center_position_x, 0));
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "center position-z: %u",
         (cl_int) ufo_scarray_get_double(priv->center_position_z, 0));
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "region specified: [start=%g, stop=%g, step=%g]",
         priv->region_start, priv->region_stop, priv->region_step);
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "addressing mode: %u", priv->addressing_mode);
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "#slices processed: %lu", priv->num_slices_processing);
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "#slices generated: %lu", priv->num_slices_actual);
 }
@@ -493,6 +504,8 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
         &center_position_x));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 5, sizeof(cl_uint),
         &actual_burst));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 6, sizeof(cl_sampler),
+        &priv->sampler));
         ufo_profiler_call_blocking (profiler, cmd_queue, priv->backproject_kernel, 3, bp_work_size,
             NULL);
     }
@@ -596,6 +609,9 @@ ufo_rgba_backproject_task_set_property (GObject *object, guint property_id, cons
         case PROP_NUM_PROJECTIONS:
             priv->num_projections = g_value_get_uint(value);
             break;
+        case PROP_OVERALL_ANGLE:
+            priv->overall_angle = (CL_M_PI_F / (gdouble) 180) * g_value_get_double (value);
+            break;
         case PROP_CENTER_POSITION_X:
             ufo_scarray_get_value (priv->center_position_x, value);
             break;
@@ -604,6 +620,9 @@ ufo_rgba_backproject_task_set_property (GObject *object, guint property_id, cons
             break;
         case PROP_REGION:
             ufo_scarray_get_value(priv->region, value);
+            break;
+        case PROP_ADDRESSING_MODE:
+            priv->addressing_mode = g_value_get_enum (value);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -624,6 +643,9 @@ ufo_rgba_backproject_task_get_property (GObject *object, guint property_id, GVal
         case PROP_NUM_PROJECTIONS:
             g_value_set_uint(value, priv->num_projections);
             break;
+        case PROP_OVERALL_ANGLE:
+            g_value_set_double (value, priv->overall_angle);
+            break;
         case PROP_CENTER_POSITION_X:
             ufo_scarray_set_value (priv->center_position_x, value);
             break;
@@ -632,6 +654,9 @@ ufo_rgba_backproject_task_get_property (GObject *object, guint property_id, GVal
             break;
         case PROP_REGION:
             ufo_scarray_set_value(priv->region, value);
+            break;
+        case PROP_ADDRESSING_MODE:
+            g_value_set_enum (value, priv->addressing_mode);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -753,6 +778,14 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
             0, 32768, 0,
             G_PARAM_READWRITE);
 
+    properties[PROP_OVERALL_ANGLE] =
+        g_param_spec_double ("overall-angle",
+            "Angle covered by all projections [rad]",
+            "Angle covered by all projections [rad] (can be negative for negative steps "
+            "in case only num-projections is specified",
+            -G_MAXDOUBLE, G_MAXDOUBLE, 2 * G_PI,
+            G_PARAM_READWRITE);
+
     properties[PROP_CENTER_POSITION_X] =
         g_param_spec_value_array ("center-position-x",
             "Global x center (horizontal in a projection) of the volume with respect to projections",
@@ -774,6 +807,14 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
             double_region_vals,
             G_PARAM_READWRITE);
 
+    properties[PROP_ADDRESSING_MODE] =
+        g_param_spec_enum ("addressing-mode",
+            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
+            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
+            g_enum_register_static ("ufo_gbp_addressing_mode", addressing_values),
+            CL_ADDRESS_CLAMP,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
     g_type_class_add_private (oclass, sizeof(UfoRGBABackprojectTaskPrivate));
@@ -790,12 +831,14 @@ ufo_rgba_backproject_task_init(UfoRGBABackprojectTask *self)
     self->priv->backproject_kernel = NULL;
     self->priv->distribute_kernel = NULL;
     /// Properties
-    self->priv->overall_angle = G_PI;
+    self->priv->overall_angle = 2 * G_PI;
     self->priv->burst = 0;
     self->priv->num_projections = 0;
     self->priv->center_position_x = ufo_scarray_new(3, G_TYPE_DOUBLE, NULL);
     self->priv->center_position_z = ufo_scarray_new(3, G_TYPE_DOUBLE, NULL);
     self->priv->region = ufo_scarray_new(3, G_TYPE_INT, NULL);
+    self->priv->addressing_mode = CL_ADDRESS_CLAMP;
+    self->priv->sampler = NULL;
     self->priv->num_slices_actual = 0;
     self->priv->num_slices_processing = 0;
     self->priv->generated = 0;

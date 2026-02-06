@@ -1,5 +1,21 @@
 #pragma OPENCL EXTENSION cl_khr_fp16 : enable
-const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP_TO_EDGE | CLK_FILTER_LINEAR;
+
+kernel void
+dense_accumulate(global float *in, write_only image2d_array_t out) {
+    const int idx = get_global_id(0);
+    const int idy = get_global_id(1);
+    const int idz = get_global_id(2);
+    const int size_x = get_global_size(0);
+    const int size_y = get_global_size(1);
+    const int proj_offset = idz * size_x * (4 * size_y);
+    const int flat_y = 4 * idy;
+    const int flat_idx0 = proj_offset + (flat_y + 0) * size_x + idx; 
+    const int flat_idx1 = proj_offset + (flat_y + 1) * size_x + idx; 
+    const int flat_idx2 = proj_offset + (flat_y + 2) * size_x + idx; 
+    const int flat_idx3 = proj_offset + (flat_y + 3) * size_x + idx; 
+    float4 pixel = (float4)(in[flat_idx0], in[flat_idx1], in[flat_idx2], in[flat_idx3]);
+    write_imagef(out, (int4)(idx, idy, idz, 0), pixel);
+}
 
 kernel void
 accumulate(
@@ -41,7 +57,8 @@ backproject(
     constant float *cos_lut,
     constant float *sin_lut,
     const float axis,
-    const uint burst) {
+    const uint burst,
+    sampler_t sampler) {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
     const int idz = get_global_id(2);
