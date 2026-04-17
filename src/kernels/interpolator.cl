@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2013 Karlsruhe Institute of Technology
+ * Copyright (C) 2011-2025 Karlsruhe Institute of Technology
  *
  * This file is part of Ufo.
  *
@@ -114,4 +114,81 @@ interpolate_mask_horizontally (global float *input,
    } else {
        output[offset + idx] = input[offset + idx];
    }
+}
+
+kernel void map_coordinates (read_only image2d_t input,
+                             global float *output,
+                             const sampler_t sampler,
+                             global float *x_positions,
+                             global float *y_positions)
+{
+    int idx = get_global_id (0);
+    int idy = get_global_id (1);
+    int width = get_global_size(0);
+    int index = idy * width + idx;
+    float x = x_positions[index] + 0.5f;
+    float y = y_positions[index] + 0.5f;
+
+    output[index] = read_imagef(input, sampler, (float2) (x, y)).x;
+}
+
+
+inline float get_image_point(global float *image, int x, int y, int width, int height)
+{
+    x = clamp (x, 0, width - 1);
+    y = clamp (y, 0, height - 1);
+
+    return image[y * width + x];
+}
+
+
+kernel void map_coordinates_cubic (global float *input,
+                                   global float *output,
+                                   global float *x_positions,
+                                   global float *y_positions)
+{
+    int idx = get_global_id (0);
+    int idy = get_global_id (1);
+    int width = get_global_size(0);
+    int height = get_global_size(1);
+    int index = idy * width + idx;
+    int xi, yi, i, j;
+    float xf, xif, yf, yif;
+    float4 neighborhood;
+    float4 psx = (float4) (0.0f, 0.0f, 0.f, 0.0f);
+    float4 psy = (float4) (0.0f, 0.0f, 0.f, 0.0f);
+
+    float4 mat[4];
+    mat[0] = (float4)( 0.0f,   2.0f,   0.0f,   0.0f);
+    mat[1] = (float4)(-1.0f,   0.0f,   1.0f,   0.0f);
+    mat[2] = (float4)( 2.0f,  -5.0f,   4.0f,  -1.0f);
+    mat[3] = (float4)(-1.0f,   3.0f,  -3.0f,   1.0f);
+
+    float x = x_positions[index];
+    float y = y_positions[index];
+    xf = modf (x, &xif);
+    yf = modf (y, &yif);
+    xi = (int) xif;
+    yi = (int) yif;
+    float4 tx = (float4)(1, xf, xf * xf, xf * xf * xf);
+    float4 ty = (float4)(1, yf, yf * yf, yf * yf * yf);
+
+    for (j = yi - 1; j < yi + 3; j++) {
+        neighborhood.x = get_image_point(input, xi - 1, j, width, height),
+        neighborhood.y = get_image_point(input,     xi, j, width, height),
+        neighborhood.z = get_image_point(input, xi + 1, j, width, height),
+        neighborhood.w = get_image_point(input, xi + 2, j, width, height),
+        psy.x = dot (mat[0], neighborhood);
+        psy.y = dot (mat[1], neighborhood);
+        psy.z = dot (mat[2], neighborhood);
+        psy.w = dot (mat[3], neighborhood);
+        psx[j - yi + 1] = 0.5f * dot (tx, psy);
+    }
+
+    psy.x = dot (mat[0], psx);
+    psy.y = dot (mat[1], psx);
+    psy.z = dot (mat[2], psx);
+    psy.w = dot (mat[3], psx);
+
+    output[index] = 0.5f * dot (ty, psy);
 }

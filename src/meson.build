@@ -38,6 +38,7 @@ plugins = [
     'interpolate-stream',
     'loop',
     'map-slice',
+    'map-coordinates',
     'map-color',
     'mask',
     'measure',
