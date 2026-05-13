@@ -37,6 +37,7 @@ struct _UfoTiffWriterPrivate {
 #ifdef HAVE_JPEG2000
     gboolean jpeg2000;
     guint level;
+    guint threads;
 #endif
 };
 
@@ -54,6 +55,7 @@ enum {
 #ifdef HAVE_JPEG2000
     PROP_JPEG2000,
     PROP_LEVEL,
+    PROP_THREADS,
 #endif
     N_PROPERTIES
 };
@@ -159,7 +161,8 @@ fill_jpeg2000_components (opj_image_t *jp2_image,
 static GByteArray *
 encode_jpeg2000_codestream (UfoWriterImage *image,
                             gboolean is_rgb,
-                            guint level)
+                            guint level,
+                            guint threads)
 {
     opj_cparameters_t parameters;
     opj_image_cmptparm_t component_parameters[3];
@@ -217,6 +220,9 @@ encode_jpeg2000_codestream (UfoWriterImage *image,
 
     if (!opj_setup_encoder (codec, &parameters, jp2_image))
         goto cleanup;
+
+    if (threads > 0 && !opj_codec_set_threads (codec, threads))
+        g_warning ("Could not enable %u OpenJPEG worker threads.", threads);
 
     bytes = g_byte_array_new ();
     output.bytes = bytes;
@@ -358,7 +364,7 @@ ufo_tiff_writer_write (UfoWriter *writer,
         tmsize_t written;
 
         TIFFSetField (priv->tiff, TIFFTAG_COMPRESSION, COMPRESSION_JP2000);
-        codestream = encode_jpeg2000_codestream (image, is_rgb, priv->level);
+        codestream = encode_jpeg2000_codestream (image, is_rgb, priv->level, priv->threads);
 
         if (codestream == NULL) {
             g_warning ("Could not encode TIFF page with JPEG 2000 compression.");
@@ -412,6 +418,9 @@ ufo_tiff_writer_set_property (GObject *object,
         case PROP_LEVEL:
             priv->level = g_value_get_uint (value);
             break;
+        case PROP_THREADS:
+            priv->threads = g_value_get_uint (value);
+            break;
 #endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -436,6 +445,9 @@ ufo_tiff_writer_get_property (GObject *object,
             break;
         case PROP_LEVEL:
             g_value_set_uint (value, priv->level);
+            break;
+        case PROP_THREADS:
+            g_value_set_uint (value, priv->threads);
             break;
 #endif
         default:
@@ -496,6 +508,13 @@ ufo_tiff_writer_class_init(UfoTiffWriterClass *klass)
             "JPEG 2000 quality level. 0 is lossless; 1 to 100 enable progressively higher lossy quality",
             0, 100, 0,
             G_PARAM_READWRITE);
+
+    properties[PROP_THREADS] =
+        g_param_spec_uint("threads",
+            "OpenJPEG encoder threads",
+            "Number of OpenJPEG worker threads. 0 leaves OpenJPEG defaults in place.",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
 #endif
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -515,5 +534,6 @@ ufo_tiff_writer_init (UfoTiffWriter *self)
 #ifdef HAVE_JPEG2000
     priv->jpeg2000 = FALSE;
     priv->level = 0;
+    priv->threads = 0;
 #endif
 }

@@ -26,6 +26,7 @@
 
 struct _UfoJpeg2000WriterPrivate {
     gchar *filename;
+    guint threads;
 };
 
 static void ufo_writer_interface_init (UfoWriterIface *iface);
@@ -35,6 +36,14 @@ G_DEFINE_TYPE_WITH_CODE (UfoJpeg2000Writer, ufo_jpeg2000_writer, G_TYPE_OBJECT,
                                                 ufo_writer_interface_init))
 
 #define UFO_JPEG2000_WRITER_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), UFO_TYPE_JPEG2000_WRITER, UfoJpeg2000WriterPrivate))
+
+enum {
+    PROP_0,
+    PROP_THREADS,
+    N_PROPERTIES
+};
+
+static GParamSpec *properties[N_PROPERTIES] = { NULL, };
 
 UfoJpeg2000Writer *
 ufo_jpeg2000_writer_new (void)
@@ -172,6 +181,9 @@ ufo_jpeg2000_writer_write (UfoWriter *writer,
     if (!opj_setup_encoder (codec, &parameters, jp2_image))
         goto cleanup;
 
+    if (priv->threads > 0 && !opj_codec_set_threads (codec, priv->threads))
+        g_warning ("Could not enable %u OpenJPEG worker threads.", priv->threads);
+
     stream = opj_stream_create_default_file_stream (priv->filename, OPJ_FALSE);
     if (stream == NULL)
         goto cleanup;
@@ -192,6 +204,42 @@ cleanup:
 
     if (jp2_image != NULL)
         opj_image_destroy (jp2_image);
+}
+
+static void
+ufo_jpeg2000_writer_set_property (GObject *object,
+                                  guint property_id,
+                                  const GValue *value,
+                                  GParamSpec *pspec)
+{
+    UfoJpeg2000WriterPrivate *priv = UFO_JPEG2000_WRITER_GET_PRIVATE (object);
+
+    switch (property_id) {
+        case PROP_THREADS:
+            priv->threads = g_value_get_uint (value);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+            break;
+    }
+}
+
+static void
+ufo_jpeg2000_writer_get_property (GObject *object,
+                                  guint property_id,
+                                  GValue *value,
+                                  GParamSpec *pspec)
+{
+    UfoJpeg2000WriterPrivate *priv = UFO_JPEG2000_WRITER_GET_PRIVATE (object);
+
+    switch (property_id) {
+        case PROP_THREADS:
+            g_value_set_uint (value, priv->threads);
+            break;
+        default:
+            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+            break;
+    }
 }
 
 static void
@@ -220,7 +268,19 @@ ufo_jpeg2000_writer_class_init (UfoJpeg2000WriterClass *klass)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
 
+    gobject_class->set_property = ufo_jpeg2000_writer_set_property;
+    gobject_class->get_property = ufo_jpeg2000_writer_get_property;
     gobject_class->finalize = ufo_jpeg2000_writer_finalize;
+
+    properties[PROP_THREADS] =
+        g_param_spec_uint ("threads",
+            "OpenJPEG encoder threads",
+            "Number of OpenJPEG worker threads. 0 leaves OpenJPEG defaults in place.",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
+
+    for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
+        g_object_class_install_property (gobject_class, i, properties[i]);
 
     g_type_class_add_private (gobject_class, sizeof (UfoJpeg2000WriterPrivate));
 }
@@ -232,4 +292,5 @@ ufo_jpeg2000_writer_init (UfoJpeg2000Writer *self)
 
     self->priv = priv = UFO_JPEG2000_WRITER_GET_PRIVATE (self);
     priv->filename = NULL;
+    priv->threads = 0;
 }
