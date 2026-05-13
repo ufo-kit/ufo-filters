@@ -36,6 +36,7 @@ struct _UfoTiffWriterPrivate {
     gboolean bigtiff;
 #ifdef HAVE_JPEG2000
     gboolean jpeg2000;
+    guint level;
 #endif
 };
 
@@ -52,6 +53,7 @@ enum {
     PROP_BIGTIFF,
 #ifdef HAVE_JPEG2000
     PROP_JPEG2000,
+    PROP_LEVEL,
 #endif
     N_PROPERTIES
 };
@@ -156,7 +158,8 @@ fill_jpeg2000_components (opj_image_t *jp2_image,
 
 static GByteArray *
 encode_jpeg2000_codestream (UfoWriterImage *image,
-                            gboolean is_rgb)
+                            gboolean is_rgb,
+                            guint level)
 {
     opj_cparameters_t parameters;
     opj_image_cmptparm_t component_parameters[3];
@@ -200,6 +203,13 @@ encode_jpeg2000_codestream (UfoWriterImage *image,
 
     opj_set_default_encoder_parameters (&parameters);
     parameters.cod_format = 0;
+
+    if (level > 0) {
+        parameters.irreversible = 1;
+        parameters.cp_fixed_quality = 1;
+        parameters.tcp_numlayers = 1;
+        parameters.tcp_distoratio[0] = level;
+    }
 
     codec = opj_create_compress (OPJ_CODEC_J2K);
     if (codec == NULL)
@@ -348,7 +358,7 @@ ufo_tiff_writer_write (UfoWriter *writer,
         tmsize_t written;
 
         TIFFSetField (priv->tiff, TIFFTAG_COMPRESSION, COMPRESSION_JP2000);
-        codestream = encode_jpeg2000_codestream (image, is_rgb);
+        codestream = encode_jpeg2000_codestream (image, is_rgb, priv->level);
 
         if (codestream == NULL) {
             g_warning ("Could not encode TIFF page with JPEG 2000 compression.");
@@ -399,6 +409,9 @@ ufo_tiff_writer_set_property (GObject *object,
         case PROP_JPEG2000:
             priv->jpeg2000 = g_value_get_boolean (value);
             break;
+        case PROP_LEVEL:
+            priv->level = g_value_get_uint (value);
+            break;
 #endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -420,6 +433,9 @@ ufo_tiff_writer_get_property (GObject *object,
 #ifdef HAVE_JPEG2000
         case PROP_JPEG2000:
             g_value_set_boolean (value, priv->jpeg2000);
+            break;
+        case PROP_LEVEL:
+            g_value_set_uint (value, priv->level);
             break;
 #endif
         default:
@@ -473,6 +489,13 @@ ufo_tiff_writer_class_init(UfoTiffWriterClass *klass)
             "Compress TIFF pages with JPEG 2000",
             FALSE,
             G_PARAM_READWRITE);
+
+    properties[PROP_LEVEL] =
+        g_param_spec_uint("level",
+            "JPEG 2000 quality level",
+            "JPEG 2000 quality level. 0 is lossless; 1 to 100 enable progressively higher lossy quality",
+            0, 100, 0,
+            G_PARAM_READWRITE);
 #endif
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -491,5 +514,6 @@ ufo_tiff_writer_init (UfoTiffWriter *self)
     priv->bigtiff = TRUE;
 #ifdef HAVE_JPEG2000
     priv->jpeg2000 = FALSE;
+    priv->level = 0;
 #endif
 }

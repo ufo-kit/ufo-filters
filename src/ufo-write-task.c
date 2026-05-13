@@ -121,6 +121,7 @@ enum {
     PROP_TIFF_BIGTIFF,
 #ifdef HAVE_JPEG2000
     PROP_TIFF_JPEG2000,
+    PROP_LEVEL,
 #endif
 #endif
     N_PROPERTIES
@@ -480,6 +481,9 @@ ufo_write_task_set_property (GObject *object,
         case PROP_TIFF_JPEG2000:
             g_object_set_property (G_OBJECT (priv->tiff_writer), "jpeg2000", value);
             break;
+        case PROP_LEVEL:
+            g_object_set_property (G_OBJECT (priv->tiff_writer), "level", value);
+            break;
 #endif
 #endif
         default:
@@ -543,6 +547,9 @@ ufo_write_task_get_property (GObject *object,
 #ifdef HAVE_JPEG2000
         case PROP_TIFF_JPEG2000:
             g_object_get_property (G_OBJECT (priv->tiff_writer), "jpeg2000", value);
+            break;
+        case PROP_LEVEL:
+            g_object_get_property (G_OBJECT (priv->tiff_writer), "level", value);
             break;
 #endif
 #endif
@@ -719,6 +726,13 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
             "Compress TIFF pages with JPEG 2000",
             "Compress TIFF pages with JPEG 2000",
             FALSE,
+            G_PARAM_READWRITE);
+
+    properties[PROP_LEVEL] =
+        g_param_spec_uint("level",
+            "JPEG 2000 quality level",
+            "JPEG 2000 quality level. 0 is lossless; 1 to 100 enable progressively higher lossy quality",
+            0, 100, 0,
             G_PARAM_READWRITE);
 #endif
 #endif
