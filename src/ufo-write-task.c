@@ -119,6 +119,9 @@ enum {
 #endif
 #ifdef HAVE_TIFF
     PROP_TIFF_BIGTIFF,
+#ifdef HAVE_JPEG2000
+    PROP_TIFF_JPEG2000,
+#endif
 #endif
     N_PROPERTIES
 };
@@ -473,6 +476,11 @@ ufo_write_task_set_property (GObject *object,
         case PROP_TIFF_BIGTIFF:
             g_object_set_property (G_OBJECT (priv->tiff_writer), "bigtiff", value);
             break;
+#ifdef HAVE_JPEG2000
+        case PROP_TIFF_JPEG2000:
+            g_object_set_property (G_OBJECT (priv->tiff_writer), "jpeg2000", value);
+            break;
+#endif
 #endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -532,6 +540,11 @@ ufo_write_task_get_property (GObject *object,
         case PROP_TIFF_BIGTIFF:
             g_object_get_property (G_OBJECT (priv->tiff_writer), "bigtiff", value);
             break;
+#ifdef HAVE_JPEG2000
+        case PROP_TIFF_JPEG2000:
+            g_object_get_property (G_OBJECT (priv->tiff_writer), "jpeg2000", value);
+            break;
+#endif
 #endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -700,6 +713,14 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
             "Write BigTiff format",
             TRUE,
             G_PARAM_READWRITE);
+#ifdef HAVE_JPEG2000
+    properties[PROP_TIFF_JPEG2000] =
+        g_param_spec_boolean("tiff-jpeg2000",
+            "Compress TIFF pages with JPEG 2000",
+            "Compress TIFF pages with JPEG 2000",
+            FALSE,
+            G_PARAM_READWRITE);
+#endif
 #endif
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
