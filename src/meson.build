@@ -280,6 +280,9 @@ if jpeg_dep.found()
 endif
 
 if jpeg2000_dep.found()
+    read_sources += ['readers/ufo-jpeg2000-reader.c']
+    read_deps += [jpeg2000_dep]
+
     write_sources += ['writers/ufo-jpeg2000-writer.c']
     write_deps += [jpeg2000_dep]
 endif

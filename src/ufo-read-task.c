@@ -37,12 +37,19 @@
 #include "readers/ufo-hdf5-reader.h"
 #endif
 
+#ifdef HAVE_JPEG2000
+#include "readers/ufo-jpeg2000-reader.h"
+#endif
+
 /* XXX: keep enum and values array in sync! */
 typedef enum {
     TYPE_EDF,
     TYPE_RAW,
 #ifdef HAVE_TIFF
     TYPE_TIFF,
+#endif
+#ifdef HAVE_JPEG2000
+    TYPE_JPEG2000,
 #endif
 #ifdef WITH_HDF5
     TYPE_HDF5,
@@ -55,6 +62,9 @@ static GEnumValue type_values[] = {
     { TYPE_RAW,     "TYPE_RAW",     "raw" },
 #ifdef HAVE_TIFF
     { TYPE_TIFF,    "TYPE_TIFF",    "tiff" },
+#endif
+#ifdef HAVE_JPEG2000
+    { TYPE_JPEG2000, "TYPE_JPEG2000", "jpeg2000" },
 #endif
 #ifdef WITH_HDF5
     { TYPE_HDF5,    "TYPE_HDF5",    "hdf5" },
@@ -89,6 +99,10 @@ struct _UfoReadTaskPrivate {
 
 #ifdef HAVE_TIFF
     UfoTiffReader   *tiff_reader;
+#endif
+
+#ifdef HAVE_JPEG2000
+    UfoJpeg2000Reader *jpeg2000_reader;
 #endif
 
 #ifdef WITH_HDF5
@@ -172,6 +186,13 @@ read_filenames (UfoReadTaskPrivate *priv)
         }
 #endif
 
+#ifdef HAVE_JPEG2000
+        if (ufo_reader_can_open (UFO_READER (priv->jpeg2000_reader), filename) || priv->type == TYPE_JPEG2000) {
+            result = g_list_append (result, g_strdup (filename));
+            continue;
+        }
+#endif
+
         if (ufo_reader_can_open (UFO_READER (priv->edf_reader), filename) || priv->type == TYPE_EDF) {
             result = g_list_append (result, g_strdup (filename));
             continue;
@@ -227,6 +248,11 @@ get_reader (UfoReadTaskPrivate *priv, const gchar *filename)
 #ifdef HAVE_TIFF
     if (ufo_reader_can_open (UFO_READER (priv->tiff_reader), filename) || priv->type == TYPE_TIFF)
         return UFO_READER (priv->tiff_reader);
+#endif
+
+#ifdef HAVE_JPEG2000
+    if (ufo_reader_can_open (UFO_READER (priv->jpeg2000_reader), filename) || priv->type == TYPE_JPEG2000)
+        return UFO_READER (priv->jpeg2000_reader);
 #endif
 
 #ifdef WITH_HDF5
@@ -502,6 +528,10 @@ ufo_read_task_dispose (GObject *object)
     g_object_unref (priv->tiff_reader);
 #endif
 
+#ifdef HAVE_JPEG2000
+    g_object_unref (priv->jpeg2000_reader);
+#endif
+
 #ifdef WITH_HDF5
     g_object_unref (priv->hdf5_reader);
 #endif
@@ -690,6 +720,10 @@ ufo_read_task_init(UfoReadTask *self)
 
 #ifdef HAVE_TIFF
     priv->tiff_reader = ufo_tiff_reader_new ();
+#endif
+
+#ifdef HAVE_JPEG2000
+    priv->jpeg2000_reader = ufo_jpeg2000_reader_new ();
 #endif
 
 #ifdef WITH_HDF5
