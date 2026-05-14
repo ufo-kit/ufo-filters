@@ -122,7 +122,6 @@ enum {
 #ifdef HAVE_JPEG2000
     PROP_TIFF_JPEG2000,
     PROP_LEVEL,
-    PROP_THREADS,
 #endif
 #endif
     N_PROPERTIES
@@ -485,10 +484,6 @@ ufo_write_task_set_property (GObject *object,
         case PROP_LEVEL:
             g_object_set_property (G_OBJECT (priv->tiff_writer), "level", value);
             break;
-        case PROP_THREADS:
-            g_object_set_property (G_OBJECT (priv->tiff_writer), "threads", value);
-            g_object_set_property (G_OBJECT (priv->jpeg2000_writer), "threads", value);
-            break;
 #endif
 #endif
         default:
@@ -555,9 +550,6 @@ ufo_write_task_get_property (GObject *object,
             break;
         case PROP_LEVEL:
             g_object_get_property (G_OBJECT (priv->tiff_writer), "level", value);
-            break;
-        case PROP_THREADS:
-            g_object_get_property (G_OBJECT (priv->tiff_writer), "threads", value);
             break;
 #endif
 #endif
@@ -743,12 +735,6 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
             0, 100, 0,
             G_PARAM_READWRITE);
 
-    properties[PROP_THREADS] =
-        g_param_spec_uint("threads",
-            "OpenJPEG encoder threads",
-            "Number of OpenJPEG worker threads. 0 leaves OpenJPEG defaults in place.",
-            0, G_MAXUINT, 0,
-            G_PARAM_READWRITE);
 #endif
 #endif
 
