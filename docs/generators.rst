@@ -13,8 +13,13 @@ File reader
     The reader loads single files from disk to produce a stream of
     two-dimensional data items. Supported file types depend on the compiled
     plugin. Raw (`.raw`) and EDF (`.edf`) files can always be read without
-    additional support. Additionally, loading TIFF (`.tif` and `.tiff`) and HDF5
-    (`.h5`) files might be supported.
+    additional support. Additionally, loading TIFF (`.tif` and `.tiff`), HDF5
+    (`.h5`) and JPEG 2000 (`.jp2`, `.j2k` and `.j2c`) files might be supported.
+
+    JPEG 2000 files are detected from their filename suffix without additional
+    properties. If OpenJPEG support is available, decoding uses the number of
+    available CPU cores automatically. TIFF files compressed with JPEG 2000 are
+    read transparently as TIFF inputs, including strip-based and tiled TIFFs.
 
     The nominal resolution can be decreased by specifying the :gobj:prop:`y`
     coordinate and a :gobj:prop:`height`. Due to reduced I/O, this can
@@ -86,7 +91,8 @@ File reader
 
         Overrides the type detection that is based on the file extension. For
         example, to load `.foo` files as raw files, set the ``type`` property to
-        `raw`.
+        `raw`. If JPEG 2000 support is available, `jpeg2000` can be used to
+        force `.jp2`, `.j2k` or `.j2c` decoding.
 
 
 Memory reader

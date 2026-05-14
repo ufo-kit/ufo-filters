@@ -5,8 +5,8 @@ Installation
 
 Prior to building the filter suite you have to install the base library ufo-core
 as well as all task-specific dependencies (e.g. *libtiff* for :gobj:class:`read`
-and :gobj:class:`write`). Once ufo-core is installed you can check out the
-source with::
+and :gobj:class:`write`, and *libopenjp2* for JPEG 2000 read/write support).
+Once ufo-core is installed you can check out the source with::
 
   $ git clone https://github.com/ufo-kit/ufo-filters
 
