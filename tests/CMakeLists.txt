@@ -40,6 +40,9 @@ add_test(test_fft
 add_test(test_swap_quadrants
          ${Python_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/test_swap_quadrants.py")
 
+add_test(test_tiff_jpeg2000_readers
+         ${Python_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/test-tiff-jpeg2000-readers.py")
+
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/make-input-multipage-readers
         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/tests)
 
