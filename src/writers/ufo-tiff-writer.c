@@ -37,6 +37,7 @@ struct _UfoTiffWriterPrivate {
 #ifdef HAVE_JPEG2000
     gboolean jpeg2000;
     guint level;
+    guint tile_size;
 #endif
 };
 
@@ -54,6 +55,7 @@ enum {
 #ifdef HAVE_JPEG2000
     PROP_JPEG2000,
     PROP_LEVEL,
+    PROP_TILE_SIZE,
 #endif
     N_PROPERTIES
 };
@@ -148,6 +150,75 @@ fill_jpeg2000_components (opj_image_t *jp2_image,
         for (gsize pixel = 0; pixel < num_pixels; pixel++) {
             for (guint component = 0; component < num_components; component++)
                 jp2_image->comps[component].data[pixel] = source[pixel * num_components + component];
+        }
+
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+static gboolean
+fill_jpeg2000_tile (gpointer tile_data,
+                    UfoWriterImage *image,
+                    guint tile_x,
+                    guint tile_y,
+                    UfoRequisition *tile_requisition,
+                    guint num_components)
+{
+    gsize source_width;
+    gsize source_height;
+    gsize tile_width;
+    gsize tile_height;
+
+    source_width = image->requisition->dims[0];
+    source_height = image->requisition->dims[1];
+    tile_width = tile_requisition->dims[0];
+    tile_height = tile_requisition->dims[1];
+
+    if (image->depth == UFO_BUFFER_DEPTH_8U) {
+        const guint8 *source = image->data;
+        guint8 *destination = tile_data;
+
+        for (gsize y = 0; y < tile_height; y++) {
+            for (gsize x = 0; x < tile_width; x++) {
+                gsize destination_index = (y * tile_width + x) * num_components;
+
+                if (tile_x + x < source_width && tile_y + y < source_height) {
+                    gsize source_index = ((tile_y + y) * source_width + tile_x + x) * num_components;
+
+                    for (guint component = 0; component < num_components; component++)
+                        destination[destination_index + component] = source[source_index + component];
+                }
+                else {
+                    for (guint component = 0; component < num_components; component++)
+                        destination[destination_index + component] = 0;
+                }
+            }
+        }
+
+        return TRUE;
+    }
+
+    if (image->depth == UFO_BUFFER_DEPTH_16U) {
+        const guint16 *source = image->data;
+        guint16 *destination = tile_data;
+
+        for (gsize y = 0; y < tile_height; y++) {
+            for (gsize x = 0; x < tile_width; x++) {
+                gsize destination_index = (y * tile_width + x) * num_components;
+
+                if (tile_x + x < source_width && tile_y + y < source_height) {
+                    gsize source_index = ((tile_y + y) * source_width + tile_x + x) * num_components;
+
+                    for (guint component = 0; component < num_components; component++)
+                        destination[destination_index + component] = source[source_index + component];
+                }
+                else {
+                    for (guint component = 0; component < num_components; component++)
+                        destination[destination_index + component] = 0;
+                }
+            }
         }
 
         return TRUE;
@@ -260,6 +331,72 @@ cleanup:
 
     return bytes;
 }
+
+static gboolean
+write_jpeg2000_tiles (UfoTiffWriterPrivate *priv,
+                      UfoWriterImage *image,
+                      gboolean is_rgb)
+{
+    UfoRequisition tile_requisition;
+    UfoWriterImage tile_image;
+    gpointer tile_data = NULL;
+    guint num_components;
+    guint bytes_per_sample;
+    guint image_width;
+    guint image_height;
+    gboolean success = TRUE;
+
+    num_components = is_rgb ? 3 : 1;
+    bytes_per_sample = image->depth == UFO_BUFFER_DEPTH_8U ? 1 : 2;
+    image_width = image->requisition->dims[0];
+    image_height = image->requisition->dims[1];
+
+    tile_data = g_malloc ((gsize) priv->tile_size * priv->tile_size * num_components * bytes_per_sample);
+
+    tile_image = *image;
+    tile_image.requisition = &tile_requisition;
+    tile_image.data = tile_data;
+
+    for (guint y = 0; y < image_height; y += priv->tile_size) {
+        for (guint x = 0; x < image_width; x += priv->tile_size) {
+            GByteArray *codestream;
+            guint tile;
+            tmsize_t written;
+
+            tile_requisition.n_dims = is_rgb ? 3 : 2;
+            tile_requisition.dims[0] = priv->tile_size;
+            tile_requisition.dims[1] = priv->tile_size;
+            tile_requisition.dims[2] = is_rgb ? 3 : 0;
+
+            if (!fill_jpeg2000_tile (tile_data, image, x, y, &tile_requisition, num_components)) {
+                success = FALSE;
+                goto cleanup;
+            }
+
+            codestream = encode_jpeg2000_codestream (&tile_image, is_rgb, priv->level);
+
+            if (codestream == NULL) {
+                g_warning ("Could not encode TIFF tile with JPEG 2000 compression.");
+                success = FALSE;
+                goto cleanup;
+            }
+
+            tile = TIFFComputeTile (priv->tiff, x, y, 0, 0);
+            written = TIFFWriteRawTile (priv->tiff, tile, codestream->data, codestream->len);
+            g_byte_array_unref (codestream);
+
+            if (written < 0) {
+                g_warning ("Could not write JPEG 2000 TIFF tile.");
+                success = FALSE;
+                goto cleanup;
+            }
+        }
+    }
+
+cleanup:
+    g_free (tile_data);
+    return success;
+}
 #endif
 
 UfoTiffWriter *
@@ -327,11 +464,14 @@ ufo_tiff_writer_write (UfoWriter *writer,
     TIFFSetField (priv->tiff, TIFFTAG_IMAGEWIDTH, image->requisition->dims[0]);
     TIFFSetField (priv->tiff, TIFFTAG_IMAGELENGTH, image->requisition->dims[1]);
     TIFFSetField (priv->tiff, TIFFTAG_SAMPLESPERPIXEL, is_rgb ? 3 : 1);
-    TIFFSetField (priv->tiff, TIFFTAG_ROWSPERSTRIP,
 #ifdef HAVE_JPEG2000
-                  priv->jpeg2000 ? image->requisition->dims[1] :
+    if (!priv->jpeg2000 || priv->tile_size == 0)
 #endif
-                  TIFFDefaultStripSize (priv->tiff, (guint32) - 1));
+        TIFFSetField (priv->tiff, TIFFTAG_ROWSPERSTRIP,
+#ifdef HAVE_JPEG2000
+                      priv->jpeg2000 ? image->requisition->dims[1] :
+#endif
+                      TIFFDefaultStripSize (priv->tiff, (guint32) - 1));
     TIFFSetField (priv->tiff, TIFFTAG_PHOTOMETRIC, is_rgb ? PHOTOMETRIC_RGB : PHOTOMETRIC_MINISBLACK);
 
     /*
@@ -364,6 +504,19 @@ ufo_tiff_writer_write (UfoWriter *writer,
         tmsize_t written;
 
         TIFFSetField (priv->tiff, TIFFTAG_COMPRESSION, COMPRESSION_JP2000);
+
+        if (priv->tile_size > 0) {
+            TIFFSetField (priv->tiff, TIFFTAG_TILEWIDTH, priv->tile_size);
+            TIFFSetField (priv->tiff, TIFFTAG_TILELENGTH, priv->tile_size);
+
+            if (!write_jpeg2000_tiles (priv, image, is_rgb))
+                return;
+
+            TIFFWriteDirectory (priv->tiff);
+            priv->page++;
+            return;
+        }
+
         codestream = encode_jpeg2000_codestream (image, is_rgb, priv->level);
 
         if (codestream == NULL) {
@@ -418,6 +571,9 @@ ufo_tiff_writer_set_property (GObject *object,
         case PROP_LEVEL:
             priv->level = g_value_get_uint (value);
             break;
+        case PROP_TILE_SIZE:
+            priv->tile_size = g_value_get_uint (value);
+            break;
 #endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -442,6 +598,9 @@ ufo_tiff_writer_get_property (GObject *object,
             break;
         case PROP_LEVEL:
             g_value_set_uint (value, priv->level);
+            break;
+        case PROP_TILE_SIZE:
+            g_value_set_uint (value, priv->tile_size);
             break;
 #endif
         default:
@@ -503,6 +662,13 @@ ufo_tiff_writer_class_init(UfoTiffWriterClass *klass)
             0, 100, 0,
             G_PARAM_READWRITE);
 
+    properties[PROP_TILE_SIZE] =
+        g_param_spec_uint("tile-size",
+            "Square TIFF tile size",
+            "Square tile size for JPEG 2000-compressed TIFF output. 0 writes one strip per page.",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
+
 #endif
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -522,5 +688,6 @@ ufo_tiff_writer_init (UfoTiffWriter *self)
 #ifdef HAVE_JPEG2000
     priv->jpeg2000 = FALSE;
     priv->level = 0;
+    priv->tile_size = 0;
 #endif
 }

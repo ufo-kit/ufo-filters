@@ -90,6 +90,13 @@ File writer
         image data. Only 8 and 16 bit unsigned data are written directly; other
         input depths are converted to 16 bit before compression.
 
+    .. gobj:prop:: tile-size:uint
+
+        Square tile size for JPEG 2000-compressed TIFF output. The default value
+        0 writes one JPEG 2000 codestream per TIFF page as a single strip. A
+        value greater than 0 writes a tiled TIFF with one JPEG 2000 codestream
+        per tile.
+
     For JPEG 2000 output and JPEG 2000-compressed TIFF output, OpenJPEG uses
     the number of available CPU cores automatically. The following property
     applies:

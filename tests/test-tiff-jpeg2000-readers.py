@@ -47,6 +47,27 @@ def read_with_ufo(input_path, output_path):
     )
 
 
+def write_tiled_jpeg2000_with_ufo(input_path, output_path):
+    env = os.environ.copy()
+    subprocess.run(
+        [
+            "ufo-launch",
+            "-q",
+            "read",
+            f"path={input_path}",
+            "!",
+            "write",
+            "bits=16",
+            "rescale=False",
+            f"filename={output_path}",
+            "tiff-jpeg2000=True",
+            "tile-size=128",
+        ],
+        env=env,
+        check=True,
+    )
+
+
 def assert_equal_to_tifffile(input_path, output_path, name):
     expected = tifffile.imread(input_path).astype(np.float32)
     actual = tifffile.imread(output_path)
@@ -88,6 +109,28 @@ def main():
             write_input(input_path, data, tile=tile, **options)
             read_with_ufo(input_path, output_path)
             assert_equal_to_tifffile(input_path, output_path, name)
+
+        input_path = tmp_path / "ufo-tiled-writer-source.tif"
+        compressed_path = tmp_path / "ufo-tiled-writer-compressed.tif"
+        output_path = tmp_path / "ufo-tiled-writer-readback.tif"
+
+        write_input(input_path, data)
+        write_tiled_jpeg2000_with_ufo(input_path, compressed_path)
+
+        page = tifffile.TiffFile(compressed_path).pages[0]
+        if not page.is_tiled:
+            raise AssertionError("ufo-tiled-writer: output is not tiled")
+
+        if page.tilewidth != 128 or page.tilelength != 128:
+            raise AssertionError(
+                f"ufo-tiled-writer: unexpected tile size {page.tilewidth}x{page.tilelength}"
+            )
+
+        if page.compression.value != 34712:
+            raise AssertionError(f"ufo-tiled-writer: unexpected compression {page.compression}")
+
+        read_with_ufo(compressed_path, output_path)
+        assert_equal_to_tifffile(input_path, output_path, "ufo-tiled-writer")
 
 
 if __name__ == "__main__":
