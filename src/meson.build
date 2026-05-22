@@ -7,6 +7,7 @@ plugins = [
     'buffer',
     'calculate',
     'clip',
+    'compand',
     'crop',
     'cut',
     'cut-sinogram',

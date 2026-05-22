@@ -10,6 +10,7 @@ set(ufofilter_SRCS
     ufo-buffer-task.c
     ufo-calculate-task.c
     ufo-clip-task.c
+    ufo-compand-task.c
     ufo-crop-task.c
     ufo-cross-correlate-task.c
     ufo-cut-task.c
