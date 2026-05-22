@@ -28,7 +28,7 @@ struct _UfoHdf5ReaderPrivate {
     hid_t src_dataspace_id;
 
     gint n_dims;
-    hsize_t dims[3];
+    hsize_t dims[4];
     guint current;
 };
 
@@ -76,16 +76,10 @@ ufo_hdf5_reader_open (UfoReader *reader,
     h5_filename = components[0];
     h5_dataset = components[1];
 
-    priv->file_id = H5Fopen (h5_filename, H5F_ACC_RDWR, H5P_DEFAULT);
+    priv->file_id = H5Fopen (h5_filename, H5F_ACC_RDONLY, H5P_DEFAULT);
     priv->dataset_id = H5Dopen (priv->file_id, h5_dataset, H5P_DEFAULT);
     priv->src_dataspace_id = H5Dget_space (priv->dataset_id);
     priv->n_dims = H5Sget_simple_extent_ndims (priv->src_dataspace_id);
-
-    if (priv->n_dims > 3) {
-        g_set_error_literal (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                             "hdf5: no support for four-dimensional data");
-        return FALSE;
-    }
 
     H5Sget_simple_extent_dims (priv->src_dataspace_id, priv->dims, NULL);
 
@@ -113,7 +107,12 @@ ufo_hdf5_reader_data_available (UfoReader *reader)
 
     priv = UFO_HDF5_READER_GET_PRIVATE (reader);
 
-    return priv->current < priv->dims[0];
+    if(priv->n_dims == 3)       // 3d data
+        return priv->current < priv->dims[0];
+    else if(priv->n_dims == 4)  // 4d data
+        return priv->current < priv->dims[0]*priv->dims[1];
+    else  // unknown
+        return 0;
 }
 
 static gsize
@@ -134,20 +133,38 @@ ufo_hdf5_reader_read (UfoReader *reader,
     priv = UFO_HDF5_READER_GET_PRIVATE (reader);
     data = ufo_buffer_get_host_array (buffer, NULL);
 
-    hsize_t offset[3] = { priv->current, roi_y, 0 };
-    hsize_t count[3] = { 1, roi_height, requisition->dims[0] };
-
     dst_dims[0] = roi_height;
     dst_dims[1] = requisition->dims[0];
     dst_dataspace_id = H5Screate_simple (2, dst_dims, NULL);
 
-    H5Sselect_hyperslab (priv->src_dataspace_id, H5S_SELECT_SET, offset, NULL, count, NULL);
-    H5Dread (priv->dataset_id, H5T_NATIVE_FLOAT, dst_dataspace_id, priv->src_dataspace_id, H5P_DEFAULT, data);
-    H5Sclose (dst_dataspace_id);
+    if(priv->n_dims == 3)       // 3d data
+    {
+        hsize_t offset[3] = { priv->current, roi_y, 0 };
+        hsize_t count[3] = { 1, roi_height, requisition->dims[0] };
 
-    num_read = MIN (image_step, priv->dims[0] - priv->current);
+        H5Sselect_hyperslab (priv->src_dataspace_id, H5S_SELECT_SET, offset, NULL, count, NULL);
+        H5Dread (priv->dataset_id, H5T_NATIVE_FLOAT, dst_dataspace_id, priv->src_dataspace_id, H5P_DEFAULT, data);
+        H5Sclose (dst_dataspace_id);
+
+        num_read = MIN (image_step, priv->dims[0] - priv->current);
+    }
+    else if(priv->n_dims == 4)  // 4d data
+    {
+        //hsize_t offset[4] = { priv->current % priv->dims[0], priv->current / priv->dims[0], roi_y, 0 };
+        hsize_t offset[4] = { priv->current / priv->dims[1], priv->current % priv->dims[1], roi_y, 0 };
+        hsize_t count[4] = { 1, 1, roi_height, requisition->dims[0] };
+        //printf("hdf 4d read: offs = %lld %lld %lld %lld, count = %lld %lld %lld %lld\n",
+        //    offset[0], offset[1], offset[2], offset[3],
+        //    count[0], count[1], count[2], count[3]);
+
+        H5Sselect_hyperslab (priv->src_dataspace_id, H5S_SELECT_SET, offset, NULL, count, NULL);
+        H5Dread (priv->dataset_id, H5T_NATIVE_FLOAT, dst_dataspace_id, priv->src_dataspace_id, H5P_DEFAULT, data);
+        H5Sclose (dst_dataspace_id);
+
+        num_read = MIN (image_step, priv->dims[0]*priv->dims[1] - priv->current);
+    }
+
     priv->current += num_read;
-
     return num_read;
 }
 
@@ -163,10 +180,27 @@ ufo_hdf5_reader_get_meta (UfoReader *reader,
     priv = UFO_HDF5_READER_GET_PRIVATE (reader);
 
     requisition->n_dims = 2;
-    requisition->dims[0] = priv->dims[2];
-    requisition->dims[1] = priv->dims[1];
-    *num_images = priv->dims[0];
+
+    if(priv->n_dims == 3)       // 3d data
+    {
+        requisition->dims[0] = priv->dims[2];
+        requisition->dims[1] = priv->dims[1];
+        *num_images = priv->dims[0];
+    }
+    else if(priv->n_dims == 4)  // 4d data
+    {
+        requisition->dims[0] = priv->dims[3];
+        requisition->dims[1] = priv->dims[2];
+        *num_images = priv->dims[0]*priv->dims[1];
+    }
+    else  // unknown
+    {
+        requisition->dims[0] = 0;
+        requisition->dims[1] = 0;
+    }
+
     *bitdepth = UFO_BUFFER_DEPTH_32F;
+
     return TRUE;
 }
 
