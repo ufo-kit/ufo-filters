@@ -1469,7 +1469,7 @@ Phase retrieval
 
     .. gobj:prop:: method:enum
 
-        Retrieval method which is one of ``tie``, ``ctf``, ``ctf_multidistance``, ``qp`` or ``qp2``.
+        Retrieval method which is one of ``tie``, ``ict``, ``ctf``, ``ctf_multidistance``, ``qp`` or ``qp2``.
 
     .. gobj:prop:: energy:float
 
@@ -1512,6 +1512,15 @@ Phase retrieval
     .. gobj:prop:: frequency-cutoff:float
 
         Cutoff frequency after which the filter is set to 0 in radians.
+
+    .. gobj:prop:: ict-alpha:float
+
+        ICT regularization.
+
+    .. gobj:prop:: ict-alpha-threshold:float
+
+        ICT regularization below this argument will be 0, otherwise ``ict-alpha``.
+        The argument is the sine and cosine argument of the CTF.
 
     .. gobj:prop:: output-filter:boolean
 

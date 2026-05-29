@@ -56,6 +56,35 @@ tie_method(float2 prefac, float regularize_rate, float binary_filter_rate, float
 }
 
 kernel void
+ict_method(
+    float2 prefac,
+    float regularize_rate,
+    float alpha,
+    float frequency_cutoff,
+    global float *output,
+    float alpha_threshold
+)
+{
+    COMMON_SETUP_TIE;
+    float cos_value;
+    float sin_value;
+    float db = pow (10, regularize_rate); /* History, delta/beta = 10^R */
+    float H, alpha_current;
+
+    if (sin_arg >= frequency_cutoff) {
+        sin_value = sincos (frequency_cutoff, &cos_value);
+    } else {
+        sin_value = sincos (sin_arg, &cos_value);
+    }
+
+    // The contrast transfer function
+    H = db * sin_value + cos_value;
+    alpha_current = sin_arg <= alpha_threshold ? 0 : alpha;
+
+    output[idy * width + idx] = H / (H * H + alpha_current);
+}
+
+kernel void
 ctf_method(float2 prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP;
