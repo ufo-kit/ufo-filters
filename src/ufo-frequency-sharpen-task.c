@@ -166,6 +166,40 @@ ufo_frequency_sharpen_task_get_mode (UfoTask *task)
     return UFO_TASK_MODE_PROCESSOR | UFO_TASK_MODE_GPU;
 }
 
+static UfoNode *
+ufo_frequency_sharpen_task_copy_real (UfoNode *node,
+                                      GError **error)
+{
+    UfoFrequencySharpenTask *orig;
+    UfoFrequencySharpenTask *copy;
+
+    orig = UFO_FREQUENCY_SHARPEN_TASK (node);
+    copy = UFO_FREQUENCY_SHARPEN_TASK (ufo_frequency_sharpen_task_new ());
+
+    g_object_set (G_OBJECT (copy),
+                  "strength", orig->priv->strength,
+                  "method", orig->priv->method_name,
+                  "lorentz-fwhm", orig->priv->lorentz_fwhm,
+                  NULL);
+
+    return UFO_NODE (copy);
+}
+
+static gboolean
+ufo_frequency_sharpen_task_equal_real (UfoNode *n1,
+                                       UfoNode *n2)
+{
+    UfoFrequencySharpenTaskPrivate *priv1;
+    UfoFrequencySharpenTaskPrivate *priv2;
+
+    g_return_val_if_fail (UFO_IS_FREQUENCY_SHARPEN_TASK (n1) && UFO_IS_FREQUENCY_SHARPEN_TASK (n2), FALSE);
+
+    priv1 = UFO_FREQUENCY_SHARPEN_TASK_GET_PRIVATE (n1);
+    priv2 = UFO_FREQUENCY_SHARPEN_TASK_GET_PRIVATE (n2);
+
+    return priv1->kernels[priv1->method] == priv2->kernels[priv2->method];
+}
+
 static void
 ufo_frequency_sharpen_task_set_property (GObject *object,
                                          guint property_id,
@@ -261,8 +295,10 @@ static void
 ufo_frequency_sharpen_task_class_init (UfoFrequencySharpenTaskClass *klass)
 {
     GObjectClass *oclass;
+    UfoNodeClass *node_class;
 
     oclass = G_OBJECT_CLASS (klass);
+    node_class = UFO_NODE_CLASS (klass);
 
     oclass->set_property = ufo_frequency_sharpen_task_set_property;
     oclass->get_property = ufo_frequency_sharpen_task_get_property;
@@ -291,6 +327,9 @@ ufo_frequency_sharpen_task_class_init (UfoFrequencySharpenTaskClass *klass)
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
+
+    node_class->copy = ufo_frequency_sharpen_task_copy_real;
+    node_class->equal = ufo_frequency_sharpen_task_equal_real;
 
     g_type_class_add_private (klass, sizeof (UfoFrequencySharpenTaskPrivate));
 }
