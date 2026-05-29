@@ -1074,6 +1074,29 @@ Frequency filtering
         Theta parameter of Faris-Byer filter.
 
 
+.. gobj:class:: frequency-sharpen
+
+    Sharpen 2D frequency-domain data. The input and output are complex
+    interleaved Fourier coefficients, for example from ``fft dimensions=2``.
+
+    Example usage::
+
+        $ ufo-launch read path=input.tif ! fft dimensions=2 ! frequency-sharpen strength=1.0 ! ifft dimensions=2 ! write filename=sharpened.tif
+
+    .. gobj:prop:: strength:float
+
+        Sharpening strength.
+
+    .. gobj:prop:: method:string
+
+        Sharpening method, one of ``laplace``, ``discrete-laplace`` or
+        ``lorentz``.
+
+    .. gobj:prop:: lorentz-fwhm:float
+
+        Full width at half maximum of the Lorentz blur kernel.
+
+
 Stripe filtering
 ----------------
 
