@@ -44,6 +44,16 @@
 /* b/d * cos + sin = d/b * (b/d * sin + cos); 10^R = d/b */
 #define CTF_MULTI_VALUE(prefac, dist, regularize_rate) (pow(10, (regularize_rate)) * sin ((prefac) * (dist)) + cos ((prefac) * (dist)))
 
+#define WIN_FLOOR 1e-5f
+
+inline float
+smootherstep (float x)
+{
+    x = clamp (x, 0.0f, 1.0f);
+
+    return x * x * x * (x * (x * 6.0f - 15.0f) + 10.0f);
+}
+
 
 kernel void
 tie_method(float2 prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
@@ -66,22 +76,33 @@ ict_method(
 )
 {
     COMMON_SETUP_TIE;
-    float cos_value;
-    float sin_value;
+    float cos_value, t_alpha, t_win, alpha_eff, win;
+    float sin_value = sincos (sin_arg, &cos_value);
     float db = pow (10, regularize_rate); /* History, delta/beta = 10^R */
-    float H, alpha_current;
+    float max_prefac = prefac.x > prefac.y ? prefac.x : prefac.y;
+    // Maximum sin_arg is the maximum prefac: Pi \lam dist_x|y / ps^2 . 0.5^2 (highest digital frequency)
+    float max_arg = max_prefac * 0.25;
 
-    if (sin_arg >= frequency_cutoff) {
-        sin_value = sincos (frequency_cutoff, &cos_value);
+    // Transition from no alpha to alpha gently
+    if (alpha_threshold > max_arg) {
+        alpha_eff = 0.0f;
     } else {
-        sin_value = sincos (sin_arg, &cos_value);
+        t_alpha = smootherstep ((sin_arg - alpha_threshold) / (max_arg - alpha_threshold));
+        alpha_eff = alpha * t_alpha;
+    }
+
+    // Apodization of high frequencies
+    if (frequency_cutoff > max_arg) {
+        win = 1.0f;
+    } else {
+        t_win = smootherstep ((sin_arg - frequency_cutoff) / (max_arg - frequency_cutoff));
+        win = WIN_FLOOR + (1.0f - WIN_FLOOR) * (1.0f - t_win);
     }
 
     // The contrast transfer function
-    H = db * sin_value + cos_value;
-    alpha_current = sin_arg <= alpha_threshold ? 0 : alpha;
+    float H = db * sin_value + cos_value;
 
-    output[idy * width + idx] = H / (H * H + alpha_current);
+    output[idy * width + idx] = H / (H * H + alpha_eff) * win;
 }
 
 kernel void
