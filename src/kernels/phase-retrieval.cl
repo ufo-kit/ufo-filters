@@ -59,10 +59,9 @@ kernel void
 tie_method(float2 prefac, float regularize_rate, float binary_filter_rate, float frequency_cutoff, global float *output)
 {
     COMMON_SETUP_TIE;
-    if (sin_arg >= frequency_cutoff)
-        output[idy * width + idx] = 0.0f;
-    else
-        output[idy * width + idx] = 0.5f / (sin_arg + pow(10, -regularize_rate));
+    float db = pow (10, regularize_rate); /* History, delta/beta = 10^R */
+
+    output[idy * width + idx] = 1.0f / (db * sin_arg + 1.0f);
 }
 
 kernel void
