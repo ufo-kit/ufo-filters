@@ -39,6 +39,7 @@ struct _UfoFrequencySharpenTaskPrivate {
 
     gfloat strength;
     gfloat lorentz_fwhm;
+    gfloat max_boost;
     UfoFrequencySharpenMethod method;
     gchar *method_name;
 };
@@ -56,6 +57,7 @@ enum {
     PROP_STRENGTH,
     PROP_METHOD,
     PROP_LORENTZ_FWHM,
+    PROP_MAX_BOOST,
     N_PROPERTIES
 };
 
@@ -108,9 +110,10 @@ ufo_frequency_sharpen_task_process (UfoTask *task,
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 1, sizeof (cl_mem), &out_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 2, sizeof (cl_float), &priv->strength));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (cl_float), &priv->max_boost));
 
     if (priv->method == METHOD_LORENTZ)
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (cl_float), &priv->lorentz_fwhm));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (cl_float), &priv->lorentz_fwhm));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, kernel, 2, requisition->dims, NULL);
@@ -180,6 +183,7 @@ ufo_frequency_sharpen_task_copy_real (UfoNode *node,
                   "strength", orig->priv->strength,
                   "method", orig->priv->method_name,
                   "lorentz-fwhm", orig->priv->lorentz_fwhm,
+                  "max-boost", orig->priv->max_boost,
                   NULL);
 
     return UFO_NODE (copy);
@@ -228,6 +232,9 @@ ufo_frequency_sharpen_task_set_property (GObject *object,
         case PROP_LORENTZ_FWHM:
             priv->lorentz_fwhm = g_value_get_float (value);
             break;
+        case PROP_MAX_BOOST:
+            priv->max_boost = g_value_get_float (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -253,6 +260,9 @@ ufo_frequency_sharpen_task_get_property (GObject *object,
             break;
         case PROP_LORENTZ_FWHM:
             g_value_set_float (value, priv->lorentz_fwhm);
+            break;
+        case PROP_MAX_BOOST:
+            g_value_set_float (value, priv->max_boost);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -325,6 +335,13 @@ ufo_frequency_sharpen_task_class_init (UfoFrequencySharpenTaskClass *klass)
             0.0f, G_MAXFLOAT, 1.0f,
             G_PARAM_READWRITE);
 
+    properties[PROP_MAX_BOOST] =
+        g_param_spec_float ("max-boost",
+            "Maximum boost",
+            "Maximum additional sharpening boost; 0 disables tanh limiting",
+            0.0f, G_MAXFLOAT, 0.0f,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
 
@@ -346,6 +363,7 @@ ufo_frequency_sharpen_task_init (UfoFrequencySharpenTask *self)
 
     priv->strength = 1.0f;
     priv->lorentz_fwhm = 1.0f;
+    priv->max_boost = 0.0f;
     priv->method = METHOD_LAPLACE;
     priv->method_name = g_strdup ("laplace");
 }

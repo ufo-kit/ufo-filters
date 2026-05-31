@@ -1096,6 +1096,11 @@ Frequency filtering
 
         Full width at half maximum of the Lorentz blur kernel.
 
+    .. gobj:prop:: max-boost:float
+
+        Maximum additional boost for all sharpening methods. A value of ``0``
+        disables tanh limiting.
+
 
 Stripe filtering
 ----------------

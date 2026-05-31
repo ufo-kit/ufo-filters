@@ -30,13 +30,22 @@
     freq_x = freq_x / real_width;                                     \
     freq_y = freq_y / height;
 
+inline float
+limit_boost (const float raw,
+             const float max_boost)
+{
+    return max_boost > 0.0f ? max_boost * tanh (raw / max_boost) : raw;
+}
+
 kernel void
 frequency_sharpen_laplace (global float *input,
                            global float *output,
-                           const float strength)
+                           const float strength,
+                           const float max_boost)
 {
     COMMON_DIGITAL_FREQUENCY_SETUP;
-    const float factor = 1.0f + 4.0f * M_PI_F * M_PI_F * strength * (freq_x * freq_x + freq_y * freq_y);
+    const float raw = 4.0f * M_PI_F * M_PI_F * strength * (freq_x * freq_x + freq_y * freq_y);
+    const float factor = 1.0f + limit_boost (raw, max_boost);
 
     output[index] = input[index] * factor;
 }
@@ -44,12 +53,14 @@ frequency_sharpen_laplace (global float *input,
 kernel void
 frequency_sharpen_discrete_laplace (global float *input,
                                     global float *output,
-                                    const float strength)
+                                    const float strength,
+                                    const float max_boost)
 {
     COMMON_DIGITAL_FREQUENCY_SETUP;
     const float sx = sin (M_PI_F * freq_x);
     const float sy = sin (M_PI_F * freq_y);
-    const float factor = 1.0f + 4.0f * strength * (sx * sx + sy * sy);
+    const float raw = 4.0f * strength * (sx * sx + sy * sy);
+    const float factor = 1.0f + limit_boost (raw, max_boost);
 
     output[index] = input[index] * factor;
 }
@@ -58,13 +69,15 @@ kernel void
 frequency_sharpen_lorentz (global float *input,
                            global float *output,
                            const float strength,
+                           const float max_boost,
                            const float fwhm)
 {
     COMMON_DIGITAL_FREQUENCY_SETUP;
     const float radius = sqrt (freq_x * freq_x + freq_y * freq_y);
     const float h_inv = exp (M_PI_F * radius * fwhm);
     const float highpass = h_inv - 1.0f;
-    const float factor = 1.0f + strength * highpass;
+    const float raw = strength * highpass;
+    const float factor = 1.0f + limit_boost (raw, max_boost);
 
     output[index] = input[index] * factor;
 }
