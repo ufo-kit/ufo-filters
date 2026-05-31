@@ -1511,16 +1511,36 @@ Phase retrieval
 
     .. gobj:prop:: frequency-cutoff:float
 
-        Cutoff frequency after which the filter is set to 0 in radians.
+        Cutoff frequency in radians. For most methods, filter values above this
+        argument are suppressed. For ``ict``, this starts a smooth high-frequency
+        window: the filter is left unchanged below the cutoff and is tapered
+        towards a small floor at the largest represented frequency.
 
     .. gobj:prop:: ict-alpha:float
 
-        ICT regularization.
+        ICT Tikhonov regularization strength. The ICT filter is
+        :math:`H / (H^2 + \alpha_\mathrm{eff})`, where :math:`H` is the contrast
+        transfer function and :math:`\alpha_\mathrm{eff}` is a frequency-dependent
+        regularization value.
 
     .. gobj:prop:: ict-alpha-threshold:float
 
-        ICT regularization below this argument will be 0, otherwise ``ict-alpha``.
-        The argument is the sine and cosine argument of the CTF.
+        ICT regularization threshold in the sine and cosine argument of the CTF.
+        Frequencies below this argument are unregularized. Above it,
+        regularization is increased smoothly from ``0`` to :gobj:prop:`ict-alpha`
+        using a smootherstep transition, reaching the full value at the largest
+        represented frequency.
+
+        The smooth transition avoids the ringing-prone discontinuity of a hard
+        switch while still leaving low frequencies untouched. If the threshold is
+        above the largest represented frequency, ICT regularization is disabled.
+
+    The ``ict`` method also applies the :gobj:prop:`frequency-cutoff` smoothly:
+    instead of replacing all higher frequencies with zero at the cutoff, it uses
+    the cutoff as the start of an apodization window. The window stays at one
+    below the cutoff and then falls smoothly towards a very small floor at the
+    largest represented frequency. This reduces sharp truncation artifacts while
+    still damping the least reliable high-frequency part of the filter.
 
     .. gobj:prop:: output-filter:boolean
 
