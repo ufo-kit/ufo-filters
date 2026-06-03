@@ -74,9 +74,7 @@ frequency_sharpen_lorentz (global float *input,
 {
     COMMON_DIGITAL_FREQUENCY_SETUP;
     const float radius = sqrt (freq_x * freq_x + freq_y * freq_y);
-    const float h_inv = exp (M_PI_F * radius * fwhm);
-    const float highpass = h_inv - 1.0f;
-    const float raw = strength * highpass;
+    const float raw = strength * (exp (M_PI_F * radius * fwhm) - 1.0f);
     const float factor = 1.0f + limit_boost (raw, max_boost);
 
     output[index] = input[index] * factor;
