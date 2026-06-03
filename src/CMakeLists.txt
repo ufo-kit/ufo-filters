@@ -33,6 +33,7 @@ set(ufofilter_SRCS
     ufo-flat-field-correct-task.c
     ufo-fft-task.c
     ufo-fftmult-task.c
+    ufo-frequency-sharpen-task.c
     ufo-filter-particle-task.c
     ufo-filter-stripes-task.c
     ufo-filter-stripes1d-task.c

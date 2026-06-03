@@ -41,6 +41,7 @@ kernel_files = [
     'rm-outliers.cl',
     'rotate.cl',
     'segment.cl',
+    'sharpening.cl',
     'split.cl',
     'stacked-backproject.cl',
     'swap-quadrants.cl',

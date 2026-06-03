@@ -26,6 +26,7 @@ plugins = [
     'flatten-inplace',
     'flat-field-correct',
     'fftmult',
+    'frequency-sharpen',
     'filter-particle',
     'filter-stripes',
     'filter-stripes1d',
