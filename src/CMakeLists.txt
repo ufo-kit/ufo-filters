@@ -10,6 +10,7 @@ set(ufofilter_SRCS
     ufo-buffer-task.c
     ufo-calculate-task.c
     ufo-clip-task.c
+    ufo-compand-task.c
     ufo-crop-task.c
     ufo-cross-correlate-task.c
     ufo-cut-task.c
@@ -169,6 +170,7 @@ find_package(OpenCV)
 
 pkg_check_modules(UCA libuca>=1.2)
 pkg_check_modules(LIBTIFF4 libtiff-4>=4.0.0)
+pkg_check_modules(OPENJPEG libopenjp2)
 pkg_check_modules(CLFFT clFFT)
 pkg_check_modules(CLBLAST clblast)
 pkg_check_modules(PANGOCAIRO pangocairo)
@@ -213,6 +215,14 @@ if (JPEG_FOUND)
     include_directories(${JPEG_INCLUDE_DIRS})
     link_directories(${JPEG_LIBRARY_DIRS})
     set(HAVE_JPEG True)
+endif ()
+
+if (OPENJPEG_FOUND)
+    list(APPEND read_aux_LIBS ${OPENJPEG_LIBRARIES})
+    list(APPEND write_aux_LIBS ${OPENJPEG_LIBRARIES})
+    include_directories(${OPENJPEG_INCLUDE_DIRS})
+    link_directories(${OPENJPEG_LIBRARY_DIRS})
+    set(HAVE_JPEG2000 True)
 endif ()
 
 if (HDF5_FOUND)

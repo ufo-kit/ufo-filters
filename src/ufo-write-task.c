@@ -82,6 +82,10 @@ struct _UfoWriteTaskPrivate {
     gint           jpeg_quality;
 #endif
 
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+    guint jpeg2000_threads;
+#endif
+
 #ifdef WITH_HDF5
     UfoHdf5Writer *hdf5_writer;
 #endif
@@ -111,6 +115,14 @@ enum {
 #endif
 #ifdef HAVE_TIFF
     PROP_TIFF_BIGTIFF,
+#ifdef HAVE_JPEG2000
+    PROP_TIFF_JPEG2000,
+    PROP_LEVEL,
+    PROP_TILE_SIZE,
+#endif
+#endif
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+    PROP_JPEG2000_THREADS,
 #endif
     N_PROPERTIES
 };
@@ -460,6 +472,25 @@ ufo_write_task_set_property (GObject *object,
         case PROP_TIFF_BIGTIFF:
             g_object_set_property (G_OBJECT (priv->tiff_writer), "bigtiff", value);
             break;
+#ifdef HAVE_JPEG2000
+        case PROP_TIFF_JPEG2000:
+            g_object_set_property (G_OBJECT (priv->tiff_writer), "jpeg2000", value);
+            break;
+        case PROP_LEVEL:
+            g_object_set_property (G_OBJECT (priv->tiff_writer), "level", value);
+            break;
+        case PROP_TILE_SIZE:
+            g_object_set_property (G_OBJECT (priv->tiff_writer), "tile-size", value);
+            break;
+#endif
+#endif
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+        case PROP_JPEG2000_THREADS:
+            priv->jpeg2000_threads = g_value_get_uint (value);
+            g_object_set_property (G_OBJECT (priv->tiff_writer),
+                                   "jpeg2000-threads",
+                                   value);
+            break;
 #endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -518,6 +549,22 @@ ufo_write_task_get_property (GObject *object,
 #ifdef HAVE_TIFF
         case PROP_TIFF_BIGTIFF:
             g_object_get_property (G_OBJECT (priv->tiff_writer), "bigtiff", value);
+            break;
+#ifdef HAVE_JPEG2000
+        case PROP_TIFF_JPEG2000:
+            g_object_get_property (G_OBJECT (priv->tiff_writer), "jpeg2000", value);
+            break;
+        case PROP_LEVEL:
+            g_object_get_property (G_OBJECT (priv->tiff_writer), "level", value);
+            break;
+        case PROP_TILE_SIZE:
+            g_object_get_property (G_OBJECT (priv->tiff_writer), "tile-size", value);
+            break;
+#endif
+#endif
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+        case PROP_JPEG2000_THREADS:
+            g_value_set_uint (value, priv->jpeg2000_threads);
             break;
 #endif
         default:
@@ -682,6 +729,38 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
             "Write BigTiff format",
             TRUE,
             G_PARAM_READWRITE);
+#ifdef HAVE_JPEG2000
+    properties[PROP_TIFF_JPEG2000] =
+        g_param_spec_boolean("tiff-jpeg2000",
+            "Compress TIFF pages with JPEG 2000",
+            "Compress TIFF pages with JPEG 2000",
+            FALSE,
+            G_PARAM_READWRITE);
+
+    properties[PROP_LEVEL] =
+        g_param_spec_uint("level",
+            "JPEG 2000 quality level",
+            "JPEG 2000 quality level. 0 is lossless; 1 to 100 enable progressively higher lossy quality",
+            0, 100, 0,
+            G_PARAM_READWRITE);
+
+    properties[PROP_TILE_SIZE] =
+        g_param_spec_uint("tile-size",
+            "Square TIFF tile size",
+            "Square tile size for JPEG 2000-compressed TIFF output. 0 writes one strip per page.",
+            0, G_MAXUINT, 0,
+            G_PARAM_READWRITE);
+
+#endif
+#endif
+
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+    properties[PROP_JPEG2000_THREADS] =
+        g_param_spec_uint("jpeg2000-threads",
+            "JPEG 2000 worker threads",
+            "Number of OpenJPEG worker threads. 0 uses all available processors.",
+            0, G_MAXINT, 0,
+            G_PARAM_READWRITE);
 #endif
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -721,6 +800,10 @@ ufo_write_task_init(UfoWriteTask *self)
 #ifdef HAVE_JPEG
     self->priv->jpeg_writer = ufo_jpeg_writer_new ();
     self->priv->jpeg_quality = 95;
+#endif
+
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+    self->priv->jpeg2000_threads = 0;
 #endif
 
 #ifdef WITH_HDF5
