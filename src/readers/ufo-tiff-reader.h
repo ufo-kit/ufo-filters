@@ -48,6 +48,9 @@ struct _UfoTiffReaderClass {
 
 UfoTiffReader  *ufo_tiff_reader_new       (void);
 GType           ufo_tiff_reader_get_type  (void);
+void            ufo_tiff_reader_set_jpeg2000_threads
+                                         (UfoTiffReader *reader,
+                                          guint threads);
 
 G_END_DECLS
 

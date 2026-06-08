@@ -34,6 +34,7 @@ struct _UfoTiffReaderPrivate {
     TIFF    *tiff;
     gboolean more;
     gsize num_images;
+    guint jpeg2000_threads;
 };
 
 static void ufo_reader_interface_init (UfoReaderIface *iface);
@@ -49,6 +50,13 @@ ufo_tiff_reader_new (void)
 {
     UfoTiffReader *reader = g_object_new (UFO_TYPE_TIFF_READER, NULL);
     return reader;
+}
+
+void
+ufo_tiff_reader_set_jpeg2000_threads (UfoTiffReader *reader,
+                                      guint threads)
+{
+    reader->priv->jpeg2000_threads = threads;
 }
 
 #ifdef HAVE_JPEG2000
@@ -444,7 +452,9 @@ decode_jpeg2000_chunk (UfoTiffReaderPrivate *priv,
     if (!opj_setup_decoder (codec, &parameters))
         goto cleanup;
 
-    threads = g_get_num_processors ();
+    threads = priv->jpeg2000_threads == 0
+              ? g_get_num_processors ()
+              : priv->jpeg2000_threads;
 
     if (threads > 1 && !opj_codec_set_threads (codec, (int) threads))
         g_warning ("Could not enable %u OpenJPEG worker threads.", threads);
@@ -773,5 +783,6 @@ ufo_tiff_reader_init (UfoTiffReader *self)
     self->priv = priv = UFO_TIFF_READER_GET_PRIVATE (self);
     priv->tiff = NULL;
     priv->more = FALSE;
+    priv->jpeg2000_threads = 0;
     TIFFSetWarningHandler(NULL);
 }

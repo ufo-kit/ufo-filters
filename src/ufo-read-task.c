@@ -37,19 +37,12 @@
 #include "readers/ufo-hdf5-reader.h"
 #endif
 
-#ifdef HAVE_JPEG2000
-#include "readers/ufo-jpeg2000-reader.h"
-#endif
-
 /* XXX: keep enum and values array in sync! */
 typedef enum {
     TYPE_EDF,
     TYPE_RAW,
 #ifdef HAVE_TIFF
     TYPE_TIFF,
-#endif
-#ifdef HAVE_JPEG2000
-    TYPE_JPEG2000,
 #endif
 #ifdef WITH_HDF5
     TYPE_HDF5,
@@ -62,9 +55,6 @@ static GEnumValue type_values[] = {
     { TYPE_RAW,     "TYPE_RAW",     "raw" },
 #ifdef HAVE_TIFF
     { TYPE_TIFF,    "TYPE_TIFF",    "tiff" },
-#endif
-#ifdef HAVE_JPEG2000
-    { TYPE_JPEG2000, "TYPE_JPEG2000", "jpeg2000" },
 #endif
 #ifdef WITH_HDF5
     { TYPE_HDF5,    "TYPE_HDF5",    "hdf5" },
@@ -101,8 +91,8 @@ struct _UfoReadTaskPrivate {
     UfoTiffReader   *tiff_reader;
 #endif
 
-#ifdef HAVE_JPEG2000
-    UfoJpeg2000Reader *jpeg2000_reader;
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+    guint jpeg2000_threads;
 #endif
 
 #ifdef WITH_HDF5
@@ -138,6 +128,9 @@ enum {
     PROP_RAW_PRE_OFFSET,
     PROP_RAW_POST_OFFSET,
     PROP_TYPE,
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+    PROP_JPEG2000_THREADS,
+#endif
     N_PROPERTIES
 };
 
@@ -181,13 +174,6 @@ read_filenames (UfoReadTaskPrivate *priv)
 
 #ifdef HAVE_TIFF
         if (ufo_reader_can_open (UFO_READER (priv->tiff_reader), filename) || priv->type == TYPE_TIFF) {
-            result = g_list_append (result, g_strdup (filename));
-            continue;
-        }
-#endif
-
-#ifdef HAVE_JPEG2000
-        if (ufo_reader_can_open (UFO_READER (priv->jpeg2000_reader), filename) || priv->type == TYPE_JPEG2000) {
             result = g_list_append (result, g_strdup (filename));
             continue;
         }
@@ -248,11 +234,6 @@ get_reader (UfoReadTaskPrivate *priv, const gchar *filename)
 #ifdef HAVE_TIFF
     if (ufo_reader_can_open (UFO_READER (priv->tiff_reader), filename) || priv->type == TYPE_TIFF)
         return UFO_READER (priv->tiff_reader);
-#endif
-
-#ifdef HAVE_JPEG2000
-    if (ufo_reader_can_open (UFO_READER (priv->jpeg2000_reader), filename) || priv->type == TYPE_JPEG2000)
-        return UFO_READER (priv->jpeg2000_reader);
 #endif
 
 #ifdef WITH_HDF5
@@ -445,6 +426,13 @@ ufo_read_task_set_property (GObject *object,
         case PROP_TYPE:
             priv->type = g_value_get_enum (value);
             break;
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+        case PROP_JPEG2000_THREADS:
+            priv->jpeg2000_threads = g_value_get_uint (value);
+            ufo_tiff_reader_set_jpeg2000_threads (priv->tiff_reader,
+                                                  priv->jpeg2000_threads);
+            break;
+#endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -508,6 +496,11 @@ ufo_read_task_get_property (GObject *object,
         case PROP_TYPE:
             g_value_set_enum (value, priv->type);
             break;
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+        case PROP_JPEG2000_THREADS:
+            g_value_set_uint (value, priv->jpeg2000_threads);
+            break;
+#endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -526,10 +519,6 @@ ufo_read_task_dispose (GObject *object)
 
 #ifdef HAVE_TIFF
     g_object_unref (priv->tiff_reader);
-#endif
-
-#ifdef HAVE_JPEG2000
-    g_object_unref (priv->jpeg2000_reader);
 #endif
 
 #ifdef WITH_HDF5
@@ -691,6 +680,15 @@ ufo_read_task_class_init(UfoReadTaskClass *klass)
             TYPE_UNSPECIFIED,
             G_PARAM_READWRITE);
 
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+    properties[PROP_JPEG2000_THREADS] =
+        g_param_spec_uint ("jpeg2000-threads",
+            "JPEG 2000 worker threads",
+            "Number of OpenJPEG worker threads. 0 uses all available processors.",
+            0, G_MAXINT, 0,
+            G_PARAM_READWRITE);
+#endif
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -722,8 +720,8 @@ ufo_read_task_init(UfoReadTask *self)
     priv->tiff_reader = ufo_tiff_reader_new ();
 #endif
 
-#ifdef HAVE_JPEG2000
-    priv->jpeg2000_reader = ufo_jpeg2000_reader_new ();
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+    priv->jpeg2000_threads = 0;
 #endif
 
 #ifdef WITH_HDF5

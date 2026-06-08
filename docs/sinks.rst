@@ -12,8 +12,9 @@ File writer
 
     Writes input data to the file system. Support for writing depends on compile
     support, however raw (`.raw`) files can always be written. TIFF (`.tif` and
-    `.tiff`), HDF5 (`.h5`), JPEG (`.jpg` and `.jpeg`) and JPEG 2000 (`.jp2`,
-    `.j2k` and `.j2c`) might be supported additionally. By default,
+    `.tiff`), HDF5 (`.h5`) and JPEG (`.jpg` and `.jpeg`) might be supported
+    additionally. TIFF output can use JPEG 2000 compression when OpenJPEG
+    support is available. By default,
     :gobj:prop:`bytes-per-file` is set to 128 GB, set it to 0 if you want to
     write single-page files.
 
@@ -97,15 +98,19 @@ File writer
         value greater than 0 writes a tiled TIFF with one JPEG 2000 codestream
         per tile.
 
-    For JPEG 2000 output and JPEG 2000-compressed TIFF output, OpenJPEG uses
-    the number of available CPU cores automatically. The following property
-    applies:
+    For JPEG 2000-compressed TIFF output, the following properties apply:
 
     .. gobj:prop:: level:uint
 
         JPEG 2000 quality level. The default value 0 writes lossless data.
         Values from 1 to 100 enable lossy compression with progressively higher
         quality.
+
+    .. gobj:prop:: jpeg2000-threads:uint
+
+        Number of OpenJPEG worker threads. The default value 0 uses all
+        available processors. Set it to 1 to disable OpenJPEG worker
+        parallelism.
 
 
 Memory writer

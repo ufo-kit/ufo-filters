@@ -42,10 +42,6 @@
 #include "writers/ufo-jpeg-writer.h"
 #endif
 
-#ifdef HAVE_JPEG2000
-#include "writers/ufo-jpeg2000-writer.h"
-#endif
-
 #ifdef WITH_HDF5
 #include "writers/ufo-hdf5-writer.h"
 #endif
@@ -86,8 +82,8 @@ struct _UfoWriteTaskPrivate {
     gint           jpeg_quality;
 #endif
 
-#ifdef HAVE_JPEG2000
-    UfoJpeg2000Writer *jpeg2000_writer;
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+    guint jpeg2000_threads;
 #endif
 
 #ifdef WITH_HDF5
@@ -124,6 +120,9 @@ enum {
     PROP_LEVEL,
     PROP_TILE_SIZE,
 #endif
+#endif
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+    PROP_JPEG2000_THREADS,
 #endif
     N_PROPERTIES
 };
@@ -237,11 +236,6 @@ ufo_write_task_setup (UfoTask *task,
 #ifdef HAVE_JPEG
     else if (ufo_writer_can_open (UFO_WRITER (priv->jpeg_writer), priv->filename)) {
         priv->writer = UFO_WRITER (priv->jpeg_writer);
-    }
-#endif
-#ifdef HAVE_JPEG2000
-    else if (ufo_writer_can_open (UFO_WRITER (priv->jpeg2000_writer), priv->filename)) {
-        priv->writer = UFO_WRITER (priv->jpeg2000_writer);
     }
 #endif
     else {
@@ -490,6 +484,14 @@ ufo_write_task_set_property (GObject *object,
             break;
 #endif
 #endif
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+        case PROP_JPEG2000_THREADS:
+            priv->jpeg2000_threads = g_value_get_uint (value);
+            g_object_set_property (G_OBJECT (priv->tiff_writer),
+                                   "jpeg2000-threads",
+                                   value);
+            break;
+#endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -560,6 +562,11 @@ ufo_write_task_get_property (GObject *object,
             break;
 #endif
 #endif
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+        case PROP_JPEG2000_THREADS:
+            g_value_set_uint (value, priv->jpeg2000_threads);
+            break;
+#endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
             break;
@@ -583,11 +590,6 @@ ufo_write_task_dispose (GObject *object)
 #ifdef HAVE_JPEG
     if (priv->jpeg_writer)
         g_object_unref (priv->jpeg_writer);
-#endif
-
-#ifdef HAVE_JPEG2000
-    if (priv->jpeg2000_writer)
-        g_object_unref (priv->jpeg2000_writer);
 #endif
 
 #ifdef WITH_HDF5
@@ -752,6 +754,15 @@ ufo_write_task_class_init (UfoWriteTaskClass *klass)
 #endif
 #endif
 
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+    properties[PROP_JPEG2000_THREADS] =
+        g_param_spec_uint("jpeg2000-threads",
+            "JPEG 2000 worker threads",
+            "Number of OpenJPEG worker threads. 0 uses all available processors.",
+            0, G_MAXINT, 0,
+            G_PARAM_READWRITE);
+#endif
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (gobject_class, i, properties[i]);
 
@@ -791,8 +802,8 @@ ufo_write_task_init(UfoWriteTask *self)
     self->priv->jpeg_quality = 95;
 #endif
 
-#ifdef HAVE_JPEG2000
-    self->priv->jpeg2000_writer = ufo_jpeg2000_writer_new ();
+#if defined(HAVE_TIFF) && defined(HAVE_JPEG2000)
+    self->priv->jpeg2000_threads = 0;
 #endif
 
 #ifdef WITH_HDF5

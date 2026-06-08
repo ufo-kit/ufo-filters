@@ -38,6 +38,7 @@ struct _UfoTiffWriterPrivate {
     gboolean jpeg2000;
     guint level;
     guint tile_size;
+    guint jpeg2000_threads;
 #endif
 };
 
@@ -56,6 +57,7 @@ enum {
     PROP_JPEG2000,
     PROP_LEVEL,
     PROP_TILE_SIZE,
+    PROP_JPEG2000_THREADS,
 #endif
     N_PROPERTIES
 };
@@ -230,7 +232,8 @@ fill_jpeg2000_tile (gpointer tile_data,
 static GByteArray *
 encode_jpeg2000_codestream (UfoWriterImage *image,
                             gboolean is_rgb,
-                            guint level)
+                            guint level,
+                            guint requested_threads)
 {
     opj_cparameters_t parameters;
     opj_image_cmptparm_t component_parameters[3];
@@ -290,7 +293,9 @@ encode_jpeg2000_codestream (UfoWriterImage *image,
     if (!opj_setup_encoder (codec, &parameters, jp2_image))
         goto cleanup;
 
-    threads = g_get_num_processors ();
+    threads = requested_threads == 0
+              ? g_get_num_processors ()
+              : requested_threads;
 
     if (threads > 1 && !opj_codec_set_threads (codec, (int) threads))
         g_warning ("Could not enable %u OpenJPEG worker threads.", threads);
@@ -373,7 +378,10 @@ write_jpeg2000_tiles (UfoTiffWriterPrivate *priv,
                 goto cleanup;
             }
 
-            codestream = encode_jpeg2000_codestream (&tile_image, is_rgb, priv->level);
+            codestream = encode_jpeg2000_codestream (&tile_image,
+                                                     is_rgb,
+                                                     priv->level,
+                                                     priv->jpeg2000_threads);
 
             if (codestream == NULL) {
                 g_warning ("Could not encode TIFF tile with JPEG 2000 compression.");
@@ -517,7 +525,10 @@ ufo_tiff_writer_write (UfoWriter *writer,
             return;
         }
 
-        codestream = encode_jpeg2000_codestream (image, is_rgb, priv->level);
+        codestream = encode_jpeg2000_codestream (image,
+                                                is_rgb,
+                                                priv->level,
+                                                priv->jpeg2000_threads);
 
         if (codestream == NULL) {
             g_warning ("Could not encode TIFF page with JPEG 2000 compression.");
@@ -574,6 +585,9 @@ ufo_tiff_writer_set_property (GObject *object,
         case PROP_TILE_SIZE:
             priv->tile_size = g_value_get_uint (value);
             break;
+        case PROP_JPEG2000_THREADS:
+            priv->jpeg2000_threads = g_value_get_uint (value);
+            break;
 #endif
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
@@ -601,6 +615,9 @@ ufo_tiff_writer_get_property (GObject *object,
             break;
         case PROP_TILE_SIZE:
             g_value_set_uint (value, priv->tile_size);
+            break;
+        case PROP_JPEG2000_THREADS:
+            g_value_set_uint (value, priv->jpeg2000_threads);
             break;
 #endif
         default:
@@ -669,6 +686,13 @@ ufo_tiff_writer_class_init(UfoTiffWriterClass *klass)
             0, G_MAXUINT, 0,
             G_PARAM_READWRITE);
 
+    properties[PROP_JPEG2000_THREADS] =
+        g_param_spec_uint("jpeg2000-threads",
+            "JPEG 2000 worker threads",
+            "Number of OpenJPEG worker threads. 0 uses all available processors.",
+            0, G_MAXINT, 0,
+            G_PARAM_READWRITE);
+
 #endif
 
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
@@ -689,5 +713,6 @@ ufo_tiff_writer_init (UfoTiffWriter *self)
     priv->jpeg2000 = FALSE;
     priv->level = 0;
     priv->tile_size = 0;
+    priv->jpeg2000_threads = 0;
 #endif
 }
