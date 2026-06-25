@@ -7,6 +7,7 @@ plugins = [
     'buffer',
     'calculate',
     'clip',
+    'compand',
     'crop',
     'cut',
     'cut-sinogram',
@@ -114,6 +115,7 @@ write_sources = [
 tiff_dep = dependency('libtiff-4', required: false)
 hdf5_dep = dependency('hdf5', required: false)
 jpeg_dep = dependency('libjpeg', required: false)
+jpeg2000_dep = dependency('libopenjp2', required: false)
 pangocairo_dep = dependency('pangocairo', required: false)
 opencv_dep = dependency('opencv', required: false)
 uca_dep = dependency('libuca', required: false)
@@ -126,6 +128,7 @@ conf = configuration_data()
 conf.set('HAVE_AMD', clfft_dep.found())
 conf.set('HAVE_TIFF', tiff_dep.found())
 conf.set('HAVE_JPEG', jpeg_dep.found())
+conf.set('HAVE_JPEG2000', jpeg2000_dep.found())
 conf.set('WITH_HDF5', hdf5_dep.found())
 conf.set('BURST', get_option('lamino_backproject_burst_mode'))
 conf.set('CL_TARGET_OPENCL_VERSION', '120')
@@ -276,6 +279,12 @@ endif
 if jpeg_dep.found()
     write_sources += ['writers/ufo-jpeg-writer.c']
     write_deps += [jpeg_dep]
+endif
+
+if jpeg2000_dep.found()
+    read_deps += [jpeg2000_dep]
+
+    write_deps += [jpeg2000_dep]
 endif
 
 shared_module('read',

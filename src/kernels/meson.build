@@ -5,6 +5,7 @@ kernel_files = [
     'bin.cl',
     'clip.cl',
     'complex.cl',
+    'compand.cl',
     'conebeam.cl',
     'correlate.cl',
     'cut.cl',

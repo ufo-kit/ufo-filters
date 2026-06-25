@@ -13,8 +13,10 @@ File writer
     Writes input data to the file system. Support for writing depends on compile
     support, however raw (`.raw`) files can always be written. TIFF (`.tif` and
     `.tiff`), HDF5 (`.h5`) and JPEG (`.jpg` and `.jpeg`) might be supported
-    additionally. By default, :gobj:prop:`bytes-per-file` is set to 128 GB, set
-    it to 0 if you want to write single-page files.
+    additionally. TIFF output can use JPEG 2000 compression when OpenJPEG
+    support is available. By default,
+    :gobj:prop:`bytes-per-file` is set to 128 GB, set it to 0 if you want to
+    write single-page files.
 
     .. gobj:prop:: filename:string
 
@@ -76,12 +78,39 @@ File writer
         JPEG quality value between 0 and 100. Higher values correspond to higher
         quality and larger file sizes.
 
-    For TIFF files the following property applies:
+    For TIFF files the following properties apply:
 
     .. gobj:prop:: tiff-bigtiff:boolean
 
         Whether to write in BigTiff format (required for files larger than 4
         GB).
+
+    .. gobj:prop:: tiff-jpeg2000:boolean
+
+        Compress TIFF pages with JPEG 2000 instead of writing uncompressed TIFF
+        image data. Only 8 and 16 bit unsigned data are written directly; other
+        input depths are converted to 16 bit before compression.
+
+    .. gobj:prop:: tile-size:uint
+
+        Square tile size for JPEG 2000-compressed TIFF output. The default value
+        0 writes one JPEG 2000 codestream per TIFF page as a single strip. A
+        value greater than 0 writes a tiled TIFF with one JPEG 2000 codestream
+        per tile.
+
+    For JPEG 2000-compressed TIFF output, the following properties apply:
+
+    .. gobj:prop:: level:uint
+
+        JPEG 2000 quality level. The default value 0 writes lossless data.
+        Values from 1 to 100 enable lossy compression with progressively higher
+        quality.
+
+    .. gobj:prop:: jpeg2000-threads:uint
+
+        Number of OpenJPEG worker threads. The default value 0 uses all
+        available processors. Set it to 1 to disable OpenJPEG worker
+        parallelism.
 
 
 Memory writer

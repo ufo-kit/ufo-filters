@@ -41,6 +41,7 @@ python_tests = [
     'test_memin',
     'test_fft',
     'test_swap_quadrants',
+    'test-tiff-jpeg2000-readers',
 ]
 
 foreach t: python_tests
