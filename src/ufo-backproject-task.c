@@ -549,7 +549,7 @@ ufo_backproject_task_set_property (GObject *object,
             priv->offset = g_value_get_uint (value);
             break;
         case PROP_AXIS_POSITION:
-            priv->axis_pos = g_value_get_float (value);
+            priv->axis_pos = (gfloat) g_value_get_double (value);
             break;
         case PROP_ANGLE_STEP:
             priv->angle_step = g_value_get_double (value);
@@ -560,9 +560,7 @@ ufo_backproject_task_set_property (GObject *object,
             break;
         case PROP_MODE:
             priv->mode = g_value_get_enum (value);
-            if (priv->mode == MODE_LINEAR || priv->mode == MODE_CUBIC) {
-                priv->pack = 4;
-            }
+            priv->pack = (priv->mode == MODE_LINEAR || priv->mode == MODE_CUBIC) ? 4 : 1;
             break;
         case PROP_ROI_X:
             priv->roi_x = g_value_get_uint (value);
@@ -598,7 +596,7 @@ ufo_backproject_task_get_property (GObject *object,
             g_value_set_uint (value, priv->offset);
             break;
         case PROP_AXIS_POSITION:
-            g_value_set_float (value, priv->axis_pos);
+            g_value_set_double (value, priv->axis_pos);
             break;
         case PROP_ANGLE_STEP:
             g_value_set_double (value, priv->angle_step);
@@ -655,7 +653,7 @@ ufo_backproject_task_class_init (UfoBackprojectTaskClass *klass)
             G_PARAM_READWRITE);
 
     properties[PROP_AXIS_POSITION] =
-        g_param_spec_float ("axis-pos",
+        g_param_spec_double ("axis-pos",
             "Position of rotation axis",
             "Position of rotation axis",
             -1.0, +32768.0, 0.0,
