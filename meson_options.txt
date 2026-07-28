@@ -2,7 +2,7 @@ option('docs', type: 'boolean', value: true,
     description: 'Build docs')
 
 option('oclfft', type: 'boolean', value: true,
-    description: 'Build Apple OpenCL FFT')
+    description: 'Use bundled OpenCL FFT backend')
 
 option('contrib_filters', type: 'boolean', value: false,
     description: 'Build contributed filters')

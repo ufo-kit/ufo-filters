@@ -122,7 +122,7 @@ zmq_dep = dependency('libzmq', required: false)
 json_dep = dependency('json-glib-1.0', version: '>=1.1.0', required: false)
 
 conf = configuration_data()
-conf.set('HAVE_AMD', clfft_dep.found())
+conf.set('HAVE_AMD', clfft_dep.found() and not get_option('oclfft'))
 conf.set('HAVE_TIFF', tiff_dep.found())
 conf.set('HAVE_JPEG', jpeg_dep.found())
 conf.set('WITH_HDF5', hdf5_dep.found())
@@ -205,16 +205,16 @@ shared_module('find-large-spots',
 
 # fft plugins
 
-have_clfft = clfft_dep.found()
 with_oclfft = get_option('oclfft')
+have_clfft = clfft_dep.found() and not with_oclfft
 
 if have_clfft or with_oclfft
     fft_deps = deps
 
-    if clfft_dep.found()
-        fft_deps += [clfft_dep]
-    else
+    if with_oclfft
         fft_deps += [oclfft_dep]
+    else
+        fft_deps += [clfft_dep]
     endif
 
     common_fft = static_library('commonfft',
