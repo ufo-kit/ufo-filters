@@ -69,6 +69,8 @@ ufo_filter_stripes_task_process (UfoTask *task,
     cl_command_queue cmd_queue;
     cl_mem in_mem;
     cl_mem out_mem;
+    gfloat horizontal_sigma;
+    gfloat vertical_sigma;
 
     priv = UFO_FILTER_STRIPES_TASK (task)->priv;
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
@@ -76,10 +78,17 @@ ufo_filter_stripes_task_process (UfoTask *task,
     in_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     out_mem = ufo_buffer_get_device_array (output, cmd_queue);
 
+    /* The Gaussian is evaluated in frequency-bin coordinates. Keep the
+     * public sigma properties independent of the input dimensions by
+     * converting their relative values here. */
+    /* The horizontal axis stores interleaved real and imaginary components. */
+    horizontal_sigma = priv->horizontal_sigma * (requisition->dims[0] / 2);
+    vertical_sigma = priv->vertical_sigma * requisition->dims[1];
+
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 0, sizeof (cl_mem), &in_mem));
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 1, sizeof (cl_mem), &out_mem));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_float), &priv->horizontal_sigma));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_float), &priv->vertical_sigma));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 2, sizeof (cl_float), &horizontal_sigma));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->kernel, 3, sizeof (cl_float), &vertical_sigma));
 
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_profiler_call (profiler, cmd_queue, priv->kernel, 2, requisition->dims, NULL);

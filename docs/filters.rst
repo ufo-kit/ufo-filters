@@ -1119,20 +1119,21 @@ Stripe filtering
 
     Example usage::
 
-        $ ufo-launch read path=sino.tif ! fft dimensions=2 ! filter-stripes sigma=1 ! ifft dimensions=2 ! write filename=sino-filtered.tif
+        $ ufo-launch read path=sino.tif ! fft dimensions=2 ! filter-stripes horizontal-sigma=0.1 vertical-sigma=0.01 ! ifft dimensions=2 ! write filename=sino-filtered.tif
 
     .. gobj:prop:: horizontal-sigma:float
 
-        Horizontal filter strength, which is the sigma of the Gaussian. Small
-        values, e.g. 1e-7 cause only the zero frequency to remain in the
-        signal, i.e. stronger filtering. Values around 1 are a good starting
-        point.
+        Horizontal filter strength, expressed as the sigma of the Gaussian
+        relative to the horizontal frequency-space size. Small values, e.g.
+        1e-7 cause only the zero frequency to remain in the signal, i.e.
+        stronger filtering. A value around 0.1 is a good starting point.
 
     .. gobj:prop:: vertical-sigma:float
 
-        Vertical filter strength, which is the sigma of the Gaussian. The larger
-        the value, the more non-vertical frequencies are removed. Value around 4
-        is a good starting point.
+        Vertical filter strength, expressed as the sigma of the Gaussian
+        relative to the vertical frequency-space size. The larger the value,
+        the more non-vertical frequencies are removed. A value around 0.01 is
+        a good starting point.
 
 
 1D stripe filtering
