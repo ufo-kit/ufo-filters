@@ -792,6 +792,13 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
                                                           INFINITY,
                                                           0.0,
                                                           G_PARAM_READWRITE);
+    
+    
+    /*
+    Number of projections processed per one kernel invocation. Defaults to 24 because benchmarks
+    have shown that for a given (height x width) of projections kernel-execution-time vs burst
+    minimizes at approximately 24 before hitting a plateau.
+    */
     properties[PROP_BURST] =
         g_param_spec_uint ("burst",
             "Number of projections processed per one kernel invocation",
@@ -803,6 +810,7 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
             0, 128, 24,
             G_PARAM_READWRITE);
     
+    // Total number of projections to be processed.
     properties[PROP_NUM_PROJECTIONS] =
         g_param_spec_uint ("num-projections",
             "Number of projections",
@@ -810,6 +818,7 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
             0, 32768, 0,
             G_PARAM_READWRITE);
 
+    // Overall angle of rotation during data acquisition, typically pi or 2 * pi.
     properties[PROP_OVERALL_ANGLE] =
         g_param_spec_double ("overall-angle",
             "Angle covered by all projections [rad]",
@@ -818,6 +827,12 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
             -G_MAXDOUBLE, G_MAXDOUBLE, 2 * G_PI,
             G_PARAM_READWRITE);
 
+    
+    /*
+    Geometric axis of rotation for tomographic reconstruction. This is a floating point value,
+    which represents a precise pixel position in the width-dimension of the projection. It is
+    floating point number because we regard for interpolation on GPUs.
+    */
     properties[PROP_CENTER_POSITION_X] =
         g_param_spec_value_array ("center-position-x",
             "Global x center (horizontal in a projection) of the volume with respect to projections",
@@ -825,6 +840,11 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
             double_region_vals,
             G_PARAM_READWRITE);
 
+    /*
+    Reference middle position in the height-dimension. This property along with the region determines
+    which horizontal slices from the projection would be reconstructed. In its default form we set
+    this property to the middle of height of the projection.
+    */
     properties[PROP_CENTER_POSITION_Z] =
         g_param_spec_value_array ("center-position-z",
             "Global z center (vertical in a projection) of the volume with respect to projections",
@@ -832,6 +852,12 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
             double_region_vals,
             G_PARAM_READWRITE);
 
+    /*
+    Region property along with center-position-z provides fine-granular control over which slices
+    are to be reconstructed. As an example if projection height is 2016 and we want to reconstruct
+    all the slices from the projection then we'd set center-position-z to 1008 and region would be
+    set to [-1008,1008,1].
+    */
     properties[PROP_REGION] =
         g_param_spec_value_array ("region",
             "Region for the parameter along z-axis as (from, to, step)",
@@ -839,6 +865,11 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
             double_region_vals,
             G_PARAM_READWRITE);
 
+    /*
+    Addressing mode plays a role in the interpolation, especially when we are nearing an edge of the
+    projection. It determines how we'd sample for missing data. Addressing mode none means missing
+    data would be assumed as 0 during interpolation.
+    */
     properties[PROP_ADDRESSING_MODE] =
         g_param_spec_enum ("addressing-mode",
             "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
