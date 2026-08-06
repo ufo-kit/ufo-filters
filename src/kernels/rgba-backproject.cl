@@ -2,21 +2,19 @@
 
 kernel void
 accumulate(
-    global float *in,
+    global const float *in,
     write_only image2d_array_t out,
     const int row_start,
     const int row_step,
     const int projection_height,
-    const int projection_width) {
+    const int projection_width,
+    const int packed_height,
+    const uint projection_layer) {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
-    const int idz = get_global_id(2);
     const int size_x = projection_width;
-    if (idx >= size_x)
+    if (idx >= size_x || idy >= packed_height)
         return;
-    // Projection offset is calculated using the idz (index of the projection in its batch), means
-    // with this offset a new projection starts in the flat array for a batch of projections.
-    const int proj_offset = idz * size_x * projection_height;
     const int flat_y = 4 * idy;
     // Row_i points to the strided input rows. Each of the [(flat_y + i) * row_step] marks increasing
     // offsets between the strided four rows. Adding these offsets to the row_start give starting
@@ -26,14 +24,12 @@ accumulate(
     int row_1 = row_start + (flat_y + 1) * row_step;
     int row_2 = row_start + (flat_y + 2) * row_step;
     int row_3 = row_start + (flat_y + 3) * row_step;
-    // Adding each (row_i * size_x) to projection_offset provides the final starting index of the
-    // rows to be processed in the flat array for the batch.
-    float val_0 = (row_0 >= 0 && row_0 < projection_height) ? in[proj_offset + (row_0 * size_x) + idx] : 0.0f;
-    float val_1 = (row_1 >= 0 && row_1 < projection_height) ? in[proj_offset + (row_1 * size_x) + idx] : 0.0f;
-    float val_2 = (row_2 >= 0 && row_2 < projection_height) ? in[proj_offset + (row_2 * size_x) + idx] : 0.0f;
-    float val_3 = (row_3 >= 0 && row_3 < projection_height) ? in[proj_offset + (row_3 * size_x) + idx] : 0.0f;
+    float val_0 = (row_0 >= 0 && row_0 < projection_height) ? in[(row_0 * size_x) + idx] : 0.0f;
+    float val_1 = (row_1 >= 0 && row_1 < projection_height) ? in[(row_1 * size_x) + idx] : 0.0f;
+    float val_2 = (row_2 >= 0 && row_2 < projection_height) ? in[(row_2 * size_x) + idx] : 0.0f;
+    float val_3 = (row_3 >= 0 && row_3 < projection_height) ? in[(row_3 * size_x) + idx] : 0.0f;
     float4 pixel = (float4)(val_0, val_1, val_2, val_3);
-    write_imagef(out, (int4)(idx, idy, idz, 0), pixel);
+    write_imagef(out, (int4)(idx, idy, projection_layer, 0), pixel);
 }
 
 kernel void

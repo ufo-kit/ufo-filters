@@ -73,9 +73,15 @@ struct _UfoRGBABackprojectTaskPrivate {
     gsize projection_width;
     gsize projection_height;
     gsize reconstruction_side;
+    gboolean use_accumulate_local_size;
+    gboolean use_backproject_local_size;
+    gboolean use_distribute_local_size;
+    gsize accumulate_local_size[2];
+    gsize backproject_local_size[3];
+    gsize distribute_local_size[3];
     // Buffers
     float *host_buffer_angles;
-    cl_mem device_buffer_projections;
+    cl_mem device_buffer_projection;
     cl_mem device_texture_projections;
     cl_mem device_buffer_angles;
     cl_mem device_coalesced_slices;
@@ -116,6 +122,132 @@ checked_add_size (gsize a, gsize b, gsize *result)
 
     *result = a + b;
     return TRUE;
+}
+
+static gboolean
+pad_work_size (gsize *global_size, const gsize *local_size, guint dimensions)
+{
+    gsize padded[3];
+
+    if (dimensions > G_N_ELEMENTS (padded))
+        return FALSE;
+
+    for (guint i = 0; i < dimensions; i++) {
+        gsize remainder = global_size[i] % local_size[i];
+
+        padded[i] = global_size[i];
+        if (remainder != 0 && !checked_add_size (
+                global_size[i], local_size[i] - remainder, &padded[i]))
+            return FALSE;
+    }
+
+    memcpy (global_size, padded, dimensions * sizeof (gsize));
+
+    return TRUE;
+}
+
+static gboolean
+local_size_supported (cl_device_id device,
+                      cl_kernel kernel,
+                      guint dimensions,
+                      const gsize *local_size)
+{
+    cl_uint max_dimensions;
+    size_t *max_items;
+    size_t device_max_group, kernel_max_group, preferred_multiple;
+    gsize group_size = 1;
+    cl_int cl_error;
+
+    cl_error = clGetDeviceInfo (device, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS,
+                                sizeof (cl_uint), &max_dimensions, NULL);
+    if (cl_error != CL_SUCCESS || max_dimensions < dimensions)
+        return FALSE;
+
+    max_items = g_try_new (size_t, max_dimensions);
+    if (max_items == NULL)
+        return FALSE;
+
+    cl_error = clGetDeviceInfo (device, CL_DEVICE_MAX_WORK_ITEM_SIZES,
+                                max_dimensions * sizeof (size_t), max_items, NULL);
+    if (cl_error != CL_SUCCESS)
+        goto unsupported;
+
+    cl_error = clGetDeviceInfo (device, CL_DEVICE_MAX_WORK_GROUP_SIZE,
+                                sizeof (size_t), &device_max_group, NULL);
+    if (cl_error != CL_SUCCESS)
+        goto unsupported;
+
+    cl_error = clGetKernelWorkGroupInfo (kernel, device, CL_KERNEL_WORK_GROUP_SIZE,
+                                        sizeof (size_t), &kernel_max_group, NULL);
+    if (cl_error != CL_SUCCESS)
+        goto unsupported;
+
+    cl_error = clGetKernelWorkGroupInfo (kernel, device,
+                                        CL_KERNEL_PREFERRED_WORK_GROUP_SIZE_MULTIPLE,
+                                        sizeof (size_t), &preferred_multiple, NULL);
+    if (cl_error != CL_SUCCESS)
+        goto unsupported;
+
+    for (guint i = 0; i < dimensions; i++) {
+        if (local_size[i] > max_items[i] ||
+            !checked_mul_size (group_size, local_size[i], &group_size))
+            goto unsupported;
+    }
+
+    g_free (max_items);
+    return group_size <= device_max_group &&
+           group_size <= kernel_max_group &&
+           (preferred_multiple == 0 || group_size % preferred_multiple == 0);
+
+unsupported:
+    g_free (max_items);
+    return FALSE;
+}
+
+static void
+configure_local_sizes (UfoRGBABackprojectTaskPrivate *priv, cl_device_id device)
+{
+    const gsize accumulate_candidate[2] = {32, 8};
+    const gsize backproject_candidate[3] = {32, 4, 1};
+    const gsize distribute_candidate[3] = {32, 8, 1};
+    size_t vendor_size;
+    gchar *vendor;
+    cl_int cl_error;
+
+    memcpy (priv->accumulate_local_size, accumulate_candidate, sizeof (accumulate_candidate));
+    memcpy (priv->backproject_local_size, backproject_candidate, sizeof (backproject_candidate));
+    memcpy (priv->distribute_local_size, distribute_candidate, sizeof (distribute_candidate));
+
+    cl_error = clGetDeviceInfo (device, CL_DEVICE_VENDOR, 0, NULL, &vendor_size);
+    if (cl_error != CL_SUCCESS)
+        return;
+
+    vendor = g_try_malloc0 (vendor_size + 1);
+    if (vendor == NULL)
+        return;
+
+    cl_error = clGetDeviceInfo (device, CL_DEVICE_VENDOR, vendor_size, vendor, NULL);
+    if (cl_error != CL_SUCCESS) {
+        g_free (vendor);
+        return;
+    }
+
+    if (g_strrstr (vendor, "NVIDIA") != NULL) {
+        priv->use_accumulate_local_size = local_size_supported (
+            device, priv->accumulate_kernel, 2, priv->accumulate_local_size);
+        priv->use_backproject_local_size = local_size_supported (
+            device, priv->backproject_kernel, 3, priv->backproject_local_size);
+        priv->use_distribute_local_size = local_size_supported (
+            device, priv->distribute_kernel, 3, priv->distribute_local_size);
+    }
+
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG,
+           "device vendor: %s; local sizes: accumulate=%s, backproject=%s, distribute=%s",
+           vendor,
+           priv->use_accumulate_local_size ? "32x8" : "driver",
+           priv->use_backproject_local_size ? "32x4x1" : "driver",
+           priv->use_distribute_local_size ? "32x8x1" : "driver");
+    g_free (vendor);
 }
 
 static gboolean
@@ -398,8 +530,7 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
         gsize total_size = 0, next_total = 0;
         gboolean sizes_valid =
             checked_mul_size (in_req.dims[0], in_req.dims[1], &projection_pixels) &&
-            checked_mul_size (projection_pixels, priv->burst, &projections_size) &&
-            checked_mul_size (projections_size, sizeof (cl_float), &projections_size) &&
+            checked_mul_size (projection_pixels, sizeof (cl_float), &projections_size) &&
             checked_mul_size (in_req.dims[0], priv->num_slices_processing / 4, &texture_texels) &&
             checked_mul_size (texture_texels, priv->burst, &texture_texels) &&
             checked_mul_size (texture_texels, 4 * sizeof (cl_half), &texture_size) &&
@@ -495,6 +626,8 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
             return;
         }
 
+        configure_local_sizes (priv, device);
+
         g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "#slices processed: %lu", priv->num_slices_processing);
         g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "#slices produced: %lu", priv->num_slices_actual);
         g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "x region: [%u, %u), side: %zu",
@@ -504,20 +637,19 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
         priv->reconstruction_side = reconstruction_side;
         priv->region_params_checked = TRUE;
     }
-    // Allocate device side ring-buffer and additional resources using requisitions. Projection
-    // ring buffer contains burst number of full projections as the region stride is handled by
-    // accumulate kernel.
+    // Host inputs need one device-visible staging projection. Device inputs are packed directly
+    // from their UfoBuffer allocation into the projection texture.
     cl_int cl_error;
-    if (!priv->device_buffer_projections) {
-        gsize projection_buffer_size = priv->burst * priv->projection_width *
-                                       priv->projection_height * sizeof (cl_float);
-        priv->device_buffer_projections = clCreateBuffer(
+    if (!priv->device_buffer_projection) {
+        gsize projection_buffer_size = priv->projection_width * priv->projection_height *
+                                       sizeof (cl_float);
+        priv->device_buffer_projection = clCreateBuffer(
             priv->context,
             CL_MEM_READ_ONLY,
             projection_buffer_size,
             NULL,
             &cl_error);
-        if (set_opencl_error (error, cl_error, "allocating the projection ring buffer"))
+        if (set_opencl_error (error, cl_error, "allocating the host projection staging buffer"))
             return;
     }
     if (!priv->device_texture_projections) {
@@ -585,8 +717,8 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
  * `actual_burst` to compute this and prevent going out of bounds, therefore it ranges in
  * [0, `actual_burst`).
  * 
- * Both the actual burst size and projection index in actual burst are needed to correctly update
- * the ring buffer.
+ * Both the actual burst size and projection index in actual burst are needed to select the texture
+ * layer and trigger backprojection when all layers in the burst are ready.
  * 
  * INCOMPLETE Burst: `(processed_proj_count >= (priv->num_projections / priv->burst) * priv->burst)`
  * 
@@ -655,35 +787,60 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
         actual_burst = priv->burst;
         idx_actual_burst = processed_proj_count % actual_burst;
     }
-    // The ring-buffer slot is one complete width-by-height projection. Host-resident inputs are
-    // uploaded directly into that slot; device-resident inputs remain on the GPU and are copied
-    // device-to-device.
+    // Pack every arriving projection directly into its layer in the texture array. Host-resident
+    // inputs first require one blocking upload because their memory can be reused after process
+    // returns. Device-resident inputs are consumed without an intermediate device-to-device copy.
     gsize projection_size = in_req.dims[0] * in_req.dims[1] * sizeof (cl_float);
-    gsize projection_offset = idx_actual_burst * projection_size;
     UfoBufferLocation input_location = ufo_buffer_get_location (inputs[0]);
+    cl_mem projection_mem;
 
     if (input_location == UFO_BUFFER_LOCATION_HOST) {
         float *curr_proj_array = ufo_buffer_get_host_array (inputs[0], cmd_queue);
         UFO_RESOURCES_CHECK_CLERR (
             clEnqueueWriteBuffer (cmd_queue,
-                                  priv->device_buffer_projections,
+                                  priv->device_buffer_projection,
                                   CL_TRUE,
-                                  projection_offset,
+                                  0,
                                   projection_size,
                                   curr_proj_array,
                                   0, NULL, NULL));
+        projection_mem = priv->device_buffer_projection;
     }
     else {
-        cl_mem curr_proj_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
-        UFO_RESOURCES_CHECK_CLERR (
-            clEnqueueCopyBuffer (cmd_queue,
-                                 curr_proj_mem,
-                                 priv->device_buffer_projections,
-                                 0,
-                                 projection_offset,
-                                 projection_size,
-                                 0, NULL, NULL));
+        projection_mem = ufo_buffer_get_device_array (inputs[0], cmd_queue);
     }
+
+    /// STAGE: ACCUMULATE (Packs four rows of one projection into one RGBA texture pixel)
+    cl_int row_start = (cl_int) priv->region_start;
+    cl_int row_step = (cl_int) priv->region_step;
+    cl_int projection_height = (cl_int) in_req.dims[1];
+    cl_int projection_width = (cl_int) in_req.dims[0];
+    cl_int packed_height = (cl_int) (priv->num_slices_processing / 4);
+    cl_uint projection_layer = idx_actual_burst;
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 0, sizeof(cl_mem),
+    &projection_mem));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 1, sizeof(cl_mem),
+    &priv->device_texture_projections));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 2, sizeof(cl_int),
+    &row_start));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 3, sizeof(cl_int),
+    &row_step));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 4, sizeof(cl_int),
+    &projection_height));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 5, sizeof(cl_int),
+    &projection_width));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 6, sizeof(cl_int),
+    &packed_height));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 7, sizeof(cl_uint),
+    &projection_layer));
+    gsize accumulate_work_size[] = {in_req.dims[0], priv->num_slices_processing / 4};
+    const gsize *accumulate_local_size = NULL;
+    if (priv->use_accumulate_local_size &&
+        pad_work_size (accumulate_work_size, priv->accumulate_local_size, 2))
+        accumulate_local_size = priv->accumulate_local_size;
+    ufo_profiler_call (profiler, cmd_queue, priv->accumulate_kernel, 2,
+        accumulate_work_size, accumulate_local_size);
+
     // Dispatch kernels, once burst is ready. Since `idx_actual_burst` is the index of the current
     // projection in its burst, if (idx_actual_burst + 1) is equal to the derived burst size we can
     // process the batch.
@@ -697,34 +854,18 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
         cl_uint global_proj_idx = (cl_uint) (processed_proj_count + 1 - actual_burst);
         g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "processing %u projections starting from %u", actual_burst,
             global_proj_idx);
-        /// STAGE: ACCUMULATE (Packs four rows of the projection into one using RGBA format)
-        cl_int row_start = (cl_int) priv->region_start;
-        cl_int row_step = (cl_int) priv->region_step;
-        cl_int projection_height = (cl_int) in_req.dims[1];
-        cl_int projection_width = (cl_int) in_req.dims[0];
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 0, sizeof(cl_mem),
-        &priv->device_buffer_projections));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 1, sizeof(cl_mem),
-        &priv->device_texture_projections));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 2, sizeof(cl_int),
-        &row_start));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 3, sizeof(cl_int),
-        &row_step));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 4, sizeof(cl_int),
-        &projection_height));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 5, sizeof(cl_int),
-        &projection_width));
-        const size_t accumulate_work_size[] = {in_req.dims[0], priv->num_slices_processing / 4, actual_burst};
-        ufo_profiler_call (profiler, cmd_queue, priv->accumulate_kernel, 3,
-            accumulate_work_size, NULL);
         /// STAGE: BACKPROJECT
         UFO_RESOURCES_CHECK_CLERR (clEnqueueWriteBuffer (
             cmd_queue, priv->device_buffer_angles, CL_FALSE, 0,
             2 * actual_burst * sizeof(float),
             priv->host_buffer_angles + 2 * global_proj_idx,
             0, NULL, NULL));
-        const size_t bp_work_size[] = {
+        gsize bp_work_size[] = {
             requisition->dims[0], requisition->dims[1], priv->num_slices_processing / 4};
+        const gsize *backproject_local_size = NULL;
+        if (priv->use_backproject_local_size &&
+            pad_work_size (bp_work_size, priv->backproject_local_size, 3))
+            backproject_local_size = priv->backproject_local_size;
         const cl_float center_position_x = (cl_float) ufo_scarray_get_double(priv->center_position_x, 0);
         const cl_int slice_width = (cl_int) requisition->dims[0];
         const cl_int slice_height = (cl_int) requisition->dims[1];
@@ -751,7 +892,7 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 9, sizeof(cl_uint),
         &first_burst));
         ufo_profiler_call_blocking (profiler, cmd_queue, priv->backproject_kernel, 3, bp_work_size,
-            NULL);
+            backproject_local_size);
     }
     return TRUE;
 }
@@ -791,8 +932,12 @@ ufo_rgba_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequisi
     /// STAGE: DISTRIBUTE (Spread the values packed into float4 buffer into separate slices)
     // Make sure that distributed is not called for each generate call.
     if (!priv->distributed) {
-        const size_t dist_work_size[] = {
+        gsize dist_work_size[] = {
             requisition->dims[0], requisition->dims[1], priv->num_slices_processing / 4};
+        const gsize *distribute_local_size = NULL;
+        if (priv->use_distribute_local_size &&
+            pad_work_size (dist_work_size, priv->distribute_local_size, 3))
+            distribute_local_size = priv->distribute_local_size;
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 0, sizeof(cl_mem),
         &priv->device_coalesced_slices));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 1, sizeof(cl_mem),
@@ -804,7 +949,7 @@ ufo_rgba_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequisi
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 3, sizeof(cl_int),
         &slice_height));
         ufo_profiler_call_blocking (profiler, cmd_queue, priv->distribute_kernel, 3, dist_work_size,
-            NULL);
+            distribute_local_size);
         priv->distributed = TRUE;
     }
     /// STAGE: OUTPUT
@@ -921,9 +1066,9 @@ static void
 ufo_rgba_backproject_task_finalize (GObject *object)
 {
     UfoRGBABackprojectTaskPrivate *priv = UFO_RGBA_BACKPROJECT_TASK_GET_PRIVATE(object);
-    if (priv->device_buffer_projections) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_buffer_projections));
-        priv->device_buffer_projections = NULL;
+    if (priv->device_buffer_projection) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_buffer_projection));
+        priv->device_buffer_projection = NULL;
     }
     if (priv->device_texture_projections) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_texture_projections));
@@ -1156,8 +1301,11 @@ ufo_rgba_backproject_task_init(UfoRGBABackprojectTask *self)
     self->priv->projection_width = 0;
     self->priv->projection_height = 0;
     self->priv->reconstruction_side = 0;
+    self->priv->use_accumulate_local_size = FALSE;
+    self->priv->use_backproject_local_size = FALSE;
+    self->priv->use_distribute_local_size = FALSE;
     /// Internal buffers
-    self->priv->device_buffer_projections = NULL;
+    self->priv->device_buffer_projection = NULL;
     self->priv->device_texture_projections = NULL;
     self->priv->host_buffer_angles = NULL;
     self->priv->device_buffer_angles = NULL;
