@@ -67,6 +67,7 @@ struct _UfoRGBABackprojectTaskPrivate {
     gdouble overall_angle;
     gboolean region_params_checked;
     gdouble region_start, region_stop, region_step;
+    gboolean distributed;
     // Buffers
     float *host_buffer_cosine;
     float *host_buffer_sine;
@@ -568,14 +569,18 @@ ufo_rgba_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequisi
         UFO_RESOURCES_CHECK_CLERR (cl_error);
     }
     /// STAGE: DISTRIBUTE (Spread the values packed into float4 buffer into separate slices)
-    const size_t dist_work_size[] = {
-        requisition->dims[0], requisition->dims[1], priv->num_slices_processing / 4};
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 0, sizeof(cl_mem),
-    &priv->device_coalesced_slices));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 1, sizeof(cl_mem),
-    &priv->device_final_slices));
-    ufo_profiler_call_blocking (profiler, cmd_queue, priv->distribute_kernel, 3, dist_work_size,
-        NULL);
+    // Make sure that distributed is not called for each generate call.
+    if (!priv->distributed) {
+        const size_t dist_work_size[] = {
+            requisition->dims[0], requisition->dims[1], priv->num_slices_processing / 4};
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 0, sizeof(cl_mem),
+        &priv->device_coalesced_slices));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 1, sizeof(cl_mem),
+        &priv->device_final_slices));
+        ufo_profiler_call_blocking (profiler, cmd_queue, priv->distribute_kernel, 3, dist_work_size,
+            NULL);
+        priv->distributed = TRUE;
+    }
     /// STAGE: OUTPUT
     guint processed_proj_count;
     g_object_get (task, "num_processed", &processed_proj_count, NULL);
@@ -906,6 +911,7 @@ ufo_rgba_backproject_task_init(UfoRGBABackprojectTask *self)
     self->priv->num_slices_processing = 0;
     self->priv->generated = 0;
     self->priv->region_params_checked = FALSE;
+    self->priv->distributed = FALSE;
     /// Internal buffers
     self->priv->device_buffer_projections = NULL;
     self->priv->device_texture_projections = NULL;
