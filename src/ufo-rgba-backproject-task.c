@@ -32,7 +32,6 @@
 
 #include <config.h>
 #include <common/ufo-math.h>
-#include "common/ufo-addressing.h"
 #include "common/ufo-scarray.h"
 #include "ufo-rgba-backproject-task.h"
 
@@ -97,6 +96,13 @@ enum {
 };
 
 static GParamSpec *properties[N_PROPERTIES] = { NULL, };
+
+static const GEnumValue rgba_addressing_values[] = {
+    { CL_ADDRESS_NONE,          "ADDRESS_NONE",          "none" },
+    { CL_ADDRESS_CLAMP_TO_EDGE, "ADDRESS_CLAMP_TO_EDGE", "clamp_to_edge" },
+    { CL_ADDRESS_CLAMP,         "ADDRESS_CLAMP",         "clamp" },
+    { 0, NULL, NULL }
+};
 
 static gboolean
 checked_mul_size (gsize a, gsize b, gsize *result)
@@ -655,13 +661,21 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
         actual_burst = priv->burst;
         idx_actual_burst = processed_proj_count % actual_burst;
     }
-    // The ring-buffer slot is one complete width-by-height projection. Host-resident inputs are
-    // uploaded directly into that slot; device-resident inputs remain on the GPU and are copied
-    // device-to-device.
     gsize projection_size = in_req.dims[0] * in_req.dims[1] * sizeof (cl_float);
     gsize projection_offset = idx_actual_burst * projection_size;
     UfoBufferLocation input_location = ufo_buffer_get_location (inputs[0]);
 
+    // Preserve the input's authoritative location while filling the ring-buffer slot. For a
+    // host-resident input, writing it directly avoids first creating and filling an intermediate
+    // UFO device buffer. For a device-resident input, copying device-to-device avoids a
+    // device-to-host-to-device round trip. If the input is a device image,
+    // ufo_buffer_get_device_array converts it to a device-array representation before the copy.
+    // We need this distinction of authoritative location because this task node can be used in
+    // separate ways and it depends upon which task comes before it in the graph. If we read some
+    // projections from disk and directly feed as input then the buffer has host memory allocated.
+    // Alternatively, if we do some gpu-bound processing before then the projections are already on
+    // device and should not take the round trip to become available. This conditional-flow minimizes
+    // host<->device copy.
     if (input_location == UFO_BUFFER_LOCATION_HOST) {
         float *curr_proj_array = ufo_buffer_get_host_array (inputs[0], cmd_queue);
         UFO_RESOURCES_CHECK_CLERR (
@@ -1116,9 +1130,10 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
     */
     properties[PROP_ADDRESSING_MODE] =
         g_param_spec_enum ("addressing-mode",
-            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
-            "Outlier treatment (\"none\", \"clamp\", \"clamp_to_edge\", \"repeat\")",
-            g_enum_register_static ("ufo_gbp_addressing_mode", addressing_values),
+            "Outlier treatment (\"none\", \"clamp_to_edge\", \"clamp\")",
+            "Outlier treatment (\"none\", \"clamp_to_edge\", \"clamp\")",
+            g_enum_register_static ("ufo_rgba_backproject_addressing_mode",
+                                    rgba_addressing_values),
             CL_ADDRESS_CLAMP,
             G_PARAM_READWRITE);
 

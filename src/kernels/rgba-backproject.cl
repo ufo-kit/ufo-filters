@@ -18,7 +18,7 @@ accumulate(
     // with this offset a new projection starts in the flat array for a batch of projections.
     const int proj_offset = idz * size_x * projection_height;
     const int flat_y = 4 * idy;
-    // Row_i points to the strided input rows. Each of the [(flat_y + i) * row_step] marks increasing
+    // row_i points to the strided input rows. Each of the [(flat_y + i) * row_step] marks increasing
     // offsets between the strided four rows. Adding these offsets to the row_start give starting
     // indices of the strided rows. Total number of rows to be processed in this way is controlled by
     // the global work size.
@@ -59,6 +59,8 @@ backproject(
     const float acy = absolute_y - axis + 0.5f;
     float4 sum = 0.0f;
     for (int proj = 0; proj < burst; proj++) {
+        // angle_lut is an array of two ordered floating point values, denoting the cosine and sine
+        // of rotation angles.
         const float2 angle = angle_lut[proj];
         float roh = axis + (acx * angle.x + acy * angle.y);
         sum += read_imagef(projections, sampler, (float4)(roh, idz + 0.5f, proj, 0));

@@ -1,0 +1,774 @@
+# `rgba-backproject` — developer reference
+
+Reference for [`src/ufo-rgba-backproject-task.c`](../../src/ufo-rgba-backproject-task.c) and
+[`src/kernels/rgba-backproject.cl`](../../src/kernels/rgba-backproject.cl).
+
+This is internal developer documentation. It is deliberately not part of the Sphinx toctree: the
+public task reference belongs in [`docs/filters.rst`](../filters.rst), while this file records the
+implementation, memory layout, indexing, and maintenance invariants in enough detail to modify the
+task safely.
+
+The kernel listings below are snapshots of the current source. If a kernel signature or indexing
+rule changes, update this document in the same change. The `.cl` file remains the executable source
+of truth.
+
+---
+
+## 1. Purpose and constraints
+
+`rgba-backproject` reconstructs conventional parallel-beam tomography from a stream of two-
+dimensional projections. It is specialized around one observation: for this geometry, four detector
+rows undergo the same in-plane rotation and differ only in their reconstructed z position. Those
+four independent rows can therefore be stored in the R, G, B, and A channels of one texture pixel,
+sampled with one `read_imagef`, and accumulated as one `float4`.
+
+This is intentionally narrower than [`general-backproject`](general-backproject.md):
+
+- the projection angles are equidistant;
+- the rotation axis is parallel to detector z;
+- there are no source/detector distances, cone-beam weights, detector tilts, axis tilts, or volume
+  transformations;
+- every reconstructed slice is square;
+- projection texture storage is RGBA half precision;
+- computation and output accumulation are single precision;
+- the task returns the unnormalized sum over projections.
+
+The specialization makes the data path much simpler than runtime-generated general-backprojection
+kernels, but it also makes the buffer shapes and the four-row packing invariant fundamental to the
+implementation.
+
+### 1.1 Notation
+
+The rest of this document uses the following symbols consistently.
+
+| Symbol | Meaning |
+|---|---|
+| `P` | Configured total number of projections, `num-projections`. |
+| `B` | Configured maximum projections per burst, `burst`. |
+| `b` | Number of projections in the current burst; `B` for a complete burst and `P mod B` for the tail. |
+| `W` | Input projection width, `in_req.dims[0]`; detector x/column count. |
+| `H` | Input projection height, `in_req.dims[1]`; detector z/row count. |
+| `Z` | Number of slices requested by the resolved z region, `num_slices_actual`. |
+| `Z4` | Internal z count padded upward to a multiple of four, `num_slices_processing`. |
+| `G` | Number of RGBA z groups, `Z4 / 4`. |
+| `xs` | Inclusive ROI coordinate, `x-start`. |
+| `xe` | Resolved exclusive ROI coordinate; `x-end`, or `W` when `x-end=0`. |
+| `S` | ROI side length, `xe - xs`. |
+
+Thus:
+
+```text
+S  = xe - xs
+Z  = ceil((z_stop - z_start) / z_step)
+Z4 = 4 * ceil(Z / 4)
+G  = Z4 / 4
+```
+
+### 1.2 Coordinate conventions
+
+An input projection is a row-major `W × H` float image:
+
+- detector **x** is the horizontal coordinate and fastest-changing array dimension;
+- detector **z** is the vertical coordinate and selects a detector row;
+- projection coordinate `(0, 0)` is the top-left pixel;
+- `center-position-x` is the rotation-axis location in this full detector coordinate frame.
+
+A reconstructed slice has two in-plane volume coordinates. The OpenCL kernel names them `idx` and
+`idy`, corresponding to the two axes of the square output plane. Both use the same half-open absolute
+interval `[xs, xe)`. This is why one pair of properties produces an `S × S` slice.
+
+The ROI is an output-volume crop, not a projection crop. The projection texture always remains `W`
+pixels wide, `center-position-x` is not shifted, and the detector coordinate computed by the
+backprojection is sampled in the full projection.
+
+The kernel converts corner-based integer indices to pixel-center coordinates with `+0.5f`. Rotation
+is performed around a geometric origin by subtracting the axis first, and the axis is added back
+when converting the rotated coordinate into a detector texture coordinate.
+
+---
+
+## 2. Properties and derived state
+
+Properties are enumerated in the `PROP_*` enum, installed by
+`ufo_rgba_backproject_task_class_init`, read and written by the GObject property handlers, and given
+matching instance defaults by `ufo_rgba_backproject_task_init`. Because UFO copies GPU tasks by
+copying their GObject properties, all externally configurable reconstruction state survives graph
+expansion to multiple GPUs.
+
+The three array properties use [`UfoScarray`](../../src/common/ufo-scarray.c). They are initialized
+as three doubles with value zero. This task reads element zero of both center arrays and elements
+zero through two of `region`; it does not implement per-projection center positions.
+
+| Property | Type and default | Operational meaning |
+|---|---|---|
+| `burst` | `uint`, default `24`, range `1..128` | Maximum projections stored and backprojected together. The final burst may be shorter. It sizes the ring buffer, texture layers, and device angle LUT. |
+| `num-projections` | `uint`, default `0`, range `0..32768` | Required total `P`. Although zero is allowed by the property specification, `setup` rejects it. The stream is expected to provide exactly this many projections. |
+| `overall-angle` | `double`, default `π` | Total angular interval in radians. May be negative. No degrees-to-radians conversion occurs. |
+| `x-start` | `uint`, default `0` | Inclusive absolute coordinate `xs` on both output-plane axes. |
+| `x-end` | `uint`, default `0` | Exclusive absolute coordinate. Zero resolves to `W`; otherwise it is used directly as `xe`. |
+| `center-position-x` | double `GValueArray`, default `[0,0,0]` | Element zero is the full-detector horizontal rotation-axis coordinate. Fractional values are supported by linear sampling. |
+| `center-position-z` | double `GValueArray`, default `[0,0,0]` | Element zero is added to the relative z-region start and stop. |
+| `region` | double `GValueArray`, default `[0,0,0]` | Relative `(from,to,step)` detector-row selection. Stop is exclusive. A step almost equal to zero activates the fallback `(0,1,1)`. |
+| `addressing-mode` | enum, default `clamp` | OpenCL sampler addressing: `none`, `clamp_to_edge`, or `clamp`. |
+
+This task deliberately exposes a restricted addressing enum. The backprojection kernel computes
+`rho` in detector-pixel coordinates and passes it directly to `read_imagef`; the packed-row texture
+coordinate is likewise expressed in texels. The
+[sampler](https://registry.khronos.org/OpenCL/specs/unified/refpages/man/html/samplers.html) is therefore created with `normalized_coords = CL_FALSE`. OpenCL permits `repeat` and `mirrored_repeat` only with
+normalized coordinates. Offering either mode here could make `clCreateSampler` fail with `CL_INVALID_VALUE`
+or produce undefined sampling behavior. Enabling normalized coordinates would require rescaling the
+kernel's sampling coordinates by the image dimensions and provides no benefit to this direct
+detector-coordinate implementation, so both modes are intentionally excluded.
+
+### 2.1 X interval
+
+For every requisition:
+
+```text
+xe = (x_end == 0) ? W : x_end
+require xs < xe <= W
+S = xe - xs
+output requisition = (S, S)
+```
+
+Once resources have been sized, a different `W`, `H`, or `S` is rejected. This avoids silently
+reusing buffers with incompatible strides.
+
+### 2.2 Z interval
+
+Let the user tuple be `(r_from, r_to, r_step)` and let `cz` be element zero of
+`center-position-z`.
+
+```text
+if r_step is almost zero:
+    r_from = 0
+    r_to   = 1
+    r_step = 1
+
+require int(r_to) > int(r_from)
+require int(r_step) > 0
+
+z_start = r_from + cz
+z_stop  = r_to   + cz
+z_step  = r_step
+
+require 0 <= z_start
+require z_stop <= H
+
+Z  = ceil((z_stop - z_start) / z_step)
+Z4 = 4 * ceil(Z / 4)
+```
+
+`Z` may be any positive value. Only internal processing uses `Z4`; `generate` stops after `Z`
+outputs.
+
+Although these properties are doubles, `process` passes `z_start` and `z_step` to the packing
+kernel as `cl_int`. The early ordering checks also cast the relative tuple values to `cl_int`, while
+`Z` is calculated from the stored doubles. Fractional values can therefore make the host-side slice
+count disagree with the integer detector rows used by the kernel. Treat the z tuple and
+`center-position-z` as integer-valued pixel coordinates.
+
+### 2.3 Angular lookup table
+
+`setup` constructs one interleaved host array of `2P` floats. With angular increment
+
+```text
+delta = overall_angle / P
+```
+
+projection `i`, for `0 <= i < P`, receives:
+
+```text
+host_buffer_angles[2*i + 0] = cos(i * delta)
+host_buffer_angles[2*i + 1] = sin(i * delta)
+```
+
+The device buffer holds only `B` pairs. Before each backprojection it is overwritten with the pairs
+for the current burst and interpreted by OpenCL as `constant float2 *angle_lut`.
+
+There is no angular offset property and no normalization factor. A full reconstruction is the raw
+sum of texture samples at these angles.
+
+### 2.4 Burst arithmetic
+
+There are `floor(P / B)` complete bursts and, when `P mod B != 0`, one incomplete burst. For every
+incoming projection, `process` derives:
+
+- `processed_proj_count`: the framework-maintained projection count at entry;
+- `actual_burst`: `B` in the complete part, otherwise the tail size;
+- `idx_actual_burst`: the current projection's slot in `[0, actual_burst)`.
+
+Kernels run when `idx_actual_burst + 1 == actual_burst`. The global projection index of that burst's
+first member is:
+
+```text
+global_proj_idx = processed_proj_count + 1 - actual_burst
+```
+
+The `actual_burst != 0` guard in the tail-index calculation avoids a modulo-by-zero when `P` is an
+exact multiple of `B`.
+
+---
+
+## 3. UFO task lifecycle
+
+The task mode is `UFO_TASK_MODE_REDUCTOR | UFO_TASK_MODE_GPU`. It consumes all projections first and
+then emits one two-dimensional output buffer per requested z slice.
+
+```text
+construct task
+  -> init defaults and private pointers
+  -> pipeline sets GObject properties
+  -> setup(resources)
+       retain context and kernels
+       create sampler
+       build host angle LUT
+       allocate burst-sized device angle LUT
+  -> for every incoming projection:
+       get_requisition(input)
+         validate W, H, ROI, z region and device limits
+         allocate dimension-dependent buffers on first call
+         report output shape S x S
+       process(input)
+         copy projection into its ring-buffer slot
+         if burst is complete:
+           accumulate: ring buffer -> RGBA texture
+           upload current angle pairs
+           backproject: texture -> coalesced volume
+  -> input stream ends
+  -> repeated generate(output)
+       on first call: distribute coalesced volume -> planar volume
+       copy planar slice generated -> output
+       stop after Z slices
+  -> finalize
+       release every retained/allocated resource
+```
+
+### 3.1 Construction and setup
+
+`ufo_rgba_backproject_task_new` constructs the GObject. `init` creates the three scarrays, installs
+scalar defaults, resets counters, and nulls resource pointers. No OpenCL allocation is possible yet
+because neither resources nor input dimensions are known.
+
+`setup` is called after properties have been copied/set and before input processing:
+
+1. retain `UfoResources` and its OpenCL context;
+2. load and retain `accumulate`, `backproject`, and `distribute` from `rgba-backproject.cl`;
+3. create an unnormalized, linearly filtered sampler using `addressing-mode`;
+4. reject `P == 0`;
+5. allocate and fill the host angle table;
+6. allocate the device table for `B` `float2` values.
+
+Properties affecting these resources—especially `num-projections`, `burst`, `overall-angle`, and
+`addressing-mode`—must be finalized before setup. Changing them later does not rebuild the sampler or
+lookup tables.
+
+### 3.2 Requisition and dimension discovery
+
+`get_requisition` runs before each `process` call. The first call is where `W` and `H` become known.
+It resolves `S`, `Z`, and `Z4`, performs overflow/device-limit checks, allocates the four
+dimension-dependent OpenCL objects, records the dimensions, and sets the output requisition to
+two-dimensional `(S, S)`.
+
+Subsequent calls return the same output shape. If projection width or height changes, or if the
+resolved ROI side changes, the task reports an error rather than reallocating midway through a
+reduction.
+
+### 3.3 Per-projection processing
+
+The ring-buffer slot is `idx_actual_burst`. A complete `W × H` projection is always stored; z-row
+selection happens later in `accumulate`.
+
+- Host-resident input is copied directly into the slot with a blocking `clEnqueueWriteBuffer`.
+- Device-resident (and other non-host) input is obtained as a device array and copied into the slot
+  with `clEnqueueCopyBuffer`.
+
+At the burst boundary, `accumulate` is submitted asynchronously, the angle-table write is queued
+non-blockingly, and `backproject` is submitted through the blocking profiler call. The command queue
+is in order, so packing and angle transfer complete before backprojection, and the burst is complete
+before `process` returns.
+
+The first burst overwrites every element of the coalesced volume. Later bursts add to it. This is why
+the buffer does not require a separate zero-fill.
+
+### 3.4 Generation
+
+Generation is refused if the framework reports fewer than `P` processed projections. The first
+successful `generate` call launches `distribute` once and sets `priv->distributed`.
+
+Every successful call then copies plane `priv->generated` from the planar internal volume into the
+scheduler-owned output buffer and increments the counter. When `generated == Z`, `generate` returns
+false. The `Z4 - Z` internal padding planes are never exposed.
+
+### 3.5 Finalization
+
+`finalize` releases the projection ring buffer, texture, angle buffer, coalesced volume, planar
+volume, three kernels, sampler, retained context, and retained resources object. It also frees all
+three scarrays and the host angle table. The scheduler owns the per-call input and output
+`UfoBuffer` objects; this task does not retain them.
+
+---
+
+## 4. Resource and buffer inventory
+
+All UFO buffers contain 32-bit floats. The half-precision object below is a private OpenCL image, not
+an output `UfoBuffer`.
+
+| Resource | Created in | Flags/type and logical shape | Size | Written by | Read by | Released in |
+|---|---|---|---|---|---|---|
+| `host_buffer_angles` | `setup` | Host `float[2P]`, interleaved `(cos,sin)` | `2P * sizeof(float)` | Setup loop, once | Burst LUT uploads | `finalize` with `g_free` |
+| `device_buffer_angles` | `setup` | `CL_MEM_READ_ONLY`, logical `float2[B]` | `2B * sizeof(float)` | `clEnqueueWriteBuffer` before each backprojection | `backproject` | `finalize` |
+| `device_buffer_projections` | first `get_requisition` | `CL_MEM_READ_ONLY`, logical `float[B][H][W]` | `BHW * sizeof(float)` | Host upload or device-to-device copy, one slot per input | `accumulate` | `finalize` |
+| `device_texture_projections` | first `get_requisition` | `CL_MEM_OBJECT_IMAGE2D_ARRAY`, `CL_RGBA`, `CL_HALF_FLOAT`, `CL_MEM_READ_WRITE`; logical `[B][G][W][4]` | approximately `B * G * W * 4 * sizeof(half)` | `accumulate` via `write_imagef` | `backproject` via `read_imagef` | `finalize` |
+| `device_coalesced_slices` | first `get_requisition` | `CL_MEM_READ_WRITE`, logical `float4[G][S][S]` | `G * S * S * sizeof(float4)`, equal to `Z4*S*S*sizeof(float)` | `backproject`: assign first burst, add later bursts | `backproject`, then `distribute` | `finalize` |
+| `device_final_slices` | first `get_requisition` | `CL_MEM_WRITE_ONLY`, logical `float[Z4][S][S]` | `Z4*S*S*sizeof(float)` | `distribute` | `clEnqueueCopyBufferRect` | `finalize` |
+| Output `UfoBuffer` | UFO scheduler, per generated item | Two-dimensional float buffer `[S][S]` | `S*S*sizeof(float)` | Final rectangular copy | Downstream task | UFO scheduler |
+| `sampler` | `setup` | Unnormalized coordinates, linear filter, configured addressing | Driver object | Immutable | `backproject` | `finalize` |
+| Three kernels | `setup` | Resources-owned kernels retained by this task | Driver objects | Kernel arguments are reset before calls | Profiler submission | `finalize` |
+| OpenCL context | `setup` | Context from `UfoResources`, explicitly retained | Driver object | — | All OpenCL allocations | `finalize` |
+| `center_position_x`, `center_position_z`, `region` | `init` | `UfoScarray`, three doubles each | Host objects | Property setters | Requisition/process/setup | `finalize` |
+
+`CL_MEM_READ_ONLY` and `CL_MEM_WRITE_ONLY` describe kernel access. Host enqueue operations can still
+write the read-only ring/LUT buffers or use the write-only final buffer as a copy source.
+
+### 4.1 Texture shape
+
+The OpenCL descriptor is:
+
+```text
+image type  = IMAGE2D_ARRAY
+width       = W
+height      = G = Z4/4
+array size  = B
+format      = RGBA half float
+```
+
+For texture coordinate `(x, g, p)`, the four channels hold selected detector rows
+`4g + {0,1,2,3}` for projection slot `p`, after applying `z_start` and `z_step`.
+
+The texture retains the full detector width because the computed detector coordinate `rho` can lie
+outside the output ROI. Cropping this image to `S` would change the coordinate frame and produce
+incorrect samples.
+
+`write_imagef` accepts a `float4` and converts it to half storage. `read_imagef` returns interpolated
+single-precision values reconstructed from that half representation. Projection values are therefore
+quantized to half before backprojection, while the sum remains float.
+
+### 4.2 Allocation checks
+
+Before allocation, all products and sums used by the memory estimate are checked for `gsize`
+overflow. The estimate includes:
+
+```text
+ring buffer + texture + coalesced volume + planar volume + device angle LUT
+```
+
+Each allocation is compared independently with the device's maximum allocation size, capped by the
+task at `2^32` bytes even when the device reports more. The total estimate is compared with global
+device memory.
+
+The image descriptor is also checked against:
+
+```text
+W <= CL_DEVICE_IMAGE2D_MAX_WIDTH
+G <= CL_DEVICE_IMAGE2D_MAX_HEIGHT
+B <= CL_DEVICE_IMAGE_MAX_ARRAY_SIZE
+```
+
+These checks estimate image storage as tightly packed RGBA half data. A driver may use additional
+image metadata or row alignment; `clCreateImage` remains the authoritative allocation check.
+
+---
+
+## 5. Kernel stages
+
+The three stages use no explicit local work size; the OpenCL implementation chooses it. Explicit
+width/height kernel arguments define flat-buffer strides independently of launch geometry.
+
+| Stage | Calls | Global work size | Result |
+|---|---:|---|---|
+| `accumulate` | Once per burst | `(W, G, b)` | Packs selected rows from `b` ring slots into `b` texture layers. |
+| `backproject` | Once per burst | `(S, S, G)` | Adds the burst contribution to the ROI-sized `float4` volume. |
+| `distribute` | Once total | `(S, S, G)` | Converts `float4[G][S][S]` into planar `float[Z4][S][S]`. |
+
+### 5.1 `accumulate`: ring buffer to texture array
+
+```c
+kernel void
+accumulate(
+    global float *in,
+    write_only image2d_array_t out,
+    const int row_start,
+    const int row_step,
+    const int projection_height,
+    const int projection_width) {
+    const int idx = get_global_id(0);
+    const int idy = get_global_id(1);
+    const int idz = get_global_id(2);
+    const int size_x = projection_width;
+    if (idx >= size_x)
+        return;
+    // Projection offset is calculated using the idz (index of the projection in its batch), means
+    // with this offset a new projection starts in the flat array for a batch of projections.
+    const int proj_offset = idz * size_x * projection_height;
+    const int flat_y = 4 * idy;
+    // row_i points to the strided input rows. Each of the [(flat_y + i) * row_step] marks increasing
+    // offsets between the strided four rows. Adding these offsets to the row_start give starting
+    // indices of the strided rows. Total number of rows to be processed in this way is controlled by
+    // the global work size.
+    int row_0 = row_start + (flat_y + 0) * row_step;
+    int row_1 = row_start + (flat_y + 1) * row_step;
+    int row_2 = row_start + (flat_y + 2) * row_step;
+    int row_3 = row_start + (flat_y + 3) * row_step;
+    // Adding each (row_i * size_x) to projection_offset provides the final starting index of the
+    // rows to be processed in the flat array for the batch.
+    float val_0 = (row_0 >= 0 && row_0 < projection_height) ? in[proj_offset + (row_0 * size_x) + idx] : 0.0f;
+    float val_1 = (row_1 >= 0 && row_1 < projection_height) ? in[proj_offset + (row_1 * size_x) + idx] : 0.0f;
+    float val_2 = (row_2 >= 0 && row_2 < projection_height) ? in[proj_offset + (row_2 * size_x) + idx] : 0.0f;
+    float val_3 = (row_3 >= 0 && row_3 < projection_height) ? in[proj_offset + (row_3 * size_x) + idx] : 0.0f;
+    float4 pixel = (float4)(val_0, val_1, val_2, val_3);
+    write_imagef(out, (int4)(idx, idy, idz, 0), pixel);
+}
+```
+
+The kernel sees the ring buffer as a flat array but its logical shape is `[b][H][W]`, with x
+fastest. Work item `(idx, idy, idz)` means:
+
+| Work-item coordinate | Meaning |
+|---|---|
+| `idx` | Detector column `x`, in `[0,W)`. |
+| `idy` | Packed z-group `g`, in `[0,G)`. |
+| `idz` | Projection slot `p`, in `[0,b)`. |
+
+The projection base offset is:
+
+```text
+proj_offset = p * W * H
+```
+
+The four logical z indices carried by one RGBA value are:
+
+```text
+logical_z(c) = 4*g + c for c in {0,1,2,3}
+detector_row(c) = row_start + logical_z(c) * row_step
+```
+
+The corresponding flat ring-buffer address is:
+
+```text
+ring_index(p, row, x) = p*W*H + row*W + x
+```
+
+| Channel | Detector row | Ring-buffer element |
+|---|---|---|
+| R / `.x` | `row_start + (4g+0)*row_step` | `p*W*H + row_0*W + x` |
+| G / `.y` | `row_start + (4g+1)*row_step` | `p*W*H + row_1*W + x` |
+| B / `.z` | `row_start + (4g+2)*row_step` | `p*W*H + row_2*W + x` |
+| A / `.w` | `row_start + (4g+3)*row_step` | `p*W*H + row_3*W + x` |
+
+If a calculated detector row is outside `[0,H)`, that channel is explicitly set to zero. This is a
+detector-boundary check, not a requested-`Z` check: channels introduced only by four-slice padding
+can still read and reconstruct valid neighboring rows when those rows lie inside the detector. They
+are harmless because `generate` does not emit them.
+
+Finally, the `float4` is written to image coordinate `(x, g, p)`. The image converts it to RGBA half
+storage.
+
+### 5.2 `backproject`: texture array to coalesced volume
+
+```c
+kernel void
+backproject(
+    read_only image2d_array_t projections,
+    global float4 *slices,
+    constant float2 *angle_lut,
+    const float axis,
+    const uint burst,
+    sampler_t sampler,
+    const int slice_width,
+    const int slice_height,
+    const uint x_start,
+    const uint first_burst) {
+    const int idx = get_global_id(0);
+    const int idy = get_global_id(1);
+    const int idz = get_global_id(2);
+    if (idx >= slice_width || idy >= slice_height)
+        return;
+    const float absolute_x = (float) (idx + x_start);
+    const float absolute_y = (float) (idy + x_start);
+    const float acx = absolute_x - axis + 0.5f;
+    const float acy = absolute_y - axis + 0.5f;
+    float4 sum = 0.0f;
+    for (int proj = 0; proj < burst; proj++) {
+        // angle_lut is an array of two ordered floating point values, denoting the cosine and sine
+        // of rotation angles.
+        const float2 angle = angle_lut[proj];
+        float roh = axis + (acx * angle.x + acy * angle.y);
+        sum += read_imagef(projections, sampler, (float4)(roh, idz + 0.5f, proj, 0));
+    }
+    const size_t plane = (size_t) slice_width * (size_t) slice_height;
+    const size_t output_index = ((size_t) idz * plane) + ((size_t) idy * slice_width + idx);
+    if (first_burst)
+        slices[output_index] = sum;
+    else
+        slices[output_index] += sum;
+}
+```
+
+Work item `(idx, idy, idz)` owns one in-plane output position and one RGBA z group:
+
+```text
+idx in [0,S)
+idy in [0,S)
+idz in [0,G)
+```
+
+The ROI-relative indices are mapped back to the original full-volume coordinate frame:
+
+```text
+absolute_x = idx + xs
+absolute_y = idy + xs
+```
+
+Both axes use `xs` because the selected volume region is the absolute square
+`[xs,xe) × [xs,xe)`. The center of rotation remains the full-detector `axis`:
+
+```text
+acx = absolute_x - axis + 0.5
+acy = absolute_y - axis + 0.5
+```
+
+For projection slot `p`, the lookup pair is `(cos(theta_p), sin(theta_p))`. The detector coordinate
+is:
+
+```text
+rho_p = axis + acx*cos(theta_p) + acy*sin(theta_p)
+```
+
+The texture sample is:
+
+```text
+read_imagef(projections, sampler, (rho_p, idz + 0.5, p, 0))
+```
+
+- `rho_p` is the unnormalized horizontal texture coordinate and is linearly interpolated;
+- `idz + 0.5` addresses the center of packed z row `idz`;
+- `p` selects the current projection's image-array layer;
+- the returned `float4` contains four independent z-slice samples.
+
+The loop accumulates `b` samples into `sum`. The flat coalesced-volume index is:
+
+```text
+plane = S * S
+base(idx, idy, idz) = idz*plane + idy*S + idx
+```
+
+For the burst beginning at global projection zero, `first_burst` is true and the kernel assigns
+`slices[base] = sum`. Every later burst performs `slices[base] += sum`. Because each work item owns a
+unique `base`, no atomics are required.
+
+### 5.3 `distribute`: coalesced volume to planar volume
+
+```c
+kernel void
+distribute(global float4 *in, global float *out, const int slice_width, const int slice_height) {
+    const int idx = get_global_id(0);
+    const int idy = get_global_id(1);
+    const int idz = get_global_id(2);
+    if (idx >= slice_width || idy >= slice_height)
+        return;
+    const size_t plane = (size_t) slice_width * (size_t) slice_height;
+    const size_t base_index = (size_t) idy * slice_width + idx;
+    float4 values = in[((size_t) idz * plane) + base_index];
+    out[((size_t) (4 * idz + 0) * plane) + base_index] = values.x;
+    out[((size_t) (4 * idz + 1) * plane) + base_index] = values.y;
+    out[((size_t) (4 * idz + 2) * plane) + base_index] = values.z;
+    out[((size_t) (4 * idz + 3) * plane) + base_index] = values.w;
+}
+```
+
+`distribute` uses the same `(S,S,G)` launch. It reads:
+
+```text
+values = coalesced[idz*S*S + idy*S + idx]
+```
+
+and writes the channels to four separate z planes:
+
+```text
+final[(4*idz + 0)*S*S + idy*S + idx] = values.x
+final[(4*idz + 1)*S*S + idy*S + idx] = values.y
+final[(4*idz + 2)*S*S + idy*S + idx] = values.z
+final[(4*idz + 3)*S*S + idy*S + idx] = values.w
+```
+
+| Coalesced element | Channel | Final z plane |
+|---|---|---:|
+| `float4[idz][idy][idx]` | `.x` | `4*idz + 0` |
+| same | `.y` | `4*idz + 1` |
+| same | `.z` | `4*idz + 2` |
+| same | `.w` | `4*idz + 3` |
+
+The result is tightly packed in z-major plane order and is ready for one-slice rectangular copies.
+
+### 5.4 Worked z-padding example
+
+Suppose:
+
+```text
+H = 20
+z_start = 10
+z_stop = 15       (exclusive)
+z_step = 1
+Z = 5
+Z4 = 8
+G = 2
+```
+
+Packing produces:
+
+| Packed group | R | G | B | A | Emitted later? |
+|---:|---:|---:|---:|---:|---|
+| `g=0` | row 10 | row 11 | row 12 | row 13 | all four |
+| `g=1` | row 14 | row 15 | row 16 | row 17 | only row 14 |
+
+Rows 15–17 are inside the detector, so they are not zeroed. They are backprojected into padding
+planes 5–7 and unpacked normally, but `generate` returns only planes 0–4. If a calculated padded row
+were outside `[0,H)`, its channel would instead contain zero.
+
+This behavior avoids special cases in all three kernels and permits any positive `Z`.
+
+### 5.5 Worked incomplete-burst example
+
+For `P=5` and `B=3`:
+
+1. Projections 0, 1, and 2 fill ring slots 0, 1, and 2.
+2. `accumulate` launches with depth 3 and fills texture layers 0–2.
+3. Angles 0–2 are uploaded; `backproject(..., burst=3, first_burst=1)` assigns the volume.
+4. Projections 3 and 4 overwrite ring slots 0 and 1.
+5. `accumulate` launches with depth 2 and overwrites texture layers 0–1. Old layer 2 remains but is
+   irrelevant.
+6. Angles 3–4 are uploaded; `backproject(..., burst=2, first_burst=0)` adds the tail contribution and
+   never reads layer 2.
+
+No clearing of unused ring slots or image layers is required because every kernel's depth/loop bound
+is the current `b`.
+
+---
+
+## 6. Final output copy
+
+After `distribute`, `device_final_slices` is logical `float[Z4][S][S]`. For generated plane `k`, C
+uses `clEnqueueCopyBufferRect` with:
+
+```text
+row_pitch   = S * sizeof(float)
+slice_pitch = S * row_pitch
+
+src_origin = {0 bytes, 0 rows, k slices}
+dst_origin = {0 bytes, 0 rows, 0 slices}
+region     = {row_pitch bytes, S rows, 1 slice}
+
+source row pitch   = row_pitch
+source slice pitch = slice_pitch
+dest row pitch     = row_pitch
+dest slice pitch   = 0              # legal because depth is one
+```
+
+OpenCL buffer-rectangle x origins and widths are expressed in bytes, whereas y and z are rows and
+slices. The source z origin therefore selects `k*S*S*sizeof(float)` bytes without manually forming a
+flat byte offset. The destination is a two-dimensional UFO output buffer and receives one complete
+`S × S` plane.
+
+`generated` starts at zero and increments after each queued copy. The termination test uses `Z`, not
+`Z4`, which is the final guard preventing padding slices from escaping the task.
+
+---
+
+## 7. Failure modes and operational guidance
+
+### 7.1 Expected validation failures
+
+- `num-projections` remains zero when `setup` runs;
+- `x-start >= resolved x-end` or resolved `x-end > W`;
+- the z tuple has non-increasing integer-converted bounds or a non-positive integer-converted step;
+- resolved z start is negative or resolved exclusive stop exceeds `H`;
+- the resolved z region contains no slices;
+- projection dimensions or resolved ROI side change after allocation;
+- a byte-size calculation overflows;
+- a buffer exceeds the effective per-allocation limit;
+- estimated total storage exceeds global device memory;
+- texture width, height, or layer count exceeds image limits;
+- an OpenCL allocation or sampler creation fails.
+
+The kernel source enables `cl_khr_fp16`, and texture creation requires support for an RGBA
+`CL_HALF_FLOAT` image array. Lack of the required kernel/image capability surfaces during kernel
+loading or `clCreateImage`; the task does not perform a separate supported-format query.
+
+If fewer than `P` projections arrive, `generate` logs a warning and emits nothing. Supplying a stream
+whose length differs from `P` is a pipeline configuration error.
+
+### 7.2 Installed-kernel mismatch
+
+Kernels are loaded at runtime, not embedded in the shared module. UFO searches the current directory
+before its installed kernel directory; `UFO_KERNEL_PATH` is searched later. An older installed
+`rgba-backproject.cl` can therefore be selected even when the plugin library was rebuilt.
+
+After changing a kernel signature, either reinstall the kernel or run the pipeline from
+`src/kernels/`, and compare the source with the installed copy. `CL_INVALID_ARG_INDEX` messages are a
+strong indication that host code and kernel source have different ABIs.
+
+### 7.3 Logging and profiling
+
+- Use `G_MESSAGES_DEBUG=all` to see the `rgba_bp` debug messages for burst size, dimensions, region,
+  allocation-derived counts, burst dispatch, and generated slices.
+- Use `ufo-launch -t` to record UFO and OpenCL trace files.
+- `accumulate`, `backproject`, and `distribute` are submitted through the UFO profiler; transfer
+  commands are not represented as kernel events.
+- Run from `src/kernels/` or reinstall before trusting a profile after kernel edits.
+
+### 7.4 Host and device ingestion
+
+Host input remains host-resident and is uploaded directly into its ring slot. Device input is copied
+device-to-device into the same ring. The ring deliberately decouples input-buffer lifetime from the
+burst kernels: UFO may recycle an input buffer as soon as `process` returns, whereas the ring belongs
+to the task until finalization.
+
+The ring stores all `H` rows even when a small z region is requested. This keeps projection slots
+contiguous and makes row selection entirely a packing-kernel concern, at the cost of `B*W*H` float
+storage and a full-projection ingestion copy.
+
+---
+
+## 8. Maintenance invariants
+
+Preserve or deliberately revise all of these together:
+
+1. **Kernel ABI:** C currently sets 6 `accumulate` arguments, 10 `backproject` arguments, and 4
+   `distribute` arguments, in the exact order shown in the kernel snapshot.
+2. **Ring stride:** one projection always occupies exactly `W*H` floats; a ring slot begins at
+   `slot*W*H`.
+3. **Texture layout:** width `W`, height `Z4/4`, array layers `B`, RGBA half storage; channels map to
+   consecutive selected z rows.
+4. **Full detector frame:** ROI work items add `x-start`, while `center-position-x` and `rho` remain
+   full-detector coordinates.
+5. **Square ROI:** both output axes use the same absolute interval and both internal volume buffers
+   use `S*S` plane strides.
+6. **Explicit strides:** flat-buffer indexing uses `projection_width`, `slice_width`, and
+   `slice_height`, not an assumed padded global size.
+7. **Burst initialization:** the first burst assigns every coalesced element; subsequent bursts add.
+   Removing `first_burst` requires deterministic zero initialization.
+8. **In-order dependencies:** asynchronous packing and LUT transfer precede the blocking
+   backprojection on the same command queue.
+9. **Z padding:** internal sizes and kernel z work are based on `Z4`; output termination is based on
+   `Z`.
+10. **Precision:** projection texture values are half precision, but LUTs, interpolation results,
+    accumulation, final storage, and UFO outputs are float.
+11. **No normalization:** changing angular coverage or projection count changes the raw accumulated
+    scale unless a separate downstream normalization is applied.
+12. **Resource ownership:** every retained context/kernel/object and every allocated buffer/scarray
+    must retain its matching release in `finalize`; input and output UFO buffers must not be retained.
+13. **Dimension stability:** resources are fixed after the first requisition; supporting changing
+    projection sizes would require a complete, synchronized reallocation path.
+14. **Documentation snapshot:** whenever `rgba-backproject.cl`, buffer shapes, or function flow
+    changes, update the source listing, formulas, tables, and examples here.

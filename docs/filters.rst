@@ -1226,6 +1226,82 @@ Tomographic backprojection
         Height of the region of interest. The default value of 0 denotes full
         height.
 
+RGBA tomographic backprojection
+--------------------------------
+
+.. gobj:class:: rgba-backproject
+
+    Reconstructs a stream of ``P`` parallel-beam projections, each with width
+    ``W`` and height ``H``, into a stream of square slices. Four detector rows
+    are packed into the RGBA channels of a half-precision OpenCL texture and
+    reconstructed together. Projections are processed in bursts and sampled
+    with linear interpolation. The resulting values are unnormalized sums over
+    all projections.
+
+    The half-open interval ``[x-start, x-end)`` is applied to both in-plane
+    volume axes. It is expressed in the coordinate frame of the full detector:
+    cropping the output does not shift :gobj:prop:`center-position-x` or crop
+    the projection texture. The output side length is ``x-end - x-start``;
+    ``x-end=0`` selects the complete detector width.
+
+    Detector rows are selected with :gobj:prop:`center-position-z` and the
+    half-open :gobj:prop:`region` tuple. The requested number of rows may be any
+    positive value. Internally it is padded to a multiple of four for RGBA
+    processing, but only the requested slices are emitted.
+
+    .. gobj:prop:: burst:uint
+
+        Number of projections processed by one backprojection kernel call.
+        Valid values are 1 through 128; the default is 24. The last burst may
+        contain fewer projections.
+
+    .. gobj:prop:: num-projections:uint
+
+        Total number of input projections. The property range is 0 through
+        32768, but a positive value is mandatory and must match the input
+        stream. The default 0 causes setup to fail.
+
+    .. gobj:prop:: overall-angle:double
+
+        Angular range covered by all projections, in radians. The default is
+        :math:`\pi`; negative values generate a descending angular sequence.
+        Projection ``i`` uses angle ``i * overall-angle / num-projections``.
+
+    .. gobj:prop:: x-start:uint
+
+        Inclusive first coordinate reconstructed along both in-plane volume
+        axes. The default is 0.
+
+    .. gobj:prop:: x-end:uint
+
+        Exclusive last coordinate reconstructed along both in-plane volume
+        axes. The default 0 resolves to the projection width. The resolved
+        interval must be non-empty and contained in ``[0, W]``.
+
+    .. gobj:prop:: center-position-x:GValueArray
+
+        Horizontal center of rotation in full-detector pixel coordinates.
+        The first array value is used and may be fractional. The default is 0.
+
+    .. gobj:prop:: center-position-z:GValueArray
+
+        Detector-row reference added to the first two values of
+        :gobj:prop:`region`. The first array value is used. The default is 0.
+
+    .. gobj:prop:: region:GValueArray
+
+        Detector-row selection ``(from, to, step)`` relative to
+        :gobj:prop:`center-position-z`, with an exclusive stop and positive
+        step. Use integer-valued entries. The resolved interval must lie in
+        ``[0, H]``. The default ``(0, 0, 0)`` is interpreted as ``(0, 1, 1)``
+        and therefore reconstructs one row.
+
+    .. gobj:prop:: addressing-mode:enum
+
+        Texture behavior for horizontal samples outside the projection. One
+        of ``none``, ``clamp_to_edge`` or ``clamp``; the default is ``clamp``.
+        The sampler uses unnormalized detector-pixel coordinates.
+
 Tomographic Stacked backprojection
 ----------------------------------
 
