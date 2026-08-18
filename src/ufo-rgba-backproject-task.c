@@ -44,6 +44,12 @@ G_DEFINE_TYPE_WITH_CODE (UfoRGBABackprojectTask, ufo_rgba_backproject_task, UFO_
 #define UFO_RGBA_BACKPROJECT_TASK_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), \
 UFO_TYPE_RGBA_BACKPROJECT_TASK, UfoRGBABackprojectTaskPrivate))
 
+typedef enum {
+    RGBA_OPERATION_SINGULAR,
+    RGBA_OPERATION_EVEN_ODD_SINGLE,
+    RGBA_OPERATION_EVEN_ODD_DUAL
+} UfoRGBAOperationMode;
+
 struct _UfoRGBABackprojectTaskPrivate {
     // Settings
     guint burst;
@@ -57,6 +63,9 @@ struct _UfoRGBABackprojectTaskPrivate {
     cl_context context;
     cl_kernel accumulate_kernel;
     cl_kernel backproject_kernel;
+    cl_kernel backproject_even_odd_kernel;
+    cl_kernel backproject_even_kernel;
+    cl_kernel backproject_odd_kernel;
     cl_kernel distribute_kernel;
     cl_addressing_mode addressing_mode;
     cl_sampler sampler;
@@ -66,11 +75,14 @@ struct _UfoRGBABackprojectTaskPrivate {
     gsize num_slices_processing;
     gsize generated;
     gdouble overall_angle;
+    UfoRGBAOperationMode operation_mode;
+    guint batch_capacity;
+    guint num_output_volumes;
     gboolean region_params_checked;
     gdouble region_start, region_stop, region_step;
     gdouble x_region_start, x_region_step;
     gdouble y_region_start, y_region_step;
-    gboolean distributed;
+    guint distributed_volume;
     gsize projection_width;
     gsize projection_height;
     gsize reconstruction_width;
@@ -80,7 +92,7 @@ struct _UfoRGBABackprojectTaskPrivate {
     cl_mem device_buffer_projections;
     cl_mem device_texture_projections;
     cl_mem device_buffer_angles;
-    cl_mem device_coalesced_slices;
+    cl_mem device_coalesced_slices[2];
     cl_mem device_final_slices;
 };
 
@@ -95,6 +107,7 @@ enum {
     PROP_CENTER_POSITION_Z,
     PROP_REGION,
     PROP_ADDRESSING_MODE,
+    PROP_OPERATION_MODE,
     N_PROPERTIES
 };
 
@@ -106,6 +119,20 @@ static const GEnumValue rgba_addressing_values[] = {
     { CL_ADDRESS_CLAMP,         "ADDRESS_CLAMP",         "clamp" },
     { 0, NULL, NULL }
 };
+
+static const GEnumValue rgba_operation_mode_values[] = {
+    { RGBA_OPERATION_SINGULAR,        "RGBA_OPERATION_SINGULAR",        "singular" },
+    { RGBA_OPERATION_EVEN_ODD_SINGLE, "RGBA_OPERATION_EVEN_ODD_SINGLE", "even_odd_single" },
+    { RGBA_OPERATION_EVEN_ODD_DUAL,   "RGBA_OPERATION_EVEN_ODD_DUAL",   "even_odd_dual" },
+    { 0, NULL, NULL }
+};
+
+static gboolean
+is_even_odd_mode (UfoRGBAOperationMode mode)
+{
+    return mode == RGBA_OPERATION_EVEN_ODD_SINGLE ||
+           mode == RGBA_OPERATION_EVEN_ODD_DUAL;
+}
 
 static gboolean
 checked_mul_size (gsize a, gsize b, gsize *result)
@@ -294,19 +321,56 @@ ufo_rgba_backproject_task_setup (UfoTask *task, UfoResources *resources, GError 
     // Instantiate OpenCL resources.
     priv->context = ufo_resources_get_context(priv->resources);
     UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainContext (priv->context), error);
-    // Instantiate Kernels
+    priv->num_output_volumes = is_even_odd_mode (priv->operation_mode) ? 2 : 1;
+    priv->batch_capacity = priv->burst * priv->num_output_volumes;
+
+    // Instantiate kernels shared by every operation mode.
     priv->accumulate_kernel = ufo_resources_get_kernel(priv->resources, "rgba-backproject.cl",
         "accumulate", NULL, error);
-    priv->backproject_kernel = ufo_resources_get_kernel(priv->resources, "rgba-backproject.cl",
-        "backproject", NULL, error);
+    if (priv->accumulate_kernel == NULL)
+        return;
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->accumulate_kernel), error);
+
     priv->distribute_kernel = ufo_resources_get_kernel(priv->resources, "rgba-backproject.cl",
         "distribute", NULL, error);
-    if (priv->accumulate_kernel != NULL)
-        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->accumulate_kernel), error);
-    if (priv->backproject_kernel != NULL)
-        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->backproject_kernel), error);
-    if (priv->distribute_kernel != NULL)
-        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->distribute_kernel), error);
+    if (priv->distribute_kernel == NULL)
+        return;
+    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->distribute_kernel), error);
+
+    // Load only the backprojection kernels used by the selected benchmark mode.
+    switch (priv->operation_mode) {
+        case RGBA_OPERATION_SINGULAR:
+            priv->backproject_kernel = ufo_resources_get_kernel (
+                priv->resources, "rgba-backproject.cl", "backproject", NULL, error);
+            if (priv->backproject_kernel == NULL)
+                return;
+            UFO_RESOURCES_CHECK_SET_AND_RETURN (
+                clRetainKernel (priv->backproject_kernel), error);
+            break;
+        case RGBA_OPERATION_EVEN_ODD_SINGLE:
+            priv->backproject_even_odd_kernel = ufo_resources_get_kernel (
+                priv->resources, "rgba-backproject.cl", "backproject_even_odd_single", NULL, error);
+            if (priv->backproject_even_odd_kernel == NULL)
+                return;
+            UFO_RESOURCES_CHECK_SET_AND_RETURN (
+                clRetainKernel (priv->backproject_even_odd_kernel), error);
+            break;
+        case RGBA_OPERATION_EVEN_ODD_DUAL:
+            priv->backproject_even_kernel = ufo_resources_get_kernel (
+                priv->resources, "rgba-backproject.cl", "backproject_even", NULL, error);
+            if (priv->backproject_even_kernel == NULL)
+                return;
+            UFO_RESOURCES_CHECK_SET_AND_RETURN (
+                clRetainKernel (priv->backproject_even_kernel), error);
+
+            priv->backproject_odd_kernel = ufo_resources_get_kernel (
+                priv->resources, "rgba-backproject.cl", "backproject_odd", NULL, error);
+            if (priv->backproject_odd_kernel == NULL)
+                return;
+            UFO_RESOURCES_CHECK_SET_AND_RETURN (
+                clRetainKernel (priv->backproject_odd_kernel), error);
+            break;
+    }
     // Instantiate sampler
     cl_int cl_err;
     priv->sampler = clCreateSampler (
@@ -322,6 +386,11 @@ ufo_rgba_backproject_task_setup (UfoTask *task, UfoResources *resources, GError 
     // Allocate one interleaved host-side buffer for cosine and sine components.
     if (!priv->num_projections) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP, "number of projections not set");
+        return;
+    }
+    if (is_even_odd_mode (priv->operation_mode) && priv->num_projections < 2) {
+        g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
+                     "even/odd operation modes require at least two projections");
         return;
     }
     priv->host_buffer_angles = g_try_new0 (float, 2 * priv->num_projections);
@@ -341,7 +410,7 @@ ufo_rgba_backproject_task_setup (UfoTask *task, UfoResources *resources, GError 
     cl_int cl_error;
     if (!priv->device_buffer_angles) {
         priv->device_buffer_angles = clCreateBuffer(priv->context, CL_MEM_READ_ONLY,
-            2 * priv->burst * sizeof(float), NULL, &cl_error);
+            2 * priv->batch_capacity * sizeof(float), NULL, &cl_error);
         if (cl_error != CL_SUCCESS) {
             g_set_error (error,
                          UFO_TASK_ERROR,
@@ -352,6 +421,7 @@ ufo_rgba_backproject_task_setup (UfoTask *task, UfoResources *resources, GError 
         }
     }
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "burst size: %u", priv->burst);
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "batch capacity: %u", priv->batch_capacity);
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "number of projections: %u", priv->num_projections);
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "overall angle: %f", priv->overall_angle);
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "center position-x: %f",
@@ -494,26 +564,25 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
         }
 
         gsize projection_pixels = 0, projections_size = 0, texture_texels = 0, texture_size = 0;
-        gsize slice_pixels = 0, volume_values = 0, volume_size = 0, lut_size = 0;
+        gsize slice_pixels = 0, volume_values = 0, volume_size = 0, volumes_size = 0, lut_size = 0;
         gsize total_size = 0, next_total = 0;
         gboolean sizes_valid =
             checked_mul_size (in_req.dims[0], in_req.dims[1], &projection_pixels) &&
-            checked_mul_size (projection_pixels, priv->burst, &projections_size) &&
+            checked_mul_size (projection_pixels, priv->batch_capacity, &projections_size) &&
             checked_mul_size (projections_size, sizeof (cl_float), &projections_size) &&
             checked_mul_size (in_req.dims[0], priv->num_slices_processing / 4, &texture_texels) &&
-            checked_mul_size (texture_texels, priv->burst, &texture_texels) &&
+            checked_mul_size (texture_texels, priv->batch_capacity, &texture_texels) &&
             checked_mul_size (texture_texels, 4 * sizeof (cl_half), &texture_size) &&
             checked_mul_size (reconstruction_width, reconstruction_height, &slice_pixels) &&
             checked_mul_size (slice_pixels, priv->num_slices_processing, &volume_values) &&
             checked_mul_size (volume_values, sizeof (cl_float), &volume_size) &&
-            checked_mul_size (priv->burst, 2 * sizeof (cl_float), &lut_size) &&
+            checked_mul_size (volume_size, priv->num_output_volumes + 1, &volumes_size) &&
+            checked_mul_size (priv->batch_capacity, 2 * sizeof (cl_float), &lut_size) &&
             checked_add_size (total_size, projections_size, &next_total);
         total_size = next_total;
         sizes_valid = sizes_valid && checked_add_size (total_size, texture_size, &next_total);
         total_size = next_total;
-        sizes_valid = sizes_valid && checked_add_size (total_size, volume_size, &next_total);
-        total_size = next_total;
-        sizes_valid = sizes_valid && checked_add_size (total_size, volume_size, &next_total);
+        sizes_valid = sizes_valid && checked_add_size (total_size, volumes_size, &next_total);
         total_size = next_total;
         sizes_valid = sizes_valid && checked_add_size (total_size, lut_size, &next_total);
         total_size = next_total;
@@ -581,14 +650,14 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
             return;
         if (in_req.dims[0] > max_image_width ||
             priv->num_slices_processing / 4 > max_image_height ||
-            priv->burst > max_image_layers) {
+            priv->batch_capacity > max_image_layers) {
             g_set_error (error,
                          UFO_TASK_ERROR,
                          UFO_TASK_ERROR_GET_REQUISITION,
                          "projection texture %zux%zux%u exceeds device image limits %zux%zux%zu",
                          in_req.dims[0],
                          priv->num_slices_processing / 4,
-                         priv->burst,
+                         priv->batch_capacity,
                          max_image_width,
                          max_image_height,
                          max_image_layers);
@@ -612,11 +681,11 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
         priv->region_params_checked = TRUE;
     }
     // Allocate device side ring-buffer and additional resources using requisitions. Projection
-    // ring buffer contains burst number of full projections as the region stride is handled by
-    // accumulate kernel.
+    // ring buffer contains one mode-dependent batch of full projections as the region stride is
+    // handled by accumulate kernel.
     cl_int cl_error;
     if (!priv->device_buffer_projections) {
-        gsize projection_buffer_size = priv->burst * priv->projection_width *
+        gsize projection_buffer_size = priv->batch_capacity * priv->projection_width *
                                        priv->projection_height * sizeof (cl_float);
         priv->device_buffer_projections = clCreateBuffer(
             priv->context,
@@ -634,19 +703,21 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
         desc.image_width = in_req.dims[0];
         desc.image_height = priv->num_slices_processing / 4;
         desc.image_depth = 0;
-        desc.image_array_size = priv->burst;
+        desc.image_array_size = priv->batch_capacity;
         priv->device_texture_projections = clCreateImage(priv->context, CL_MEM_READ_WRITE,
             &fmt, &desc, NULL, &cl_error);
         if (set_opencl_error (error, cl_error, "allocating the projection texture"))
             return;
     }
-    if (!priv->device_coalesced_slices) {
-        size_t coal_slice_size = requisition->dims[0] * requisition->dims[1] * (
-            priv->num_slices_processing / 4) * sizeof(cl_float4);
-        priv->device_coalesced_slices = clCreateBuffer(priv->context, CL_MEM_READ_WRITE,
-            coal_slice_size, NULL, &cl_error);
-        if (set_opencl_error (error, cl_error, "allocating the coalesced slice buffer"))
-            return;
+    for (guint volume = 0; volume < priv->num_output_volumes; volume++) {
+        if (!priv->device_coalesced_slices[volume]) {
+            size_t coal_slice_size = requisition->dims[0] * requisition->dims[1] * (
+                priv->num_slices_processing / 4) * sizeof(cl_float4);
+            priv->device_coalesced_slices[volume] = clCreateBuffer(
+                priv->context, CL_MEM_READ_WRITE, coal_slice_size, NULL, &cl_error);
+            if (set_opencl_error (error, cl_error, "allocating a coalesced slice buffer"))
+                return;
+        }
     }
     if (!priv->device_final_slices) {
         size_t final_slice_size = requisition->dims[0] * requisition->dims[1] *
@@ -659,6 +730,132 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
         if (set_opencl_error (error, cl_error, "allocating the final slice buffer"))
             return;
     }
+}
+
+static void
+set_subset_backproject_args (UfoRGBABackprojectTaskPrivate *priv,
+                             cl_kernel kernel,
+                             cl_mem slices,
+                             cl_uint actual_burst,
+                             cl_float center_position_x,
+                             cl_int slice_width,
+                             cl_int slice_height,
+                             const cl_float *x_region,
+                             const cl_float *y_region,
+                             cl_uint first_burst)
+{
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 0, sizeof (cl_mem),
+                                               &priv->device_texture_projections));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 1, sizeof (cl_mem), &slices));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 2, sizeof (cl_mem),
+                                               &priv->device_buffer_angles));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (cl_float),
+                                               &center_position_x));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (cl_uint), &actual_burst));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 5, sizeof (cl_sampler), &priv->sampler));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 6, sizeof (cl_int), &slice_width));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 7, sizeof (cl_int), &slice_height));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 8, sizeof (cl_float2), x_region));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 9, sizeof (cl_float2), y_region));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 10, sizeof (cl_uint), &first_burst));
+}
+
+static void
+dispatch_singular_backprojection (UfoRGBABackprojectTaskPrivate *priv,
+                                  UfoProfiler *profiler,
+                                  cl_command_queue cmd_queue,
+                                  const size_t *work_size,
+                                  cl_uint actual_burst,
+                                  cl_float center_position_x,
+                                  cl_int slice_width,
+                                  cl_int slice_height,
+                                  const cl_float *x_region,
+                                  const cl_float *y_region,
+                                  cl_uint first_burst)
+{
+    set_subset_backproject_args (priv,
+                                 priv->backproject_kernel,
+                                 priv->device_coalesced_slices[0],
+                                 actual_burst,
+                                 center_position_x,
+                                 slice_width,
+                                 slice_height,
+                                 x_region,
+                                 y_region,
+                                 first_burst);
+    ufo_profiler_call_blocking (profiler, cmd_queue, priv->backproject_kernel, 3, work_size, NULL);
+}
+
+static void
+dispatch_even_odd_single_backprojection (UfoRGBABackprojectTaskPrivate *priv,
+                                         UfoProfiler *profiler,
+                                         cl_command_queue cmd_queue,
+                                         const size_t *work_size,
+                                         cl_uint actual_burst,
+                                         cl_float center_position_x,
+                                         cl_int slice_width,
+                                         cl_int slice_height,
+                                         const cl_float *x_region,
+                                         const cl_float *y_region,
+                                         cl_uint first_burst)
+{
+    cl_kernel kernel = priv->backproject_even_odd_kernel;
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 0, sizeof (cl_mem),
+                                               &priv->device_texture_projections));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 1, sizeof (cl_mem),
+                                               &priv->device_coalesced_slices[0]));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 2, sizeof (cl_mem),
+                                               &priv->device_coalesced_slices[1]));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (cl_mem),
+                                               &priv->device_buffer_angles));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (cl_float),
+                                               &center_position_x));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 5, sizeof (cl_uint), &actual_burst));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 6, sizeof (cl_sampler), &priv->sampler));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 7, sizeof (cl_int), &slice_width));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 8, sizeof (cl_int), &slice_height));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 9, sizeof (cl_float2), x_region));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 10, sizeof (cl_float2), y_region));
+    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 11, sizeof (cl_uint), &first_burst));
+    ufo_profiler_call_blocking (profiler, cmd_queue, kernel, 3, work_size, NULL);
+}
+
+static void
+dispatch_even_odd_dual_backprojection (UfoRGBABackprojectTaskPrivate *priv,
+                                       UfoProfiler *profiler,
+                                       cl_command_queue cmd_queue,
+                                       const size_t *work_size,
+                                       cl_uint actual_burst,
+                                       cl_float center_position_x,
+                                       cl_int slice_width,
+                                       cl_int slice_height,
+                                       const cl_float *x_region,
+                                       const cl_float *y_region,
+                                       cl_uint first_burst)
+{
+    set_subset_backproject_args (priv,
+                                 priv->backproject_even_kernel,
+                                 priv->device_coalesced_slices[0],
+                                 actual_burst,
+                                 center_position_x,
+                                 slice_width,
+                                 slice_height,
+                                 x_region,
+                                 y_region,
+                                 first_burst);
+    set_subset_backproject_args (priv,
+                                 priv->backproject_odd_kernel,
+                                 priv->device_coalesced_slices[1],
+                                 actual_burst,
+                                 center_position_x,
+                                 slice_width,
+                                 slice_height,
+                                 x_region,
+                                 y_region,
+                                 first_burst);
+    ufo_profiler_call (profiler, cmd_queue, priv->backproject_even_kernel, 3, work_size, NULL);
+    ufo_profiler_call_blocking (
+        profiler, cmd_queue, priv->backproject_odd_kernel, 3, work_size, NULL);
 }
 
 /**
@@ -674,67 +871,10 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
  * 
  * Called for each iteration of the task to process individual projections.
  * 
- * NOTE: To process incoming stream of projections in batches the function determines whether we are
- * at a COMPLETE or INCOMPLETE burst (batch) scenario. COMPLETE burst means we have sufficient
- * number of projections left to process out of total and therefore next kernel execution can happen
- * over configured `priv->burst` projections. In contrast, INCOMPLETE burst means that we are
- * approaching the end of processing and less then `priv->burst` projections are left to process.
- * Following variables helps in distinguishing between two scenarios.
- * 
- * - `processed_proj_count`: Number of processed inputs/projections (tracked by ufo task node using
- * `num_processed` variable internally) at any given point during execution.
- * 
- * - `actual_burst`: Actual number of projections that we can process with next kernel execution,
- * means this is our runtime batch in practice. In COMPLETE burst scenario `actual_burst` is equal
- * to `priv->burst`. In INCOMPLETE burst scenario `actual_burst` is lesser than `priv->burst`.
- * 
- * - `idx_actual_burst`: Index of current projection in actual burst. Modulo operator is used with
- * `actual_burst` to compute this and prevent going out of bounds, therefore it ranges in
- * [0, `actual_burst`).
- * 
- * Both the actual burst size and projection index in actual burst are needed to correctly update
- * the ring buffer.
- * 
- * INCOMPLETE Burst: `(processed_proj_count >= (priv->num_projections / priv->burst) * priv->burst)`
- * 
- * Expression `(priv->num_projections / priv->burst) * priv->burst` tells us total number of
- * projections we can process with configured `priv->burst`. If our current `processed_proj_count`
- * exceeds that number it means we have less then `priv->burst` projections left to process out of
- * `priv->num_projections`. In that case actual_burst would be remainder number of projections after
- * processing all the complete bursts and this is then our current `actual_burst`.
- * Next we calculate index of the current projection inside its own burst, `idx_actual_burst` by
- * calculating the offset between current processed projection count and total number of projections
- * that can be processed with complete burst. There are three specific details, that we want to keep
- * in mind in this regard.
- * 
- * 1. `(priv->num_projections / priv->burst)` is an integer division and it yields the total number
- * of complete bursts possible for `priv->num_projections` with burst size `priv->burst` and
- * subsequently when `priv->burst` is multiplied to that we get the total number of projections
- * covered by the complete bursts.
- * 
- * 2. `(processed_proj_count - (priv->num_projections / priv->burst) * priv->burst)` yields the
- * offset between the 'current projection being processed' and 'total number of projections covered
- * by the complete bursts'. Former is greater or equal to latter (our INCOMPLETE burst condition
- * above). It means this control flow is only active when we are just processing
- * `(priv->num_projections / priv->burst) * priv->burst]'th` projection or exceeded that number.
- * Hence, this offset can be 0, 1, 2... and so on and when we perform modulo operation on that with
- * `actual_burst` we get the desired index. This modulo operation acts as a guard that this index
- * will never be out of bounds of the `actual_burst` size.
- * 
- * 3. `actual_burst != 0` safe-guards against division by zero problem. It is possible to have a
- * situation, when all the projections can be processed using complete bursts only (e.g., 3000 % 24
- * = 0). If that's the case expression `priv->num_projections % priv->burst` will compute
- * `actual_burst` as 0 and we might land into division by zero situation.
- * 
- * COMPLETE Burst: `(processed_proj_count < (priv->num_projections / priv->burst) * priv->burst)`
- * 
- * In this simpler scenario `actual_burst` would be the configured `priv->burst` because we have
- * sufficient number of projections still left to process such that next kernel execution can happen
- * for `priv->burst` projections. So we can directly set `actual_burst` accordingly. We calculate
- * the `idx_actual_burst` using modulo operation of `processed_proj_count` by `actual_burst`, which
- * calculates value in range [0, `actual_burst`). Crucial difference here is the `actual_burst`.
- * In this scenario it is the configured size and in other case it is derived from the number of
- * projections left to process.
+ * `batch_capacity` is `burst` in singular mode and `2 * burst` in both parity modes. The batch start
+ * is always a multiple of that capacity, which is important because a parity batch must start with
+ * an even global projection. `actual_burst` shortens only the final batch, while
+ * `idx_actual_burst` selects the ring-buffer slot for the current input.
  * 
  */
 static gboolean
@@ -747,21 +887,11 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
     cl_command_queue cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     UfoProfiler *profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     ufo_buffer_get_requisition (inputs[0], &in_req);
-    guint idx_actual_burst, processed_proj_count, actual_burst;
+    guint idx_actual_burst, processed_proj_count, actual_burst, batch_start;
     g_object_get (task, "num_processed", &processed_proj_count, NULL);
-    if (processed_proj_count >= (priv->num_projections / priv->burst) * priv->burst) {
-        // Scenario: INCOMPLETE Burst (means we have processed all the projections which we could
-        // process with complete bursts and number of projections left to process would not make a
-        // a complete burst)
-        actual_burst = priv->num_projections % priv->burst;
-        idx_actual_burst = actual_burst != 0 ? (processed_proj_count - (
-            priv->num_projections / priv->burst) * priv->burst) % actual_burst : 0;
-    } else {
-        // Scenario: COMPLETE Burst (means we have not yet processed all the projections which can
-        // be processed with complete bursts, in other words we can still have a complete burst)
-        actual_burst = priv->burst;
-        idx_actual_burst = processed_proj_count % actual_burst;
-    }
+    batch_start = (processed_proj_count / priv->batch_capacity) * priv->batch_capacity;
+    actual_burst = MIN (priv->batch_capacity, priv->num_projections - batch_start);
+    idx_actual_burst = processed_proj_count - batch_start;
     gsize projection_size = in_req.dims[0] * in_req.dims[1] * sizeof (cl_float);
     gsize projection_offset = idx_actual_burst * projection_size;
     UfoBufferLocation input_location = ufo_buffer_get_location (inputs[0]);
@@ -803,13 +933,8 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
     // projection in its burst, if (idx_actual_burst + 1) is equal to the derived burst size we can
     // process the batch.
     if (idx_actual_burst + 1 == actual_burst) {
-        // We compute the global index of the first projection to be processed in the current
-        // burst. We need it to copy the rotation coefficients from the host side buffer to device
-        // side. Incrementing global index of the processed projections so far by 1 gives us the
-        // global index of the current projection and since we want to process `actual_burst` number
-        // of projections in next kernel execution subtracting it from the global index of current
-        // projection gives us the index we want.
-        cl_uint global_proj_idx = (cl_uint) (processed_proj_count + 1 - actual_burst);
+        // The batch start selects the matching contiguous range from the global angle lookup table.
+        cl_uint global_proj_idx = (cl_uint) batch_start;
         g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "processing %u projections starting from %u", actual_burst,
             global_proj_idx);
         /// STAGE: ACCUMULATE (Packs four rows of the projection into one using RGBA format)
@@ -848,30 +973,23 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
         const cl_float y_region[2] = {
             (cl_float) priv->y_region_start, (cl_float) priv->y_region_step};
         const cl_uint first_burst = global_proj_idx == 0;
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 0, sizeof(cl_mem),
-        &priv->device_texture_projections));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 1, sizeof(cl_mem),
-        &priv->device_coalesced_slices));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 2, sizeof(cl_mem),
-        &priv->device_buffer_angles));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 3, sizeof(cl_float),
-        &center_position_x));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 4, sizeof(cl_uint),
-        &actual_burst));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 5, sizeof(cl_sampler),
-        &priv->sampler));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 6, sizeof(cl_int),
-        &slice_width));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 7, sizeof(cl_int),
-        &slice_height));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 8, sizeof(cl_float2),
-        x_region));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 9, sizeof(cl_float2),
-        y_region));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 10, sizeof(cl_uint),
-        &first_burst));
-        ufo_profiler_call_blocking (profiler, cmd_queue, priv->backproject_kernel, 3, bp_work_size,
-            NULL);
+        switch (priv->operation_mode) {
+            case RGBA_OPERATION_SINGULAR:
+                dispatch_singular_backprojection (priv, profiler, cmd_queue, bp_work_size,
+                    actual_burst, center_position_x, slice_width, slice_height, x_region, y_region,
+                    first_burst);
+                break;
+            case RGBA_OPERATION_EVEN_ODD_SINGLE:
+                dispatch_even_odd_single_backprojection (priv, profiler, cmd_queue, bp_work_size,
+                    actual_burst, center_position_x, slice_width, slice_height, x_region, y_region,
+                    first_burst);
+                break;
+            case RGBA_OPERATION_EVEN_ODD_DUAL:
+                dispatch_even_odd_dual_backprojection (priv, profiler, cmd_queue, bp_work_size,
+                    actual_burst, center_position_x, slice_width, slice_height, x_region, y_region,
+                    first_burst);
+                break;
+        }
     }
     return TRUE;
 }
@@ -898,6 +1016,9 @@ ufo_rgba_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequisi
     UfoProfiler *profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
     cl_command_queue cmd_queue = ufo_gpu_node_get_cmd_queue (node);
     guint processed_proj_count;
+    gsize total_slices;
+    guint output_volume;
+    gsize slice_in_volume;
     g_object_get (task, "num_processed", &processed_proj_count, NULL);
     if (processed_proj_count < priv->num_projections) {
         g_warning ("rgba-backproject received only %u projections out of %u "
@@ -905,22 +1026,27 @@ ufo_rgba_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequisi
                    priv->num_projections);
         return FALSE;
     }
-    if (priv->generated >= priv->num_slices_actual)
+    total_slices = priv->num_slices_actual * priv->num_output_volumes;
+    if (priv->generated >= total_slices)
         return FALSE;
 
+    output_volume = (guint) (priv->generated / priv->num_slices_actual);
+    slice_in_volume = priv->generated % priv->num_slices_actual;
+
     /// STAGE: DISTRIBUTE (Spread the values packed into float4 buffer into separate slices)
-    // Make sure that distributed is not called for each generate call.
-    if (!priv->distributed) {
+    // The planar buffer is reused: distribute all even slices first, then all odd slices.
+    if (priv->distributed_volume != output_volume) {
         const size_t dist_work_size[] = {
             requisition->dims[0], requisition->dims[1], priv->num_slices_processing / 4};
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 0, sizeof(cl_mem),
-        &priv->device_coalesced_slices));
+        &priv->device_coalesced_slices[output_volume]));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 1, sizeof(cl_mem),
         &priv->device_final_slices));
         const cl_int slice_width = (cl_int) requisition->dims[0];
         const cl_int slice_height = (cl_int) requisition->dims[1];
-        const cl_float normalization_factor = (cl_float) (
-            fabs (priv->overall_angle) / (gdouble) priv->num_projections);
+        const cl_float normalization_factor = priv->operation_mode == RGBA_OPERATION_SINGULAR
+            ? (cl_float) (fabs (priv->overall_angle) / (gdouble) priv->num_projections)
+            : 1.0f;
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 2, sizeof(cl_int),
         &slice_width));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 3, sizeof(cl_int),
@@ -929,7 +1055,7 @@ ufo_rgba_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequisi
         &normalization_factor));
         ufo_profiler_call_blocking (profiler, cmd_queue, priv->distribute_kernel, 3, dist_work_size,
             NULL);
-        priv->distributed = TRUE;
+        priv->distributed_volume = output_volume;
     }
     /// STAGE: OUTPUT
     cl_mem out_mem = ufo_buffer_get_device_array (output, cmd_queue);
@@ -944,10 +1070,11 @@ ufo_rgba_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequisi
     // each slice, hence depth is 1.
     size_t row_pitch = requisition->dims[0] * sizeof(float);
     size_t slice_pitch = requisition->dims[1] * row_pitch;
-    size_t src_origin[3] = {0, 0, priv->generated};
+    size_t src_origin[3] = {0, 0, slice_in_volume};
     size_t dst_origin[3] = {0, 0, 0};
     size_t region[3] = {row_pitch, requisition->dims[1], 1};
-    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "generating slice %lu", priv->generated + 1);
+    g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "generating volume %u slice %lu",
+           output_volume, slice_in_volume + 1);
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "src_origin: %lu %lu %lu", src_origin[0], src_origin[1],
         src_origin[2]);
     g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "region: %lu %lu %lu", region[0], region[1], region[2]);
@@ -995,6 +1122,9 @@ ufo_rgba_backproject_task_set_property (GObject *object, guint property_id, cons
         case PROP_ADDRESSING_MODE:
             priv->addressing_mode = g_value_get_enum (value);
             break;
+        case PROP_OPERATION_MODE:
+            priv->operation_mode = g_value_get_enum (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
@@ -1035,6 +1165,9 @@ ufo_rgba_backproject_task_get_property (GObject *object, guint property_id, GVal
         case PROP_ADDRESSING_MODE:
             g_value_set_enum (value, priv->addressing_mode);
             break;
+        case PROP_OPERATION_MODE:
+            g_value_set_enum (value, priv->operation_mode);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
@@ -1057,9 +1190,11 @@ ufo_rgba_backproject_task_finalize (GObject *object)
         UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_buffer_angles));
         priv->device_buffer_angles = NULL;
     }
-    if (priv->device_coalesced_slices) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_coalesced_slices));
-        priv->device_coalesced_slices = NULL;
+    for (guint volume = 0; volume < G_N_ELEMENTS (priv->device_coalesced_slices); volume++) {
+        if (priv->device_coalesced_slices[volume]) {
+            UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_coalesced_slices[volume]));
+            priv->device_coalesced_slices[volume] = NULL;
+        }
     }
     if (priv->device_final_slices) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseMemObject (priv->device_final_slices));
@@ -1072,6 +1207,18 @@ ufo_rgba_backproject_task_finalize (GObject *object)
     if (priv->backproject_kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->backproject_kernel));
         priv->backproject_kernel = NULL;
+    }
+    if (priv->backproject_even_odd_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->backproject_even_odd_kernel));
+        priv->backproject_even_odd_kernel = NULL;
+    }
+    if (priv->backproject_even_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->backproject_even_kernel));
+        priv->backproject_even_kernel = NULL;
+    }
+    if (priv->backproject_odd_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->backproject_odd_kernel));
+        priv->backproject_odd_kernel = NULL;
     }
     if (priv->distribute_kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->distribute_kernel));
@@ -1157,14 +1304,15 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
     
     
     /*
-    Number of projections processed per one kernel invocation. Defaults to 24 because benchmarks
-    have shown that for a given (height x width) of projections kernel-execution-time vs burst
-    minimizes at approximately 24 before hitting a plateau.
+    Number of projections processed per batch in singular mode and per parity in even/odd modes.
+    Defaults to 24 because benchmarks have shown that for a given (height x width) of projections
+    kernel-execution-time vs burst minimizes at approximately 24 before hitting a plateau.
     */
     properties[PROP_BURST] =
         g_param_spec_uint ("burst",
-            "Number of projections processed per one kernel invocation",
-            "Number of projections processed per one kernel invocation",
+            "Number of projections processed per batch or per parity",
+            "Number of projections processed per batch in singular mode and per parity in "
+            "even/odd modes",
             // Benchmarking showed that with 24 projections being processed together we land with
             // the most optimal runtime efficiency. The runtime for each back-projection kernel
             // invocation is bottle-necked by the loop over the number of projections. Beyond 24
@@ -1255,6 +1403,16 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
             CL_ADDRESS_CLAMP,
             G_PARAM_READWRITE);
 
+    properties[PROP_OPERATION_MODE] =
+        g_param_spec_enum ("operation-mode",
+            "Reconstruction operation mode",
+            "Reconstruction operation mode (\"singular\", \"even_odd_single\", "
+            "\"even_odd_dual\")",
+            g_enum_register_static ("ufo_rgba_backproject_operation_mode",
+                                    rgba_operation_mode_values),
+            RGBA_OPERATION_SINGULAR,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
     g_type_class_add_private (oclass, sizeof(UfoRGBABackprojectTaskPrivate));
@@ -1269,11 +1427,17 @@ ufo_rgba_backproject_task_init(UfoRGBABackprojectTask *self)
     self->priv->context = NULL;
     self->priv->accumulate_kernel = NULL;
     self->priv->backproject_kernel = NULL;
+    self->priv->backproject_even_odd_kernel = NULL;
+    self->priv->backproject_even_kernel = NULL;
+    self->priv->backproject_odd_kernel = NULL;
     self->priv->distribute_kernel = NULL;
     /// Properties
     self->priv->overall_angle = G_PI;
     self->priv->burst = 24;
     self->priv->num_projections = 0;
+    self->priv->operation_mode = RGBA_OPERATION_SINGULAR;
+    self->priv->batch_capacity = 24;
+    self->priv->num_output_volumes = 1;
     self->priv->x_region = ufo_scarray_new (3, G_TYPE_DOUBLE, NULL);
     self->priv->y_region = ufo_scarray_new (3, G_TYPE_DOUBLE, NULL);
     self->priv->center_position_x = ufo_scarray_new(3, G_TYPE_DOUBLE, NULL);
@@ -1292,7 +1456,7 @@ ufo_rgba_backproject_task_init(UfoRGBABackprojectTask *self)
     self->priv->x_region_step = 0.0;
     self->priv->y_region_start = 0.0;
     self->priv->y_region_step = 0.0;
-    self->priv->distributed = FALSE;
+    self->priv->distributed_volume = G_MAXUINT;
     self->priv->projection_width = 0;
     self->priv->projection_height = 0;
     self->priv->reconstruction_width = 0;
@@ -1302,6 +1466,7 @@ ufo_rgba_backproject_task_init(UfoRGBABackprojectTask *self)
     self->priv->device_texture_projections = NULL;
     self->priv->host_buffer_angles = NULL;
     self->priv->device_buffer_angles = NULL;
-    self->priv->device_coalesced_slices = NULL;
+    self->priv->device_coalesced_slices[0] = NULL;
+    self->priv->device_coalesced_slices[1] = NULL;
     self->priv->device_final_slices = NULL;
 }
