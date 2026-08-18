@@ -1,5 +1,3 @@
-#pragma OPENCL EXTENSION cl_khr_fp16 : enable
-
 kernel void
 accumulate(
     global float *in,
@@ -74,7 +72,12 @@ backproject(
 }
 
 kernel void
-distribute(global float4 *in, global float *out, const int slice_width, const int slice_height) {
+distribute(
+    global float4 *in,
+    global float *out,
+    const int slice_width,
+    const int slice_height,
+    const float normalization_factor) {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
     const int idz = get_global_id(2);
@@ -82,7 +85,7 @@ distribute(global float4 *in, global float *out, const int slice_width, const in
         return;
     const size_t plane = (size_t) slice_width * (size_t) slice_height;
     const size_t base_index = (size_t) idy * slice_width + idx;
-    float4 values = in[((size_t) idz * plane) + base_index];
+    float4 values = in[((size_t) idz * plane) + base_index] * normalization_factor;
     out[((size_t) (4 * idz + 0) * plane) + base_index] = values.x;
     out[((size_t) (4 * idz + 1) * plane) + base_index] = values.y;
     out[((size_t) (4 * idz + 2) * plane) + base_index] = values.z;

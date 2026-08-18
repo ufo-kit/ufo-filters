@@ -31,7 +31,7 @@ This is intentionally narrower than [`general-backproject`](general-backproject.
 - every reconstructed slice is square;
 - projection texture storage is RGBA half precision;
 - computation and output accumulation are single precision;
-- the task returns the unnormalized sum over projections.
+- the task scales the completed projection sum by the angular sampling interval.
 
 The specialization makes the data path much simpler than runtime-generated general-backprojection
 kernels, but it also makes the buffer shapes and the four-row packing invariant fundamental to the
@@ -186,8 +186,15 @@ host_buffer_angles[2*i + 1] = sin(i * delta)
 The device buffer holds only `B` pairs. Before each backprojection it is overwritten with the pairs
 for the current burst and interpreted by OpenCL as `constant float2 *angle_lut`.
 
-There is no angular offset property and no normalization factor. A full reconstruction is the raw
-sum of texture samples at these angles.
+There is no angular offset property. After all bursts have accumulated, `distribute` applies the
+same angular sampling factor used by `general-backproject`:
+
+```text
+normalization_factor = abs(overall_angle) / P
+```
+
+Using the absolute angular range preserves intensity sign when projections are ordered along a
+negative rotation direction.
 
 ### 2.4 Burst arithmetic
 
@@ -294,7 +301,9 @@ the buffer does not require a separate zero-fill.
 ### 3.4 Generation
 
 Generation is refused if the framework reports fewer than `P` processed projections. The first
-successful `generate` call launches `distribute` once and sets `priv->distributed`.
+successful `generate` call computes `abs(overall_angle) / P`, launches `distribute` once, and sets
+`priv->distributed`. The kernel applies this factor while unpacking RGBA values, avoiding another
+kernel launch or volume-memory pass.
 
 Every successful call then copies plane `priv->generated` from the planar internal volume into the
 scheduler-owned output buffer and increments the counter. When `generated == Z`, `generate` returns
@@ -321,7 +330,7 @@ an output `UfoBuffer`.
 | `device_buffer_projections` | first `get_requisition` | `CL_MEM_READ_ONLY`, logical `float[B][H][W]` | `BHW * sizeof(float)` | Host upload or device-to-device copy, one slot per input | `accumulate` | `finalize` |
 | `device_texture_projections` | first `get_requisition` | `CL_MEM_OBJECT_IMAGE2D_ARRAY`, `CL_RGBA`, `CL_HALF_FLOAT`, `CL_MEM_READ_WRITE`; logical `[B][G][W][4]` | approximately `B * G * W * 4 * sizeof(half)` | `accumulate` via `write_imagef` | `backproject` via `read_imagef` | `finalize` |
 | `device_coalesced_slices` | first `get_requisition` | `CL_MEM_READ_WRITE`, logical `float4[G][S][S]` | `G * S * S * sizeof(float4)`, equal to `Z4*S*S*sizeof(float)` | `backproject`: assign first burst, add later bursts | `backproject`, then `distribute` | `finalize` |
-| `device_final_slices` | first `get_requisition` | `CL_MEM_WRITE_ONLY`, logical `float[Z4][S][S]` | `Z4*S*S*sizeof(float)` | `distribute` | `clEnqueueCopyBufferRect` | `finalize` |
+| `device_final_slices` | first `get_requisition` | `CL_MEM_WRITE_ONLY`, logical `float[Z4][S][S]` | `Z4*S*S*sizeof(float)` | `distribute`, including angular normalization | `clEnqueueCopyBufferRect` | `finalize` |
 | Output `UfoBuffer` | UFO scheduler, per generated item | Two-dimensional float buffer `[S][S]` | `S*S*sizeof(float)` | Final rectangular copy | Downstream task | UFO scheduler |
 | `sampler` | `setup` | Unnormalized coordinates, linear filter, configured addressing | Driver object | Immutable | `backproject` | `finalize` |
 | Three kernels | `setup` | Resources-owned kernels retained by this task | Driver objects | Kernel arguments are reset before calls | Profiler submission | `finalize` |
@@ -389,7 +398,7 @@ width/height kernel arguments define flat-buffer strides independently of launch
 |---|---:|---|---|
 | `accumulate` | Once per burst | `(W, G, b)` | Packs selected rows from `b` ring slots into `b` texture layers. |
 | `backproject` | Once per burst | `(S, S, G)` | Adds the burst contribution to the ROI-sized `float4` volume. |
-| `distribute` | Once total | `(S, S, G)` | Converts `float4[G][S][S]` into planar `float[Z4][S][S]`. |
+| `distribute` | Once total | `(S, S, G)` | Normalizes and converts `float4[G][S][S]` into planar `float[Z4][S][S]`. |
 
 ### 5.1 `accumulate`: ring buffer to texture array
 
@@ -571,7 +580,12 @@ unique `base`, no atomics are required.
 
 ```c
 kernel void
-distribute(global float4 *in, global float *out, const int slice_width, const int slice_height) {
+distribute(
+    global float4 *in,
+    global float *out,
+    const int slice_width,
+    const int slice_height,
+    const float normalization_factor) {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
     const int idz = get_global_id(2);
@@ -579,7 +593,7 @@ distribute(global float4 *in, global float *out, const int slice_width, const in
         return;
     const size_t plane = (size_t) slice_width * (size_t) slice_height;
     const size_t base_index = (size_t) idy * slice_width + idx;
-    float4 values = in[((size_t) idz * plane) + base_index];
+    float4 values = in[((size_t) idz * plane) + base_index] * normalization_factor;
     out[((size_t) (4 * idz + 0) * plane) + base_index] = values.x;
     out[((size_t) (4 * idz + 1) * plane) + base_index] = values.y;
     out[((size_t) (4 * idz + 2) * plane) + base_index] = values.z;
@@ -591,6 +605,7 @@ distribute(global float4 *in, global float *out, const int slice_width, const in
 
 ```text
 values = coalesced[idz*S*S + idy*S + idx]
+         * abs(overall_angle) / P
 ```
 
 and writes the channels to four separate z planes:
@@ -609,7 +624,9 @@ final[(4*idz + 3)*S*S + idy*S + idx] = values.w
 | same | `.z` | `4*idz + 2` |
 | same | `.w` | `4*idz + 3` |
 
-The result is tightly packed in z-major plane order and is ready for one-slice rectangular copies.
+The result is angularly normalized, tightly packed in z-major plane order, and ready for one-slice
+rectangular copies. Applying the factor once here is mathematically equivalent to scaling each
+burst contribution before accumulation, apart from floating-point rounding order.
 
 ### 5.4 Worked z-padding example
 
@@ -701,9 +718,10 @@ flat byte offset. The destination is a two-dimensional UFO output buffer and rec
 - texture width, height, or layer count exceeds image limits;
 - an OpenCL allocation or sampler creation fails.
 
-The kernel source enables `cl_khr_fp16`, and texture creation requires support for an RGBA
-`CL_HALF_FLOAT` image array. Lack of the required kernel/image capability surfaces during kernel
-loading or `clCreateImage`; the task does not perform a separate supported-format query.
+Texture creation requires support for an RGBA `CL_HALF_FLOAT` image array. The kernels themselves
+use `read_imagef` and `write_imagef`, which operate on float values and therefore do not require
+OpenCL C half arithmetic or `cl_khr_fp16`. Lack of the image format surfaces at `clCreateImage`; the
+task does not perform a separate supported-format query.
 
 If fewer than `P` projections arrive, `generate` logs a warning and emits nothing. Supplying a stream
 whose length differs from `P` is a pipeline configuration error.
@@ -744,7 +762,7 @@ storage and a full-projection ingestion copy.
 
 Preserve or deliberately revise all of these together:
 
-1. **Kernel ABI:** C currently sets 6 `accumulate` arguments, 10 `backproject` arguments, and 4
+1. **Kernel ABI:** C currently sets 6 `accumulate` arguments, 10 `backproject` arguments, and 5
    `distribute` arguments, in the exact order shown in the kernel snapshot.
 2. **Ring stride:** one projection always occupies exactly `W*H` floats; a ring slot begins at
    `slot*W*H`.
@@ -764,8 +782,9 @@ Preserve or deliberately revise all of these together:
    `Z`.
 10. **Precision:** projection texture values are half precision, but LUTs, interpolation results,
     accumulation, final storage, and UFO outputs are float.
-11. **No normalization:** changing angular coverage or projection count changes the raw accumulated
-    scale unless a separate downstream normalization is applied.
+11. **Normalization:** singular reconstruction applies `abs(overall-angle) / num-projections`
+    exactly once in `distribute`. A future dual mode must deliberately bypass this factor rather
+    than silently inheriting singular-mode semantics.
 12. **Resource ownership:** every retained context/kernel/object and every allocated buffer/scarray
     must retain its matching release in `finalize`; input and output UFO buffers must not be retained.
 13. **Dimension stability:** resources are fixed after the first requisition; supporting changing

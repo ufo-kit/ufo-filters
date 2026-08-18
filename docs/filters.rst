@@ -1235,8 +1235,9 @@ RGBA tomographic backprojection
     ``W`` and height ``H``, into a stream of square slices. Four detector rows
     are packed into the RGBA channels of a half-precision OpenCL texture and
     reconstructed together. Projections are processed in bursts and sampled
-    with linear interpolation. The resulting values are unnormalized sums over
-    all projections.
+    with linear interpolation. The accumulated values are normalized by
+    ``abs(overall-angle) / num-projections`` while the RGBA channels are
+    distributed into output slices.
 
     The half-open interval ``[x-start, x-end)`` is applied to both in-plane
     volume axes. It is expressed in the coordinate frame of the full detector:
@@ -1266,6 +1267,7 @@ RGBA tomographic backprojection
         Angular range covered by all projections, in radians. The default is
         :math:`\pi`; negative values generate a descending angular sequence.
         Projection ``i`` uses angle ``i * overall-angle / num-projections``.
+        Output normalization uses the absolute value of this angular range.
 
     .. gobj:prop:: x-start:uint
 

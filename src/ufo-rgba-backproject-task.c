@@ -813,10 +813,14 @@ ufo_rgba_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequisi
         &priv->device_final_slices));
         const cl_int slice_width = (cl_int) requisition->dims[0];
         const cl_int slice_height = (cl_int) requisition->dims[1];
+        const cl_float normalization_factor = (cl_float) (
+            fabs (priv->overall_angle) / (gdouble) priv->num_projections);
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 2, sizeof(cl_int),
         &slice_width));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 3, sizeof(cl_int),
         &slice_height));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_kernel, 4, sizeof(cl_float),
+        &normalization_factor));
         ufo_profiler_call_blocking (profiler, cmd_queue, priv->distribute_kernel, 3, dist_work_size,
             NULL);
         priv->distributed = TRUE;
