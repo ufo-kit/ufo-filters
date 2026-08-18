@@ -1232,18 +1232,19 @@ RGBA tomographic backprojection
 .. gobj:class:: rgba-backproject
 
     Reconstructs a stream of ``P`` parallel-beam projections, each with width
-    ``W`` and height ``H``, into a stream of square slices. Four detector rows
+    ``W`` and height ``H``, into a stream of rectangular slices. Four detector rows
     are packed into the RGBA channels of a half-precision OpenCL texture and
     reconstructed together. Projections are processed in bursts and sampled
     with linear interpolation. The accumulated values are normalized by
     ``abs(overall-angle) / num-projections`` while the RGBA channels are
     distributed into output slices.
 
-    The half-open interval ``[x-start, x-end)`` is applied to both in-plane
-    volume axes. It is expressed in the coordinate frame of the full detector:
-    cropping the output does not shift :gobj:prop:`center-position-x` or crop
-    the projection texture. The output side length is ``x-end - x-start``;
-    ``x-end=0`` selects the complete detector width.
+    The independent half-open :gobj:prop:`x-region` and
+    :gobj:prop:`y-region` tuples define the in-plane volume-coordinate grid.
+    Their stops are exclusive and positive steps may be non-unit. A zero step
+    selects the general-backproject-compatible full-width default: ``W``
+    samples starting at ``-W/2`` with step 1. The projection texture remains
+    full detector width regardless of the requested output shape.
 
     Detector rows are selected with :gobj:prop:`center-position-z` and the
     half-open :gobj:prop:`region` tuple. The requested number of rows may be any
@@ -1269,16 +1270,22 @@ RGBA tomographic backprojection
         Projection ``i`` uses angle ``i * overall-angle / num-projections``.
         Output normalization uses the absolute value of this angular range.
 
-    .. gobj:prop:: x-start:uint
+    .. gobj:prop:: x-region:GValueArray
 
-        Inclusive first coordinate reconstructed along both in-plane volume
-        axes. The default is 0.
+        X volume-coordinate grid as ``(from, to, step)``. Values must be finite;
+        an explicit step must be positive and ``to`` must exceed ``from``. The
+        output width is ``ceil((to-from)/step)``. The default ``(0,0,0)``
+        produces ``W`` samples with resolved origin ``-W/2`` and step 1.
 
-    .. gobj:prop:: x-end:uint
+    .. gobj:prop:: y-region:GValueArray
 
-        Exclusive last coordinate reconstructed along both in-plane volume
-        axes. The default 0 resolves to the projection width. The resolved
-        interval must be non-empty and contained in ``[0, W]``.
+        Independent y volume-coordinate grid with the same validation and
+        default behavior as :gobj:prop:`x-region`. It determines output height,
+        so the reconstructed slices need not be square.
+
+        To migrate the former square detector interval ``[x-start,x-end)`` use
+        ``from=x-start-center-position-x+0.5``,
+        ``to=x-end-center-position-x+0.5``, and step 1 for both regions.
 
     .. gobj:prop:: center-position-x:GValueArray
 

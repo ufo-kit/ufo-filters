@@ -44,23 +44,22 @@ backproject(
     sampler_t sampler,
     const int slice_width,
     const int slice_height,
-    const uint x_start,
+    const float2 x_region,
+    const float2 y_region,
     const uint first_burst) {
     const int idx = get_global_id(0);
     const int idy = get_global_id(1);
     const int idz = get_global_id(2);
     if (idx >= slice_width || idy >= slice_height)
         return;
-    const float absolute_x = (float) (idx + x_start);
-    const float absolute_y = (float) (idy + x_start);
-    const float acx = absolute_x - axis + 0.5f;
-    const float acy = absolute_y - axis + 0.5f;
+    const float volume_x = mad ((float) idx, x_region.y, x_region.x);
+    const float volume_y = mad ((float) idy, y_region.y, y_region.x);
     float4 sum = 0.0f;
     for (int proj = 0; proj < burst; proj++) {
         // angle_lut is an array of two ordered floating point values, denoting the cosine and sine
         // of rotation angles.
         const float2 angle = angle_lut[proj];
-        float roh = axis + (acx * angle.x + acy * angle.y);
+        float roh = axis + (volume_x * angle.x + volume_y * angle.y);
         sum += read_imagef(projections, sampler, (float4)(roh, idz + 0.5f, proj, 0));
     }
     const size_t plane = (size_t) slice_width * (size_t) slice_height;

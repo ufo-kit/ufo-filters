@@ -48,8 +48,8 @@ struct _UfoRGBABackprojectTaskPrivate {
     // Settings
     guint burst;
     guint num_projections;
-    guint x_start;
-    guint x_end;
+    UfoScarray *x_region;
+    UfoScarray *y_region;
     UfoScarray *center_position_x;
     UfoScarray *center_position_z;
     UfoScarray *region;
@@ -68,10 +68,13 @@ struct _UfoRGBABackprojectTaskPrivate {
     gdouble overall_angle;
     gboolean region_params_checked;
     gdouble region_start, region_stop, region_step;
+    gdouble x_region_start, x_region_step;
+    gdouble y_region_start, y_region_step;
     gboolean distributed;
     gsize projection_width;
     gsize projection_height;
-    gsize reconstruction_side;
+    gsize reconstruction_width;
+    gsize reconstruction_height;
     // Buffers
     float *host_buffer_angles;
     cl_mem device_buffer_projections;
@@ -86,8 +89,8 @@ enum {
     PROP_BURST,
     PROP_NUM_PROJECTIONS,
     PROP_OVERALL_ANGLE,
-    PROP_X_START,
-    PROP_X_END,
+    PROP_X_REGION,
+    PROP_Y_REGION,
     PROP_CENTER_POSITION_X,
     PROP_CENTER_POSITION_Z,
     PROP_REGION,
@@ -121,6 +124,84 @@ checked_add_size (gsize a, gsize b, gsize *result)
         return FALSE;
 
     *result = a + b;
+    return TRUE;
+}
+
+static gboolean
+resolve_slice_region (UfoScarray *region,
+                      gsize default_length,
+                      const gchar *name,
+                      gdouble *resolved_start,
+                      gdouble *resolved_step,
+                      gsize *resolved_length,
+                      GError **error)
+{
+    gdouble start;
+    gdouble stop;
+    gdouble step;
+    gdouble length;
+
+    if (!ufo_scarray_has_n_values (region, 3)) {
+        g_set_error (error,
+                     UFO_TASK_ERROR,
+                     UFO_TASK_ERROR_GET_REQUISITION,
+                     "%s must contain exactly three values (from, to, step)",
+                     name);
+        return FALSE;
+    }
+
+    start = ufo_scarray_get_double (region, 0);
+    stop = ufo_scarray_get_double (region, 1);
+    step = ufo_scarray_get_double (region, 2);
+
+    if (!isfinite (start) || !isfinite (stop) || !isfinite (step)) {
+        g_set_error (error,
+                     UFO_TASK_ERROR,
+                     UFO_TASK_ERROR_GET_REQUISITION,
+                     "%s values must be finite",
+                     name);
+        return FALSE;
+    }
+
+    if (step == 0.0) {
+        if (default_length == 0 || default_length > G_MAXINT) {
+            g_set_error (error,
+                         UFO_TASK_ERROR,
+                         UFO_TASK_ERROR_GET_REQUISITION,
+                         "default %s length %zu is outside the supported OpenCL range",
+                         name,
+                         default_length);
+            return FALSE;
+        }
+
+        *resolved_start = -((gdouble) default_length / 2.0);
+        *resolved_step = 1.0;
+        *resolved_length = default_length;
+        return TRUE;
+    }
+
+    if (step < 0.0 || stop <= start) {
+        g_set_error (error,
+                     UFO_TASK_ERROR,
+                     UFO_TASK_ERROR_GET_REQUISITION,
+                     "%s requires a positive step and stop greater than start",
+                     name);
+        return FALSE;
+    }
+
+    length = ceil ((stop - start) / step);
+    if (!isfinite (length) || length < 1.0 || length > G_MAXINT) {
+        g_set_error (error,
+                     UFO_TASK_ERROR,
+                     UFO_TASK_ERROR_GET_REQUISITION,
+                     "%s resolves to an unsupported output length",
+                     name);
+        return FALSE;
+    }
+
+    *resolved_start = start;
+    *resolved_step = step;
+    *resolved_length = (gsize) length;
     return TRUE;
 }
 
@@ -305,6 +386,8 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
     UfoRGBABackprojectTaskPrivate *priv = UFO_RGBA_BACKPROJECT_TASK_GET_PRIVATE(task);
     UfoGpuNode *node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     UfoRequisition in_req;
+    gdouble resolved_x_start, resolved_x_step, resolved_y_start, resolved_y_step;
+    gsize reconstruction_width, reconstruction_height;
     ufo_buffer_get_requisition(inputs[0], &in_req);
 
     if (priv->projection_width != 0 &&
@@ -316,39 +399,50 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
         return;
     }
 
-    if (in_req.dims[0] > G_MAXUINT) {
+    if (in_req.dims[0] > G_MAXINT || in_req.dims[1] > G_MAXINT) {
         g_set_error_literal (error,
                              UFO_TASK_ERROR,
                              UFO_TASK_ERROR_GET_REQUISITION,
-                             "projection width exceeds the supported x-coordinate range");
+                             "projection dimensions exceed the OpenCL integer range");
         return;
     }
 
-    guint resolved_x_end = priv->x_end == 0 ? (guint) in_req.dims[0] : priv->x_end;
-    if (priv->x_start >= resolved_x_end || resolved_x_end > in_req.dims[0]) {
-        g_set_error (error,
-                     UFO_TASK_ERROR,
-                     UFO_TASK_ERROR_GET_REQUISITION,
-                     "x region [%u, %u) must be non-empty and lie within projection width %zu",
-                     priv->x_start,
-                     resolved_x_end,
-                     in_req.dims[0]);
+    if (!resolve_slice_region (priv->x_region,
+                               in_req.dims[0],
+                               "x-region",
+                               &resolved_x_start,
+                               &resolved_x_step,
+                               &reconstruction_width,
+                               error))
         return;
-    }
 
-    gsize reconstruction_side = resolved_x_end - priv->x_start;
-    if (priv->reconstruction_side != 0 && priv->reconstruction_side != reconstruction_side) {
+    if (!resolve_slice_region (priv->y_region,
+                               in_req.dims[0],
+                               "y-region",
+                               &resolved_y_start,
+                               &resolved_y_step,
+                               &reconstruction_height,
+                               error))
+        return;
+
+    if (priv->region_params_checked &&
+        (priv->reconstruction_width != reconstruction_width ||
+         priv->reconstruction_height != reconstruction_height ||
+         !UFO_MATH_ARE_ALMOST_EQUAL (priv->x_region_start, resolved_x_start) ||
+         !UFO_MATH_ARE_ALMOST_EQUAL (priv->x_region_step, resolved_x_step) ||
+         !UFO_MATH_ARE_ALMOST_EQUAL (priv->y_region_start, resolved_y_start) ||
+         !UFO_MATH_ARE_ALMOST_EQUAL (priv->y_region_step, resolved_y_step))) {
         g_set_error_literal (error,
                              UFO_TASK_ERROR,
                              UFO_TASK_ERROR_GET_REQUISITION,
-                             "x region changed after RGBA backprojection resources were allocated");
+                             "x-region or y-region changed after RGBA backprojection resources were allocated");
         return;
     }
 
-    // The x interval is half-open and applies to both in-slice coordinates, yielding square slices.
+    // X and y are independent half-open grids in volume coordinates, so slices may be rectangular.
     requisition->n_dims = 2;
-    requisition->dims[0] = reconstruction_side;
-    requisition->dims[1] = reconstruction_side;
+    requisition->dims[0] = reconstruction_width;
+    requisition->dims[1] = reconstruction_height;
     // Check region parameters to determine number of slices to be processed and produced along
     // with the feasibility of device memory allocation.
     // Parameter center_position_z specifies a reference point for region parameter. Region parameter
@@ -409,7 +503,7 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
             checked_mul_size (in_req.dims[0], priv->num_slices_processing / 4, &texture_texels) &&
             checked_mul_size (texture_texels, priv->burst, &texture_texels) &&
             checked_mul_size (texture_texels, 4 * sizeof (cl_half), &texture_size) &&
-            checked_mul_size (reconstruction_side, reconstruction_side, &slice_pixels) &&
+            checked_mul_size (reconstruction_width, reconstruction_height, &slice_pixels) &&
             checked_mul_size (slice_pixels, priv->num_slices_processing, &volume_values) &&
             checked_mul_size (volume_values, sizeof (cl_float), &volume_size) &&
             checked_mul_size (priv->burst, 2 * sizeof (cl_float), &lut_size) &&
@@ -503,11 +597,18 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
 
         g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "#slices processed: %lu", priv->num_slices_processing);
         g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "#slices produced: %lu", priv->num_slices_actual);
-        g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "x region: [%u, %u), side: %zu",
-               priv->x_start, resolved_x_end, reconstruction_side);
+        g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "x region: [start=%g, step=%g], width: %zu",
+               resolved_x_start, resolved_x_step, reconstruction_width);
+        g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "y region: [start=%g, step=%g], height: %zu",
+               resolved_y_start, resolved_y_step, reconstruction_height);
         priv->projection_width = in_req.dims[0];
         priv->projection_height = in_req.dims[1];
-        priv->reconstruction_side = reconstruction_side;
+        priv->x_region_start = resolved_x_start;
+        priv->x_region_step = resolved_x_step;
+        priv->y_region_start = resolved_y_start;
+        priv->y_region_step = resolved_y_step;
+        priv->reconstruction_width = reconstruction_width;
+        priv->reconstruction_height = reconstruction_height;
         priv->region_params_checked = TRUE;
     }
     // Allocate device side ring-buffer and additional resources using requisitions. Projection
@@ -742,7 +843,10 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
         const cl_float center_position_x = (cl_float) ufo_scarray_get_double(priv->center_position_x, 0);
         const cl_int slice_width = (cl_int) requisition->dims[0];
         const cl_int slice_height = (cl_int) requisition->dims[1];
-        const cl_uint x_start = priv->x_start;
+        const cl_float x_region[2] = {
+            (cl_float) priv->x_region_start, (cl_float) priv->x_region_step};
+        const cl_float y_region[2] = {
+            (cl_float) priv->y_region_start, (cl_float) priv->y_region_step};
         const cl_uint first_burst = global_proj_idx == 0;
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 0, sizeof(cl_mem),
         &priv->device_texture_projections));
@@ -760,9 +864,11 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
         &slice_width));
         UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 7, sizeof(cl_int),
         &slice_height));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 8, sizeof(cl_uint),
-        &x_start));
-        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 9, sizeof(cl_uint),
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 8, sizeof(cl_float2),
+        x_region));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 9, sizeof(cl_float2),
+        y_region));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->backproject_kernel, 10, sizeof(cl_uint),
         &first_burst));
         ufo_profiler_call_blocking (profiler, cmd_queue, priv->backproject_kernel, 3, bp_work_size,
             NULL);
@@ -871,11 +977,11 @@ ufo_rgba_backproject_task_set_property (GObject *object, guint property_id, cons
         case PROP_OVERALL_ANGLE:
             priv->overall_angle = g_value_get_double (value);
             break;
-        case PROP_X_START:
-            priv->x_start = g_value_get_uint (value);
+        case PROP_X_REGION:
+            ufo_scarray_get_value (priv->x_region, value);
             break;
-        case PROP_X_END:
-            priv->x_end = g_value_get_uint (value);
+        case PROP_Y_REGION:
+            ufo_scarray_get_value (priv->y_region, value);
             break;
         case PROP_CENTER_POSITION_X:
             ufo_scarray_get_value (priv->center_position_x, value);
@@ -911,11 +1017,11 @@ ufo_rgba_backproject_task_get_property (GObject *object, guint property_id, GVal
         case PROP_OVERALL_ANGLE:
             g_value_set_double (value, priv->overall_angle);
             break;
-        case PROP_X_START:
-            g_value_set_uint (value, priv->x_start);
+        case PROP_X_REGION:
+            ufo_scarray_set_value (priv->x_region, value);
             break;
-        case PROP_X_END:
-            g_value_set_uint (value, priv->x_end);
+        case PROP_Y_REGION:
+            ufo_scarray_set_value (priv->y_region, value);
             break;
         case PROP_CENTER_POSITION_X:
             ufo_scarray_set_value (priv->center_position_x, value);
@@ -986,6 +1092,14 @@ ufo_rgba_backproject_task_finalize (GObject *object)
     if (priv->region) {
         ufo_scarray_free(priv->region);
         priv->region = NULL;
+    }
+    if (priv->x_region) {
+        ufo_scarray_free (priv->x_region);
+        priv->x_region = NULL;
+    }
+    if (priv->y_region) {
+        ufo_scarray_free (priv->y_region);
+        priv->y_region = NULL;
     }
     if (priv->center_position_x) {
         ufo_scarray_free (priv->center_position_x);
@@ -1075,18 +1189,18 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
             -G_MAXDOUBLE, G_MAXDOUBLE, G_PI,
             G_PARAM_READWRITE);
 
-    properties[PROP_X_START] =
-        g_param_spec_uint ("x-start",
-            "First reconstructed coordinate along both in-slice axes",
-            "Inclusive first reconstructed coordinate along both in-slice axes",
-            0, G_MAXUINT, 0,
+    properties[PROP_X_REGION] =
+        g_param_spec_value_array ("x-region",
+            "X volume-coordinate region as (from, to, step)",
+            "X volume-coordinate region as (from, to, step)",
+            double_region_vals,
             G_PARAM_READWRITE);
 
-    properties[PROP_X_END] =
-        g_param_spec_uint ("x-end",
-            "End of the reconstructed interval along both in-slice axes",
-            "Exclusive end of the reconstructed interval; zero uses the projection width",
-            0, G_MAXUINT, 0,
+    properties[PROP_Y_REGION] =
+        g_param_spec_value_array ("y-region",
+            "Y volume-coordinate region as (from, to, step)",
+            "Y volume-coordinate region as (from, to, step)",
+            double_region_vals,
             G_PARAM_READWRITE);
 
     
@@ -1160,8 +1274,8 @@ ufo_rgba_backproject_task_init(UfoRGBABackprojectTask *self)
     self->priv->overall_angle = G_PI;
     self->priv->burst = 24;
     self->priv->num_projections = 0;
-    self->priv->x_start = 0;
-    self->priv->x_end = 0;
+    self->priv->x_region = ufo_scarray_new (3, G_TYPE_DOUBLE, NULL);
+    self->priv->y_region = ufo_scarray_new (3, G_TYPE_DOUBLE, NULL);
     self->priv->center_position_x = ufo_scarray_new(3, G_TYPE_DOUBLE, NULL);
     self->priv->center_position_z = ufo_scarray_new(3, G_TYPE_DOUBLE, NULL);
     self->priv->region = ufo_scarray_new(3, G_TYPE_DOUBLE, NULL);
@@ -1171,10 +1285,18 @@ ufo_rgba_backproject_task_init(UfoRGBABackprojectTask *self)
     self->priv->num_slices_processing = 0;
     self->priv->generated = 0;
     self->priv->region_params_checked = FALSE;
+    self->priv->region_start = 0.0;
+    self->priv->region_stop = 0.0;
+    self->priv->region_step = 0.0;
+    self->priv->x_region_start = 0.0;
+    self->priv->x_region_step = 0.0;
+    self->priv->y_region_start = 0.0;
+    self->priv->y_region_step = 0.0;
     self->priv->distributed = FALSE;
     self->priv->projection_width = 0;
     self->priv->projection_height = 0;
-    self->priv->reconstruction_side = 0;
+    self->priv->reconstruction_width = 0;
+    self->priv->reconstruction_height = 0;
     /// Internal buffers
     self->priv->device_buffer_projections = NULL;
     self->priv->device_texture_projections = NULL;
