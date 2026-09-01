@@ -203,3 +203,30 @@ distribute(
     out[((size_t) (4 * idz + 2) * plane) + base_index] = values.z;
     out[((size_t) (4 * idz + 3) * plane) + base_index] = values.w;
 }
+
+kernel void
+distribute_volume(
+    global float4 *in,
+    global float *out,
+    const int slice_width,
+    const int slice_height,
+    const int num_slices,
+    const float normalization_factor) {
+    const int idx = get_global_id(0);
+    const int idy = get_global_id(1);
+    const int idz = get_global_id(2);
+    if (idx >= slice_width || idy >= slice_height)
+        return;
+    const size_t plane = (size_t) slice_width * (size_t) slice_height;
+    const size_t base_index = (size_t) idy * slice_width + idx;
+    const int slice = 4 * idz;
+    float4 values = in[((size_t) idz * plane) + base_index] * normalization_factor;
+    if (slice + 0 < num_slices)
+        out[((size_t) (slice + 0) * plane) + base_index] = values.x;
+    if (slice + 1 < num_slices)
+        out[((size_t) (slice + 1) * plane) + base_index] = values.y;
+    if (slice + 2 < num_slices)
+        out[((size_t) (slice + 2) * plane) + base_index] = values.z;
+    if (slice + 3 < num_slices)
+        out[((size_t) (slice + 3) * plane) + base_index] = values.w;
+}

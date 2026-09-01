@@ -44,7 +44,7 @@ The rest of this document uses the following symbols consistently.
 | Symbol | Meaning |
 |---|---|
 | `P` | Configured total number of projections, `num-projections`. |
-| `B` | Configured maximum projections per burst, `burst`. |
+| `B` | Configured projections per singular burst or per parity, `burst`. |
 | `b` | Number of projections in the current burst; `B` for a complete burst and `P mod B` for the tail. |
 | `W` | Input projection width, `in_req.dims[0]`; detector x/column count. |
 | `H` | Input projection height, `in_req.dims[1]`; detector z/row count. |
@@ -54,6 +54,7 @@ The rest of this document uses the following symbols consistently.
 | `x0`, `dx` | Resolved x-volume origin and positive sampling step. |
 | `y0`, `dy` | Resolved y-volume origin and positive sampling step. |
 | `Nx`, `Ny` | Reconstructed slice width and height. |
+| `V` | Reconstructed volume count: one in singular mode and two in either parity mode. |
 
 Thus:
 
@@ -108,6 +109,8 @@ elements of each region; it does not implement per-projection center positions.
 | `center-position-z` | double `GValueArray`, default `[0,0,0]` | Element zero is added to the relative z-region start and stop. |
 | `region` | double `GValueArray`, default `[0,0,0]` | Relative `(from,to,step)` detector-row selection. Stop is exclusive. A step almost equal to zero activates the fallback `(0,1,1)`. |
 | `addressing-mode` | enum, default `clamp` | OpenCL sampler addressing: `none`, `clamp_to_edge`, or `clamp`. |
+| `operation-mode` | enum, default `singular` | `singular` reconstructs one volume; `even_odd_single` and `even_odd_dual` reconstruct separate even and odd volumes with different backprojection dispatch. |
+| `output-mode` | enum, default `slices` | `slices` emits two-dimensional planes. `volume` emits one planar three-dimensional device buffer per reconstructed volume. |
 
 This task deliberately exposes a restricted addressing enum. The backprojection kernel computes
 `rho` in detector-pixel coordinates and passes it directly to `read_imagef`; the packed-row texture
@@ -171,8 +174,8 @@ Z  = ceil((z_stop - z_start) / z_step)
 Z4 = 4 * ceil(Z / 4)
 ```
 
-`Z` may be any positive value. Only internal processing uses `Z4`; `generate` stops after `Z`
-outputs.
+`Z` may be any positive value. Only internal processing uses `Z4`. Slice output stops after `Z`
+planes per volume; volume output reports depth `Z` and bounds-checks writes from the final RGBA group.
 
 Although these properties are doubles, `process` passes `z_start` and `z_step` to the packing
 kernel as `cl_int`. The early ordering checks also cast the relative tuple values to `cl_int`, while
@@ -195,44 +198,43 @@ host_buffer_angles[2*i + 0] = cos(i * delta)
 host_buffer_angles[2*i + 1] = sin(i * delta)
 ```
 
-The device buffer holds only `B` pairs. Before each backprojection it is overwritten with the pairs
-for the current burst and interpreted by OpenCL as `constant float2 *angle_lut`.
+The device buffer holds one mode-dependent batch: `B` pairs in singular mode and `2B` in parity
+modes. Before each backprojection it is overwritten with the pairs for the current batch and
+interpreted by OpenCL as `constant float2 *angle_lut`.
 
-There is no angular offset property. After all bursts have accumulated, `distribute` applies the
-same angular sampling factor used by `general-backproject`:
+There is no angular offset property. After all batches have accumulated, either distribution kernel
+applies the same angular sampling factor used by `general-backproject` in singular mode:
 
 ```text
 normalization_factor = abs(overall_angle) / P
 ```
 
 Using the absolute angular range preserves intensity sign when projections are ordered along a
-negative rotation direction.
+negative rotation direction. Both parity modes deliberately use a factor of `1.0` and remain
+unnormalized.
 
-### 2.4 Burst arithmetic
+### 2.4 Batch arithmetic
 
-There are `floor(P / B)` complete bursts and, when `P mod B != 0`, one incomplete burst. For every
-incoming projection, `process` derives:
-
-- `processed_proj_count`: the framework-maintained projection count at entry;
-- `actual_burst`: `B` in the complete part, otherwise the tail size;
-- `idx_actual_burst`: the current projection's slot in `[0, actual_burst)`.
-
-Kernels run when `idx_actual_burst + 1 == actual_burst`. The global projection index of that burst's
-first member is:
+`batch_capacity` is `B` in singular mode and `2B` in parity modes. For every incoming projection,
+`process` derives:
 
 ```text
-global_proj_idx = processed_proj_count + 1 - actual_burst
+batch_start      = floor(processed_proj_count / batch_capacity) * batch_capacity
+actual_burst     = min(batch_capacity, P - batch_start)
+idx_actual_burst = processed_proj_count - batch_start
 ```
 
-The `actual_burst != 0` guard in the tail-index calculation avoids a modulo-by-zero when `P` is an
-exact multiple of `B`.
+Kernels run when `idx_actual_burst + 1 == actual_burst`. Parity batches start at an even global
+projection and alternate even/odd projections in texture layers. For `P=3001` and `B=24`, the final
+parity batch contains 25 layers: 13 even projections and 12 odd projections.
 
 ---
 
 ## 3. UFO task lifecycle
 
-The task mode is `UFO_TASK_MODE_REDUCTOR | UFO_TASK_MODE_GPU`. It consumes all projections first and
-then emits one two-dimensional output buffer per requested z slice.
+The task mode is `UFO_TASK_MODE_REDUCTOR | UFO_TASK_MODE_GPU`. It consumes all projections first.
+`output-mode=slices` then emits one two-dimensional output per requested z slice and volume;
+`output-mode=volume` emits one three-dimensional output per reconstructed volume.
 
 ```text
 construct task
@@ -247,7 +249,7 @@ construct task
        get_requisition(input)
          validate W, H, x/y grids, z region and device limits
          allocate dimension-dependent buffers on first call
-         report output shape Nx x Ny
+         report output shape Nx x Ny or Nx x Ny x Z
        process(input)
          copy projection into its ring-buffer slot
          if burst is complete:
@@ -256,9 +258,10 @@ construct task
            backproject: texture -> coalesced volume
   -> input stream ends
   -> repeated generate(output)
-       on first call: distribute coalesced volume -> planar volume
-       copy planar slice generated -> output
-       stop after Z slices
+       slices: distribute selected coalesced volume -> reusable planar volume
+               copy one planar slice -> output; repeat Z times per volume
+       volume: distribute selected coalesced volume directly -> output device buffer
+               release that coalesced accumulator; repeat once per volume
   -> finalize
        release every retained/allocated resource
 ```
@@ -272,11 +275,12 @@ because neither resources nor input dimensions are known.
 `setup` is called after properties have been copied/set and before input processing:
 
 1. retain `UfoResources` and its OpenCL context;
-2. load and retain `accumulate`, `backproject`, and `distribute` from `rgba-backproject.cl`;
+2. load and retain `accumulate`, the operation-specific backprojection kernel(s), and either
+   `distribute` or `distribute_volume` according to `output-mode`;
 3. create an unnormalized, linearly filtered sampler using `addressing-mode`;
 4. reject `P == 0`;
 5. allocate and fill the host angle table;
-6. allocate the device table for `B` `float2` values.
+6. allocate the device table for `batch_capacity` `float2` values.
 
 Properties affecting these resources—especially `num-projections`, `burst`, `overall-angle`, and
 `addressing-mode`—must be finalized before setup. Changing them later does not rebuild the sampler or
@@ -285,9 +289,9 @@ lookup tables.
 ### 3.2 Requisition and dimension discovery
 
 `get_requisition` runs before each `process` call. The first call is where `W` and `H` become known.
-It resolves `Nx`, `Ny`, `Z`, and `Z4`, performs overflow/device-limit checks, allocates the four
-dimension-dependent OpenCL objects, records the dimensions, and sets the output requisition to
-two-dimensional `(Nx,Ny)`.
+It resolves `Nx`, `Ny`, `Z`, and `Z4`, performs overflow/device-limit checks, allocates the
+dimension-dependent OpenCL objects, and records the dimensions. Slice mode reports `(Nx,Ny)`;
+volume mode reports `(Nx,Ny,Z)`. Only slice mode allocates `device_final_slices`.
 
 Subsequent calls return the same output shape. If projection dimensions or any resolved x/y origin,
 step, or length changes, the task reports an error rather than mixing coordinate grids or
@@ -312,21 +316,26 @@ the buffer does not require a separate zero-fill.
 
 ### 3.4 Generation
 
-Generation is refused if the framework reports fewer than `P` processed projections. The first
-successful `generate` call computes `abs(overall_angle) / P`, launches `distribute` once, and sets
-`priv->distributed`. The kernel applies this factor while unpacking RGBA values, avoiding another
-kernel launch or volume-memory pass.
+Generation is refused if the framework reports fewer than `P` processed projections. Singular mode
+uses `abs(overall_angle) / P`; parity modes use `1.0`.
 
-Every successful call then copies plane `priv->generated` from the planar internal volume into the
-scheduler-owned output buffer and increments the counter. When `generated == Z`, `generate` returns
-false. The `Z4 - Z` internal padding planes are never exposed.
+In slice mode, the first call for each volume launches `distribute` into the reusable padded planar
+buffer. Every successful call then copies one plane into a scheduler-owned two-dimensional output.
+`generated` counts planes across volumes, so parity output is all even slices followed by all odd
+slices. The `Z4-Z` padding planes are never emitted.
+
+In volume mode, `generated` counts volumes. Each call launches `distribute_volume` directly into the
+scheduler-owned three-dimensional device buffer. That kernel checks every channel against `Z`, so
+the output is tightly packed and unpadded. The blocking profiler call makes it safe to release the
+selected coalesced accumulator immediately. Parity output is the even volume followed by the odd
+volume. No host array is requested and no second full-volume copy is performed.
 
 ### 3.5 Finalization
 
-`finalize` releases the projection ring buffer, texture, angle buffer, coalesced volume, planar
-volume, three kernels, sampler, retained context, and retained resources object. It also frees all
-five scarrays and the host angle table. The scheduler owns the per-call input and output
-`UfoBuffer` objects; this task does not retain them.
+`finalize` releases the projection ring buffer, texture, angle buffer, any coalesced accumulator not
+already released by volume generation, the optional planar volume, retained kernels, sampler,
+context, and resources object. It also frees all five scarrays and the host angle table. The
+scheduler owns every input and output `UfoBuffer`; this task does not retain them.
 
 ---
 
@@ -338,14 +347,15 @@ an output `UfoBuffer`.
 | Resource | Created in | Flags/type and logical shape | Size | Written by | Read by | Released in |
 |---|---|---|---|---|---|---|
 | `host_buffer_angles` | `setup` | Host `float[2P]`, interleaved `(cos,sin)` | `2P * sizeof(float)` | Setup loop, once | Burst LUT uploads | `finalize` with `g_free` |
-| `device_buffer_angles` | `setup` | `CL_MEM_READ_ONLY`, logical `float2[B]` | `2B * sizeof(float)` | `clEnqueueWriteBuffer` before each backprojection | `backproject` | `finalize` |
-| `device_buffer_projections` | first `get_requisition` | `CL_MEM_READ_ONLY`, logical `float[B][H][W]` | `BHW * sizeof(float)` | Host upload or device-to-device copy, one slot per input | `accumulate` | `finalize` |
-| `device_texture_projections` | first `get_requisition` | `CL_MEM_OBJECT_IMAGE2D_ARRAY`, `CL_RGBA`, `CL_HALF_FLOAT`, `CL_MEM_READ_WRITE`; logical `[B][G][W][4]` | approximately `B * G * W * 4 * sizeof(half)` | `accumulate` via `write_imagef` | `backproject` via `read_imagef` | `finalize` |
-| `device_coalesced_slices` | first `get_requisition` | `CL_MEM_READ_WRITE`, logical `float4[G][Ny][Nx]` | `G*Nx*Ny*sizeof(float4)`, equal to `Z4*Nx*Ny*sizeof(float)` | `backproject`: assign first burst, add later bursts | `backproject`, then `distribute` | `finalize` |
-| `device_final_slices` | first `get_requisition` | `CL_MEM_WRITE_ONLY`, logical `float[Z4][Ny][Nx]` | `Z4*Nx*Ny*sizeof(float)` | `distribute`, including angular normalization | `clEnqueueCopyBufferRect` | `finalize` |
-| Output `UfoBuffer` | UFO scheduler, per generated item | Two-dimensional float buffer `[Ny][Nx]` | `Nx*Ny*sizeof(float)` | Final rectangular copy | Downstream task | UFO scheduler |
+| `device_buffer_angles` | `setup` | `CL_MEM_READ_ONLY`, logical `float2[batch_capacity]` | `2*batch_capacity*sizeof(float)` | `clEnqueueWriteBuffer` before each backprojection | Backprojection kernel(s) | `finalize` |
+| `device_buffer_projections` | first `get_requisition` | `CL_MEM_READ_ONLY`, logical `float[batch_capacity][H][W]` | `batch_capacity*H*W*sizeof(float)` | Host upload or device-to-device copy, one slot per input | `accumulate` | `finalize` |
+| `device_texture_projections` | first `get_requisition` | `CL_MEM_OBJECT_IMAGE2D_ARRAY`, `CL_RGBA`, `CL_HALF_FLOAT`, `CL_MEM_READ_WRITE`; logical `[batch_capacity][G][W][4]` | approximately `batch_capacity*G*W*4*sizeof(half)` | `accumulate` via `write_imagef` | Backprojection kernel(s) via `read_imagef` | `finalize` |
+| `device_coalesced_slices[V]` | first `get_requisition` | `CL_MEM_READ_WRITE`, each logical `float4[G][Ny][Nx]` | each `G*Nx*Ny*sizeof(float4)`, equal to `Z4*Nx*Ny*sizeof(float)` | Backprojection: assign first batch, add later batches | Backprojection, then selected distribution kernel | `finalize`, or immediately after direct volume distribution |
+| `device_final_slices` | first `get_requisition`, slices only | `CL_MEM_WRITE_ONLY`, logical `float[Z4][Ny][Nx]` | `Z4*Nx*Ny*sizeof(float)` | `distribute`, including normalization | `clEnqueueCopyBufferRect` | `finalize` |
+| Slice output `UfoBuffer` | UFO scheduler, per plane | Two-dimensional float buffer `[Ny][Nx]` | `Nx*Ny*sizeof(float)` | Final rectangular copy | Downstream task | UFO scheduler |
+| Volume output `UfoBuffer` | UFO scheduler, per volume | Three-dimensional float buffer `[Z][Ny][Nx]` | `Z*Nx*Ny*sizeof(float)` | `distribute_volume`, including normalization | Downstream task such as 3-D FFT | UFO scheduler |
 | `sampler` | `setup` | Unnormalized coordinates, linear filter, configured addressing | Driver object | Immutable | `backproject` | `finalize` |
-| Three kernels | `setup` | Resources-owned kernels retained by this task | Driver objects | Kernel arguments are reset before calls | Profiler submission | `finalize` |
+| Selected kernels | `setup` | Resources-owned kernels retained by this task | Driver objects | Kernel arguments are reset before calls | Profiler submission | `finalize` |
 | OpenCL context | `setup` | Context from `UfoResources`, explicitly retained | Driver object | — | All OpenCL allocations | `finalize` |
 | `x_region`, `y_region`, `center_position_x`, `center_position_z`, `region` | `init` | `UfoScarray`, three doubles each | Host objects | Property setters | Requisition/process/setup | `finalize` |
 
@@ -360,7 +370,7 @@ The OpenCL descriptor is:
 image type  = IMAGE2D_ARRAY
 width       = W
 height      = G = Z4/4
-array size  = B
+array size  = batch_capacity
 format      = RGBA half float
 ```
 
@@ -381,12 +391,13 @@ Before allocation, all products and sums used by the memory estimate are checked
 overflow. The estimate includes:
 
 ```text
-ring buffer + texture + coalesced volume + planar volume + device angle LUT
+ring buffer + texture + V coalesced volumes + one output-sized volume + device angle LUT
 ```
 
-Each allocation is compared independently with the device's maximum allocation size, capped by the
-task at `2^32` bytes even when the device reports more. The total estimate is compared with global
-device memory.
+The extra output-sized term represents `device_final_slices` in slice mode and the scheduler-owned
+volume being filled in volume mode. Each allocation is compared independently with the device's
+maximum allocation size, capped by the task at `2^32` bytes even when the device reports more. The
+total estimate is compared with global device memory.
 
 The image descriptor is also checked against:
 
@@ -410,7 +421,8 @@ width/height kernel arguments define flat-buffer strides independently of launch
 |---|---:|---|---|
 | `accumulate` | Once per burst | `(W, G, b)` | Packs selected rows from `b` ring slots into `b` texture layers. |
 | `backproject` | Once per burst | `(Nx, Ny, G)` | Adds the burst contribution to the region-sized `float4` volume. |
-| `distribute` | Once total | `(Nx, Ny, G)` | Normalizes and converts `float4[G][Ny][Nx]` into planar `float[Z4][Ny][Nx]`. |
+| `distribute` | Once per volume in slice mode | `(Nx, Ny, G)` | Converts `float4[G][Ny][Nx]` into the reusable planar `float[Z4][Ny][Nx]`. |
+| `distribute_volume` | Once per volume in volume mode | `(Nx, Ny, G)` | Converts directly into the scheduler output `float[Z][Ny][Nx]`, guarding padded channels. |
 
 ### 5.1 `accumulate`: ring buffer to texture array
 
@@ -582,7 +594,7 @@ For the burst beginning at global projection zero, `first_burst` is true and the
 `slices[base] = sum`. Every later burst performs `slices[base] += sum`. Because each work item owns a
 unique `base`, no atomics are required.
 
-### 5.3 `distribute`: coalesced volume to planar volume
+### 5.3 Distribution: coalesced volume to planar output
 
 ```c
 kernel void
@@ -607,11 +619,10 @@ distribute(
 }
 ```
 
-`distribute` uses the same `(Nx,Ny,G)` launch. It reads:
+`distribute` is retained unchanged for slice output and uses the same `(Nx,Ny,G)` launch. It reads:
 
 ```text
-values = coalesced[idz*Nx*Ny + idy*Nx + idx]
-         * abs(overall_angle) / P
+values = coalesced[idz*Nx*Ny + idy*Nx + idx] * normalization_factor
 ```
 
 and writes the channels to four separate z planes:
@@ -630,9 +641,46 @@ final[(4*idz + 3)*Nx*Ny + idy*Nx + idx] = values.w
 | same | `.z` | `4*idz + 2` |
 | same | `.w` | `4*idz + 3` |
 
-The result is angularly normalized, tightly packed in z-major plane order, and ready for one-slice
-rectangular copies. Applying the factor once here is mathematically equivalent to scaling each
-burst contribution before accumulation, apart from floating-point rounding order.
+The result is tightly packed in z-major plane order and ready for one-slice rectangular copies.
+`normalization_factor` is `abs(overall_angle)/P` for singular reconstruction and `1.0` for parity
+reconstruction.
+
+Volume output uses a separate bounds-aware kernel and writes directly into the scheduler-owned
+unpadded device buffer:
+
+```c
+kernel void
+distribute_volume(
+    global float4 *in,
+    global float *out,
+    const int slice_width,
+    const int slice_height,
+    const int num_slices,
+    const float normalization_factor) {
+    const int idx = get_global_id(0);
+    const int idy = get_global_id(1);
+    const int idz = get_global_id(2);
+    if (idx >= slice_width || idy >= slice_height)
+        return;
+    const size_t plane = (size_t) slice_width * (size_t) slice_height;
+    const size_t base_index = (size_t) idy * slice_width + idx;
+    const int slice = 4 * idz;
+    float4 values = in[((size_t) idz * plane) + base_index] * normalization_factor;
+    if (slice + 0 < num_slices)
+        out[((size_t) (slice + 0) * plane) + base_index] = values.x;
+    if (slice + 1 < num_slices)
+        out[((size_t) (slice + 1) * plane) + base_index] = values.y;
+    if (slice + 2 < num_slices)
+        out[((size_t) (slice + 2) * plane) + base_index] = values.z;
+    if (slice + 3 < num_slices)
+        out[((size_t) (slice + 3) * plane) + base_index] = values.w;
+}
+```
+
+The launch still has depth `G`, but every channel checks `slice < Z`. Consequently, a five-slice
+request writes planes 0–4 only even though the final work group carries reconstructed values for
+internal planes 4–7. The blocking submission finishes all writes before the output is handed to a
+downstream queue and before the source accumulator is released.
 
 ### 5.4 Worked z-padding example
 
@@ -656,10 +704,12 @@ Packing produces:
 | `g=1` | row 14 | row 15 | row 16 | row 17 | only row 14 |
 
 Rows 15–17 are inside the detector, so they are not zeroed. They are backprojected into padding
-planes 5–7 and unpacked normally, but `generate` returns only planes 0–4. If a calculated padded row
-were outside `[0,H)`, its channel would instead contain zero.
+planes 5–7. Slice mode unpacks them into private padded storage but emits only planes 0–4; volume
+mode suppresses their writes with `num_slices=5`. If a calculated padded row were outside `[0,H)`,
+its channel would instead contain zero.
 
-This behavior avoids special cases in all three kernels and permits any positive `Z`.
+This behavior keeps RGBA packing and backprojection branch-free with respect to requested depth and
+permits any positive `Z`.
 
 ### 5.5 Worked incomplete-burst example
 
@@ -679,7 +729,9 @@ is the current `b`.
 
 ---
 
-## 6. Final output copy
+## 6. Final output
+
+### 6.1 Slice stream
 
 After `distribute`, `device_final_slices` is logical `float[Z4][Ny][Nx]`. For generated plane `k`, C
 uses `clEnqueueCopyBufferRect` with:
@@ -705,6 +757,24 @@ flat byte offset. The destination is a two-dimensional UFO output buffer and rec
 
 `generated` starts at zero and increments after each queued copy. The termination test uses `Z`, not
 `Z4`, which is the final guard preventing padding slices from escaping the task.
+
+In parity modes, `generated / Z` selects the coalesced accumulator and `generated % Z` selects its
+plane. This produces all even planes first and all odd planes second while reusing one private
+planar buffer.
+
+### 6.2 Device-resident volume stream
+
+Volume mode does not allocate `device_final_slices` and does not enqueue a rectangular copy. The
+scheduler creates an output with requisition `(Nx,Ny,Z)` before reduction begins, but its OpenCL
+storage remains lazy because `process` never requests it. During `generate`, the task calls
+`ufo_buffer_get_device_array`, launches `distribute_volume` directly into that memory, marks the
+layout real, and returns the buffer downstream.
+
+The coalesced `float4` buffer cannot itself be the UFO output: its z groups are padded and its
+channel-interleaved layout is not the planar float layout expected by a three-dimensional FFT. The
+single direct distribution pass is therefore required. Once that blocking pass finishes, the
+selected coalesced accumulator has no remaining readers and is released. Singular mode generates
+one output; parity modes generate even first and odd second.
 
 ---
 
@@ -748,8 +818,8 @@ strong indication that host code and kernel source have different ABIs.
 - Use `G_MESSAGES_DEBUG=all` to see the `rgba_bp` debug messages for burst size, dimensions, region,
   allocation-derived counts, burst dispatch, and generated slices.
 - Use `ufo-launch -t` to record UFO and OpenCL trace files.
-- `accumulate`, `backproject`, and `distribute` are submitted through the UFO profiler; transfer
-  commands are not represented as kernel events.
+- `accumulate`, the selected backprojection kernel(s), and the selected distribution kernel are
+  submitted through the UFO profiler; transfer commands are not represented as kernel events.
 - Run from `src/kernels/` or reinstall before trusting a profile after kernel edits.
 
 ### 7.4 Host and device ingestion
@@ -769,8 +839,9 @@ storage and a full-projection ingestion copy.
 
 Preserve or deliberately revise all of these together:
 
-1. **Kernel ABI:** C currently sets 6 `accumulate` arguments, 11 `backproject` arguments, and 5
-   `distribute` arguments, in the exact order shown in the kernel snapshot.
+1. **Kernel ABI:** C currently sets 6 `accumulate` arguments, 11 arguments for each subset
+   backprojection kernel, 12 for the parity-aware kernel, 5 for `distribute`, and 6 for
+   `distribute_volume`, in the exact source order.
 2. **Ring stride:** one projection always occupies exactly `W*H` floats; a ring slot begins at
    `slot*W*H`.
 3. **Texture layout:** width `W`, height `Z4/4`, array layers `B`, RGBA half storage; channels map to
@@ -785,16 +856,17 @@ Preserve or deliberately revise all of these together:
    Removing `first_burst` requires deterministic zero initialization.
 8. **In-order dependencies:** asynchronous packing and LUT transfer precede the blocking
    backprojection on the same command queue.
-9. **Z padding:** internal sizes and kernel z work are based on `Z4`; output termination is based on
-   `Z`.
+9. **Z padding:** internal sizes and kernel z work are based on `Z4`; slice termination and direct
+   volume write bounds are based on `Z`.
 10. **Precision:** projection texture values are half precision, but LUTs, interpolation results,
     accumulation, final storage, and UFO outputs are float.
 11. **Normalization:** singular reconstruction applies `abs(overall-angle) / num-projections`
-    exactly once in `distribute`. A future dual mode must deliberately bypass this factor rather
-    than silently inheriting singular-mode semantics.
+    exactly once in the selected distribution kernel; both parity modes pass `1.0`.
 12. **Resource ownership:** every retained context/kernel/object and every allocated buffer/scarray
     must retain its matching release in `finalize`; input and output UFO buffers must not be retained.
 13. **Dimension stability:** projection dimensions and resolved x/y grids are fixed after the first
     requisition; changing them would require a new reduction or complete synchronized reallocation.
 14. **Documentation snapshot:** whenever `rgba-backproject.cl`, buffer shapes, or function flow
     changes, update the source listing, formulas, tables, and examples here.
+15. **Output representation:** slice mode must retain its historical two-dimensional ordering;
+    volume mode must report `(Nx,Ny,Z)`, write only actual z planes, and never request a host array.
