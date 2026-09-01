@@ -1235,9 +1235,17 @@ RGBA tomographic backprojection
     ``W`` and height ``H``, into a stream of rectangular slices. Four detector rows
     are packed into the RGBA channels of a half-precision OpenCL texture and
     reconstructed together. Projections are processed in bursts and sampled
-    with linear interpolation. The accumulated values are normalized by
-    ``abs(overall-angle) / num-projections`` while the RGBA channels are
-    distributed into output slices.
+    with linear interpolation. Singular reconstructions are normalized by
+    ``abs(overall-angle) / num-projections``; even/odd reconstructions remain
+    unnormalized.
+
+    By default, :gobj:prop:`output-mode` emits a stream of two-dimensional
+    slices. Its ``volume`` value instead emits one device-resident
+    three-dimensional buffer in singular mode or two buffers in either
+    even/odd mode. Even/odd volumes are emitted in volume-major order, with
+    the even volume first and the odd volume second. A downstream GPU task
+    such as a three-dimensional FFT can consume these buffers without an
+    intervening host stack or host-to-device transfer.
 
     The independent half-open :gobj:prop:`x-region` and
     :gobj:prop:`y-region` tuples define the in-plane volume-coordinate grid.
@@ -1253,9 +1261,10 @@ RGBA tomographic backprojection
 
     .. gobj:prop:: burst:uint
 
-        Number of projections processed by one backprojection kernel call.
-        Valid values are 1 through 128; the default is 24. The last burst may
-        contain fewer projections.
+        Number of projections processed by one backprojection kernel call in
+        singular mode and per parity in even/odd modes. Valid values are 1
+        through 128; the default is 24. The last batch may contain fewer
+        projections.
 
     .. gobj:prop:: num-projections:uint
 
@@ -1310,6 +1319,22 @@ RGBA tomographic backprojection
         Texture behavior for horizontal samples outside the projection. One
         of ``none``, ``clamp_to_edge`` or ``clamp``; the default is ``clamp``.
         The sampler uses unnormalized detector-pixel coordinates.
+
+    .. gobj:prop:: operation-mode:enum
+
+        Reconstruction grouping. ``singular`` reconstructs one normalized
+        volume from all projections. ``even_odd_single`` and
+        ``even_odd_dual`` reconstruct separate unnormalized even and odd
+        volumes using different internal kernel-dispatch strategies. The
+        default is ``singular``.
+
+    .. gobj:prop:: output-mode:enum
+
+        Output representation, either ``slices`` or ``volume``. ``slices`` is
+        the default and emits ``Nx * Ny`` buffers one z plane at a time.
+        ``volume`` emits device-resident ``Nx * Ny * Z`` buffers directly and
+        excludes internal z padding. Singular mode emits one such buffer;
+        even/odd modes emit even then odd.
 
 Tomographic Stacked backprojection
 ----------------------------------

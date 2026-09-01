@@ -50,6 +50,11 @@ typedef enum {
     RGBA_OPERATION_EVEN_ODD_DUAL
 } UfoRGBAOperationMode;
 
+typedef enum {
+    RGBA_OUTPUT_SLICES,
+    RGBA_OUTPUT_VOLUME
+} UfoRGBAOutputMode;
+
 struct _UfoRGBABackprojectTaskPrivate {
     // Settings
     guint burst;
@@ -67,6 +72,7 @@ struct _UfoRGBABackprojectTaskPrivate {
     cl_kernel backproject_even_kernel;
     cl_kernel backproject_odd_kernel;
     cl_kernel distribute_kernel;
+    cl_kernel distribute_volume_kernel;
     cl_addressing_mode addressing_mode;
     cl_sampler sampler;
     // Internal
@@ -76,6 +82,7 @@ struct _UfoRGBABackprojectTaskPrivate {
     gsize generated;
     gdouble overall_angle;
     UfoRGBAOperationMode operation_mode;
+    UfoRGBAOutputMode output_mode;
     guint batch_capacity;
     guint num_output_volumes;
     gboolean region_params_checked;
@@ -108,6 +115,7 @@ enum {
     PROP_REGION,
     PROP_ADDRESSING_MODE,
     PROP_OPERATION_MODE,
+    PROP_OUTPUT_MODE,
     N_PROPERTIES
 };
 
@@ -124,6 +132,12 @@ static const GEnumValue rgba_operation_mode_values[] = {
     { RGBA_OPERATION_SINGULAR,        "RGBA_OPERATION_SINGULAR",        "singular" },
     { RGBA_OPERATION_EVEN_ODD_SINGLE, "RGBA_OPERATION_EVEN_ODD_SINGLE", "even_odd_single" },
     { RGBA_OPERATION_EVEN_ODD_DUAL,   "RGBA_OPERATION_EVEN_ODD_DUAL",   "even_odd_dual" },
+    { 0, NULL, NULL }
+};
+
+static const GEnumValue rgba_output_mode_values[] = {
+    { RGBA_OUTPUT_SLICES, "RGBA_OUTPUT_SLICES", "slices" },
+    { RGBA_OUTPUT_VOLUME, "RGBA_OUTPUT_VOLUME", "volume" },
     { 0, NULL, NULL }
 };
 
@@ -331,11 +345,21 @@ ufo_rgba_backproject_task_setup (UfoTask *task, UfoResources *resources, GError 
         return;
     UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->accumulate_kernel), error);
 
-    priv->distribute_kernel = ufo_resources_get_kernel(priv->resources, "rgba-backproject.cl",
-        "distribute", NULL, error);
-    if (priv->distribute_kernel == NULL)
-        return;
-    UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->distribute_kernel), error);
+    if (priv->output_mode == RGBA_OUTPUT_SLICES) {
+        priv->distribute_kernel = ufo_resources_get_kernel(priv->resources, "rgba-backproject.cl",
+            "distribute", NULL, error);
+        if (priv->distribute_kernel == NULL)
+            return;
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (clRetainKernel (priv->distribute_kernel), error);
+    }
+    else {
+        priv->distribute_volume_kernel = ufo_resources_get_kernel(
+            priv->resources, "rgba-backproject.cl", "distribute_volume", NULL, error);
+        if (priv->distribute_volume_kernel == NULL)
+            return;
+        UFO_RESOURCES_CHECK_SET_AND_RETURN (
+            clRetainKernel (priv->distribute_volume_kernel), error);
+    }
 
     // Load only the backprojection kernels used by the selected benchmark mode.
     switch (priv->operation_mode) {
@@ -510,7 +534,6 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
     }
 
     // X and y are independent half-open grids in volume coordinates, so slices may be rectangular.
-    requisition->n_dims = 2;
     requisition->dims[0] = reconstruction_width;
     requisition->dims[1] = reconstruction_height;
     // Check region parameters to determine number of slices to be processed and produced along
@@ -680,6 +703,13 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
         priv->reconstruction_height = reconstruction_height;
         priv->region_params_checked = TRUE;
     }
+    if (priv->output_mode == RGBA_OUTPUT_VOLUME) {
+        requisition->n_dims = 3;
+        requisition->dims[2] = priv->num_slices_actual;
+    }
+    else {
+        requisition->n_dims = 2;
+    }
     // Allocate device side ring-buffer and additional resources using requisitions. Projection
     // ring buffer contains one mode-dependent batch of full projections as the region stride is
     // handled by accumulate kernel.
@@ -719,7 +749,7 @@ ufo_rgba_backproject_task_get_requisition (UfoTask *task, UfoBuffer **inputs,
                 return;
         }
     }
-    if (!priv->device_final_slices) {
+    if (priv->output_mode == RGBA_OUTPUT_SLICES && !priv->device_final_slices) {
         size_t final_slice_size = requisition->dims[0] * requisition->dims[1] *
                                   priv->num_slices_processing * sizeof (cl_float);
         priv->device_final_slices = clCreateBuffer (priv->context,
@@ -1003,10 +1033,9 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
  * @returns: TRUE until `generate` should be called iteratively. FALSE marks the end of generating.
  * 
  * Called at the end of all `process` iterations to generate the output from the task. This method
- * call will be repeated until it returns TRUE, means we still have slices to generate. At the end
- * of producing all slices it will return FALSE, which marks the end of generate. Output requisition
- * initialized during `_get_requisition` function earlier becomes relevant here when we request for
- * device memory to copy the generated slice from the buffer.
+ * call will be repeated until it returns TRUE, means we still have output to generate. Slice mode
+ * emits one two-dimensional buffer at a time. Volume mode distributes directly into one
+ * scheduler-owned three-dimensional device buffer per reconstructed volume.
  */
 static gboolean
 ufo_rgba_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequisition *requisition)
@@ -1026,6 +1055,44 @@ ufo_rgba_backproject_task_generate (UfoTask *task, UfoBuffer *output, UfoRequisi
                    priv->num_projections);
         return FALSE;
     }
+
+    if (priv->output_mode == RGBA_OUTPUT_VOLUME) {
+        if (priv->generated >= priv->num_output_volumes)
+            return FALSE;
+
+        output_volume = (guint) priv->generated;
+        const size_t dist_work_size[] = {
+            requisition->dims[0], requisition->dims[1], priv->num_slices_processing / 4};
+        const cl_int slice_width = (cl_int) requisition->dims[0];
+        const cl_int slice_height = (cl_int) requisition->dims[1];
+        const cl_int num_slices = (cl_int) priv->num_slices_actual;
+        const cl_float normalization_factor = priv->operation_mode == RGBA_OPERATION_SINGULAR
+            ? (cl_float) (fabs (priv->overall_angle) / (gdouble) priv->num_projections)
+            : 1.0f;
+        cl_mem out_mem = ufo_buffer_get_device_array (output, cmd_queue);
+        ufo_buffer_set_layout (output, UFO_BUFFER_LAYOUT_REAL);
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_volume_kernel, 0,
+            sizeof (cl_mem), &priv->device_coalesced_slices[output_volume]));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_volume_kernel, 1,
+            sizeof (cl_mem), &out_mem));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_volume_kernel, 2,
+            sizeof (cl_int), &slice_width));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_volume_kernel, 3,
+            sizeof (cl_int), &slice_height));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_volume_kernel, 4,
+            sizeof (cl_int), &num_slices));
+        UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->distribute_volume_kernel, 5,
+            sizeof (cl_float), &normalization_factor));
+        g_log ("rgba_bp", G_LOG_LEVEL_DEBUG, "generating volume %u", output_volume);
+        ufo_profiler_call_blocking (profiler, cmd_queue, priv->distribute_volume_kernel, 3,
+            dist_work_size, NULL);
+        UFO_RESOURCES_CHECK_CLERR (
+            clReleaseMemObject (priv->device_coalesced_slices[output_volume]));
+        priv->device_coalesced_slices[output_volume] = NULL;
+        priv->generated++;
+        return TRUE;
+    }
+
     total_slices = priv->num_slices_actual * priv->num_output_volumes;
     if (priv->generated >= total_slices)
         return FALSE;
@@ -1125,6 +1192,9 @@ ufo_rgba_backproject_task_set_property (GObject *object, guint property_id, cons
         case PROP_OPERATION_MODE:
             priv->operation_mode = g_value_get_enum (value);
             break;
+        case PROP_OUTPUT_MODE:
+            priv->output_mode = g_value_get_enum (value);
+            break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             break;
@@ -1167,6 +1237,9 @@ ufo_rgba_backproject_task_get_property (GObject *object, guint property_id, GVal
             break;
         case PROP_OPERATION_MODE:
             g_value_set_enum (value, priv->operation_mode);
+            break;
+        case PROP_OUTPUT_MODE:
+            g_value_set_enum (value, priv->output_mode);
             break;
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
@@ -1223,6 +1296,10 @@ ufo_rgba_backproject_task_finalize (GObject *object)
     if (priv->distribute_kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->distribute_kernel));
         priv->distribute_kernel = NULL;
+    }
+    if (priv->distribute_volume_kernel) {
+        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->distribute_volume_kernel));
+        priv->distribute_volume_kernel = NULL;
     }
     if (priv->sampler) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseSampler (priv->sampler));
@@ -1413,6 +1490,15 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
             RGBA_OPERATION_SINGULAR,
             G_PARAM_READWRITE);
 
+    properties[PROP_OUTPUT_MODE] =
+        g_param_spec_enum ("output-mode",
+            "Output representation",
+            "Output representation (\"slices\" or \"volume\")",
+            g_enum_register_static ("ufo_rgba_backproject_output_mode",
+                                    rgba_output_mode_values),
+            RGBA_OUTPUT_SLICES,
+            G_PARAM_READWRITE);
+
     for (guint i = PROP_0 + 1; i < N_PROPERTIES; i++)
         g_object_class_install_property (oclass, i, properties[i]);
     g_type_class_add_private (oclass, sizeof(UfoRGBABackprojectTaskPrivate));
@@ -1431,11 +1517,13 @@ ufo_rgba_backproject_task_init(UfoRGBABackprojectTask *self)
     self->priv->backproject_even_kernel = NULL;
     self->priv->backproject_odd_kernel = NULL;
     self->priv->distribute_kernel = NULL;
+    self->priv->distribute_volume_kernel = NULL;
     /// Properties
     self->priv->overall_angle = G_PI;
     self->priv->burst = 24;
     self->priv->num_projections = 0;
     self->priv->operation_mode = RGBA_OPERATION_SINGULAR;
+    self->priv->output_mode = RGBA_OUTPUT_SLICES;
     self->priv->batch_capacity = 24;
     self->priv->num_output_volumes = 1;
     self->priv->x_region = ufo_scarray_new (3, G_TYPE_DOUBLE, NULL);
