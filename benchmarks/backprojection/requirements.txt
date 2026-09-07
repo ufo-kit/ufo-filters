@@ -1,0 +1,5 @@
+numpy
+matplotlib
+tifffile
+astra-toolbox
+cupy-cuda12x

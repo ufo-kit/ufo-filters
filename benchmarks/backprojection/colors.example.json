@@ -1,0 +1,16 @@
+{
+  "algorithm_colors": {
+    "general": "#264653",
+    "rgba_singular": "#2a9d8f",
+    "even_odd_single": "#e9c46a",
+    "even_odd_dual": "#e76f51",
+    "astra_bp3d": "#6a4c93",
+    "astra_accumulate": "#8f5da2"
+  },
+  "stage_colors": {
+    "projection_packing": "#e9c46a",
+    "backprojection": "#2a9d8f",
+    "distribution": "#fe7f2d",
+    "other": "#e76f51"
+  }
+}
