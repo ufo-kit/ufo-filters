@@ -20,6 +20,7 @@ kernel_files = [
     'filter.cl',
     'flip.cl',
     'forwardproject.cl',
+    'fsc-core.cl',
     'gaussian.cl',
     'gradient.cl',
     'histthreshold.cl',

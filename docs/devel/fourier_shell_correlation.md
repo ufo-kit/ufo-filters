@@ -119,8 +119,8 @@ normalization removes their absolute amplitude, while the numerator retains only
 component.
 
 Bins with $n_b=0$, zero power, or a non-finite denominator are invalid and must not silently
-produce a plausible number. The precise invalid-value policy is an interface decision to make during
-implementation planning.
+produce a plausible number. The benchmark returns `NaN` for these bins and does not clamp valid FSC
+values.
 
 The initial result contract is
 
@@ -538,25 +538,23 @@ complex spectrum 1 ─┐
 complex spectrum 2 ─┘
 ```
 
-The common device-side core must:
+The common device-side core now implemented by `fsc-core`:
 
-1. accept two equal-shape, complex-interleaved 3-D spectra;
-2. map each Fourier coefficient to a physical-frequency bin;
-3. optionally phase-correct one spectrum along a configured SFSC split axis;
-4. accumulate `cross_sum`, `power_1_sum`, `power_2_sum`, and `count` per bin;
-5. optionally apply the corrected-SFSC numerator bias in a normalization stage;
-6. emit one compact result buffer and reset safely for the next pair.
+1. accepts consecutive pairs of equal-shape, complex-interleaved 3-D spectra;
+2. maps each Fourier coefficient to a physical-frequency bin;
+3. accumulates `cross_sum`, `power_1_sum`, `power_2_sum`, and `count` per bin;
+4. emits those statistics plus the bin centres in one compact buffer;
+5. resets safely for the next same-shaped pair.
 
-Phase correction can be a separate shape-preserving kernel, but fusing the phase factor into the
-cross-product avoids writing another full complex volume. Similarly, final normalization can happen
-on the GPU because it operates on only $B$ elements. Returning raw shell statistics as well as, or
-instead of, an already normalized curve is useful during validation because it exposes normalization
-and counting errors without transferring a full spectrum.
+SFSC phase correction belongs before this method-independent task. The classic normalization and
+future method-specific corrections operate on only $B$ elements and remain in Python. Returning raw
+shell statistics exposes normalization and counting errors during validation without transferring a
+full spectrum.
 
-The central missing primitive is therefore **shell-wise reduction of two 3-D complex spectra**. The
-fact that the public result contains vectors is not itself a UFO limitation: a 1-D `UfoRequisition`
-is valid. The hard part is changing millions of irregularly grouped 3-D samples into a few hundred
-shell accumulators efficiently and reproducibly.
+The central primitive is therefore **shell-wise reduction of two 3-D complex spectra**. The vector
+result is carried as a small two-dimensional UFO buffer with one row per statistic. The hard part is
+changing millions of irregularly grouped 3-D samples into a few hundred shell accumulators
+efficiently and reproducibly, not transporting the compact result.
 
 ### 2.2 Classic-FSC workflow
 
@@ -564,16 +562,104 @@ shell accumulators efficiently and reproducibly.
 projection stream
       │
       ▼
-rgba-backproject, even_odd* reconstruction
+rgba-backproject
+operation-mode=even_odd*
+output-mode=volume
       │
-      ├─ even 3-D volume ─ fft(dimensions=3) ─┐
-      │                                       ├─ common shell core ─ compact result
-      └─ odd  3-D volume ─ fft(dimensions=3) ─┘
+      ▼
+device stream [V_even, V_odd]
+      │
+      ▼
+fft(dimensions=3)
+      │
+      ▼
+device stream [F_even, F_odd]
+      │
+      ▼
+fsc-core ─ compact shell statistics ─ Python normalization ─ FSCResult
 ```
 
-The scientific split already exists in `rgba-backproject`. What is not yet available is a
-device-only representation of each completed reconstruction as one 3-D `UfoBuffer` suitable for the
-existing 3-D FFT task, followed by the common shell core.
+The scientific split and the device-only connection to the existing 3-D FFT now exist.
+`rgba-backproject` emits the even volume first and the odd volume second; one processor-mode FFT task
+instance preserves that stream order and produces two consecutive complex-interleaved spectra. No
+branch, demultiplexer, CPU `stack`, or full-volume host transfer is required. Because pairing is
+stateful, `fsc-core` rejects graph copying and the classic benchmark disables expansion and selects
+one GPU.
+
+The common UFO primitive is `fsc-core`. For the sequential stream above, it recognizes consecutive
+pairs, preserves the first spectrum on the device until the second arrives, reduces the pair into
+shell statistics, and emits a compact result. Python performs the inexpensive normalization and
+constructs the typed public result.
+
+#### 2.2.1 Classic-FSC readiness checklist
+
+| Building block | Status | Evidence or remaining responsibility |
+|---|---|---|
+| Alternating even/odd projection reconstruction | Available | Both `rgba-backproject` `even_odd*` operation modes emit even then odd. |
+| Device-resident 3-D volume output | Available | `output-mode=volume` reports `(Nx,Ny,Z)`, requests only the output device array, and marks it real. |
+| Direct volume-to-FFT connection | Available | `fft dimensions=3` accepts the 3-D real requisition and consumes the device buffer without `stack`. |
+| Sequential spectrum pairing | Available in `fsc-core` | The first complex spectrum is copied device-to-device and retained until the second arrives. |
+| Physical shell assignment | Available in `fsc-core` | Native unshifted FFT indices are assigned to conservative physical shells without `fftshift` or a shell-map volume. |
+| Shell-wise complex correlation and reduction | Available in `fsc-core` | A staged local-histogram reduction produces cross-correlation, two power sums, and `n_shell`. |
+| FSC normalization and compact output | Available across UFO and Python | `fsc-core` emits five compact rows; Python normalizes the three sums into FSC. |
+| Typed host result | Available in the benchmark layer | `FSCShellStatistics` constructs `FSCResult` after only compact data crosses to the host. The eventual tofu API remains future work. |
+
+Thus, the classic computational track has all required building blocks. The standalone benchmark
+under `benchmarks/fsc` composes them while the eventual `tofu fsc` interface remains future work.
+
+#### 2.2.2 `fsc-core` interface and bin policy
+
+The GPU reductor has one 3-D complex-interleaved input stream. It pairs consecutive buffers as
+$(F_1,F_2)$ and emits one result for every complete pair. An incomplete final pair produces a warning
+and no result. All spectra processed by one task instance must have the shape established by its
+first input. The task rejects graph copying because distributing this stateful stream over multiple
+instances could separate pair members.
+
+The required properties `voxel-size-x`, `voxel-size-y`, and `voxel-size-z` specify positive physical
+spacings $(d_x,d_y,d_z)$. `shell-width` specifies an explicit positive $\Delta k$, or zero selects
+
+$$
+\Delta k_x=\frac{1}{N_xd_x},
+\qquad
+\Delta k_y=\frac{1}{N_yd_y},
+\qquad
+\Delta k_z=\frac{1}{N_zd_z},
+$$
+
+$$
+\Delta k=\max(\Delta k_x,\Delta k_y,\Delta k_z).
+$$
+
+`max-frequency` specifies an explicit positive exclusive radial limit, or zero selects the smallest
+axial Nyquist frequency:
+
+$$
+k_{\max}=\min\left(
+\frac{1}{2d_x},
+\frac{1}{2d_y},
+\frac{1}{2d_z}
+\right).
+$$
+
+The number of bins is
+
+$$
+B=\left\lfloor\frac{k_{\max}}{\Delta k}\right\rfloor.
+$$
+
+A Fourier voxel at radial physical frequency $\rho$ is assigned to its nearest shell centre,
+
+$$
+b=\left\lfloor\frac{\rho}{\Delta k}+\frac{1}{2}\right\rfloor,
+$$
+
+only when $b<B$. The centre reported for that shell is $k_b=b\Delta k$. For cubic isotropic data,
+this is the paper's rounded integer-radius convention expressed in physical units.
+
+The task emits a 2-D UFO requisition `dims=(B,5)`, seen by NumPy as `(5,B)`. Its float32 rows are, in
+order, $C_b$, $P_{1,b}$, $P_{2,b}$, $n_b$, and $k_b$. Counts are accumulated as integers and converted
+only in the compact output. Python validates their integrality, converts them to `int64`, and computes
+$C_b/\sqrt{P_{1,b}P_{2,b}}$ using float64 intermediates.
 
 ### 2.3 Basic-SFSC workflow
 
@@ -583,9 +669,9 @@ projection stream
       ▼
 rgba-backproject, singular reconstruction ─ one device-resident 3-D volume
       │
-      ├─ interleaved z split ─ FFT pair ─ z phase ─ shell core ─ 2s/(1+s) ─ fsc_z
-      ├─ interleaved x split ─ FFT pair ─ x phase ─ shell core ─ 2s/(1+s) ─ fsc_x
-      └─ interleaved y split ─ FFT pair ─ y phase ─ shell core ─ 2s/(1+s) ─ fsc_y
+      ├─ interleaved z split ─ FFT pair ─ z phase ─ fsc-core ─ 2s/(1+s) ─ fsc_z
+      ├─ interleaved x split ─ FFT pair ─ x phase ─ fsc-core ─ 2s/(1+s) ─ fsc_x
+      └─ interleaved y split ─ FFT pair ─ y phase ─ fsc-core ─ 2s/(1+s) ─ fsc_y
 ```
 
 The three branches may execute sequentially to reduce peak memory or concurrently to reduce latency
@@ -607,7 +693,7 @@ singular 3-D volume ─ FFT ─ noise whitening ─ Fourier zero padding ─ IFF
           │                                                   │               │
        z phase                                             x phase          y phase
           │                                                   │               │
-    shell core + gamma                                 same correction  same correction
+     fsc-core + gamma                                  same correction  same correction
           │                                                   │               │
         fsc_z                                               fsc_x           fsc_y
 ```
@@ -621,39 +707,43 @@ alone.
 
 ### 2.5 `rgba-backproject` output representation
 
-The existing `even_odd*` behavior is sufficient for the *mathematical* classic-FSC split. It
-reconstructs the two projection parities separately and generates all even slices followed by all odd
-slices. Those generated 2-D slice buffers are already device-resident.
-
-The incompatibility is representational: [`rgba-backproject`](../../src/ufo-rgba-backproject-task.c)
-emits a stream of 2-D buffers, while [`fft`](../../src/ufo-fft-task.c) requires one 3-D buffer for a
-3-D transform. The existing [`stack`](../../src/ufo-stack-task.c) can assemble those slices correctly,
-but it is a CPU reductor: it requests each input's host array and copies into a host-backed 3-D output.
-The following FFT consequently requires a host-to-device transfer. That is precisely the round trip
-this architecture must avoid.
-
-An eventual `rgba-backproject` output representation such as
+The `rgba-backproject` output representation is now configurable as
 
 ```text
 output-mode = slices | volume
 ```
 
-would solve that interface mismatch without changing the parity mathematics or the existing `stack`
-task:
+without changing the parity mathematics or the existing `stack` task:
 
 - `slices` preserves the current public behavior and compatibility;
 - `volume` emits one device-resident 3-D buffer in singular reconstruction mode;
 - `volume` emits two sequential device-resident 3-D buffers in `even_odd*` mode, even first and odd
   second.
 
+In volume mode, the output requisition is `(Nx,Ny,Z)`. During `generate`, the task obtains the
+scheduler-owned output through `ufo_buffer_get_device_array`, runs `distribute_volume` directly into
+that allocation, sets `UFO_BUFFER_LAYOUT_REAL`, and returns it downstream. It never requests the
+output host array. The distribution kernel converts the internal padded `float4` z layout into the
+unpadded planar float layout required by the FFT, after which the selected internal accumulator is
+released. This is one necessary device-to-device layout conversion, not a device-to-host-to-device
+round trip.
+
 This fits UFO's single output stream and three-dimensional requisition limit; it does not require a
-4-D buffer or named output ports. The exact ownership and allocation design is not settled here.
-In particular, the implementation should avoid simultaneously retaining an internal full
-reconstruction and copying it into another full output allocation if UFO's reductor lifecycle allows
-the output buffer to be the accumulation target directly.
+4-D buffer or named output ports. [`fft`](../../src/ufo-fft-task.c) with `dimensions=3` requests a
+three-dimensional real input, obtains its device array, and emits a complex-interleaved spectrum, so
+the two task contracts are directly compatible.
 
 No change to the existing `stack` task is proposed. The volume-output capability belongs with the new
 FSC-oriented development and `rgba-backproject`, where the data is already accumulated on the GPU.
+The CPU [`stack`](../../src/ufo-stack-task.c) is no longer present in the classic device path.
+
+This connection was validated on 2026-09-01 for both `even_odd_single` and `even_odd_dual`. In each
+case, slice and volume outputs agreed exactly for the test data, including parity order and a z depth
+that exercised RGBA padding. The direct device graph
+`rgba-backproject → fft dimensions=3 → null` also completed successfully without an intervening
+`stack` task. Isolated numerical 3-D FFT checks at $8^3$ and $32^3$ also agreed with NumPy. This is
+functional and interface validation; it does not replace the later $512^3$ runtime and peak-memory
+benchmark.
 
 ### 2.6 Available and missing UFO building blocks
 
@@ -661,16 +751,17 @@ FSC-oriented development and `rgba-backproject`, where the data is already accum
 |---|---|---|
 | Even/odd projection reconstruction | Available in `rgba-backproject` `even_odd*` modes | Reuse for classic FSC. The scientific split is already present. |
 | Single reconstruction | Available in `rgba-backproject` singular mode | Reuse as SFSC input. |
-| 3-D device FFT/IFFT | Available in `fft` and `ifft` with `dimensions=3` | Reuse. FFT size, padding, layout, and normalization must be fixed explicitly for reproducibility. |
+| 3-D device FFT/IFFT | Available in `fft` and `ifft` with `dimensions=3` | Reuse. Direct consumption of `rgba-backproject` volume output is validated. FFT size, padding, layout, and normalization must still be fixed explicitly for reproducibility. |
 | 2-D slices to 3-D volume | `stack` is available but CPU-based | Useful as a correctness prototype, not for the desired device-only path; do not modify it for FSC. |
-| Device-resident volume output from `rgba-backproject` | Missing | Needed to connect reconstruction directly to 3-D GPU processing without host staging. |
+| Device-resident volume output from `rgba-backproject` | Available with `output-mode=volume` | Emits one singular volume or even then odd volumes as real 3-D device buffers; direct 3-D FFT compatibility is validated. |
 | Interleaved split along a selected 3-D axis | Missing | Needs a requisition-changing GPU task or an integrated SFSC preprocessor. |
 | Half-sample phase ramp | No dedicated task | Simple GPU arithmetic; may be separate for validation or fused into shell cross-power. |
 | Noise-power estimation | No general FSC-ready 3-D task | Method depends on noise input/region policy; shell-averaged noise power can reuse the future shell-reduction machinery. |
 | Fourier-domain whitening | No dedicated 3-D task | Shape-preserving GPU multiplication; feasible as a small dedicated kernel/task. |
 | Fourier zero-padding upsampling | Existing FFT size options do not by themselves express the complete corrected-SFSC operation | Needs spectrum embedding, normalization-aware IFFT, and changed requisition. |
-| Physical shell map/bin metadata | Missing | Can be computed once from shape, spacings, and bin edges; placement on host or device depends on the selected reduction strategy. |
-| Complex shell correlation/reduction | Missing | Central common GPU primitive for all FSC methods. |
+| Physical shell map/bin metadata | Available in `fsc-core` | Shell membership is calculated from unshifted indices in the accumulation kernel; no full-size map is materialized. |
+| Complex shell correlation/reduction | Available in `fsc-core` | The method-independent GPU reductor pairs spectra and emits compact raw statistics and bin centres. |
+| Existing `power-spectrum` and correlation tasks | Available but not FSC building blocks | `power-spectrum` is a shape-preserving 2-D auto-power operation; `correlate-stacks` computes 2-D squared differences; `cross-correlate` performs 2-D alignment correlation. None performs physical 3-D shell reduction. |
 | Compact 1-D device output | Supported by UFO requisitions and `OutputTask` | Vector shape is not a blocker. UFO storage is float32, so typing is completed in Python. |
 | Pipeline composition | Available through JSON/Python task graphs | Use tofu/Python to compose methods; no hybrid aggregate UFO task is required initially. |
 
@@ -703,31 +794,28 @@ shell-statistics task is the clearer boundary.
 device-side elementwise average. For three vectors of a few hundred values, however, doing that final
 average in tofu is unlikely to affect runtime materially.
 
-### 2.8 Shell-reduction design constraints
+### 2.8 Shell-reduction design
 
-The reduction strategy is deliberately not selected in this document, but the scientific and UFO
-constraints are already clear:
+`fsc-core` uses a staged reduction selected for OpenCL 1.2 portability and bounded auxiliary memory:
 
 - summation order affects floating-point reproducibility;
-- a naive atomic update from every Fourier voxel creates heavy contention in low-radius shells and
-  may require floating-point atomic capabilities that are not uniformly available;
-- a precomputed shell-to-index representation can avoid repeated radius calculations and enable
-  one or more workgroups per shell, at the cost of an index buffer and preprocessing;
-- local partial sums followed by a second reduction stage trade additional compact buffers for lower
-  contention;
+- each work-group accumulates a complete shell histogram in local memory using compare-and-swap
+  float additions and integer counts;
+- work-groups write compact partial histograms, which a second kernel reduces into the output;
+- device and kernel limits select work-group count and size automatically;
+- the task rejects a bin count whose local histogram does not fit device local memory;
 - Hermitian symmetry permits a half-spectrum optimization only if conjugate weights and
   `n_shell` semantics are handled consistently;
 - `fftshift` should be avoided as a full-volume data movement;
 - the task must initialize recycled UFO output buffers explicitly and must not retain an input
   `UfoBuffer` after `process` returns;
-- if a task retains a spectrum, it must retain/copy the underlying device data according to UFO's
-  ownership rules rather than keeping a borrowed input buffer pointer;
-- graph expansion across GPUs must not separate the two members of a pair or duplicate state in a
-  way that mixes experiments.
+- the first spectrum is copied into a task-owned device buffer rather than retaining a borrowed
+  `UfoBuffer`;
+- graph expansion is rejected because it could separate pair members or duplicate pairing state.
 
-These constraints favor a purpose-built GPU reductor with a small generated output, but benchmarking
-will decide whether shell-index lists, partial reductions, atomics, or a hybrid scheme provide the
-best runtime and memory behavior.
+The first implementation retains the full complex first spectrum, computes shell membership on the
+fly, and avoids a full shell-index allocation. Alternative reduction strategies remain candidates
+for later performance comparisons rather than public modes of the initial task.
 
 ### 2.9 Python/tofu responsibility and typed result
 
@@ -746,7 +834,7 @@ A conceptual host result is
 ```text
 FSCResult
     fsc      : float32 [B]
-    k_bin    : float64 [B]   # 1/um
+    k_bin    : float32 [B]   # 1/um
     n_shell  : int64   [B]
     method   : classic | sfsc-basic | sfsc-corrected
     axis     : none | z | x | y | mean
@@ -757,12 +845,11 @@ Classic FSC contains one `FSCResult`. An SFSC result contains `z`, `x`, and `y` 
 may additionally contain `mean`. Keeping a complete result per axis avoids assuming prematurely that
 the directional `k_bin` and `n_shell` vectors are identical.
 
-UFO buffers contain float32 storage even for a 1-D requisition. Consequently, a device result may
-transport counts as exactly representable float32 values for the expected shell sizes, or omit them
-when they are deterministically reconstructed on the host. Tofu should expose `n_shell` as an integer
-array and `k_bin` in a precision suitable for physical units. The eventual transport choice must be
-validated against the largest shell count; it should not silently rely on float32 exactness for
-arbitrary future volume sizes.
+UFO buffers contain float32 storage. `fsc-core` therefore transports its five output rows as float32,
+including the shell counts. Counts are accumulated as integers on the device and are exactly
+representable after conversion for the target $512^3$ volumes. The Python layer validates that the
+received values are integral and exposes `n_shell` as `int64`. Larger future volume sizes must revisit
+this transport rather than silently assuming float32 exactness.
 
 For SFSC, the three axes can have different pair shapes and shell populations. `k_bin` and `n_shell`
 are common only when their physical grids and bin policies actually coincide. $Z=X=Y$ is convenient
@@ -808,33 +895,29 @@ The following choices are sufficiently clear to carry into later implementation 
    cross to the host.
 5. Existing UFO 3-D FFT/IFFT tasks should be reused where their layout and normalization satisfy the
    validated workflow.
-6. A common complex shell-statistics primitive is the main unconditional missing building block.
+6. `fsc-core` is the common complex shell-statistics primitive for classic FSC and future SFSC pairs.
 7. Python/tofu owns graph orchestration and the typed public result; PyTorch is not required merely to
    normalize a few compact vectors.
-8. The current CPU `stack` task remains unchanged. A device-resident volume-output path is addressed
-   within the new FSC/`rgba-backproject` development.
+8. The current CPU `stack` task remains unchanged. `rgba-backproject output-mode=volume` now provides
+   the device-resident path and has been validated with the existing 3-D FFT.
 9. All three SFSC directional curves are retained. A mean curve is an additional output, not a
    replacement for them.
 10. Threshold criteria and conversion of a curve into a scalar resolution are outside the initial
     computational workflow.
 
-### 2.12 Questions intentionally left for implementation planning and validation
+### 2.12 Questions intentionally left for later SFSC planning and validation
 
 The document does not yet select answers to the following questions:
 
-- exact shell width, maximum radius, treatment of corner frequencies, and invalid-bin policy;
 - full-spectrum versus Hermitian half-spectrum accumulation;
-- shell-index lists, multi-stage partial reduction, or atomic accumulation;
-- whether the shell core emits raw statistics, normalized FSC, or both;
-- exact `rgba-backproject` volume-output ownership and reuse strategy;
 - sequential versus concurrent SFSC axis execution and the effect of UFO graph expansion;
 - noise-estimation inputs and policies appropriate to the DAQ data;
 - the FFT scaling that reproduces the corrected-SFSC $\gamma$ derivation;
 - whether an axis-wise Fourier-upsampled workflow is mathematically and numerically equivalent to the
   paper's full multidimensional padding for this application;
 - the common physical-frequency range used when averaging directional SFSC curves;
-- acceptable numerical tolerances and benchmark data for comparing UFO with the authors' NumPy
-  implementation.
+- benchmark data and performance targets for comparing alternative SFSC workflows with the authors'
+  NumPy implementation.
 
 These are planning and validation inputs, not ambiguities in the high-level method.
 

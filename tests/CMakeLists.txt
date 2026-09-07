@@ -37,6 +37,12 @@ add_test(test_memin
 add_test(test_fft
          ${Python_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/test_fft.py")
 
+add_test(test_fsc_core
+         ${PYTHON_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/test_fsc_core.py")
+set_tests_properties(test_fsc_core PROPERTIES
+                     ENVIRONMENT "UFO_PLUGIN_PATH=${CMAKE_BINARY_DIR}/src"
+                     SKIP_RETURN_CODE 77)
+
 add_test(test_swap_quadrants
          ${Python_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/test_swap_quadrants.py")
 
