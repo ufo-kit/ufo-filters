@@ -91,6 +91,37 @@ Statistics
         Along which axis to measure (-1, all).
 
 
+Fourier shell statistics
+------------------------
+
+.. gobj:class:: fsc-core
+
+    Reduce consecutive pairs of complex-interleaved three-dimensional spectra into compact Fourier
+    shell statistics. The output is a two-dimensional ``(B, 5)`` requisition containing cross sum,
+    two power sums, shell count, and physical shell centre. This stateful task supports one device;
+    graph expansion must be disabled.
+
+    .. gobj:prop:: voxel-size-x:double
+
+        Required positive voxel spacing along the fastest-varying X dimension.
+
+    .. gobj:prop:: voxel-size-y:double
+
+        Required positive voxel spacing along the Y dimension.
+
+    .. gobj:prop:: voxel-size-z:double
+
+        Required positive voxel spacing along the slowest-varying Z dimension.
+
+    .. gobj:prop:: shell-width:double
+
+        Physical radial shell width. Zero selects the coarsest axial FFT frequency increment.
+
+    .. gobj:prop:: max-frequency:double
+
+        Exclusive radial frequency limit. Zero selects the smallest axial Nyquist frequency.
+
+
 .. _generic-opencl-ref:
 
 

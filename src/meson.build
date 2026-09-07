@@ -30,6 +30,7 @@ plugins = [
     'filter-stripes',
     'filter-stripes1d',
     'flip',
+    'fsc-core',
     'forwardproject',
     'get-dup-circ',
     'gradient',

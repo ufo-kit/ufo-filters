@@ -1,0 +1,45 @@
+/*
+ * Copyright (C) 2026 Karlsruhe Institute of Technology
+ *
+ * This file is part of Ufo.
+ *
+ * This library is free software: you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation, either
+ * version 3 of the License, or (at your option) any later version.
+ */
+
+#ifndef __UFO_FSC_CORE_TASK_H
+#define __UFO_FSC_CORE_TASK_H
+
+#include <ufo/ufo.h>
+
+G_BEGIN_DECLS
+
+#define UFO_TYPE_FSC_CORE_TASK             (ufo_fsc_core_task_get_type())
+#define UFO_FSC_CORE_TASK(obj)             (G_TYPE_CHECK_INSTANCE_CAST((obj), UFO_TYPE_FSC_CORE_TASK, UfoFscCoreTask))
+#define UFO_IS_FSC_CORE_TASK(obj)          (G_TYPE_CHECK_INSTANCE_TYPE((obj), UFO_TYPE_FSC_CORE_TASK))
+#define UFO_FSC_CORE_TASK_CLASS(klass)     (G_TYPE_CHECK_CLASS_CAST((klass), UFO_TYPE_FSC_CORE_TASK, UfoFscCoreTaskClass))
+#define UFO_IS_FSC_CORE_TASK_CLASS(klass)  (G_TYPE_CHECK_CLASS_TYPE((klass), UFO_TYPE_FSC_CORE_TASK))
+#define UFO_FSC_CORE_TASK_GET_CLASS(obj)   (G_TYPE_INSTANCE_GET_CLASS((obj), UFO_TYPE_FSC_CORE_TASK, UfoFscCoreTaskClass))
+
+typedef struct _UfoFscCoreTask           UfoFscCoreTask;
+typedef struct _UfoFscCoreTaskClass      UfoFscCoreTaskClass;
+typedef struct _UfoFscCoreTaskPrivate    UfoFscCoreTaskPrivate;
+
+struct _UfoFscCoreTask {
+    UfoTaskNode parent_instance;
+
+    UfoFscCoreTaskPrivate *priv;
+};
+
+struct _UfoFscCoreTaskClass {
+    UfoTaskNodeClass parent_class;
+};
+
+UfoNode *ufo_fsc_core_task_new      (void);
+GType    ufo_fsc_core_task_get_type (void);
+
+G_END_DECLS
+
+#endif
