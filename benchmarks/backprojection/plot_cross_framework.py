@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Plot shape-only UFO/ASTRA benchmark summaries."""
+"""Plot UFO/ASTRA experimental benchmark summaries."""
 
 from __future__ import annotations
 
 import argparse
 import csv
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -12,15 +13,8 @@ from typing import Any
 from plot_results import ALGORITHM_LABELS, COLOR_CONFIG_PATH, load_colors
 
 
-ALGORITHM_ORDER = (
-    "general", "rgba_singular", "even_odd_dual", "astra_bp3d", "astra_accumulate",
-)
-SINGLE_VOLUME = ("general", "rgba_singular", "astra_bp3d", "astra_accumulate")
-METRIC_LABELS = {
-    "completion_time_ms": "Host-ready completion time (ms)",
-    "peak_device_memory_mib": "Peak device memory (MiB)",
-    "peak_device_memory_delta_mib": "Peak increase over baseline (MiB)",
-}
+ALGORITHM_ORDER = ("general", "rgba_singular", "even_odd", "astra_accumulate")
+SINGLE_VOLUME = ("general", "rgba_singular", "astra_accumulate")
 
 
 def read_csv(path: Path) -> list[dict[str, str]]:
@@ -38,104 +32,86 @@ def save_figure(figure: Any, path: Path) -> None:
         obsolete.unlink()
 
 
-def timing_lookup(rows: list[dict[str, str]]) -> dict[tuple[int, str], tuple[float, float]]:
+def lookup(
+    rows: list[dict[str, str]], metric: str, value_key: str, spread_key: str
+) -> dict[tuple[int, int, str], tuple[float, float]]:
     return {
-        (int(row["shape"]), row["algorithm"]):
-        (float(row["median_ms"]), float(row["mad_ms"]))
-        for row in rows if row["metric"] == "completion_time_ms"
-    }
-
-
-def memory_lookup(
-    rows: list[dict[str, str]], metric: str
-) -> dict[tuple[int, str], tuple[float, float]]:
-    return {
-        (int(row["shape"]), row["algorithm"]):
-        (float(row["median_mib"]), float(row["mad_mib"]))
+        (int(row["shape"]), int(row["burst"]), row["algorithm"]):
+        (float(row[value_key]), float(row[spread_key]))
         for row in rows if row["metric"] == metric
     }
 
 
-def present_algorithms(rows: list[dict[str, str]]) -> list[str]:
-    available = {row["algorithm"] for row in rows}
-    return [algorithm for algorithm in ALGORITHM_ORDER if algorithm in available]
-
-
-def grouped_bars(
-    plt: Any,
-    np: Any,
-    output: Path,
-    shapes: list[int],
-    algorithms: list[str],
-    values: dict[tuple[int, str], tuple[float, float]],
-    colors: dict[str, str],
-    ylabel: str,
-    title: str,
-    filename: str,
+def grouped_by_shape(
+    plt: Any, np: Any, output: Path, shapes: list[int], bursts: list[int],
+    algorithms: list[str], values: dict[tuple[int, int, str], tuple[float, float]],
+    colors: dict[str, str], ylabel: str, title: str, filename: str,
 ) -> None:
-    figure, axis = plt.subplots(figsize=(10.2, 5.8))
-    x = np.arange(len(shapes), dtype=float)
-    width = min(0.2, 0.82 / max(1, len(algorithms)))
-    for index, algorithm in enumerate(algorithms):
-        positions = x + (index - (len(algorithms) - 1) / 2.0) * width
-        medians = []
-        mads = []
-        valid_positions = []
-        for position, shape in zip(positions, shapes):
-            value = values.get((shape, algorithm))
-            if value is not None:
-                valid_positions.append(position)
-                medians.append(value[0])
-                mads.append(value[1])
-        if medians:
+    width = min(0.22, 0.82 / max(1, len(algorithms)))
+    for shape in shapes:
+        figure, axis = plt.subplots(figsize=(9.5, 5.6))
+        x = np.arange(len(bursts), dtype=float)
+        for index, algorithm in enumerate(algorithms):
+            positions = x + (index - (len(algorithms) - 1) / 2.0) * width
+            points = [values.get((shape, burst, algorithm)) for burst in bursts]
+            valid = [(position, point) for position, point in zip(positions, points)
+                     if point is not None]
+            if not valid:
+                continue
             axis.bar(
-                valid_positions, medians, width, yerr=mads, capsize=3,
+                [item[0] for item in valid], [item[1][0] for item in valid], width,
+                yerr=[item[1][1] for item in valid], capsize=3,
                 color=colors[algorithm], edgecolor="black", linewidth=0.4,
                 label=ALGORITHM_LABELS.get(algorithm, algorithm),
             )
-    axis.set_xticks(x, [f"{shape}³" for shape in shapes])
-    axis.set_xlabel("Reconstructed output shape")
-    axis.set_ylabel(ylabel)
-    axis.set_title(title)
-    axis.grid(axis="y", alpha=0.22)
-    axis.legend(frameon=False)
-    figure.tight_layout()
-    save_figure(figure, output / filename)
-    plt.close(figure)
+        axis.set_xticks(x, [str(value) for value in bursts])
+        axis.set_xlabel("Burst size")
+        axis.set_ylabel(ylabel)
+        axis.set_title(f"{title} — {shape}³ output")
+        axis.grid(axis="y", alpha=0.22)
+        axis.legend(frameon=False)
+        figure.tight_layout()
+        save_figure(figure, output / f"{filename}-n{shape}")
+        plt.close(figure)
 
 
-def scaling_lines(
-    plt: Any,
-    output: Path,
-    shapes: list[int],
-    algorithms: list[str],
-    values: dict[tuple[int, str], tuple[float, float]],
-    colors: dict[str, str],
+def scaling(
+    plt: Any, np: Any, output: Path, shapes: list[int], bursts: list[int],
+    algorithms: list[str], values: dict[tuple[int, int, str], tuple[float, float]],
+    colors: dict[str, str], orientation: str,
 ) -> None:
-    figure, axis = plt.subplots(figsize=(9.4, 5.8))
-    for algorithm in algorithms:
-        available = [
-            (shape, values[(shape, algorithm)])
-            for shape in shapes if (shape, algorithm) in values
-        ]
-        if not available:
-            continue
-        x = [item[0] for item in available]
-        medians = [item[1][0] for item in available]
-        mads = [item[1][1] for item in available]
-        axis.errorbar(
-            x, medians, yerr=mads, marker="o", capsize=3,
-            color=colors[algorithm], label=ALGORITHM_LABELS.get(algorithm, algorithm),
-        )
-    axis.set_xscale("log", base=2)
-    axis.set_yscale("log")
-    axis.set_xticks(shapes, [str(shape) for shape in shapes])
-    axis.set_xlabel("Cubic output side")
-    axis.set_ylabel(METRIC_LABELS["completion_time_ms"])
-    axis.set_title("Full-detector completion-time scaling")
-    axis.grid(which="both", alpha=0.22)
-    axis.legend(frameon=False)
-    figure.tight_layout()
+    if orientation == "row":
+        rows, columns = 1, len(bursts)
+        figsize = (5.0 * columns, 4.8)
+    else:
+        rows, columns = len(bursts), 1
+        figsize = (7.0, 4.2 * rows)
+    figure, axes = plt.subplots(rows, columns, figsize=figsize, squeeze=False)
+    for axis, burst in zip(axes.flat, bursts):
+        for algorithm in algorithms:
+            points = [(shape, values.get((shape, burst, algorithm))) for shape in shapes]
+            valid = [item for item in points if item[1] is not None and item[1][0] > 0]
+            if not valid:
+                continue
+            axis.errorbar(
+                np.array([item[0] for item in valid]),
+                np.array([item[1][0] for item in valid]),
+                yerr=np.array([item[1][1] for item in valid]), marker="o", capsize=3,
+                color=colors[algorithm], label=ALGORITHM_LABELS.get(algorithm, algorithm),
+            )
+        axis.set_xscale("log", base=2)
+        axis.set_yscale("log")
+        axis.set_xticks(shapes, [str(shape) for shape in shapes])
+        axis.set_title(f"Burst {burst}")
+        axis.set_xlabel("Cubic output side")
+        axis.set_ylabel("Host-ready completion time (ms)")
+        axis.grid(which="both", alpha=0.22)
+    handles, labels = axes.flat[0].get_legend_handles_labels()
+    figure.suptitle("UFO–ASTRA experimental completion scaling", y=0.995)
+    if handles:
+        figure.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, 0.955),
+                      ncol=len(algorithms), frameon=False)
+    figure.tight_layout(rect=(0.0, 0.0, 1.0, 0.90))
     save_figure(figure, output / "completion-scaling")
     plt.close(figure)
 
@@ -148,49 +124,50 @@ def generate_plots(campaign: Path) -> None:
     import numpy as np
     from matplotlib.colors import is_color_like
 
+    config = json.loads((campaign / "resolved-config.json").read_text(encoding="utf-8"))
+    orientation = config.get("scaling_plot_orientation", "row")
+    if orientation not in ("row", "column"):
+        raise ValueError("scaling_plot_orientation must be 'row' or 'column'")
     timing_rows = read_csv(campaign / "results" / "summaries.csv")
     memory_path = campaign / "results" / "memory-summaries.csv"
     memory_rows = read_csv(memory_path) if memory_path.is_file() else []
-    if not timing_rows:
-        raise RuntimeError("no complete algorithm/shape results are available to plot")
     colors, _ = load_colors(COLOR_CONFIG_PATH, is_color_like)
-    algorithms = present_algorithms(timing_rows)
-    missing_colors = set(algorithms).difference(colors)
-    if missing_colors:
-        raise ValueError(f"colors.example.json is missing {sorted(missing_colors)}")
+    available = {row["algorithm"] for row in timing_rows}
+    algorithms = [item for item in ALGORITHM_ORDER if item in available]
     shapes = sorted({int(row["shape"]) for row in timing_rows})
-    timing = timing_lookup(timing_rows)
+    bursts = sorted({int(row["burst"]) for row in timing_rows})
+    timing = lookup(timing_rows, "completion_time_ms", "median_ms", "mad_ms")
     output = campaign / "plots"
+    output.mkdir(parents=True, exist_ok=True)
+    for pattern in ("3d-*", "peak-device-memory-delta*", "scheduler-time*"):
+        for obsolete in output.glob(pattern):
+            obsolete.unlink()
 
     try:
         plt.style.use("seaborn-v0_8-whitegrid")
     except OSError:
         plt.style.use("default")
-    singles = [algorithm for algorithm in SINGLE_VOLUME if algorithm in algorithms]
-    grouped_bars(
-        plt, np, output, shapes, singles, timing, colors,
-        METRIC_LABELS["completion_time_ms"],
-        "Matched single-volume reconstruction", "single-volume-completion",
+    singles = [item for item in SINGLE_VOLUME if item in algorithms]
+    grouped_by_shape(
+        plt, np, output, shapes, bursts, singles, timing, colors,
+        "Host-ready completion time (ms)", "Matched single-volume reconstruction",
+        "single-volume-completion",
     )
-    grouped_bars(
-        plt, np, output, shapes, algorithms, timing, colors,
-        METRIC_LABELS["completion_time_ms"],
-        "Full-detector reconstruction (RGBA dual produces two volumes)",
+    grouped_by_shape(
+        plt, np, output, shapes, bursts, algorithms, timing, colors,
+        "Host-ready completion time (ms)",
+        "Incremental reconstruction (RGBA even/odd produces two volumes)",
         "all-workloads-completion",
     )
-    scaling_lines(plt, output, shapes, algorithms, timing, colors)
+    scaling(plt, np, output, shapes, bursts, algorithms, timing, colors, orientation)
 
-    for metric, filename, title in (
-        ("peak_device_memory_mib", "peak-device-memory", "Absolute peak device memory"),
-        ("peak_device_memory_delta_mib", "peak-device-memory-delta",
-         "Incremental peak device memory"),
-    ):
-        values = memory_lookup(memory_rows, metric)
-        if values:
-            grouped_bars(
-                plt, np, output, shapes, algorithms, values, colors,
-                METRIC_LABELS[metric], title, filename,
-            )
+    memory = lookup(memory_rows, "peak_device_memory_mib", "median_mib", "mad_mib")
+    if memory:
+        grouped_by_shape(
+            plt, np, output, shapes, bursts, algorithms, memory, colors,
+            "Peak device memory (MiB)", "Absolute peak device memory",
+            "peak-device-memory",
+        )
 
 
 def main() -> int:

@@ -14,17 +14,14 @@ from typing import Any
 ALGORITHM_LABELS = {
     "general": "General",
     "rgba_singular": "RGBA singular",
-    "even_odd_single": "Even/odd single launch",
-    "even_odd_dual": "Even/odd dual launch",
-    "astra_bp3d": "ASTRA BP3D_CUDA",
+    "even_odd": "RGBA even/odd (two volumes)",
     "astra_accumulate": "ASTRA incremental BP",
 }
 
 ALGORITHM_HATCHES = {
     "general": "",
     "rgba_singular": "\\\\\\",
-    "even_odd_single": "",
-    "even_odd_dual": "\\\\\\",
+    "even_odd": "///",
 }
 
 STAGE_ORDER = ("projection_packing", "backprojection", "distribution", "other")
@@ -224,10 +221,15 @@ def plot_scaling(
     title: str,
     filename: str,
     algorithm_colors: dict[str, str],
+    orientation: str,
 ) -> None:
-    columns = 2
-    rows = (len(bursts) + columns - 1) // columns
-    figure, axes = plt.subplots(rows, columns, figsize=(11.0, 4.0 * rows), squeeze=False)
+    if orientation == "row":
+        rows, columns = 1, len(bursts)
+        figsize = (5.0 * columns, 4.8)
+    else:
+        rows, columns = len(bursts), 1
+        figsize = (7.0, 4.2 * rows)
+    figure, axes = plt.subplots(rows, columns, figsize=figsize, squeeze=False)
     for axis, burst in zip(axes.flat, bursts):
         for algorithm in algorithms:
             points = [metrics.get((shape, burst, algorithm, metric)) for shape in shapes]
@@ -300,6 +302,10 @@ def generate_plots(campaign: Path) -> None:
     from matplotlib.colors import is_color_like
 
     summaries = read_csv(campaign / "results" / "summaries.csv")
+    config = json.loads((campaign / "resolved-config.json").read_text(encoding="utf-8"))
+    orientation = config.get("scaling_plot_orientation", "row")
+    if orientation not in ("row", "column"):
+        raise ValueError("scaling_plot_orientation must be 'row' or 'column'")
     stage_summaries = read_csv(campaign / "results" / "stage-summaries.csv")
     memory_path = campaign / "results" / "memory-summaries.csv"
     memory_summaries = read_csv(memory_path) if memory_path.is_file() else []
@@ -318,6 +324,12 @@ def generate_plots(campaign: Path) -> None:
             f"colors.example.json has no colors for algorithms {sorted(missing_colors)}")
     output = campaign / "plots"
     output.mkdir(parents=True, exist_ok=True)
+    for pattern in (
+        "scheduler-time-*", "kernel-scaling.*", "peak-device-memory-delta-*",
+        "3d-*",
+    ):
+        for obsolete in output.glob(pattern):
+            obsolete.unlink()
 
     try:
         plt.style.use("seaborn-v0_8-whitegrid")
@@ -330,31 +342,16 @@ def generate_plots(campaign: Path) -> None:
         "output_completion_span_ms", "Completion span (ms)",
         "Output completion span", "output-completion", algorithm_colors,
     )
-    plot_grouped_metric(
-        plt, np, output, shapes, bursts, algorithms, metrics,
-        "scheduler_time_ms", "Scheduler time (ms)",
-        "Scheduler pipeline time", "scheduler-time", algorithm_colors,
-    )
-    plot_scaling(
-        plt, np, output, shapes, bursts, algorithms, metrics,
-        "total_profiled_kernel_ms", "Profiled-kernel scaling", "kernel-scaling",
-        algorithm_colors,
-    )
     plot_scaling(
         plt, np, output, shapes, bursts, algorithms, metrics,
         "output_completion_span_ms", "Output-completion scaling", "completion-scaling",
-        algorithm_colors,
+        algorithm_colors, orientation,
     )
     if memory_summaries:
         plot_grouped_metric(
             plt, np, output, shapes, bursts, algorithms, memory_metrics,
             "peak_device_memory_mib", "Peak device memory (MiB)",
             "Absolute peak device memory", "peak-device-memory", algorithm_colors,
-        )
-        plot_grouped_metric(
-            plt, np, output, shapes, bursts, algorithms, memory_metrics,
-            "peak_device_memory_delta_mib", "Peak increase over baseline (MiB)",
-            "Incremental peak device memory", "peak-device-memory-delta", algorithm_colors,
         )
 
 

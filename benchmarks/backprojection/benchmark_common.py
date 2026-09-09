@@ -30,28 +30,25 @@ SUITES = {
         {"id": "general", "plugin": "general-backproject", "mode": "singular"},
         {"id": "rgba_singular", "plugin": "rgba-backproject", "mode": "singular"},
     ),
-    "rgba-even-odd": (
-        {"id": "even_odd_single", "plugin": "rgba-backproject", "mode": "even_odd_single"},
-        {"id": "even_odd_dual", "plugin": "rgba-backproject", "mode": "even_odd_dual"},
-    ),
-    "general-vs-rgba-dual": (
+    "general-vs-rgba-even-odd": (
         {"id": "general", "plugin": "general-backproject", "mode": "singular"},
-        {"id": "even_odd_dual", "plugin": "rgba-backproject", "mode": "even_odd_dual"},
+        {"id": "even_odd", "plugin": "rgba-backproject", "mode": "even_odd"},
     ),
 }
 
 DEFAULTS = {
-    "dataset": "/home/ws/nj4412/workspace/projects/gpr/resources/fltfc.tiff",
-    "output_root": "./benchmark-results",
+    "dataset": "/workspaces/ufo-filters/benchmarks/resources/fc.tif",
+    "output_root": "./results",
+    "campaign_dir": None,
     "device": 0,
     "num_projections": 3001,
-    "projection_shape": [1024, 1024],
-    "center_position_x": 540.4,
-    "center_position_z": 512.0,
+    "projection_shape": [2016, 2016],
+    "center_position_x": 997.2,
+    "center_position_z": 1008.0,
     "general_overall_angle": -math.pi,
     "rgba_overall_angle": math.pi,
-    "shapes": [32, 64, 128, 256, 512],
-    "bursts": [8, 16, 24, 32, 64],
+    "shapes": [256, 512, 1024],
+    "bursts": [16, 32, 64],
     "warmup_runs": 1,
     "measured_runs": 10,
     "seed": 20260819,
@@ -60,17 +57,18 @@ DEFAULTS = {
     "dcgm_host": "localhost",
     "dcgm_gpu_id": None,
     "dcgm_bindings_path": None,
+    "resume": False,
+    "dry_run": False,
+    "generate_plots": True,
+    "scaling_plot_orientation": "row",
 }
 
 RGBA_KERNEL_NAMES = {
     "singular": {"accumulate", "backproject", "distribute"},
-    "even_odd_single": {"accumulate", "backproject_even_odd_single", "distribute"},
-    "even_odd_dual": {"accumulate", "backproject_even", "backproject_odd", "distribute"},
+    "even_odd": {"accumulate", "backproject_even", "backproject_odd", "distribute"},
 }
 
 SUMMARY_METRICS = (
-    "scheduler_time_ms",
-    "runner_wall_time_ms",
     "total_profiled_kernel_ms",
     "backproject_task_active_ms",
     "output_completion_span_ms",
@@ -205,7 +203,7 @@ def resolve_ufo_installation(config: dict[str, Any]) -> None:
     config["ufo_installation"] = installation
 
 
-def load_configuration(path: Path, args: argparse.Namespace, suite: str) -> dict[str, Any]:
+def load_configuration(path: Path, suite: str) -> dict[str, Any]:
     raw = read_json(path)
     config = dict(DEFAULTS)
     config.update(raw)
@@ -217,23 +215,16 @@ def load_configuration(path: Path, args: argparse.Namespace, suite: str) -> dict
     config.pop("plugin_path_requested", None)
     config.pop("kernel_source_dir", None)
 
-    if args.shapes:
-        config["shapes"] = args.shapes
-    if args.bursts:
-        config["bursts"] = args.bursts
-    if args.runs is not None:
-        config["measured_runs"] = args.runs
-    if args.seed is not None:
-        config["seed"] = args.seed
-    if args.dcgm_memory:
-        config["dcgm_memory_enabled"] = True
     if config.get("dcgm_gpu_id") is None:
         config["dcgm_gpu_id"] = int(config["device"])
     if config.get("dcgm_bindings_path"):
         config["dcgm_bindings_path"] = str(resolve_path(
             str(config["dcgm_bindings_path"]), base))
-    if args.output:
-        config["campaign_dir"] = str(Path(args.output).expanduser().resolve())
+    requested_campaign = config.get("campaign_dir")
+    if bool(config.get("resume")) and not requested_campaign:
+        raise ValueError("resume requires an explicit campaign_dir")
+    if requested_campaign:
+        config["campaign_dir"] = str(resolve_path(str(config["campaign_dir"]), base))
     else:
         name = f"{suite}-{utc_stamp()}"
         config["campaign_dir"] = str(Path(config["output_root"]) / name)
@@ -270,6 +261,8 @@ def validate_configuration(config: dict[str, Any]) -> None:
         raise ValueError("dcgm_gpu_id must be a non-negative DCGM device ID")
     if not str(config.get("dcgm_host", "")).strip():
         raise ValueError("dcgm_host must not be empty")
+    if config.get("scaling_plot_orientation") not in ("row", "column"):
+        raise ValueError("scaling_plot_orientation must be 'row' or 'column'")
 
 
 def make_schedule(config: dict[str, Any]) -> dict[str, Any]:
@@ -344,6 +337,7 @@ def dry_run_report(config: dict[str, Any], schedule: dict[str, Any]) -> None:
         "total_executions": total,
         "dcgm_memory_enabled": bool(config.get("dcgm_memory_enabled", False)),
         "dcgm_sample_interval_ms": int(config.get("dcgm_sample_interval_ms", 50)),
+        "scaling_plot_orientation": config["scaling_plot_orientation"],
     }, indent=2))
 
 
@@ -717,9 +711,6 @@ def analyze_traces(
         expected_counts = {"accumulate": batches, "distribute": 1}
         if definition["mode"] == "singular":
             expected_counts["backproject"] = batches
-        elif definition["mode"] == "even_odd_single":
-            expected_counts["backproject_even_odd_single"] = batches
-            expected_counts["distribute"] = 2
         else:
             expected_counts["backproject_even"] = batches
             expected_counts["backproject_odd"] = batches
@@ -868,12 +859,8 @@ def execute_run(
                     "baseline_device_memory_mib":
                         memory_report["baseline_device_memory_mib"],
                     "peak_device_memory_mib": memory_report["peak_device_memory_mib"],
-                    "peak_device_memory_delta_mib":
-                        memory_report["peak_device_memory_delta_mib"],
                     "dcgm_memory_sample_count": memory_report["sample_count"],
                 })
-        manifest["scheduler_time_ms"] = float(scheduler.props.time) * 1000.0
-
         opencl_files = list(run_dir.glob("opencl.*.json"))
         trace_files = list(run_dir.glob("trace.*.json"))
         if len(opencl_files) != 1 or len(trace_files) != 1:
@@ -954,10 +941,10 @@ def aggregate_results(campaign: Path) -> dict[str, Any]:
             key: item.get(key) for key in (
                 "suite", "config_id", "logical_run_id", "sequence", "algorithm", "plugin",
                 "operation_mode", "shape", "burst", "warmup", "repetition", "pair_order",
-                "attempt", "status", "scheduler_time_ms", "runner_wall_time_ms",
+                "attempt", "status",
                 "total_profiled_kernel_ms", "backproject_task_active_ms",
                 "output_completion_span_ms", "baseline_device_memory_mib",
-                "peak_device_memory_mib", "peak_device_memory_delta_mib",
+                "peak_device_memory_mib",
                 "dcgm_memory_sample_count", "dcgm_memory_file", "manifest_path", "error",
             )
         }
@@ -1011,15 +998,15 @@ def aggregate_results(campaign: Path) -> dict[str, Any]:
                     "algorithm": algorithm, "metric": metric, "n": len(values),
                     "median_ms": median, "mad_ms": mad,
                 })
-            for metric in ("peak_device_memory_mib", "peak_device_memory_delta_mib"):
-                if all(item.get(metric) is not None for item in group):
-                    values = [float(item[metric]) for item in group]
-                    median, mad = median_mad(values)
-                    memory_summary_rows.append({
-                        "suite": config["suite"], "shape": shape, "burst": burst,
-                        "algorithm": algorithm, "metric": metric, "n": len(values),
-                        "median_mib": median, "mad_mib": mad,
-                    })
+            metric = "peak_device_memory_mib"
+            if all(item.get(metric) is not None for item in group):
+                values = [float(item[metric]) for item in group]
+                median, mad = median_mad(values)
+                memory_summary_rows.append({
+                    "suite": config["suite"], "shape": shape, "burst": burst,
+                    "algorithm": algorithm, "metric": metric, "n": len(values),
+                    "median_mib": median, "mad_mib": mad,
+                })
             stage_names = sorted({name for item in group for name in item.get("stages_ms", {})})
             for stage in stage_names:
                 values = [float(item.get("stages_ms", {}).get(stage, 0.0)) for item in group]
@@ -1180,45 +1167,33 @@ def run_campaign(
 
 def common_argument_parser(description: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument("--config", type=Path, default=Path(__file__).with_name("config.example.json"))
-    parser.add_argument("--output", type=Path, help="exact directory for a new campaign")
-    parser.add_argument("--shapes", type=int, nargs="+", help="override output side lengths")
-    parser.add_argument("--bursts", type=int, nargs="+", help="override burst sizes")
-    parser.add_argument("--runs", type=int, help="override measured repetitions")
-    parser.add_argument("--seed", type=int, help="override randomization seed")
-    parser.add_argument(
-        "--dcgm-memory", action="store_true",
-        help="strictly monitor device framebuffer memory with NVIDIA DCGM",
-    )
-    parser.add_argument("--resume", type=Path, help="resume an existing campaign directory")
-    parser.add_argument("--dry-run", action="store_true", help="print the schedule size without running UFO")
-    parser.add_argument("--no-plots", action="store_true", help="do not create plots after the campaign")
+    parser.add_argument("--config", type=Path, required=True)
     return parser
 
 
 def runner_main(suite: str, description: str) -> int:
     parser = common_argument_parser(description)
     args = parser.parse_args()
+    requested = load_configuration(args.config.expanduser().resolve(), suite)
+    resume = bool(requested.get("resume", False))
+    campaign = Path(requested["campaign_dir"])
 
-    if args.resume:
-        if any((
-            args.output, args.shapes, args.bursts, args.runs is not None,
-            args.seed is not None, args.dcgm_memory,
-        )):
-            parser.error("--resume cannot be combined with configuration overrides")
-        campaign = args.resume.expanduser().resolve()
+    if resume:
         config = read_json(campaign / "resolved-config.json")
         if config.get("suite") != suite:
             parser.error(f"campaign suite is {config.get('suite')!r}, expected {suite!r}")
+        for key in (
+            "resume", "dry_run", "generate_plots", "scaling_plot_orientation",
+            "dcgm_memory_enabled", "dcgm_sample_interval_ms", "dcgm_host",
+            "dcgm_gpu_id", "dcgm_bindings_path",
+        ):
+            config[key] = requested[key]
         schedule = read_json(campaign / "schedule.json")
-        resume = True
     else:
-        config = load_configuration(args.config.expanduser().resolve(), args, suite)
+        config = requested
         schedule = make_schedule(config)
-        campaign = Path(config["campaign_dir"])
-        resume = False
 
-    if args.dry_run:
+    if bool(config.get("dry_run", False)):
         dry_run_report(config, schedule)
         return 0
 
@@ -1230,4 +1205,4 @@ def runner_main(suite: str, description: str) -> int:
         campaign.mkdir(parents=True, exist_ok=True)
         write_json(campaign / "resolved-config.json", config)
         write_json(campaign / "schedule.json", schedule)
-    return run_campaign(config, schedule, resume, not args.no_plots)
+    return run_campaign(config, schedule, resume, bool(config.get("generate_plots", True)))

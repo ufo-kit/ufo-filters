@@ -1,68 +1,83 @@
 # Backprojection benchmarks
 
-This directory benchmarks `general-backproject` against singular and dual-volume
-`rgba-backproject`, and compares the two temporary RGBA even/odd implementations. It constructs
-`read → backproject → null` graphs through Python, saves every UFO trace, and reports medians with
-unscaled median absolute deviations.
+This directory contains three GPU backprojection campaigns:
 
-## Benchmark summary
+| Campaign | Workloads | Key question |
+|---|---|---|
+| General vs RGBA singular | One General volume and one RGBA singular volume | How much does RGBA specialization improve one-volume online reconstruction? |
+| General vs RGBA even/odd | One General volume and two RGBA parity volumes | Can both FSC input volumes be reconstructed in time comparable to one General volume? |
+| UFO vs ASTRA experimental | General, RGBA singular, RGBA even/odd, and ASTRA `experimental.accumulate_BP` | How do the UFO methods compare with ASTRA when every implementation accumulates projections incrementally? |
 
-All campaigns used cubic reconstruction sizes from `32³` through `512³`. The following values
-are the logical float32 output payloads; they are useful lower bounds, not measured peak GPU memory.
-A dual even/odd reconstruction contains two such volumes.
+The maintained server configuration uses 3001 float32 projections of `2016 × 2016`, cubic outputs
+`256³`, `512³`, and `1024³`, and bursts 16, 32, and 64. One float32 volume occupies 64 MiB,
+512 MiB, or 4 GiB respectively; RGBA even/odd produces two volumes. These payload sizes are lower
+bounds rather than measured GPU peaks.
 
-| Volume shape | One float32 volume | Two float32 volumes |
-|---|---:|---:|
-| `32³` | 0.125 MiB | 0.25 MiB |
-| `64³` | 1 MiB | 2 MiB |
-| `128³` | 8 MiB | 16 MiB |
-| `256³` | 64 MiB | 128 MiB |
-| `512³` | 512 MiB | 1,024 MiB |
+## Campaign method
 
-| Benchmark suite | Compared workloads | Sizes and burst settings | Output payload over the size range | Key question |
-|---|---|---|---|---|
-| General vs RGBA singular | General Backproject vs RGBA singular; one volume each | `32³`–`512³`; bursts 8, 16, 24, 32, and 64 | 0.125–512 MiB per workload | Is the specialized RGBA path faster and more memory-efficient than General for the same single-volume reconstruction? |
-| RGBA even/odd strategies | `even_odd_single` vs `even_odd_dual`; two volumes each | `32³`–`512³`; bursts 8, 16, 24, 32, and 64 per parity | 0.25–1,024 MiB per workload | Is one parity-aware kernel launch or two simpler parity-specific launches more efficient? |
-| General vs RGBA dual | General producing one volume vs RGBA dual producing even and odd volumes | `32³`–`512³`; bursts 8, 16, 24, 32, and 64 | General: 0.125–512 MiB; RGBA: 0.25–1,024 MiB | Can RGBA reconstruct both FSC input volumes in comparable time and memory to General reconstructing one volume? |
-| UFO vs ASTRA whole-dataset | General singular, RGBA singular, RGBA dual, and ASTRA `BP3D_CUDA` | `32³`–`512³`; UFO burst fixed at 16; ASTRA has no burst | Single-volume methods: 0.125–512 MiB; RGBA dual: 0.25–1,024 MiB | How do the online UFO methods compare with ASTRA's optimized offline, whole-dataset reconstruction? |
-| UFO vs ASTRA incremental | General singular, RGBA singular, RGBA dual, and ASTRA `experimental.accumulate_BP` | `32³`–`512³`; burst fixed at 16 | Single-volume methods: 0.125–512 MiB; RGBA dual: 0.25–1,024 MiB | How do the UFO methods compare with ASTRA when ASTRA also consumes projections incrementally in acquisition-order bursts? |
+Each exact shape, burst, and algorithm configuration receives one discarded warm-up and ten
+measured runs. Algorithm order is shuffled reproducibly within every block. Results use the median
+and unscaled median absolute deviation (MAD); warm-ups, failures, and incomplete blocks remain in
+the manifests but are excluded from summaries. No best-run selection is performed.
 
-Actual peak device-memory footprint is larger than the output payload because it includes projection
-storage, coalesced accumulators, framework and driver allocations, and temporary working memory.
-Where DCGM monitoring was enabled, the measured absolute and baseline-subtracted peaks are recorded
-in each campaign's `results/memory-summaries.csv`; the interpretation caveats are described below.
+For UFO-only campaigns, the primary latency is `output_completion_span_ms`: the interval from the
+first backproject task `process` call through completion of the final null-sink call. The sink calls
+`clFinish`, so queued reconstruction and output work is complete. This avoids graph-wide startup,
+reader lifecycle, and teardown included by scheduler time. Runner wall time remains only in each run
+manifest as a diagnostic.
 
-### Campaign methodology
+UFO-only runs also retain exact profiled-kernel totals and stage summaries. Kernel-stage figures show
+projection packing, backprojection, and distribution, but not unprofiled OpenCL copies. The
+cross-framework campaign instead reports a common host-visible `completion_time_ms` and does not
+compare kernel internals.
 
-Each exact algorithm, output-size, and burst configuration was executed once as a discarded warm-up,
-followed by 10 measured runs. Within each output-size and burst block, the algorithm order was
-randomized using the campaign seed to reduce systematic bias from GPU temperature, clock changes,
-and execution order. Warm-ups, failed runs, and incomplete configurations were retained in the run
-records but excluded from aggregate results; no best-run selection was used.
+## Configuration and execution
 
-Reported timing and memory values are the median of the successful measured runs rather than their
-arithmetic mean. Variability is reported as the unscaled median absolute deviation (MAD). Every run
-has its own directory and manifest containing the resolved workload, execution order, environment,
-status, and raw profiler or DCGM data where applicable. UFO-only campaigns retained both scheduler
-and profiled-kernel measurements. Cross-framework campaigns used a common host-visible completion
-boundary and omitted kernel-level comparisons. Dataset loading and explicitly documented layout or
-burst preparation were performed before timing.
-
-Install UFO and the filters, copy `config.example.json` if workload paths need changing, and run
-either suite:
+Campaign runners accept only `--config`; edit the JSON rather than supplying workload overrides.
+The UFO-only campaigns share `config.example.json`:
 
 ```sh
-ninja -C build
-ninja -C build install
-python3 benchmarks/backprojection/run_general_vs_rgba.py --config benchmarks/backprojection/config.example.json
-python3 benchmarks/backprojection/run_even_odd.py --config benchmarks/backprojection/config.example.json
-python3 benchmarks/backprojection/run_general_vs_rgba_dual.py --config benchmarks/backprojection/config.example.json
+python3 benchmarks/backprojection/run_general_vs_rgba.py \
+  --config benchmarks/backprojection/config.example.json
+
+python3 benchmarks/backprojection/run_general_vs_rgba_even_odd.py \
+  --config benchmarks/backprojection/config.example.json
 ```
 
-The runners derive their plugin and kernel locations from the active UFO installation; benchmark
-configuration has no source- or build-tree path settings. `PKG_CONFIG_PATH` selects the `ufo.pc` file,
-while `LD_LIBRARY_PATH` and `GI_TYPELIB_PATH` must select the matching library and introspection data.
-Check the active installation with:
+Run the cross-framework campaign with:
+
+```sh
+python3 benchmarks/backprojection/run_ufo_vs_astra_experimental.py \
+  --config benchmarks/backprojection/astra-experimental-config.example.json
+```
+
+Important JSON controls include:
+
+- `campaign_dir`: null creates a timestamped directory below `output_root`; set an explicit path for
+  a fixed new campaign or any resume.
+- `resume`: resume the campaign named by `campaign_dir`.
+- `dry_run`: print the resolved schedule without loading data or running a graph.
+- `generate_plots`: generate PNG figures after aggregation.
+- `scaling_plot_orientation`: `row` (default) or `column` for the three burst subplots.
+- `dcgm_memory_enabled` and the remaining `dcgm_*` fields: optional strict memory monitoring.
+
+The default schedules contain 198 executions for each two-algorithm UFO campaign and 396 executions
+for the four-algorithm ASTRA campaign. Rebuild an existing campaign's summaries and figures with:
+
+```sh
+python3 benchmarks/backprojection/analyze_results.py CAMPAIGN_DIR
+python3 benchmarks/backprojection/analyze_ufo_vs_astra_experimental.py CAMPAIGN_DIR
+```
+
+Edit `colors.example.json` to change algorithm and kernel-stage colors. Plotters always load that
+file and emit PNG only. The maintained figures are per-shape completion bars, completion scaling,
+UFO kernel stages, and optional absolute peak-memory bars.
+
+## Installed UFO resources
+
+Runners use the active installed UFO selected by `pkg-config`; no source or build directory is
+required. `PKG_CONFIG_PATH` selects `ufo.pc`, while `LD_LIBRARY_PATH` and `GI_TYPELIB_PATH` must select
+the matching libraries and introspection data. Diagnose the selection with:
 
 ```sh
 pkg-config --variable=prefix ufo
@@ -70,178 +85,60 @@ pkg-config --variable=plugindir ufo
 pkg-config --variable=kerneldir ufo
 ```
 
-Before a campaign starts, the required installed plugins and kernel files are validated. The kernels
-are then linked from the installed `kerneldir` into each run directory so UFO uses the inspected
-sources and the manifests can retain their SHA-256 hashes. The resolved installation directories,
-plugin binaries, kernel sources, and relevant environment variables are recorded in campaign
-metadata.
+Required plugins and kernels are validated before execution. Installed kernels are linked into each
+run directory so the exact source selected by UFO can be hashed and recorded with plugin binaries,
+GPU/runtime identifiers, configuration, ordering, and failures.
 
-The third suite compares General's completed `Z`-slice volume against RGBA dual's completed `2Z`
-even/odd output using identical configured burst values. RGBA therefore collects `2 × burst`
-incoming projections per combined parity batch.
+## Incremental ASTRA input path
 
-The default matrix performs 550 graph executions per suite. A quick framework check can use:
+The ASTRA campaign loads the TIFF once as contiguous UFO data `[projection, detector-row,
+detector-column]`. For one burst setting at a time, consecutive ranges are transposed and copied into
+contiguous ASTRA arrays `[detector-row, burst-angle, detector-column]`. With 3001 projections this
+produces:
 
-```sh
-python3 benchmarks/backprojection/run_even_odd.py --dry-run --shapes 32 --bursts 24 --runs 1
-```
+| Burst | Groups | Tail |
+|---:|---:|---:|
+| 16 | 188 | 9 projections |
+| 32 | 94 | 25 projections |
+| 64 | 47 | 57 projections |
 
-Use `--resume CAMPAIGN_DIR` to retry unfinished configurations. Rebuild tables and figures with
-`python3 benchmarks/backprojection/analyze_results.py CAMPAIGN_DIR`. PyGObject and UFO must come from
-the system installation; plotting additionally needs the packages in `requirements.txt`.
+TIFF loading and burst packing are recorded but excluded from reconstruction timing. The original
+`[P,H,W]` dataset occupies approximately 45.44 GiB of host RAM. For one selected burst size, the
+complete dataset is reorganized into a list of contiguous host arrays; the list's combined size is
+another approximately 45.44 GiB. That full burst-organized host copy is released before the next
+burst size is prepared, so the three settings do not retain three such copies simultaneously. It is
+not a 45.44 GiB GPU allocation: for example, one burst-16 array is approximately 248 MiB and is
+linked/submitted to ASTRA for an additive update. Exact global angles, `parallel3d` geometry, and
+`cuda3d` projectors are created outside timing for the current shape/burst block.
 
-Edit `colors.example.json` to configure algorithm and stage colors. Both plotting scripts always
-load this file automatically. Plots are emitted as PNG only.
+During a measured ASTRA run, the runner allocates one zeroed `N³` float32 CuPy accumulator and links
+it to ASTRA. Each host burst is linked and passed to `experimental.accumulate_BP` in acquisition
+order. Linked inputs remain alive until CUDA synchronization, after which the completed accumulator
+is downloaded once to NumPy. Allocation, linking, host-to-device work, all additive backprojections,
+synchronization, and final download are timed.
 
-Generate the optional 3D burst × output-size view for any summary metric with:
-
-```sh
-python3 benchmarks/backprojection/plot_results_3d.py CAMPAIGN_DIR \
-  --metric total_profiled_kernel_ms --elev 24 --azim -55
-
-python3 benchmarks/backprojection/plot_results_3d.py CAMPAIGN_DIR \
-  --metric output_completion_span_ms --elev 24 --azim -55
-```
-
-The 3D script uses configured colors exactly by default. It also accepts `--shade` to apply lighting,
-`--log-time`, and `--output`.
+This is methodologically close to UFO because every method incrementally adds angular subsets into
+persistent GPU reconstruction storage. The input interfaces still differ: General and RGBA receive
+individual `[H,W]` frames and form internal batches, while ASTRA receives an already contiguous
+`[H,B,W]` group per call. General and ASTRA process `B` projections per batch; RGBA even/odd defines
+`B` per parity and therefore processes up to `2B` consecutive projections in a combined batch.
+Acquisition delays are excluded. `BP3D_CUDA` is used only by a discarded synthetic correctness check
+for the experimental API and is never a measured workload.
 
 ## Peak device memory
 
-NVIDIA DCGM monitoring is optional. Start the standalone `nv-hostengine`, ensure `dcgmi discovery`
-lists the selected GPU, and add `--dcgm-memory` to a new campaign command. The equivalent JSON
-setting is `"dcgm_memory_enabled": true`; the default sampling interval is 50 ms. If the DCGM
-bindings are outside a standard installation path, set `dcgm_bindings_path`. A null `dcgm_gpu_id`
-uses the configured UFO device index; set it explicitly if DCGM numbers the device differently.
-Monitoring is strict: a bindings, host-engine, GPU, or field error stops the campaign before
-benchmark runs begin.
+DCGM monitoring is optional and requires a running standalone `nv-hostengine`. When enabled, each
+run records the device-wide framebuffer baseline, raw timestamped samples, and absolute peak in MiB.
+Only absolute peak memory is aggregated and plotted.
 
-The pre-run baseline is the device memory in use immediately before `scheduler.run`. The absolute
-peak includes the persistent OpenCL context, program cache, driver allocations, and any other users
-of the device. The peak delta subtracts the baseline and is normally the more useful value for
-comparing algorithms. Both values are sampled, device-wide framebuffer usage rather than exact
-per-allocation accounting, so the selected GPU must remain exclusive to the campaign. A 50 ms
-interval can miss a very short-lived allocation, although reconstruction buffers normally persist
-long enough to be observed. Do not combine memory statistics from DCGM-monitored and unmonitored
-campaigns.
+The absolute peak includes the persistent OpenCL/CUDA context, program and projector state, driver
+allocations, and any other users of the device. Keep the selected GPU exclusive and its baseline
+stable during a campaign. The default 50 ms sampling interval can miss very short-lived allocations,
+although reconstruction buffers generally persist long enough to be observed. Do not combine memory
+statistics from monitored and unmonitored campaigns.
 
-Memory samples are retained in each run's `dcgm-memory.json`; aggregate values are written to
-`memory-summaries.csv`. The normal plotting command creates absolute and baseline-delta charts.
-The 3D utility accepts `peak_device_memory_mib` and `peak_device_memory_delta_mib` as metrics.
+## RGBA output validation
 
-The kernel charts contain only commands submitted through UFO's profiler. In particular, General's
-buffer-to-image copies and RGBA's ring-buffer and final slice copies are not included in profiled
-kernel totals. Scheduler time is retained as pipeline context, not as an isolated task measurement.
-
-## Full-detector UFO versus ASTRA
-
-The separate cross-framework campaign compares General, singular RGBA, dual-volume RGBA, and
-ASTRA `BP3D_CUDA` while keeping all 3001 complete `1024×1024` projections in the workload. UFO uses
-burst 16; ASTRA has no burst setting. Install `astra-toolbox` and `tifffile` in the Python environment
-that provides PyGObject/UFO, then run:
-
-```sh
-python3 benchmarks/backprojection/run_ufo_vs_astra.py \
-  --config benchmarks/backprojection/cross-framework-config.example.json
-```
-
-The runner loads the TIFF once before timing and retains contiguous `[P,H,W]` and `[H,P,W]` host
-layouts for UFO and ASTRA. This needs roughly 23.5 GiB for the default input layouts, plus outputs
-and a configurable safety reserve. It fails before allocation if Linux reports insufficient available
-host memory. The full ASTRA projection set is about 11.74 GiB, so `BP3D_CUDA` is expected to use its
-automatic GPU splitting on a 12 GiB device.
-
-The reported completion interval starts with host-resident projections and ends when all output data
-is host-accessible. It includes framework setup, required transfers, and reconstruction, but excludes
-TIFF loading and the layout transpose. General and singular RGBA retain their existing angular
-normalization; dual RGBA and ASTRA are intentionally unnormalized. The matched single-volume plot
-therefore compares General, singular RGBA, and ASTRA. The all-workloads plot additionally shows RGBA
-dual, clearly labeled as producing two volumes.
-
-The campaign supports the usual `--shapes`, `--runs`, `--seed`, `--resume`, `--dry-run`,
-`--dcgm-memory`, and `--no-plots` options. Its 2D figures are generated automatically. Create the
-optional 3D shape × algorithm view with:
-
-```sh
-python3 benchmarks/backprojection/plot_cross_framework_3d.py CAMPAIGN_DIR \
-  --metric completion_time_ms --elev 24 --azim -55
-
-python3 benchmarks/backprojection/plot_cross_framework_3d.py CAMPAIGN_DIR \
-  --metric peak_device_memory_delta_mib
-```
-
-Rebuild its CSV summaries and 2D figures without rerunning reconstruction with:
-
-```sh
-python3 benchmarks/backprojection/analyze_cross_framework.py CAMPAIGN_DIR
-```
-
-Both plotting utilities always read `colors.example.json`; edit its algorithm colors to change the
-figures. Only PNG files are produced. DCGM memory values have the same device-wide sampled semantics
-described above.
-
-## Online UFO versus incremental ASTRA
-
-The final online-style campaign compares General, singular RGBA, dual-volume RGBA, and one-volume
-ASTRA `experimental.accumulate_BP`, all with burst 16. It is separate from the whole-dataset
-`BP3D_CUDA` campaign above, which remains the offline reference. Install the CuPy package matching
-the CUDA runtime (the dependency file selects `cupy-cuda12x`), then run:
-
-```sh
-python3 benchmarks/backprojection/run_online_ufo_vs_astra.py \
-  --config benchmarks/backprojection/online-cross-framework-config.example.json
-```
-
-Before timing, the runner loads the TIFF and packs 188 contiguous ASTRA arrays in acquisition order:
-187 arrays contain 16 projections and the final array contains nine. This packing time is recorded
-but excluded, as is the existing ASTRA full-layout conversion. The staged arrays replace the offline
-campaign's `[H,P,W]` copy, so the default campaign still needs approximately 23.5 GiB for its two
-host projection layouts, plus outputs and the configured reserve.
-
-Static burst geometries and `cuda3d` projectors are also prepared outside timing. Each measured ASTRA
-interval includes allocation of a zeroed GPU-linked CuPy accumulator, linking and processing every
-host burst with its exact global angles, required transfers, one blocking final download, and the
-time until the complete NumPy volume is available. The output remains unnormalized. The experimental
-API is checked by a discarded synthetic comparison against `BP3D_CUDA` before campaign execution.
-
-The full projection stream is already resident in host memory to make repeated measurements
-deterministic, but ASTRA consumes it strictly in burst order. Camera arrival delays, TIFF I/O, and
-burst packing are not part of completion time. Automatic splitting is intentionally unnecessary:
-the largest GPU-linked accumulator is 512 MiB and each full input burst is 64 MiB before ASTRA's
-transient allocations.
-
-The command accepts the same `--shapes`, `--runs`, `--seed`, `--resume`, `--dry-run`, `--dcgm-memory`,
-and `--no-plots` options as the offline campaign. Rebuild results and plots with:
-
-```sh
-python3 benchmarks/backprojection/analyze_online_cross_framework.py CAMPAIGN_DIR
-
-python3 benchmarks/backprojection/plot_cross_framework_3d.py CAMPAIGN_DIR \
-  --metric completion_time_ms --elev 24 --azim -55
-```
-
-The matched plot compares the three single-volume methods. The contextual plot additionally includes
-RGBA dual and states that it produces two volumes. Edit `colors.example.json` to configure all plot
-colors.
-
-## Validate RGBA slice and volume output
-
-`validate_rgba_output_modes.py` is a manual real-data check, not a timing benchmark. It reconstructs
-the same data using both output representations, writes comparable TIFF page stacks, and checks
-their values and ordering. It uses `build/src` and `src/kernels` by default so the source kernel wins
-over a stale installed copy.
-
-```sh
-python3 benchmarks/backprojection/validate_rgba_output_modes.py \
-  --input /path/to/fltfc.tiff \
-  --num-projections 3001 --burst 16 \
-  --center-x 540.4 --center-z 512 \
-  --region -99.5 156.5 1 \
-  --x-region -256.4 255.4 1 \
-  --y-region -256.4 255.4 1 \
-  --operation-mode even_odd_dual --fft-smoke
-```
-
-Select at least five z slices. `--fft-smoke` additionally runs the device-only graph
-`rgba-backproject → fft dimensions=3 → null` without inserting `stack`. Supply `--output-dir` to
-retain the intermediate TIFF files.
+`validate_rgba_output_modes.py` remains a manual real-data correctness utility rather than a timing
+benchmark. It accepts `singular` or `even_odd` and can compare slice and volume output or run the
+device-only three-dimensional FFT smoke graph.
