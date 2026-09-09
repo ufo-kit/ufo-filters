@@ -90,51 +90,6 @@ backproject(
 }
 
 kernel void
-backproject_even_odd_single(
-    read_only image2d_array_t projections,
-    global float4 *even_slices,
-    global float4 *odd_slices,
-    constant float2 *angle_lut,
-    const float axis,
-    const uint burst,
-    sampler_t sampler,
-    const int slice_width,
-    const int slice_height,
-    const float2 x_region,
-    const float2 y_region,
-    const uint first_burst) {
-    const int idx = get_global_id(0);
-    const int idy = get_global_id(1);
-    const int idz = get_global_id(2);
-    if (idx >= slice_width || idy >= slice_height)
-        return;
-    const float volume_x = mad ((float) idx, x_region.y, x_region.x);
-    const float volume_y = mad ((float) idy, y_region.y, y_region.x);
-    float4 even_sum = 0.0f;
-    float4 odd_sum = 0.0f;
-    for (uint proj = 0; proj < burst; proj += 2) {
-        const float2 angle = angle_lut[proj];
-        const float roh = axis + (volume_x * angle.x + volume_y * angle.y);
-        even_sum += read_imagef(projections, sampler, (float4)(roh, idz + 0.5f, proj, 0));
-    }
-    for (uint proj = 1; proj < burst; proj += 2) {
-        const float2 angle = angle_lut[proj];
-        const float roh = axis + (volume_x * angle.x + volume_y * angle.y);
-        odd_sum += read_imagef(projections, sampler, (float4)(roh, idz + 0.5f, proj, 0));
-    }
-    const size_t plane = (size_t) slice_width * (size_t) slice_height;
-    const size_t output_index = ((size_t) idz * plane) + ((size_t) idy * slice_width + idx);
-    if (first_burst) {
-        even_slices[output_index] = even_sum;
-        odd_slices[output_index] = odd_sum;
-    }
-    else {
-        even_slices[output_index] += even_sum;
-        odd_slices[output_index] += odd_sum;
-    }
-}
-
-kernel void
 backproject_even(
     read_only image2d_array_t projections,
     global float4 *slices,

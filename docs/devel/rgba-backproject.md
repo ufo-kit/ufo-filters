@@ -44,8 +44,8 @@ The rest of this document uses the following symbols consistently.
 | Symbol | Meaning |
 |---|---|
 | `P` | Configured total number of projections, `num-projections`. |
-| `B` | Configured projections per singular burst or per parity, `burst`. |
-| `b` | Number of projections in the current burst; `B` for a complete burst and `P mod B` for the tail. |
+| `B` | Configured projections per singular burst or per parity, `burst`. The default is 16. |
+| `b` | Number of projections in the current batch; at most `B` in singular mode and `2B` in even/odd mode. |
 | `W` | Input projection width, `in_req.dims[0]`; detector x/column count. |
 | `H` | Input projection height, `in_req.dims[1]`; detector z/row count. |
 | `Z` | Number of slices requested by the resolved z region, `num_slices_actual`. |
@@ -54,7 +54,7 @@ The rest of this document uses the following symbols consistently.
 | `x0`, `dx` | Resolved x-volume origin and positive sampling step. |
 | `y0`, `dy` | Resolved y-volume origin and positive sampling step. |
 | `Nx`, `Ny` | Reconstructed slice width and height. |
-| `V` | Reconstructed volume count: one in singular mode and two in either parity mode. |
+| `V` | Reconstructed volume count: one in singular mode and two in even/odd mode. |
 
 Thus:
 
@@ -100,7 +100,7 @@ elements of each region; it does not implement per-projection center positions.
 
 | Property | Type and default | Operational meaning |
 |---|---|---|
-| `burst` | `uint`, default `24`, range `1..128` | Maximum projections stored and backprojected together. The final burst may be shorter. It sizes the ring buffer, texture layers, and device angle LUT. |
+| `burst` | `uint`, default `16`, range `1..128` | Projections per singular batch or per parity. Even/odd mode therefore holds up to `2B` projections. The final batch may be shorter. |
 | `num-projections` | `uint`, default `0`, range `0..32768` | Required total `P`. Although zero is allowed by the property specification, `setup` rejects it. The stream is expected to provide exactly this many projections. |
 | `overall-angle` | `double`, default `π` | Total angular interval in radians. May be negative. No degrees-to-radians conversion occurs. |
 | `x-region` | double `GValueArray`, default `[0,0,0]` | Half-open x-volume grid `(from,to,step)`. Zero step selects `Nx=W`, `x0=-W/2`, `dx=1`; explicit steps must be positive. |
@@ -109,7 +109,7 @@ elements of each region; it does not implement per-projection center positions.
 | `center-position-z` | double `GValueArray`, default `[0,0,0]` | Element zero is added to the relative z-region start and stop. |
 | `region` | double `GValueArray`, default `[0,0,0]` | Relative `(from,to,step)` detector-row selection. Stop is exclusive. A step almost equal to zero activates the fallback `(0,1,1)`. |
 | `addressing-mode` | enum, default `clamp` | OpenCL sampler addressing: `none`, `clamp_to_edge`, or `clamp`. |
-| `operation-mode` | enum, default `singular` | `singular` reconstructs one volume; `even_odd_single` and `even_odd_dual` reconstruct separate even and odd volumes with different backprojection dispatch. |
+| `operation-mode` | enum, default `singular` | `singular` reconstructs one normalized volume; `even_odd` reconstructs separate unnormalized even and odd volumes with two parity-specific backprojection launches. |
 | `output-mode` | enum, default `slices` | `slices` emits two-dimensional planes. `volume` emits one planar three-dimensional device buffer per reconstructed volume. |
 
 This task deliberately exposes a restricted addressing enum. The backprojection kernel computes
@@ -198,8 +198,8 @@ host_buffer_angles[2*i + 0] = cos(i * delta)
 host_buffer_angles[2*i + 1] = sin(i * delta)
 ```
 
-The device buffer holds one mode-dependent batch: `B` pairs in singular mode and `2B` in parity
-modes. Before each backprojection it is overwritten with the pairs for the current batch and
+The device buffer holds one mode-dependent batch: `B` pairs in singular mode and `2B` in even/odd
+mode. Before each backprojection it is overwritten with the pairs for the current batch and
 interpreted by OpenCL as `constant float2 *angle_lut`.
 
 There is no angular offset property. After all batches have accumulated, either distribution kernel
@@ -210,12 +210,12 @@ normalization_factor = abs(overall_angle) / P
 ```
 
 Using the absolute angular range preserves intensity sign when projections are ordered along a
-negative rotation direction. Both parity modes deliberately use a factor of `1.0` and remain
+negative rotation direction. Even/odd mode deliberately uses a factor of `1.0` and remains
 unnormalized.
 
 ### 2.4 Batch arithmetic
 
-`batch_capacity` is `B` in singular mode and `2B` in parity modes. For every incoming projection,
+`batch_capacity` is `B` in singular mode and `2B` in even/odd mode. For every incoming projection,
 `process` derives:
 
 ```text
@@ -224,9 +224,14 @@ actual_burst     = min(batch_capacity, P - batch_start)
 idx_actual_burst = processed_proj_count - batch_start
 ```
 
-Kernels run when `idx_actual_burst + 1 == actual_burst`. Parity batches start at an even global
-projection and alternate even/odd projections in texture layers. For `P=3001` and `B=24`, the final
-parity batch contains 25 layers: 13 even projections and 12 odd projections.
+Kernels run when `idx_actual_burst + 1 == actual_burst`. Even/odd batches start at an even global
+projection and alternate even/odd projections in texture layers. With the default `B=16`, a complete
+even/odd batch contains 32 projections. For `P=3001`, there are 93 complete batches followed by a
+25-projection tail containing 13 even projections and 12 odd projections.
+
+The production API has two enum values: `singular=0` and `even_odd=1`. The former benchmark-stage
+values `even_odd_single` and `even_odd_dual` are not aliases. Named configurations using
+`even_odd_dual` must use `even_odd`; numeric configurations using value 2 must use value 1.
 
 ---
 
@@ -244,7 +249,7 @@ construct task
        retain context and kernels
        create sampler
        build host angle LUT
-       allocate burst-sized device angle LUT
+       allocate batch-capacity-sized device angle LUT
   -> for every incoming projection:
        get_requisition(input)
          validate W, H, x/y grids, z region and device limits
@@ -252,10 +257,11 @@ construct task
          report output shape Nx x Ny or Nx x Ny x Z
        process(input)
          copy projection into its ring-buffer slot
-         if burst is complete:
+         if batch is complete:
            accumulate: ring buffer -> RGBA texture
            upload current angle pairs
-           backproject: texture -> coalesced volume
+           singular: backproject -> one coalesced volume
+           even/odd: backproject_even then backproject_odd -> two coalesced volumes
   -> input stream ends
   -> repeated generate(output)
        slices: distribute selected coalesced volume -> reusable planar volume
@@ -306,28 +312,29 @@ selection happens later in `accumulate`.
 - Device-resident (and other non-host) input is obtained as a device array and copied into the slot
   with `clEnqueueCopyBuffer`.
 
-At the burst boundary, `accumulate` is submitted asynchronously, the angle-table write is queued
-non-blockingly, and `backproject` is submitted through the blocking profiler call. The command queue
-is in order, so packing and angle transfer complete before backprojection, and the burst is complete
-before `process` returns.
+At the batch boundary, `accumulate` is submitted asynchronously and the angle-table write is queued
+non-blockingly. Singular mode then submits one blocking `backproject` call. Even/odd mode submits
+`backproject_even` asynchronously followed by blocking `backproject_odd`. The command queue is in
+order, so packing and angle transfer complete before backprojection, the even kernel completes before
+the odd kernel, and the complete batch finishes before `process` returns.
 
-The first burst overwrites every element of the coalesced volume. Later bursts add to it. This is why
-the buffer does not require a separate zero-fill.
+The first batch overwrites every element of each selected coalesced volume. Later batches add to it.
+This is why the buffers do not require a separate zero-fill.
 
 ### 3.4 Generation
 
 Generation is refused if the framework reports fewer than `P` processed projections. Singular mode
-uses `abs(overall_angle) / P`; parity modes use `1.0`.
+uses `abs(overall_angle) / P`; even/odd mode uses `1.0`.
 
 In slice mode, the first call for each volume launches `distribute` into the reusable padded planar
 buffer. Every successful call then copies one plane into a scheduler-owned two-dimensional output.
-`generated` counts planes across volumes, so parity output is all even slices followed by all odd
+`generated` counts planes across volumes, so even/odd output is all even slices followed by all odd
 slices. The `Z4-Z` padding planes are never emitted.
 
 In volume mode, `generated` counts volumes. Each call launches `distribute_volume` directly into the
 scheduler-owned three-dimensional device buffer. That kernel checks every channel against `Z`, so
 the output is tightly packed and unpadded. The blocking profiler call makes it safe to release the
-selected coalesced accumulator immediately. Parity output is the even volume followed by the odd
+selected coalesced accumulator immediately. Even/odd output is the even volume followed by the odd
 volume. No host array is requested and no second full-volume copy is performed.
 
 ### 3.5 Finalization
@@ -404,7 +411,7 @@ The image descriptor is also checked against:
 ```text
 W <= CL_DEVICE_IMAGE2D_MAX_WIDTH
 G <= CL_DEVICE_IMAGE2D_MAX_HEIGHT
-B <= CL_DEVICE_IMAGE_MAX_ARRAY_SIZE
+batch_capacity <= CL_DEVICE_IMAGE_MAX_ARRAY_SIZE
 ```
 
 These checks estimate image storage as tightly packed RGBA half data. A driver may use additional
@@ -419,8 +426,9 @@ width/height kernel arguments define flat-buffer strides independently of launch
 
 | Stage | Calls | Global work size | Result |
 |---|---:|---|---|
-| `accumulate` | Once per burst | `(W, G, b)` | Packs selected rows from `b` ring slots into `b` texture layers. |
-| `backproject` | Once per burst | `(Nx, Ny, G)` | Adds the burst contribution to the region-sized `float4` volume. |
+| `accumulate` | Once per batch | `(W, G, b)` | Packs selected rows from `b` ring slots into `b` texture layers. |
+| `backproject` | Once per singular batch | `(Nx, Ny, G)` | Adds all batch projections to the singular `float4` volume. |
+| `backproject_even`, `backproject_odd` | Once each per even/odd batch | `(Nx, Ny, G)` | Add alternating texture layers to the corresponding parity volume. |
 | `distribute` | Once per volume in slice mode | `(Nx, Ny, G)` | Converts `float4[G][Ny][Nx]` into the reusable planar `float[Z4][Ny][Nx]`. |
 | `distribute_volume` | Once per volume in volume mode | `(Nx, Ny, G)` | Converts directly into the scheduler output `float[Z][Ny][Nx]`, guarding padded channels. |
 
@@ -590,11 +598,93 @@ plane = Nx * Ny
 base(idx, idy, idz) = idz*plane + idy*Nx + idx
 ```
 
-For the burst beginning at global projection zero, `first_burst` is true and the kernel assigns
+For the batch beginning at global projection zero, `first_burst` is true and the kernel assigns
 `slices[base] = sum`. Every later burst performs `slices[base] += sum`. Because each work item owns a
 unique `base`, no atomics are required.
 
-### 5.3 Distribution: coalesced volume to planar output
+### 5.3 Even/odd backprojection
+
+Even/odd mode uses two kernels with the same argument ABI as singular backprojection. Both traverse
+the same combined texture batch, but the even kernel starts at layer 0 and the odd kernel at layer 1;
+each advances by two and writes only its own accumulator.
+
+```c
+kernel void
+backproject_even(
+    read_only image2d_array_t projections,
+    global float4 *slices,
+    constant float2 *angle_lut,
+    const float axis,
+    const uint burst,
+    sampler_t sampler,
+    const int slice_width,
+    const int slice_height,
+    const float2 x_region,
+    const float2 y_region,
+    const uint first_burst) {
+    const int idx = get_global_id(0);
+    const int idy = get_global_id(1);
+    const int idz = get_global_id(2);
+    if (idx >= slice_width || idy >= slice_height)
+        return;
+    const float volume_x = mad ((float) idx, x_region.y, x_region.x);
+    const float volume_y = mad ((float) idy, y_region.y, y_region.x);
+    float4 sum = 0.0f;
+    for (uint proj = 0; proj < burst; proj += 2) {
+        const float2 angle = angle_lut[proj];
+        const float roh = axis + (volume_x * angle.x + volume_y * angle.y);
+        sum += read_imagef(projections, sampler, (float4)(roh, idz + 0.5f, proj, 0));
+    }
+    const size_t plane = (size_t) slice_width * (size_t) slice_height;
+    const size_t output_index = ((size_t) idz * plane) + ((size_t) idy * slice_width + idx);
+    if (first_burst)
+        slices[output_index] = sum;
+    else
+        slices[output_index] += sum;
+}
+
+kernel void
+backproject_odd(
+    read_only image2d_array_t projections,
+    global float4 *slices,
+    constant float2 *angle_lut,
+    const float axis,
+    const uint burst,
+    sampler_t sampler,
+    const int slice_width,
+    const int slice_height,
+    const float2 x_region,
+    const float2 y_region,
+    const uint first_burst) {
+    const int idx = get_global_id(0);
+    const int idy = get_global_id(1);
+    const int idz = get_global_id(2);
+    if (idx >= slice_width || idy >= slice_height)
+        return;
+    const float volume_x = mad ((float) idx, x_region.y, x_region.x);
+    const float volume_y = mad ((float) idy, y_region.y, y_region.x);
+    float4 sum = 0.0f;
+    for (uint proj = 1; proj < burst; proj += 2) {
+        const float2 angle = angle_lut[proj];
+        const float roh = axis + (volume_x * angle.x + volume_y * angle.y);
+        sum += read_imagef(projections, sampler, (float4)(roh, idz + 0.5f, proj, 0));
+    }
+    const size_t plane = (size_t) slice_width * (size_t) slice_height;
+    const size_t output_index = ((size_t) idz * plane) + ((size_t) idy * slice_width + idx);
+    if (first_burst)
+        slices[output_index] = sum;
+    else
+        slices[output_index] += sum;
+}
+```
+
+Because every combined batch begins at an even global projection, texture-layer parity equals global
+projection parity. For a tail with an odd layer count, the even loop consumes one more layer than the
+odd loop. `first_burst` independently initializes both coalesced accumulators. The host queues the
+even kernel asynchronously and the odd kernel with a blocking profiler call; the in-order queue
+prevents overlap or reordering between them.
+
+### 5.4 Distribution: coalesced volume to planar output
 
 ```c
 kernel void
@@ -642,7 +732,7 @@ final[(4*idz + 3)*Nx*Ny + idy*Nx + idx] = values.w
 | same | `.w` | `4*idz + 3` |
 
 The result is tightly packed in z-major plane order and ready for one-slice rectangular copies.
-`normalization_factor` is `abs(overall_angle)/P` for singular reconstruction and `1.0` for parity
+`normalization_factor` is `abs(overall_angle)/P` for singular reconstruction and `1.0` for even/odd
 reconstruction.
 
 Volume output uses a separate bounds-aware kernel and writes directly into the scheduler-owned
@@ -682,7 +772,7 @@ request writes planes 0–4 only even though the final work group carries recons
 internal planes 4–7. The blocking submission finishes all writes before the output is handed to a
 downstream queue and before the source accumulator is released.
 
-### 5.4 Worked z-padding example
+### 5.5 Worked z-padding example
 
 Suppose:
 
@@ -711,9 +801,9 @@ its channel would instead contain zero.
 This behavior keeps RGBA packing and backprojection branch-free with respect to requested depth and
 permits any positive `Z`.
 
-### 5.5 Worked incomplete-burst example
+### 5.6 Worked incomplete-burst example
 
-For `P=5` and `B=3`:
+For singular mode with `P=5` and `B=3`:
 
 1. Projections 0, 1, and 2 fill ring slots 0, 1, and 2.
 2. `accumulate` launches with depth 3 and fills texture layers 0–2.
@@ -758,7 +848,7 @@ flat byte offset. The destination is a two-dimensional UFO output buffer and rec
 `generated` starts at zero and increments after each queued copy. The termination test uses `Z`, not
 `Z4`, which is the final guard preventing padding slices from escaping the task.
 
-In parity modes, `generated / Z` selects the coalesced accumulator and `generated % Z` selects its
+In even/odd mode, `generated / Z` selects the coalesced accumulator and `generated % Z` selects its
 plane. This produces all even planes first and all odd planes second while reusing one private
 planar buffer.
 
@@ -774,7 +864,7 @@ The coalesced `float4` buffer cannot itself be the UFO output: its z groups are 
 channel-interleaved layout is not the planar float layout expected by a three-dimensional FFT. The
 single direct distribution pass is therefore required. Once that blocking pass finishes, the
 selected coalesced accumulator has no remaining readers and is released. Singular mode generates
-one output; parity modes generate even first and odd second.
+one output; even/odd mode generates even first and odd second.
 
 ---
 
@@ -830,8 +920,8 @@ burst kernels: UFO may recycle an input buffer as soon as `process` returns, whe
 to the task until finalization.
 
 The ring stores all `H` rows even when a small z region is requested. This keeps projection slots
-contiguous and makes row selection entirely a packing-kernel concern, at the cost of `B*W*H` float
-storage and a full-projection ingestion copy.
+contiguous and makes row selection entirely a packing-kernel concern, at the cost of
+`batch_capacity*W*H` float storage and a full-projection ingestion copy.
 
 ---
 
@@ -839,12 +929,12 @@ storage and a full-projection ingestion copy.
 
 Preserve or deliberately revise all of these together:
 
-1. **Kernel ABI:** C currently sets 6 `accumulate` arguments, 11 arguments for each subset
-   backprojection kernel, 12 for the parity-aware kernel, 5 for `distribute`, and 6 for
+1. **Kernel ABI:** C currently sets 6 `accumulate` arguments, 11 arguments for each retained
+   backprojection kernel, 5 for `distribute`, and 6 for
    `distribute_volume`, in the exact source order.
 2. **Ring stride:** one projection always occupies exactly `W*H` floats; a ring slot begins at
    `slot*W*H`.
-3. **Texture layout:** width `W`, height `Z4/4`, array layers `B`, RGBA half storage; channels map to
+3. **Texture layout:** width `W`, height `Z4/4`, array layers `batch_capacity`, RGBA half storage; channels map to
    consecutive selected z rows.
 4. **Coordinate frames:** x/y regions provide volume coordinates around geometric origin;
    `center-position-x` is added only when producing the full-detector coordinate `rho`.
@@ -852,16 +942,16 @@ Preserve or deliberately revise all of these together:
    `Nx*Ny` plane strides.
 6. **Explicit strides:** flat-buffer indexing uses `projection_width`, `slice_width`, and
    `slice_height`, not an assumed padded global size.
-7. **Burst initialization:** the first burst assigns every coalesced element; subsequent bursts add.
+7. **Batch initialization:** the first batch assigns every coalesced element; subsequent batches add.
    Removing `first_burst` requires deterministic zero initialization.
-8. **In-order dependencies:** asynchronous packing and LUT transfer precede the blocking
-   backprojection on the same command queue.
+8. **In-order dependencies:** asynchronous packing and LUT transfer precede backprojection on the
+   same command queue; even/odd mode queues the even kernel before the blocking odd kernel.
 9. **Z padding:** internal sizes and kernel z work are based on `Z4`; slice termination and direct
    volume write bounds are based on `Z`.
 10. **Precision:** projection texture values are half precision, but LUTs, interpolation results,
     accumulation, final storage, and UFO outputs are float.
 11. **Normalization:** singular reconstruction applies `abs(overall-angle) / num-projections`
-    exactly once in the selected distribution kernel; both parity modes pass `1.0`.
+    exactly once in the selected distribution kernel; even/odd mode passes `1.0`.
 12. **Resource ownership:** every retained context/kernel/object and every allocated buffer/scarray
     must retain its matching release in `finalize`; input and output UFO buffers must not be retained.
 13. **Dimension stability:** projection dimensions and resolved x/y grids are fixed after the first
