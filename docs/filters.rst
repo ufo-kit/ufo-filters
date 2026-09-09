@@ -1272,8 +1272,8 @@ RGBA tomographic backprojection
 
     By default, :gobj:prop:`output-mode` emits a stream of two-dimensional
     slices. Its ``volume`` value instead emits one device-resident
-    three-dimensional buffer in singular mode or two buffers in either
-    even/odd mode. Even/odd volumes are emitted in volume-major order, with
+    three-dimensional buffer in singular mode or two buffers in
+    ``even_odd`` mode. Even/odd volumes are emitted in volume-major order, with
     the even volume first and the odd volume second. A downstream GPU task
     such as a three-dimensional FFT can consume these buffers without an
     intervening host stack or host-to-device transfer.
@@ -1293,8 +1293,8 @@ RGBA tomographic backprojection
     .. gobj:prop:: burst:uint
 
         Number of projections processed by one backprojection kernel call in
-        singular mode and per parity in even/odd modes. Valid values are 1
-        through 128; the default is 24. The last batch may contain fewer
+        singular mode and per parity in even/odd mode. Valid values are 1
+        through 128; the default is 16. The last batch may contain fewer
         projections.
 
     .. gobj:prop:: num-projections:uint
@@ -1354,10 +1354,12 @@ RGBA tomographic backprojection
     .. gobj:prop:: operation-mode:enum
 
         Reconstruction grouping. ``singular`` reconstructs one normalized
-        volume from all projections. ``even_odd_single`` and
-        ``even_odd_dual`` reconstruct separate unnormalized even and odd
-        volumes using different internal kernel-dispatch strategies. The
-        default is ``singular``.
+        volume from all projections. ``even_odd`` reconstructs separate
+        unnormalized even and odd volumes using two parity-specific kernel
+        launches. The default is ``singular``. The former
+        ``even_odd_single`` and ``even_odd_dual`` values are no longer
+        supported; migrate ``even_odd_dual`` to ``even_odd``. Configurations
+        using the former numeric value 2 must use value 1.
 
     .. gobj:prop:: output-mode:enum
 
@@ -1365,7 +1367,7 @@ RGBA tomographic backprojection
         the default and emits ``Nx * Ny`` buffers one z plane at a time.
         ``volume`` emits device-resident ``Nx * Ny * Z`` buffers directly and
         excludes internal z padding. Singular mode emits one such buffer;
-        even/odd modes emit even then odd.
+        ``even_odd`` emits even then odd.
 
 Tomographic Stacked backprojection
 ----------------------------------

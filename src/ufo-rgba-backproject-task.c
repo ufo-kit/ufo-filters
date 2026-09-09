@@ -46,8 +46,7 @@ UFO_TYPE_RGBA_BACKPROJECT_TASK, UfoRGBABackprojectTaskPrivate))
 
 typedef enum {
     RGBA_OPERATION_SINGULAR,
-    RGBA_OPERATION_EVEN_ODD_SINGLE,
-    RGBA_OPERATION_EVEN_ODD_DUAL
+    RGBA_OPERATION_EVEN_ODD
 } UfoRGBAOperationMode;
 
 typedef enum {
@@ -68,7 +67,6 @@ struct _UfoRGBABackprojectTaskPrivate {
     cl_context context;
     cl_kernel accumulate_kernel;
     cl_kernel backproject_kernel;
-    cl_kernel backproject_even_odd_kernel;
     cl_kernel backproject_even_kernel;
     cl_kernel backproject_odd_kernel;
     cl_kernel distribute_kernel;
@@ -129,9 +127,8 @@ static const GEnumValue rgba_addressing_values[] = {
 };
 
 static const GEnumValue rgba_operation_mode_values[] = {
-    { RGBA_OPERATION_SINGULAR,        "RGBA_OPERATION_SINGULAR",        "singular" },
-    { RGBA_OPERATION_EVEN_ODD_SINGLE, "RGBA_OPERATION_EVEN_ODD_SINGLE", "even_odd_single" },
-    { RGBA_OPERATION_EVEN_ODD_DUAL,   "RGBA_OPERATION_EVEN_ODD_DUAL",   "even_odd_dual" },
+    { RGBA_OPERATION_SINGULAR, "RGBA_OPERATION_SINGULAR", "singular" },
+    { RGBA_OPERATION_EVEN_ODD, "RGBA_OPERATION_EVEN_ODD", "even_odd" },
     { 0, NULL, NULL }
 };
 
@@ -144,8 +141,7 @@ static const GEnumValue rgba_output_mode_values[] = {
 static gboolean
 is_even_odd_mode (UfoRGBAOperationMode mode)
 {
-    return mode == RGBA_OPERATION_EVEN_ODD_SINGLE ||
-           mode == RGBA_OPERATION_EVEN_ODD_DUAL;
+    return mode == RGBA_OPERATION_EVEN_ODD;
 }
 
 static gboolean
@@ -361,7 +357,7 @@ ufo_rgba_backproject_task_setup (UfoTask *task, UfoResources *resources, GError 
             clRetainKernel (priv->distribute_volume_kernel), error);
     }
 
-    // Load only the backprojection kernels used by the selected benchmark mode.
+    // Load only the backprojection kernels used by the selected operation mode.
     switch (priv->operation_mode) {
         case RGBA_OPERATION_SINGULAR:
             priv->backproject_kernel = ufo_resources_get_kernel (
@@ -371,15 +367,7 @@ ufo_rgba_backproject_task_setup (UfoTask *task, UfoResources *resources, GError 
             UFO_RESOURCES_CHECK_SET_AND_RETURN (
                 clRetainKernel (priv->backproject_kernel), error);
             break;
-        case RGBA_OPERATION_EVEN_ODD_SINGLE:
-            priv->backproject_even_odd_kernel = ufo_resources_get_kernel (
-                priv->resources, "rgba-backproject.cl", "backproject_even_odd_single", NULL, error);
-            if (priv->backproject_even_odd_kernel == NULL)
-                return;
-            UFO_RESOURCES_CHECK_SET_AND_RETURN (
-                clRetainKernel (priv->backproject_even_odd_kernel), error);
-            break;
-        case RGBA_OPERATION_EVEN_ODD_DUAL:
+        case RGBA_OPERATION_EVEN_ODD:
             priv->backproject_even_kernel = ufo_resources_get_kernel (
                 priv->resources, "rgba-backproject.cl", "backproject_even", NULL, error);
             if (priv->backproject_even_kernel == NULL)
@@ -414,7 +402,7 @@ ufo_rgba_backproject_task_setup (UfoTask *task, UfoResources *resources, GError 
     }
     if (is_even_odd_mode (priv->operation_mode) && priv->num_projections < 2) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_SETUP,
-                     "even/odd operation modes require at least two projections");
+                     "even/odd operation mode requires at least two projections");
         return;
     }
     priv->host_buffer_angles = g_try_new0 (float, 2 * priv->num_projections);
@@ -817,51 +805,17 @@ dispatch_singular_backprojection (UfoRGBABackprojectTaskPrivate *priv,
 }
 
 static void
-dispatch_even_odd_single_backprojection (UfoRGBABackprojectTaskPrivate *priv,
-                                         UfoProfiler *profiler,
-                                         cl_command_queue cmd_queue,
-                                         const size_t *work_size,
-                                         cl_uint actual_burst,
-                                         cl_float center_position_x,
-                                         cl_int slice_width,
-                                         cl_int slice_height,
-                                         const cl_float *x_region,
-                                         const cl_float *y_region,
-                                         cl_uint first_burst)
-{
-    cl_kernel kernel = priv->backproject_even_odd_kernel;
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 0, sizeof (cl_mem),
-                                               &priv->device_texture_projections));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 1, sizeof (cl_mem),
-                                               &priv->device_coalesced_slices[0]));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 2, sizeof (cl_mem),
-                                               &priv->device_coalesced_slices[1]));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 3, sizeof (cl_mem),
-                                               &priv->device_buffer_angles));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 4, sizeof (cl_float),
-                                               &center_position_x));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 5, sizeof (cl_uint), &actual_burst));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 6, sizeof (cl_sampler), &priv->sampler));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 7, sizeof (cl_int), &slice_width));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 8, sizeof (cl_int), &slice_height));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 9, sizeof (cl_float2), x_region));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 10, sizeof (cl_float2), y_region));
-    UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (kernel, 11, sizeof (cl_uint), &first_burst));
-    ufo_profiler_call_blocking (profiler, cmd_queue, kernel, 3, work_size, NULL);
-}
-
-static void
-dispatch_even_odd_dual_backprojection (UfoRGBABackprojectTaskPrivate *priv,
-                                       UfoProfiler *profiler,
-                                       cl_command_queue cmd_queue,
-                                       const size_t *work_size,
-                                       cl_uint actual_burst,
-                                       cl_float center_position_x,
-                                       cl_int slice_width,
-                                       cl_int slice_height,
-                                       const cl_float *x_region,
-                                       const cl_float *y_region,
-                                       cl_uint first_burst)
+dispatch_even_odd_backprojection (UfoRGBABackprojectTaskPrivate *priv,
+                                  UfoProfiler *profiler,
+                                  cl_command_queue cmd_queue,
+                                  const size_t *work_size,
+                                  cl_uint actual_burst,
+                                  cl_float center_position_x,
+                                  cl_int slice_width,
+                                  cl_int slice_height,
+                                  const cl_float *x_region,
+                                  const cl_float *y_region,
+                                  cl_uint first_burst)
 {
     set_subset_backproject_args (priv,
                                  priv->backproject_even_kernel,
@@ -901,7 +855,7 @@ dispatch_even_odd_dual_backprojection (UfoRGBABackprojectTaskPrivate *priv,
  * 
  * Called for each iteration of the task to process individual projections.
  * 
- * `batch_capacity` is `burst` in singular mode and `2 * burst` in both parity modes. The batch start
+ * `batch_capacity` is `burst` in singular mode and `2 * burst` in even/odd mode. The batch start
  * is always a multiple of that capacity, which is important because a parity batch must start with
  * an even global projection. `actual_burst` shortens only the final batch, while
  * `idx_actual_burst` selects the ring-buffer slot for the current input.
@@ -1009,13 +963,8 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
                     actual_burst, center_position_x, slice_width, slice_height, x_region, y_region,
                     first_burst);
                 break;
-            case RGBA_OPERATION_EVEN_ODD_SINGLE:
-                dispatch_even_odd_single_backprojection (priv, profiler, cmd_queue, bp_work_size,
-                    actual_burst, center_position_x, slice_width, slice_height, x_region, y_region,
-                    first_burst);
-                break;
-            case RGBA_OPERATION_EVEN_ODD_DUAL:
-                dispatch_even_odd_dual_backprojection (priv, profiler, cmd_queue, bp_work_size,
+            case RGBA_OPERATION_EVEN_ODD:
+                dispatch_even_odd_backprojection (priv, profiler, cmd_queue, bp_work_size,
                     actual_burst, center_position_x, slice_width, slice_height, x_region, y_region,
                     first_burst);
                 break;
@@ -1281,10 +1230,6 @@ ufo_rgba_backproject_task_finalize (GObject *object)
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->backproject_kernel));
         priv->backproject_kernel = NULL;
     }
-    if (priv->backproject_even_odd_kernel) {
-        UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->backproject_even_odd_kernel));
-        priv->backproject_even_odd_kernel = NULL;
-    }
     if (priv->backproject_even_kernel) {
         UFO_RESOURCES_CHECK_CLERR (clReleaseKernel (priv->backproject_even_kernel));
         priv->backproject_even_kernel = NULL;
@@ -1381,20 +1326,15 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
     
     
     /*
-    Number of projections processed per batch in singular mode and per parity in even/odd modes.
-    Defaults to 24 because benchmarks have shown that for a given (height x width) of projections
-    kernel-execution-time vs burst minimizes at approximately 24 before hitting a plateau.
+    Number of projections processed per batch in singular mode and per parity in even/odd mode.
+    Defaults to 16 based on benchmarking across representative reconstruction sizes.
     */
     properties[PROP_BURST] =
         g_param_spec_uint ("burst",
             "Number of projections processed per batch or per parity",
             "Number of projections processed per batch in singular mode and per parity in "
-            "even/odd modes",
-            // Benchmarking showed that with 24 projections being processed together we land with
-            // the most optimal runtime efficiency. The runtime for each back-projection kernel
-            // invocation is bottle-necked by the loop over the number of projections. Beyond 24
-            // projections we tend to hit the plateau in reduction of total back-projection runtime.
-            1, 128, 24,
+            "even/odd mode",
+            1, 128, 16,
             G_PARAM_READWRITE);
     
     // Total number of projections to be processed.
@@ -1483,8 +1423,7 @@ ufo_rgba_backproject_task_class_init (UfoRGBABackprojectTaskClass *klass)
     properties[PROP_OPERATION_MODE] =
         g_param_spec_enum ("operation-mode",
             "Reconstruction operation mode",
-            "Reconstruction operation mode (\"singular\", \"even_odd_single\", "
-            "\"even_odd_dual\")",
+            "Reconstruction operation mode (\"singular\" or \"even_odd\")",
             g_enum_register_static ("ufo_rgba_backproject_operation_mode",
                                     rgba_operation_mode_values),
             RGBA_OPERATION_SINGULAR,
@@ -1513,18 +1452,17 @@ ufo_rgba_backproject_task_init(UfoRGBABackprojectTask *self)
     self->priv->context = NULL;
     self->priv->accumulate_kernel = NULL;
     self->priv->backproject_kernel = NULL;
-    self->priv->backproject_even_odd_kernel = NULL;
     self->priv->backproject_even_kernel = NULL;
     self->priv->backproject_odd_kernel = NULL;
     self->priv->distribute_kernel = NULL;
     self->priv->distribute_volume_kernel = NULL;
     /// Properties
     self->priv->overall_angle = G_PI;
-    self->priv->burst = 24;
+    self->priv->burst = 16;
     self->priv->num_projections = 0;
     self->priv->operation_mode = RGBA_OPERATION_SINGULAR;
     self->priv->output_mode = RGBA_OUTPUT_SLICES;
-    self->priv->batch_capacity = 24;
+    self->priv->batch_capacity = 16;
     self->priv->num_output_volumes = 1;
     self->priv->x_region = ufo_scarray_new (3, G_TYPE_DOUBLE, NULL);
     self->priv->y_region = ufo_scarray_new (3, G_TYPE_DOUBLE, NULL);
