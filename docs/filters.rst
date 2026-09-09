@@ -1248,6 +1248,118 @@ Tomographic backprojection
         Height of the region of interest. The default value of 0 denotes full
         height.
 
+RGBA tomographic backprojection
+--------------------------------
+
+.. gobj:class:: rgba-backproject
+
+    Reconstructs a stream of ``P`` parallel-beam projections, each with width
+    ``W`` and height ``H``, into a stream of rectangular slices. Four detector rows
+    are packed into the RGBA channels of a half-precision OpenCL texture and
+    reconstructed together. Projections are processed in bursts and sampled
+    with linear interpolation. Singular reconstructions are normalized by
+    ``abs(overall-angle) / num-projections``; even/odd reconstructions remain
+    unnormalized.
+
+    By default, :gobj:prop:`output-mode` emits a stream of two-dimensional
+    slices. Its ``volume`` value instead emits one device-resident
+    three-dimensional buffer in singular mode or two buffers in
+    ``even_odd`` mode. Even/odd volumes are emitted in volume-major order, with
+    the even volume first and the odd volume second. A downstream GPU task
+    such as a three-dimensional FFT can consume these buffers without an
+    intervening host stack or host-to-device transfer.
+
+    The independent half-open :gobj:prop:`x-region` and
+    :gobj:prop:`y-region` tuples define the in-plane volume-coordinate grid.
+    Their stops are exclusive and positive steps may be non-unit. A zero step
+    selects the general-backproject-compatible full-width default: ``W``
+    samples starting at ``-W/2`` with step 1. The projection texture remains
+    full detector width regardless of the requested output shape.
+
+    Detector rows are selected with :gobj:prop:`center-position-z` and the
+    half-open :gobj:prop:`region` tuple. The requested number of rows may be any
+    positive value. Internally it is padded to a multiple of four for RGBA
+    processing, but only the requested slices are emitted.
+
+    .. gobj:prop:: burst:uint
+
+        Number of projections processed by one backprojection kernel call in
+        singular mode and per parity in even/odd mode. Valid values are 1
+        through 128; the default is 16. The last batch may contain fewer
+        projections.
+
+    .. gobj:prop:: num-projections:uint
+
+        Total number of input projections. The property range is 0 through
+        32768, but a positive value is mandatory and must match the input
+        stream. The default 0 causes setup to fail.
+
+    .. gobj:prop:: overall-angle:double
+
+        Angular range covered by all projections, in radians. The default is
+        :math:`\pi`; negative values generate a descending angular sequence.
+        Projection ``i`` uses angle ``i * overall-angle / num-projections``.
+        Output normalization uses the absolute value of this angular range.
+
+    .. gobj:prop:: x-region:GValueArray
+
+        X volume-coordinate grid as ``(from, to, step)``. Values must be finite;
+        an explicit step must be positive and ``to`` must exceed ``from``. The
+        output width is ``ceil((to-from)/step)``. The default ``(0,0,0)``
+        produces ``W`` samples with resolved origin ``-W/2`` and step 1.
+
+    .. gobj:prop:: y-region:GValueArray
+
+        Independent y volume-coordinate grid with the same validation and
+        default behavior as :gobj:prop:`x-region`. It determines output height,
+        so the reconstructed slices need not be square.
+
+        To migrate the former square detector interval ``[x-start,x-end)`` use
+        ``from=x-start-center-position-x+0.5``,
+        ``to=x-end-center-position-x+0.5``, and step 1 for both regions.
+
+    .. gobj:prop:: center-position-x:GValueArray
+
+        Horizontal center of rotation in full-detector pixel coordinates.
+        The first array value is used and may be fractional. The default is 0.
+
+    .. gobj:prop:: center-position-z:GValueArray
+
+        Detector-row reference added to the first two values of
+        :gobj:prop:`region`. The first array value is used. The default is 0.
+
+    .. gobj:prop:: region:GValueArray
+
+        Detector-row selection ``(from, to, step)`` relative to
+        :gobj:prop:`center-position-z`, with an exclusive stop and positive
+        step. Use integer-valued entries. The resolved interval must lie in
+        ``[0, H]``. The default ``(0, 0, 0)`` is interpreted as ``(0, 1, 1)``
+        and therefore reconstructs one row.
+
+    .. gobj:prop:: addressing-mode:enum
+
+        Texture behavior for horizontal samples outside the projection. One
+        of ``none``, ``clamp_to_edge`` or ``clamp``; the default is ``clamp``.
+        The sampler uses unnormalized detector-pixel coordinates.
+
+    .. gobj:prop:: operation-mode:enum
+
+        Reconstruction grouping. ``singular`` reconstructs one normalized
+        volume from all projections. ``even_odd`` reconstructs separate
+        unnormalized even and odd volumes using two parity-specific kernel
+        launches. The default is ``singular``. The former
+        ``even_odd_single`` and ``even_odd_dual`` values are no longer
+        supported; migrate ``even_odd_dual`` to ``even_odd``. Configurations
+        using the former numeric value 2 must use value 1.
+
+    .. gobj:prop:: output-mode:enum
+
+        Output representation, either ``slices`` or ``volume``. ``slices`` is
+        the default and emits ``Nx * Ny`` buffers one z plane at a time.
+        ``volume`` emits device-resident ``Nx * Ny * Z`` buffers directly and
+        excludes internal z padding. Singular mode emits one such buffer;
+        ``even_odd`` emits even then odd.
+
 Tomographic Stacked backprojection
 ----------------------------------
 
