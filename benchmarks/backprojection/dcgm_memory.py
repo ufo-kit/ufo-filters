@@ -78,7 +78,6 @@ def summarize_memory_samples(
     return {
         "baseline_device_memory_mib": baseline_value,
         "peak_device_memory_mib": peak,
-        "peak_device_memory_delta_mib": max(0.0, peak - baseline_value),
         "sample_count": len(active),
         "first_sample_timestamp_us": active[0]["timestamp_us"],
         "last_sample_timestamp_us": active[-1]["timestamp_us"],

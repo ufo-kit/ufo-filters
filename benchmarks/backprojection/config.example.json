@@ -1,6 +1,7 @@
 {
   "dataset": "/workspaces/ufo-filters/benchmarks/resources/fc.tif",
   "output_root": "./results",
+  "campaign_dir": null,
   "device": 0,
   "num_projections": 3001,
   "projection_shape": [2016, 2016],
@@ -17,5 +18,9 @@
   "dcgm_sample_interval_ms": 50,
   "dcgm_host": "localhost",
   "dcgm_gpu_id": null,
-  "dcgm_bindings_path": null
+  "dcgm_bindings_path": null,
+  "resume": false,
+  "dry_run": false,
+  "generate_plots": true,
+  "scaling_plot_orientation": "row"
 }

@@ -139,7 +139,7 @@ def argument_parser() -> argparse.ArgumentParser:
                         metavar=("FROM", "TO", "STEP"))
     parser.add_argument(
         "--operation-mode",
-        choices=("singular", "even_odd_single", "even_odd_dual"),
+        choices=("singular", "even_odd"),
         default="singular",
     )
     parser.add_argument("--rtol", type=float, default=1e-5)

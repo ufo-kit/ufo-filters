@@ -5,4 +5,4 @@ from benchmark_common import runner_main
 
 
 if __name__ == "__main__":
-    raise SystemExit(runner_main("general-vs-rgba-dual", __doc__))
+    raise SystemExit(runner_main("general-vs-rgba-even-odd", __doc__))
