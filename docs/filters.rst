@@ -1268,9 +1268,11 @@ RGBA tomographic backprojection
 
     .. gobj:prop:: num-projections:uint
 
-        Total number of input projections. The property range is 0 through
-        32768, but a positive value is mandatory and must match the input
-        stream. The default 0 causes setup to fail.
+        Number of input projections used for reconstruction. The property
+        range is 0 through 32768, but a positive value is mandatory. A shorter
+        stream produces no output; projections after the configured count are
+        drained and ignored with one warning. The default 0 causes setup to
+        fail.
 
     .. gobj:prop:: overall-angle:double
 

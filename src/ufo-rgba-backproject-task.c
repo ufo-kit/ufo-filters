@@ -873,6 +873,17 @@ ufo_rgba_backproject_task_process (UfoTask *task, UfoBuffer **inputs, UfoBuffer 
     ufo_buffer_get_requisition (inputs[0], &in_req);
     guint idx_actual_burst, processed_proj_count, actual_burst, batch_start;
     g_object_get (task, "num_processed", &processed_proj_count, NULL);
+
+    if (G_UNLIKELY (processed_proj_count >= priv->num_projections)) {
+        if (processed_proj_count == priv->num_projections)
+            g_warning ("rgba-backproject received more than %u projections; "
+                       "all excess projections will be ignored", priv->num_projections);
+
+        // Keep draining the upstream stream. Returning FALSE would start another reductor
+        // generation cycle rather than report an input error.
+        return TRUE;
+    }
+
     batch_start = (processed_proj_count / priv->batch_capacity) * priv->batch_capacity;
     actual_burst = MIN (priv->batch_capacity, priv->num_projections - batch_start);
     idx_actual_burst = processed_proj_count - batch_start;

@@ -101,7 +101,7 @@ elements of each region; it does not implement per-projection center positions.
 | Property | Type and default | Operational meaning |
 |---|---|---|
 | `burst` | `uint`, default `16`, range `1..128` | Projections per singular batch or per parity. Even/odd mode therefore holds up to `2B` projections. The final batch may be shorter. |
-| `num-projections` | `uint`, default `0`, range `0..32768` | Required total `P`. Although zero is allowed by the property specification, `setup` rejects it. The stream is expected to provide exactly this many projections. |
+| `num-projections` | `uint`, default `0`, range `0..32768` | Number `P` of leading input projections used for reconstruction. Although zero is allowed by the property specification, `setup` rejects it. A shorter stream produces no output; excess projections are drained and ignored. |
 | `overall-angle` | `double`, default `π` | Total angular interval in radians. May be negative. No degrees-to-radians conversion occurs. |
 | `x-region` | double `GValueArray`, default `[0,0,0]` | Half-open x-volume grid `(from,to,step)`. Zero step selects `Nx=W`, `x0=-W/2`, `dx=1`; explicit steps must be positive. |
 | `y-region` | double `GValueArray`, default `[0,0,0]` | Independent half-open y-volume grid. Zero step selects `Ny=W`, `y0=-W/2`, `dy=1`. |
@@ -223,6 +223,11 @@ batch_start      = floor(processed_proj_count / batch_capacity) * batch_capacity
 actual_burst     = min(batch_capacity, P - batch_start)
 idx_actual_burst = processed_proj_count - batch_start
 ```
+
+These equations are evaluated only while `processed_proj_count < P`. Before any batch arithmetic,
+buffer transfer, or kernel submission, `process` ignores later inputs and warns on the first one.
+This guard prevents unsigned `P - batch_start` from wrapping if an excess stream reaches a later
+batch boundary.
 
 Kernels run when `idx_actual_burst + 1 == actual_burst`. Even/odd batches start at an even global
 projection and alternate even/odd projections in texture layers. With the default `B=16`, a complete
@@ -890,8 +895,9 @@ use `read_imagef` and `write_imagef`, which operate on float values and therefor
 OpenCL C half arithmetic or `cl_khr_fp16`. Lack of the image format surfaces at `clCreateImage`; the
 task does not perform a separate supported-format query.
 
-If fewer than `P` projections arrive, `generate` logs a warning and emits nothing. Supplying a stream
-whose length differs from `P` is a pipeline configuration error.
+If fewer than `P` projections arrive, `generate` logs a warning and emits nothing. If more than `P`
+arrive, only the first `P` participate in reconstruction: `process` warns once, drains the remainder,
+and performs no transfers or kernel submissions for them.
 
 ### 7.2 Installed-kernel mismatch
 
