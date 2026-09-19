@@ -156,7 +156,7 @@ ufo_fsc_core_task_get_requisition (UfoTask *task,
                                    GError **error)
 {
     UfoFscCoreTaskPrivate *priv = UFO_FSC_CORE_TASK_GET_PRIVATE (task);
-    UfoRequisition input_req;
+    UfoRequisition in_req;
     gdouble delta_kx;
     gdouble delta_ky;
     gdouble delta_kz;
@@ -169,9 +169,9 @@ ufo_fsc_core_task_get_requisition (UfoTask *task,
     cl_command_queue queue;
     cl_ulong num_voxels;
 
-    ufo_buffer_get_requisition (inputs[0], &input_req);
+    ufo_buffer_get_requisition (inputs[0], &in_req);
 
-    if (input_req.n_dims != 3) {
+    if (in_req.n_dims != 3) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
                      "fsc-core requires a three-dimensional spectrum");
         return;
@@ -183,7 +183,7 @@ ufo_fsc_core_task_get_requisition (UfoTask *task,
         return;
     }
 
-    if (input_req.dims[0] < 2 || input_req.dims[0] % 2 != 0) {
+    if (in_req.dims[0] < 2 || in_req.dims[0] % 2 != 0) {
         g_set_error (error, UFO_TASK_ERROR, UFO_TASK_ERROR_GET_REQUISITION,
                      "fsc-core received an invalid complex-interleaved width");
         return;
@@ -209,17 +209,17 @@ ufo_fsc_core_task_get_requisition (UfoTask *task,
      * different shape later in the stream. The process method diagnoses and
      * discards mismatches without terminating the complete graph. */
     if (priv->have_spectrum_req &&
-        !same_requisition (&input_req, &priv->spectrum_req)) {
+        !same_requisition (&in_req, &priv->spectrum_req)) {
         requisition->n_dims = 2;
         requisition->dims[0] = priv->num_bins;
         requisition->dims[1] = 5;
         return;
     }
 
-    nx = input_req.dims[0] / 2;
+    nx = in_req.dims[0] / 2;
     delta_kx = 1.0 / ((gdouble) nx * priv->voxel_size_x);
-    delta_ky = 1.0 / ((gdouble) input_req.dims[1] * priv->voxel_size_y);
-    delta_kz = 1.0 / ((gdouble) input_req.dims[2] * priv->voxel_size_z);
+    delta_ky = 1.0 / ((gdouble) in_req.dims[1] * priv->voxel_size_y);
+    delta_kz = 1.0 / ((gdouble) in_req.dims[2] * priv->voxel_size_z);
     priv->resolved_shell_width = (gfloat) (priv->shell_width > 0.0
         ? priv->shell_width
         : MAX (delta_kx, MAX (delta_ky, delta_kz)));
@@ -247,10 +247,10 @@ ufo_fsc_core_task_get_requisition (UfoTask *task,
     }
 
     priv->num_bins = (cl_uint) bins;
-    priv->spectrum_req = input_req;
+    priv->spectrum_req = in_req;
     priv->have_spectrum_req = TRUE;
-    num_voxels = (cl_ulong) nx * (cl_ulong) input_req.dims[1]
-        * (cl_ulong) input_req.dims[2];
+    num_voxels = (cl_ulong) nx * (cl_ulong) in_req.dims[1]
+        * (cl_ulong) in_req.dims[2];
     node = UFO_GPU_NODE (ufo_task_node_get_proc_node (UFO_TASK_NODE (task)));
     queue = ufo_gpu_node_get_cmd_queue (node);
     if (!configure_execution (priv, queue, num_voxels)) {

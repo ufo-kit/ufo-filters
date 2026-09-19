@@ -98,7 +98,7 @@ For spectra $F_1$ and $F_2$, the sufficient shell statistics are
 
 $$
 C_b = \sum_{\mathbf{k}\in S_b}
-\operatorname{Re}\!\left(F_1(\mathbf{k})\overline{F_2(\mathbf{k})}\right),
+Re\!\left(F_1(\mathbf{k})\overline{F_2(\mathbf{k})}\right),
 $$
 
 $$
@@ -110,7 +110,7 @@ $$
 The FSC curve is
 
 $$
-\operatorname{FSC}_b =
+FSC_b =
 \frac{C_b}{\sqrt{P_{1,b}P_{2,b}}}.
 $$
 
@@ -124,7 +124,7 @@ values.
 
 The initial result contract is
 
-```text
+```
 fsc      : float [B]    # correlation curve
 k_bin    : float [B]    # physical frequency, 1/um
 n_shell  : int   [B]    # Fourier-sample count
@@ -157,7 +157,7 @@ $$
 Each Fourier coefficient is a complex number. For two coefficients $A=a+ib$ and $B=c+id$,
 
 $$
-\operatorname{Re}\!\left(A\overline{B}\right)=ac+bd.
+Re\!\left(A\overline{B}\right)=ac+bd.
 $$
 
 This is the ordinary dot product of the two coefficient vectors $(a,b)$ and $(c,d)$: it is positive
@@ -192,7 +192,7 @@ be approximately zero. For the noise-noise term in shell $S_b$, the condition ne
 $$
 \mathbb{E}\!\left[
 \sum_{\mathbf{k}\in S_b}
-\operatorname{Re}\!\left(
+Re\!\left(
 F_{N_1}(\mathbf{k})\overline{F_{N_2}(\mathbf{k})}
 \right)
 \right]\approx 0.
@@ -203,7 +203,7 @@ The corresponding signal-noise conditions are
 $$
 \mathbb{E}\!\left[
 \sum_{\mathbf{k}\in S_b}
-\operatorname{Re}\!\left(
+Re\!\left(
 F_S(\mathbf{k})\overline{F_{N_i}(\mathbf{k})}
 \right)
 \right]\approx 0,
@@ -243,17 +243,17 @@ $\sigma_b^2$ be the noise power of either measurement in shell $b$. The spectral
 ratio and the deterministic expected-FSC proxy are related by
 
 $$
-\operatorname{SSNR}_b=\frac{\lambda_b^2}{\sigma_b^2},
+SSNR_b=\frac{\lambda_b^2}{\sigma_b^2},
 \qquad
-\operatorname{EFSC}_b=
-\frac{\operatorname{SSNR}_b}{1+\operatorname{SSNR}_b}.
+EFSC_b=
+\frac{SSNR_b}{1+SSNR_b}.
 $$
 
 Equivalently,
 
 $$
-\operatorname{SSNR}_b=
-\frac{\operatorname{EFSC}_b}{1-\operatorname{EFSC}_b}.
+SSNR_b=
+\frac{EFSC_b}{1-EFSC_b}.
 $$
 
 **Main idea.** FSC approaches one where signal dominates and approaches zero where noise dominates.
@@ -286,13 +286,13 @@ Given a projection stream and common reconstruction geometry:
    $F_{\mathrm{odd}}=\mathcal{F}_3(V_{\mathrm{odd}})$.
 4. Assign every Fourier coefficient to a physical-frequency shell.
 5. Accumulate $C_b$, $P_{\mathrm{even},b}$, $P_{\mathrm{odd},b}$, and $n_b$.
-6. Normalize the accumulated statistics to obtain $\operatorname{FSC}_b$.
+6. Normalize the accumulated statistics to obtain $FSC_b$.
 7. Transfer only the compact result vectors to the host and attach physical-frequency and count
    types.
 
 In pseudocode:
 
-```text
+```
 V_even, V_odd = reconstruct_alternating_projection_sets(projections)
 F_even = fft3(V_even)
 F_odd  = fft3(V_odd)
@@ -380,7 +380,7 @@ assumptions, the paper derives a doubled effective noise variance for SFSC. The 
 of conventional FSC is
 
 $$
-\widehat{\operatorname{FSC}}_b=
+\widehat{FSC}_b=
 \frac{2s_b}{1+s_b}.
 $$
 
@@ -400,9 +400,9 @@ Algorithm for each axis $d\in\{z,x,y\}$:
 After all axes have been processed, an optional global estimate is
 
 $$
-\widehat{\operatorname{FSC}}_{\mathrm{global},b}=
+\widehat{FSC}_{\mathrm{global},b}=
 \frac{1}{3}\sum_{d\in\{z,x,y\}}
-\widehat{\operatorname{FSC}}_{d,b},
+\widehat{FSC}_{d,b},
 $$
 
 provided the three curves have been defined on the same physical-frequency grid.
@@ -434,7 +434,7 @@ where $\epsilon>0$ prevents division by zero.
 If the estimate is correct, the whitened noise has approximately unit Fourier variance:
 
 $$
-\operatorname{Cov}(N_w)\approx I.
+Cov(N_w)\approx I.
 $$
 
 **Main idea.** Whitening equalizes noise power across frequency. Without it, colored noise can remain
@@ -452,7 +452,7 @@ Fourier grid and applying an inverse 3-D FFT:
 
 $$
 V_{wu}=\mathcal{F}_3^{-1}\!\left(
-\operatorname{pad}_{0}\left(\mathcal{F}_3(V_w),2N_z,2N_x,2N_y\right)
+pad_{0}\left(\mathcal{F}_3(V_w),2N_z,2N_x,2N_y\right)
 \right).
 $$
 
@@ -485,7 +485,7 @@ $$
 The corrected curve is
 
 $$
-\widehat{\operatorname{FSC}}_b=
+\widehat{FSC}_b=
 \frac{\overline{C}_b-\gamma_b}
 {\sqrt{\overline{P}_{1,b}\overline{P}_{2,b}}},
 \qquad
@@ -532,7 +532,7 @@ should receive only compact shell statistics or final vectors, not full $512^3$ 
 All three methods reduce to the same central operation once two aligned complex spectra are
 available:
 
-```text
+```
 complex spectrum 1 ─┐
                     ├─ shell statistics ─ normalization/correction ─ compact vectors
 complex spectrum 2 ─┘
@@ -558,7 +558,7 @@ efficiently and reproducibly, not transporting the compact result.
 
 ### 2.2 Classic-FSC workflow
 
-```text
+```
 projection stream
       │
       ▼
@@ -663,7 +663,7 @@ $C_b/\sqrt{P_{1,b}P_{2,b}}$ using float64 intermediates.
 
 ### 2.3 Basic-SFSC workflow
 
-```text
+```
 projection stream
       │
       ▼
@@ -681,7 +681,7 @@ expansion must be checked before assuming that broadcast is a zero-copy operatio
 
 ### 2.4 Corrected-SFSC workflow
 
-```text
+```
 singular 3-D volume ─ FFT ─ noise whitening ─ Fourier zero padding ─ IFFT
                                                               │
                                                               ▼
@@ -709,7 +709,7 @@ alone.
 
 The `rgba-backproject` output representation is now configurable as
 
-```text
+```
 output-mode = slices | volume
 ```
 
@@ -765,59 +765,7 @@ benchmark.
 | Compact 1-D device output | Supported by UFO requisitions and `OutputTask` | Vector shape is not a blocker. UFO storage is float32, so typing is completed in Python. |
 | Pipeline composition | Available through JSON/Python task graphs | Use tofu/Python to compose methods; no hybrid aggregate UFO task is required initially. |
 
-### 2.7 Why the generic reduction tasks are not the shell reducer
-
-The task named `reduce` does not run an arbitrary OpenCL kernel. It is a fixed CPU processor that
-replaces each 2-by-2 input block with its sum and halves both 2-D output dimensions. It is unrelated
-to radial shell accumulation.
-
-The task relevant to arbitrary OpenCL code is `opencl-reduce`.
-`opencl-reduce` folds a *stream* of equal-shaped buffers element by element. Its processing kernel has
-exactly two global-float arguments, input and output; its output requisition is copied unchanged from
-the input. An optional finish kernel operates once on that same output shape.
-
-This is useful for operations such as summing multiple images or averaging a stream. It cannot
-directly implement FSC shell reduction because FSC needs all of the following:
-
-- two complex spectra rather than one arbitrary float input and an equal-shaped accumulator;
-- a mapping from 3-D coordinates to radial bins;
-- a changed output shape from a 3-D spectrum to $B$ shell values;
-- several coupled accumulators: cross-power, two auto-powers, and counts;
-- task state that pairs consecutive spectra and resets between volume pairs.
-
-A kernel supplied to the shape-preserving `opencl` task can prototype whitening or a phase ramp, but
-it has the same requisition-change limitation. Extending either generic task until it understands FSC
-would make it less generic and would still leave pairing and metadata awkward. A dedicated
-shell-statistics task is the clearer boundary.
-
-`opencl-reduce` may still be useful downstream if several already compact, equal-shaped curves need a
-device-side elementwise average. For three vectors of a few hundred values, however, doing that final
-average in tofu is unlikely to affect runtime materially.
-
-### 2.8 Shell-reduction design
-
-`fsc-core` uses a staged reduction selected for OpenCL 1.2 portability and bounded auxiliary memory:
-
-- summation order affects floating-point reproducibility;
-- each work-group accumulates a complete shell histogram in local memory using compare-and-swap
-  float additions and integer counts;
-- work-groups write compact partial histograms, which a second kernel reduces into the output;
-- device and kernel limits select work-group count and size automatically;
-- the task rejects a bin count whose local histogram does not fit device local memory;
-- Hermitian symmetry permits a half-spectrum optimization only if conjugate weights and
-  `n_shell` semantics are handled consistently;
-- `fftshift` should be avoided as a full-volume data movement;
-- the task must initialize recycled UFO output buffers explicitly and must not retain an input
-  `UfoBuffer` after `process` returns;
-- the first spectrum is copied into a task-owned device buffer rather than retaining a borrowed
-  `UfoBuffer`;
-- graph expansion is rejected because it could separate pair members or duplicate pairing state.
-
-The first implementation retains the full complex first spectrum, computes shell membership on the
-fly, and avoids a full shell-index allocation. Alternative reduction strategies remain candidates
-for later performance comparisons rather than public modes of the initial task.
-
-### 2.9 Python/tofu responsibility and typed result
+### 2.7 Python/tofu responsibility and typed result
 
 Tofu is the natural orchestration layer because it already builds UFO graphs from Python and consumes
 `Ufo.OutputTask` buffers as NumPy arrays. Its responsibilities should be:
@@ -831,7 +779,7 @@ Tofu is the natural orchestration layer because it already builds UFO graphs fro
 
 A conceptual host result is
 
-```text
+```
 FSCResult
     fsc      : float32 [B]
     k_bin    : float32 [B]   # 1/um
@@ -856,7 +804,7 @@ are common only when their physical grids and bin policies actually coincide. $Z
 but not a mathematical requirement, and equality of array lengths alone is insufficient when voxel
 spacings differ.
 
-### 2.10 Runtime and memory implications at $512^3$
+### 2.8 Runtime and memory implications at $512^3$
 
 With float32 real storage and a full complex-interleaved float32 spectrum:
 
@@ -883,7 +831,7 @@ These estimates make streaming pair processing, buffer reuse, phase fusion, and 
 important candidates for benchmarking. They do not justify changing the scientific algorithm before
 the full correction has been validated against the reference implementation.
 
-### 2.11 Decisions established by this methodology
+### 2.9 Decisions established by this methodology
 
 The following choices are sufficiently clear to carry into later implementation planning:
 
@@ -905,7 +853,7 @@ The following choices are sufficiently clear to carry into later implementation 
 10. Threshold criteria and conversion of a curve into a scalar resolution are outside the initial
     computational workflow.
 
-### 2.12 Questions intentionally left for later SFSC planning and validation
+### 2.10 Questions intentionally left for later SFSC planning and validation
 
 The document does not yet select answers to the following questions:
 
@@ -923,7 +871,795 @@ These are planning and validation inputs, not ambiguities in the high-level meth
 
 ---
 
-## 3. References
+## 3. `fsc-core` Implementation
+
+This section connects the scientific definitions in Section 1 to the concrete UFO task and OpenCL
+kernels. It starts with the input stream, writes the computation as an ordinary sequential Python
+loop, and then shows how the same loop is divided safely among GPU workers.
+The authoritative sources are [`ufo-fsc-core-task.c`](../../src/ufo-fsc-core-task.c) and
+[`fsc-core.cl`](../../src/kernels/fsc-core.cl); the excerpts below explain their current behavior.
+
+At a high level, the implementation performs this reduction:
+
+```
+first complex spectrum F1 ── device copy ──┐
+                                           ├─ partial shell histograms ─ final shell sums
+second complex spectrum F2 ────────────────┘                              │
+                                                                          ▼
+                                                [C, P1, P2, n, k] on device
+                                                                          │
+                                                        compact transfer  ▼
+                                                               Python normalization
+                                                                          │
+                                                                          ▼
+                                                                     FSCResult
+```
+
+The GPU does not calculate the final division. It produces the sufficient statistics
+$(C_b,P_{1,b},P_{2,b},n_b,k_b)$ for every shell. Python then calculates
+$FSC_b=C_b/\sqrt{P_{1,b}P_{2,b}}$. This division concerns only a few hundred values, so moving it to
+Python does not require downloading either reconstructed volume or either full spectrum.
+
+Here and throughout the implementation, a **partial** shell statistic means a subtotal calculated
+from only the Fourier voxels assigned to one work-group. It is not an approximation, a fraction of a
+complex number, an incomplete spectrum pair, or an unfinished output. Every voxel whose shell index
+passes the radial cutoff is included in one work-group's subtotal, and the second kernel adds all
+group subtotals to obtain the complete shell statistics.
+
+### 3.1 Input and pairing lifecycle
+
+`fsc-core` is a one-input GPU reductor. The input is a stream, not two named input ports:
+
+```
+F1, F2, F1, F2, ...
+```
+
+Consecutive buffers form pairs. This fits the classic pipeline because `rgba-backproject` emits the
+even volume followed by the odd volume, and the 3-D `fft` task preserves that order.
+
+Each input must be a three-dimensional `UfoBuffer` with
+`UFO_BUFFER_LAYOUT_COMPLEX_INTERLEAVED`. UFO requisitions count 32-bit float values, whereas the
+kernel reads `float2` complex numbers. A logical spectrum of shape $(N_z,N_y,N_x)$ therefore has the
+UFO requisition
+
+```
+dims[0] = 2 * Nx     # real and imaginary float for every x coefficient
+dims[1] = Ny
+dims[2] = Nz
+```
+
+For example, a logical $512^3$ complex spectrum has requisition
+$(1024,512,512)$. The kernel casts the underlying float buffer to `float2 *`, so its logical `nx` is
+`dims[0] / 2` and it sees exactly $512^3$ complex coefficients.
+
+Before processing the first buffer, `get_requisition`:
+
+1. rejects a real layout, a non-3-D buffer, or an invalid interleaved width;
+2. requires positive finite voxel sizes;
+3. resolves $\Delta k$, $k_{\max}$, and $B$ using Section 2.2.2;
+4. records the first spectrum's shape for the lifetime of the task instance;
+5. configures the work-group geometry and partial buffer;
+6. requests a compact output with UFO dimensions $(B,5)$.
+
+UFO releases an input buffer back to its producer as soon as `process` returns. The task must
+therefore not save the pointer to the first input. Instead, the first call obtains a task-owned
+device allocation and enqueues a device-to-device copy:
+
+```
+if (!priv->have_first) {
+    if (priv->first_spectrum == NULL)
+        priv->first_spectrum = ufo_buffer_dup (inputs[0]);
+
+    first_mem = ufo_buffer_get_device_array (priv->first_spectrum, queue);
+    UFO_RESOURCES_CHECK_CLERR (clEnqueueCopyBuffer (
+        queue, input_mem, first_mem, 0, 0, ufo_buffer_get_size (inputs[0]),
+        0, NULL, NULL));
+    priv->have_first = TRUE;
+    return TRUE;
+}
+```
+
+`ufo_buffer_dup` creates a buffer with the same requisition; it does not copy the data. The explicit
+`clEnqueueCopyBuffer` performs the copy entirely on the device. Returning `TRUE` tells the UFO
+reductor scheduler to consume another input.
+
+On the second call, `process` validates the shape again, runs both kernels, sets `have_first` back to
+`FALSE`, and returns `FALSE`. For a reductor, that return value tells the scheduler to enter the
+`generate` phase. `generate` returns `TRUE` exactly once to publish the compact result, then returns
+`FALSE` so processing can continue with the next pair.
+
+A differently shaped spectrum is discarded with a warning and resets the current pair. A real or
+non-3-D input fails during requisition. If the stream ends after only $F_1$, `generate` warns about
+the incomplete pair and emits nothing.
+
+Pairing is stateful, so graph expansion could send $F_1$ and $F_2$ to different copies of the task.
+The task's copy method consequently returns an error instructing the caller to disable expansion and
+select one GPU.
+
+### 3.2 The same calculation as a sequential Python loop
+
+Ignoring parallel execution for a moment, the essential calculation can be written as:
+
+```
+cross_sum = np.zeros(B, dtype=np.float64)
+power_1_sum = np.zeros(B, dtype=np.float64)
+power_2_sum = np.zeros(B, dtype=np.float64)
+n_shell = np.zeros(B, dtype=np.int64)
+
+# Inside the loop these are running sums over the voxels visited so far.
+# After the loop they are the complete sums over all Fourier voxels.
+
+for z in range(nz):
+    qz = z if z <= nz // 2 else z - nz
+    kz = qz * delta_kz
+
+    for y in range(ny):
+        qy = y if y <= ny // 2 else y - ny
+        ky = qy * delta_ky
+
+        for x in range(nx):
+            qx = x if x <= nx // 2 else x - nx
+            kx = qx * delta_kx
+
+            radius = np.sqrt(kx * kx + ky * ky + kz * kz)
+            b = int(np.floor(radius / shell_width + 0.5))
+
+            if b < B:
+                a = first[z, y, x]
+                c = second[z, y, x]
+
+                cross_sum[b] += a.real * c.real + a.imag * c.imag
+                power_1_sum[b] += a.real * a.real + a.imag * a.imag
+                power_2_sum[b] += c.real * c.real + c.imag * c.imag
+                n_shell[b] += 1
+
+# All voxels have now been visited, so these arrays contain final shell sums.
+denominator = np.sqrt(power_1_sum * power_2_sum)
+fsc = np.full(B, np.nan)
+valid = (n_shell > 0) & (power_1_sum > 0) & (power_2_sum > 0)
+fsc[valid] = cross_sum[valid] / denominator[valid]
+```
+
+The OpenCL implementation performs the same operations. Its main complication is that many GPU
+workers execute loop iterations concurrently and may try to add to the same shell at the same time.
+
+While the sequential loop is running, `cross_sum[b]` is a partial sum in the ordinary mathematical
+sense: it contains contributions only from voxels visited so far. When the loop finishes, the same
+array contains the final sum. There is only one accumulator, so this version does not need a
+separate intermediate `partials` array.
+
+The GPU organization can be represented more directly by dividing the voxel indices into the same
+sets of work handled by its work-groups:
+
+```
+partial_cross = np.zeros((num_groups, B), dtype=np.float64)
+partial_power_1 = np.zeros((num_groups, B), dtype=np.float64)
+partial_power_2 = np.zeros((num_groups, B), dtype=np.float64)
+partial_count = np.zeros((num_groups, B), dtype=np.int64)
+
+# Stage 1: every group calculates a complete subtotal for its assigned voxels.
+for group, indices in enumerate(indices_per_group):
+    for index in indices:
+        b, cross, power_1, power_2 = voxel_contribution(index)
+
+        if b < B:
+            partial_cross[group, b] += cross
+            partial_power_1[group, b] += power_1
+            partial_power_2[group, b] += power_2
+            partial_count[group, b] += 1
+
+# Stage 2: combine all group subtotals into the complete shell statistics.
+cross_sum = partial_cross.sum(axis=0)
+power_1_sum = partial_power_1.sum(axis=0)
+power_2_sum = partial_power_2.sum(axis=0)
+n_shell = partial_count.sum(axis=0)
+```
+
+This second example is conceptual: `indices_per_group` represents the strided index assignment
+described in Section 3.4.4, and `voxel_contribution` represents the coordinate, shell, cross-term,
+and power calculations from the first example.
+
+Let $W_g$ be the Fourier voxels assigned to work-group $g$. For shell $S_b$, the group's partial
+cross sum is
+
+$$
+C_{g,b}=\sum_{\mathbf{k}\in S_b\cap W_g}
+Re(F_1(\mathbf{k})\overline{F_2(\mathbf{k})}).
+$$
+
+The corresponding partial power sums and count are
+
+$$
+P_{1,g,b}=\sum_{\mathbf{k}\in S_b\cap W_g}|F_1(\mathbf{k})|^2,
+\qquad
+P_{2,g,b}=\sum_{\mathbf{k}\in S_b\cap W_g}|F_2(\mathbf{k})|^2,
+$$
+
+$$
+n_{g,b}=|S_b\cap W_g|.
+$$
+
+The sets $W_g$ divide the full volume without overlap, so the second stage recovers the complete
+scientific statistics:
+
+$$
+C_b=\sum_g C_{g,b},
+\qquad
+P_{1,b}=\sum_g P_{1,g,b},
+\qquad
+P_{2,b}=\sum_g P_{2,g,b},
+\qquad
+n_b=\sum_g n_{g,b}.
+$$
+
+Thus, **partial means subtotal over one group's subset; reduction means combining those subtotals**.
+This is the same arithmetic as the first Python loop, with an extra intermediate dimension for the
+work-group.
+
+The kernel chooses the positive representative for an even-length axis's Nyquist index, whereas
+`numpy.fft.fftfreq` conventionally chooses the negative representative. Since `fsc-core` uses only
+the squared radius, the sign of this one coordinate does not change its shell.
+
+### 3.3 OpenCL concepts used by the reduction
+
+An OpenCL **work-item** is one execution of a kernel body. It is analogous to one lightweight loop
+worker. Every work-item receives a unique **global ID**.
+
+A **work-group** is a fixed-size team of work-items. Members of a group:
+
+- have different local IDs from $0$ to `local_size - 1`;
+- can share a small, fast local-memory allocation;
+- can synchronize with each other using `barrier`.
+
+Different work-groups cannot use a barrier to synchronize with one another. They may execute in any
+order or simultaneously.
+
+The important OpenCL address spaces here are:
+
+| Address space | Visibility | Use in `fsc-core` |
+|---|---|---|
+| `global` | All work-items and later kernels | $F_1$, $F_2$, the partial histograms, and final output |
+| `local` | Work-items in one work-group only | One temporary four-vector shell histogram per group |
+| Private | One work-item only | Coordinates, coefficients, and individual contributions |
+
+The C task selects
+
+```
+local_size = min(256, device maximum, kernel maximum)
+```
+
+and rounds that value down to the kernel's preferred hardware multiple when possible. It then
+selects
+
+$$
+G=\min\left(
+4\times\text{compute units},
+\left\lceil\frac{N_xN_yN_z}{\text{local size}}\right\rceil
+\right)
+$$
+
+work-groups, with at least one group. The first kernel consequently launches
+$G\times\text{local size}$ work-items.
+
+Every group needs four local arrays of $B$ unsigned 32-bit words:
+
+```
+shells[0            : B]     cross sums C
+shells[B            : 2 * B] first-spectrum powers P1
+shells[2 * B        : 3 * B] second-spectrum powers P2
+shells[3 * B        : 4 * B] integer counts n
+```
+
+The allocation therefore requires $4B\times4=16B$ bytes of local memory. It is written in C as
+`B * sizeof(cl_uint4)`, although the kernel addresses it as one flat `uint` array. The task rejects
+the configuration if this allocation plus the kernel's static local memory exceeds the device
+limit.
+
+Each group ultimately writes $B$ `float4` partial records to global memory. With $G$ groups, the
+partial buffer is therefore $G\times B\times16$ bytes. This buffer is compact compared with either
+full spectrum.
+
+### 3.4 First kernel: one partial histogram per work-group
+
+The first kernel is `fsc_accumulate_partials`. The following annotated blocks contain all of its
+executable code, including its helper function.
+
+#### 3.4.1 Portable float addition in local memory
+
+```
+inline void
+atomic_add_float_local (volatile __local uint *address, float value)
+{
+    uint previous = *address;
+    uint expected;
+
+    do {
+        expected = previous;
+        previous = atomic_cmpxchg (address, expected,
+                                   as_uint (as_float (expected) + value));
+    } while (previous != expected);
+}
+```
+
+OpenCL 1.2 provides atomic compare-and-exchange for integers, but it does not provide a portable
+`atomic_add` for floats. The helper therefore uses the same 32 bits in two ways:
+
+- `as_float(expected)` interprets the current bits as a float;
+- it adds `value` as a floating-point operation;
+- `as_uint(...)` reinterprets the new float's bits as an unsigned integer;
+- `atomic_cmpxchg` replaces the stored bits only if nobody changed them after they were read.
+
+`as_float` and `as_uint` are bit reinterpretations, not numerical conversions. For example, the bit
+pattern representing `1.5f` is carried through the integer atomic operation unchanged.
+
+Suppose two work-items both read a shell sum of $10$. Worker A wants to add $2$, while worker B wants
+to add $3$:
+
+1. both calculate proposed values from the expected value $10$;
+2. A successfully changes $10$ to $12$;
+3. B's comparison against $10$ fails and returns the current value $12$;
+4. B retries, calculates $12+3$, and successfully stores $15$.
+
+Without the compare-and-exchange loop, both workers could write based on $10$, losing one
+contribution. The order of successful additions remains nondeterministic, so the last few
+floating-point bits may vary between devices or runs.
+
+#### 3.4.2 Kernel arguments and worker identities
+
+```
+kernel void
+fsc_accumulate_partials (global const float2 *first,
+                         global const float2 *second,
+                         global float4 *partials,
+                         local uint *shells,
+                         uint nx,
+                         uint ny,
+                         uint nz,
+                         float delta_kx,
+                         float delta_ky,
+                         float delta_kz,
+                         float shell_width,
+                         uint num_bins,
+                         ulong num_voxels)
+{
+    const size_t local_id = get_local_id (0);
+    const size_t local_size = get_local_size (0);
+    const size_t group_id = get_group_id (0);
+    const size_t global_id = get_global_id (0);
+    const size_t global_size = get_global_size (0);
+```
+
+`first` and `second` are the two full spectra in device global memory. One `float2` stores the real
+and imaginary components of one coefficient. `partials` is the global $G\times B$ intermediate
+array. `shells` is a separate local-memory allocation for every work-group.
+
+Only dimension zero of the OpenCL launch is used. This does not make the data one-dimensional:
+`global_id` selects work from the flattened 3-D spectrum, and the kernel reconstructs $(x,y,z)$
+below.
+
+#### 3.4.3 Cooperative local-memory initialization
+
+```
+    for (size_t item = local_id; item < 4 * num_bins; item += local_size)
+        shells[item] = 0;
+
+    barrier (CLK_LOCAL_MEM_FENCE);
+```
+
+The local shell table is scratch memory and may initially contain arbitrary bits. Its initialization
+is shared: local worker $0$ clears entries $0,L,2L,\ldots$, worker $1$ clears
+$1,L+1,2L+1,\ldots$, and so on for local size $L$.
+
+The barrier means: *every work-item in this work-group must finish its local-memory writes before any
+work-item in the group continues*. Without it, one worker could add a contribution while another
+worker was still clearing the same shell, erasing the contribution. This barrier says nothing about
+other work-groups; each has its own independent `shells` allocation. Every work-item in the group
+must encounter the barrier, which is why it is outside the initialization loop.
+
+Integer zero has the same all-zero bit pattern as floating-point `0.0f`. It therefore initializes
+both the three float-bit regions and the integer-count region correctly.
+
+#### 3.4.4 Strided traversal and shell assignment
+
+```
+    for (size_t index = global_id; index < num_voxels; index += global_size) {
+        const uint x = (uint) (index % nx);
+        const size_t yz = index / nx;
+        const uint y = (uint) (yz % ny);
+        const uint z = (uint) (yz / ny);
+        const int qx = x <= nx / 2 ? (int) x : (int) x - (int) nx;
+        const int qy = y <= ny / 2 ? (int) y : (int) y - (int) ny;
+        const int qz = z <= nz / 2 ? (int) z : (int) z - (int) nz;
+        const float kx = (float) qx * delta_kx;
+        const float ky = (float) qy * delta_ky;
+        const float kz = (float) qz * delta_kz;
+        const float radius = sqrt (kx * kx + ky * ky + kz * kz);
+        const float shell = floor (radius / shell_width + 0.5f);
+```
+
+If there are fewer work-items than voxels, every work-item handles multiple indices separated by
+`global_size`. Thus global worker $r$ processes
+$r,r+\text{global size},r+2\text{global size},\ldots$. Together, the workers cover every coefficient
+exactly once without requiring one work-item per voxel.
+
+Because $x$ is the fastest-varying dimension, a flat index is decoded as
+
+$$
+x=index\bmod N_x,
+$$
+
+$$
+y=\left\lfloor\frac{index}{N_x}\right\rfloor\bmod N_y,
+\qquad
+z=\left\lfloor\frac{index}{N_xN_y}\right\rfloor.
+$$
+
+The `q` calculations implement the signed, unshifted FFT coordinates from Section 1.1. Multiplying
+by $(\Delta k_x,\Delta k_y,\Delta k_z)$ produces the physical frequency $\mathbf{k}$. The `sqrt` line
+is $\rho(\mathbf{k})=\lVert\mathbf{k}\rVert_2$, and `shell` implements
+
+$$
+b=\left\lfloor\frac{\rho}{\Delta k}+\frac{1}{2}\right\rfloor.
+$$
+
+This avoids both a full-volume `fftshift` and a full-volume shell-index map.
+
+#### 3.4.5 Scientific contributions and atomic accumulation
+
+```
+        if (shell < (float) num_bins) {
+            const uint bin = convert_uint (shell);
+            const float2 a = first[index];
+            const float2 b = second[index];
+            const float cross = a.x * b.x + a.y * b.y;
+            const float power_a = dot (a, a);
+            const float power_b = dot (b, b);
+
+            atomic_add_float_local (&shells[bin], cross);
+            atomic_add_float_local (&shells[num_bins + bin], power_a);
+            atomic_add_float_local (&shells[2 * num_bins + bin], power_b);
+            atomic_inc ((volatile __local uint *) &shells[3 * num_bins + bin]);
+        }
+    }
+```
+
+Only shells satisfying $b<B$ are retained. For coefficients
+$a=a_r+ia_i$ and $c=c_r+ic_i$:
+
+$$
+Re(a\overline{c})=a_rc_r+a_ic_i.
+$$
+
+The code `a.x * b.x + a.y * b.y` is exactly this cross term. Similarly,
+`dot(a,a)` is $a_r^2+a_i^2=|a|^2$, and `dot(b,b)` is $|c|^2$.
+The kernel calls the second coefficient `b`; the equations call it $c$ here to avoid confusing that
+coefficient with the shell index $b$.
+
+For work-group $g$, these atomic updates construct partial scientific quantities
+
+$$
+C_{g,b}=\sum_{\mathbf{k}\in S_b\cap W_g}Re(F_1(\mathbf{k})\overline{F_2(\mathbf{k})}),
+$$
+
+$$
+P_{1,g,b}=\sum_{\mathbf{k}\in S_b\cap W_g}|F_1(\mathbf{k})|^2,
+\qquad
+P_{2,g,b}=\sum_{\mathbf{k}\in S_b\cap W_g}|F_2(\mathbf{k})|^2,
+$$
+
+$$
+n_{g,b}=|S_b\cap W_g|,
+$$
+
+where $W_g$ is the set of voxel indices processed by work-group $g$. These are not yet the final
+$C_b$, $P_{1,b}$, $P_{2,b}$, and $n_b$ because every other group owns another part of the volume.
+
+#### 3.4.6 Publishing one partial record per shell
+
+```
+    barrier (CLK_LOCAL_MEM_FENCE);
+
+    for (size_t bin = local_id; bin < num_bins; bin += local_size) {
+        partials[group_id * num_bins + bin] =
+            (float4) (as_float (shells[bin]),
+                      as_float (shells[num_bins + bin]),
+                      as_float (shells[2 * num_bins + bin]),
+                      convert_float (shells[3 * num_bins + bin]));
+    }
+}
+```
+
+The second barrier ensures that every work-item in the group has finished all atomic additions
+before any member reads the completed local histogram.
+
+The workers then cooperate again, this time to copy the $B$ shell records to global memory.
+`as_float` recovers the float values stored as bit patterns. The count uses `convert_float` instead
+because it is a numerical integer-to-float conversion. The resulting `float4` is ordered as
+$(C_{g,b},P_{1,g,b},P_{2,g,b},n_{g,b})$.
+
+The flat destination `group_id * num_bins + bin` is equivalent to
+`partials[group_id, bin]` in a two-dimensional Python array. In terms of the GPU-shaped Python
+example from Section 3.2, one `float4` record combines
+`partial_cross[group_id, bin]`, `partial_power_1[group_id, bin]`,
+`partial_power_2[group_id, bin]`, and `partial_count[group_id, bin]`. The buffer is named `partials`
+because each record is one work-group's subtotal rather than the complete value for that shell.
+
+### 3.5 Second kernel: combine work-group partials
+
+No barrier inside the first kernel can synchronize different work-groups. The global merge is
+therefore a second kernel:
+
+```
+kernel void
+fsc_reduce_partials (global const float4 *partials,
+                     global float *output,
+                     uint num_groups,
+                     uint num_bins,
+                     float shell_width)
+{
+    const size_t bin = get_global_id (0);
+
+    if (bin >= num_bins)
+        return;
+
+    float4 total = (float4) (0.0f);
+
+    for (uint group = 0; group < num_groups; group++)
+        total += partials[group * num_bins + bin];
+
+    output[bin] = total.x;
+    output[num_bins + bin] = total.y;
+    output[2 * num_bins + bin] = total.z;
+    output[3 * num_bins + bin] = total.w;
+    output[4 * num_bins + bin] = (float) bin * shell_width;
+}
+```
+
+This launch has $B$ work-items. Global work-item $b$ owns shell $b$ and loops over all $G$ partial
+records for that shell:
+
+$$
+C_b=\sum_{g=0}^{G-1}C_{g,b},
+\qquad
+P_{1,b}=\sum_{g=0}^{G-1}P_{1,g,b},
+$$
+
+$$
+P_{2,b}=\sum_{g=0}^{G-1}P_{2,g,b},
+\qquad
+n_b=\sum_{g=0}^{G-1}n_{g,b}.
+$$
+
+The first and second kernels are submitted to the same in-order UFO command queue. The second kernel
+therefore cannot begin until the first kernel has finished writing `partials`. This kernel-launch
+boundary supplies the device-wide ordering that a work-group barrier cannot provide.
+
+Every output element is overwritten. In the flat device buffer, five blocks of $B$ floats are laid
+out consecutively:
+
+| Flat output range | NumPy row | Meaning |
+|---|---:|---|
+| `output[0:B]` | 0 | $C_b$ |
+| `output[B:2B]` | 1 | $P_{1,b}$ |
+| `output[2B:3B]` | 2 | $P_{2,b}$ |
+| `output[3B:4B]` | 3 | $n_b$, transported as float32 |
+| `output[4B:5B]` | 4 | $k_b=b\Delta k$ |
+
+UFO describes this buffer as `dims=(B,5)` because `dims[0]` is the fastest-varying dimension.
+NumPy consequently exposes the same memory as shape `(5,B)`.
+
+### 3.6 Host-side kernel orchestration
+
+During `setup`, the task obtains and retains both kernels:
+
+```
+/* Null checks and GError propagation are omitted from this focused excerpt. */
+priv->accumulate_kernel = ufo_resources_get_kernel (
+    resources, "fsc-core.cl", "fsc_accumulate_partials", NULL, error);
+UFO_RESOURCES_CHECK_SET_AND_RETURN (
+    clRetainKernel (priv->accumulate_kernel), error);
+
+priv->reduce_kernel = ufo_resources_get_kernel (
+    resources, "fsc-core.cl", "fsc_reduce_partials", NULL, error);
+UFO_RESOURCES_CHECK_SET_AND_RETURN (
+    clRetainKernel (priv->reduce_kernel), error);
+```
+
+During the first requisition, `configure_execution` queries the selected device's compute-unit,
+work-group, and local-memory limits. It calculates the local-table and partial-buffer sizes with
+overflow checks, rejects an impossible local allocation, and allocates
+`num_groups * num_bins` `cl_float4` records.
+
+For a complete pair, `process` obtains device pointers to $F_1$, $F_2$, and the compact output. It
+passes the spectrum geometry, physical frequency increments, shell width, bin count, and total voxel
+count as kernel arguments. The launches are:
+
+```
+local_bytes = (gsize) priv->num_bins * sizeof (cl_uint4);
+global_size = (size_t) priv->num_groups * priv->local_size;
+
+/* Arguments 0..12 bind F1, F2, partials, local memory, geometry and binning. */
+ufo_profiler_call (profiler, queue, priv->accumulate_kernel, 1,
+                   &global_size, &priv->local_size);
+
+/* Arguments 0..4 bind partials, output, group count, bin count and shell width. */
+reduce_size = (size_t) priv->num_bins;
+ufo_profiler_call (profiler, queue, priv->reduce_kernel, 1,
+                   &reduce_size, NULL);
+```
+
+Both calls go through UFO's profiler, so both stages appear in profiling traces. The first-spectrum
+copy and both kernels use the same in-order queue. The copy completes before a later kernel reads
+$F_1$, and the partial kernel completes before the final kernel reads `partials`. The host does not
+need to wait between these commands, and none of them asks UFO for a host array.
+
+After launching both kernels, `process` marks the pair complete:
+
+```
+priv->have_first = FALSE;
+priv->result_ready = TRUE;
+priv->generated = FALSE;
+return FALSE;
+```
+
+The scheduler then calls `generate`. The kernel has already written directly into the
+scheduler-owned output buffer, so `generate` only publishes it once:
+
+```
+if (priv->result_ready && !priv->generated) {
+    priv->generated = TRUE;
+    return TRUE;
+}
+
+if (priv->result_ready && priv->generated) {
+    priv->result_ready = FALSE;
+    priv->generated = FALSE;
+    return FALSE;
+}
+```
+
+This lifecycle also explains why `fsc-core` is a reductor rather than a normal processor: the first
+input produces no output, while the second completes and emits one reduction result.
+
+### 3.7 Python normalization and typed output
+
+Only the compact $(5,B)$ array crosses to the host. Python separates its rows, validates that the
+transported count values are non-negative integers, and exposes the public result as:
+
+```
+FSCResult
+    fsc      : float32[B]
+    k_bin    : float32[B]
+    n_shell  : int64[B]
+```
+
+Normalization uses float64 intermediates:
+
+```
+cross = raw[0].astype(np.float64)
+power_1 = raw[1].astype(np.float64)
+power_2 = raw[2].astype(np.float64)
+n_shell = np.rint(raw[3]).astype(np.int64)
+k_bin = raw[4].astype(np.float32)
+
+denominator = np.sqrt(power_1 * power_2)
+valid = (n_shell > 0) & (power_1 > 0.0) & (power_2 > 0.0)
+fsc = np.full(cross.shape, np.nan, dtype=np.float64)
+np.divide(cross, denominator, out=fsc, where=valid)
+fsc = fsc.astype(np.float32)
+```
+
+An empty shell or non-positive denominator remains `NaN`. Valid values are not clamped. The raw GPU
+statistics remain useful for testing shell membership, counts, and reduction errors independently of
+the final division.
+
+### 3.8 Worked example with two work-groups
+
+Consider an illustrative flattened spectrum with eight coefficients, three shells, local size $2$,
+and two work-groups. There are four global work-items:
+
+| Work-group | Work-items | Indices handled by striding |
+|---:|---:|---|
+| 0 | 0 and 1 | worker 0: 0, 4; worker 1: 1, 5 |
+| 1 | 2 and 3 | worker 2: 2, 6; worker 3: 3, 7 |
+
+Assume physical-frequency calculation assigns the coefficients as follows. The contribution tuple is
+$(Re(a\overline{c}),|a|^2,|c|^2)$:
+
+| Index | Group | Shell | $a=F_1$ | $c=F_2$ | Contribution |
+|---:|---:|---:|---:|---:|---:|
+| 0 | 0 | 0 | $2$ | $1$ | $(2,4,1)$ |
+| 1 | 0 | 1 | $1$ | $1$ | $(1,1,1)$ |
+| 4 | 0 | 2 | $1$ | $-1$ | $(-1,1,1)$ |
+| 5 | 0 | 1 | $1$ | $i$ | $(0,1,1)$ |
+| 2 | 1 | 0 | $1$ | $1$ | $(1,1,1)$ |
+| 3 | 1 | 1 | $2$ | $1$ | $(2,4,1)$ |
+| 6 | 1 | 1 | $i$ | $i$ | $(1,1,1)$ |
+| 7 | 1 | 2 | $1+i$ | $1-i$ | $(0,2,2)$ |
+
+The first kernel produces one **partial**, or subtotal, shell-statistics table per group:
+
+| Group | Shell | Partial $C_{g,b}$ | Partial $P_{1,g,b}$ | Partial $P_{2,g,b}$ | Partial $n_{g,b}$ |
+|---:|---:|---:|---:|---:|---:|
+| 0 | 0 | 2 | 4 | 1 | 1 |
+| 0 | 1 | 1 | 2 | 2 | 2 |
+| 0 | 2 | -1 | 1 | 1 | 1 |
+| 1 | 0 | 1 | 1 | 1 | 1 |
+| 1 | 1 | 3 | 5 | 2 | 2 |
+| 1 | 2 | 0 | 2 | 2 | 1 |
+
+No row in this table is yet a final shell statistic. For example, group 0's shell-1 cross subtotal
+is $1$, but it does not include the shell-1 contributions assigned to group 1. The second kernel adds
+the two partial rows for each shell and produces the complete statistics:
+
+| Shell $b$ | $C_b$ | $P_{1,b}$ | $P_{2,b}$ | $n_b$ | $FSC_b$ |
+|---:|---:|---:|---:|---:|---:|
+| 0 | 3 | 5 | 2 | 2 | $3/\sqrt{10}\approx0.949$ |
+| 1 | 4 | 7 | 4 | 4 | $4/\sqrt{28}\approx0.756$ |
+| 2 | -1 | 3 | 3 | 2 | $-1/3\approx-0.333$ |
+
+Before normalization, the device output is:
+
+```
+row 0, cross sum: [ 3, 4, -1]
+row 1, power F1: [ 5, 7,  3]
+row 2, power F2: [ 2, 4,  3]
+row 3, count:    [ 2, 4,  2]
+row 4, k_bin:    [ 0, Δk, 2Δk]
+```
+
+This example is deliberately small, but the $512^3$ case uses exactly the same structure: more
+strided loop iterations, the same four local arrays per work-group, one partial `float4` per group
+and shell, and one final work-item per shell.
+
+### 3.9 Scientific equations and implementation locations
+
+| Scientific quantity | Implementation |
+|---|---|
+| Signed index $q_N(j)$ | `qx`, `qy`, and `qz` conditional calculations |
+| Physical frequency $\mathbf{k}$ | `kx`, `ky`, and `kz` |
+| Radius $\rho(\mathbf{k})$ | `sqrt(kx * kx + ky * ky + kz * kz)` |
+| Shell $b$ | `floor(radius / shell_width + 0.5f)` |
+| Partial $C_{g,b}$ | First local-memory region and `cross` |
+| Partial $P_{1,g,b}$ | Second local-memory region and `power_a` |
+| Partial $P_{2,g,b}$ | Third local-memory region and `power_b` |
+| Partial $n_{g,b}$ | Fourth local-memory region and `atomic_inc` |
+| Final $(C_b,P_{1,b},P_{2,b},n_b)$ | Sum of `partials[group, bin]` in the second kernel |
+| Bin centre $k_b$ | `(float) bin * shell_width` |
+| $FSC_b$ | Python `cross / sqrt(power_1 * power_2)` |
+
+The complete execution can now be read as:
+
+```
+UFO receives F1
+    └─ copies F1 into task-owned device memory
+
+UFO receives F2
+    └─ first kernel
+         ├─ group 0: private voxel calculations → shared local shell table ─┐
+         ├─ group 1: private voxel calculations → shared local shell table ─┤
+         └─ ...                                                             ├─ global partials[G,B]
+                                                                            │
+       second kernel                                                        │
+         └─ one worker per shell sums partials[:,b] ◄────────────────────────┘
+              └─ writes device output [C, P1, P2, n, k]
+
+UFO emits one compact buffer
+    └─ Python converts counts, normalizes the shell sums, and creates FSCResult
+```
+
+The implementation retains a full complex copy of $F_1$, calculates shell membership on demand, and
+does not allocate an `fftshift` volume or shell-map volume. It deliberately uses full spectra in
+this first version. A Hermitian half-spectrum optimization would have to preserve conjugate weights
+and the meaning of `n_shell` and is therefore deferred.
+
+Floating-point addition is not associative. Local atomic ordering and the later group summation can
+produce small rounding differences relative to a sequential Python or NumPy calculation. Tests
+therefore require exact counts but compare floating-point shell sums and FSC values with tolerances.
+
+---
+
+## 4. References
 
 1. Eric Verbeke *et al.*, “Self Fourier shell correlation: properties and application to cryo-ET,”
    *Communications Biology* 7, 101 (2024),

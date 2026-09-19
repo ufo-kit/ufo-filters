@@ -58,7 +58,7 @@ The rest of this document uses the following symbols consistently.
 
 Thus:
 
-```text
+```
 Z  = ceil((z_stop - z_start) / z_step)
 Z4 = 4 * ceil(Z / 4)
 G  = Z4 / 4
@@ -125,7 +125,7 @@ detector-coordinate implementation, so both modes are intentionally excluded.
 
 For each explicit region `(from,to,step)`:
 
-```text
+```
 require finite(from, to, step)
 require step > 0 and to > from
 length = ceil((to - from) / step)
@@ -139,7 +139,7 @@ bounds because rotation and sampler addressing determine which detector values a
 To reproduce the former detector-index square `[177,816)` around axis `540.4`, include the old
 pixel-center conversion in both explicit regions:
 
-```text
+```
 from = 177 - 540.4 + 0.5 = -362.9
 to   = 816 - 540.4 + 0.5 =  276.1
 x-region = y-region = (-362.9, 276.1, 1.0)
@@ -154,7 +154,7 @@ length is rejected. This prevents different bursts from accumulating on incompat
 Let the user tuple be `(r_from, r_to, r_step)` and let `cz` be element zero of
 `center-position-z`.
 
-```text
+```
 if r_step is almost zero:
     r_from = 0
     r_to   = 1
@@ -187,13 +187,13 @@ count disagree with the integer detector rows used by the kernel. Treat the z tu
 
 `setup` constructs one interleaved host array of `2P` floats. With angular increment
 
-```text
+```
 delta = overall_angle / P
 ```
 
 projection `i`, for `0 <= i < P`, receives:
 
-```text
+```
 host_buffer_angles[2*i + 0] = cos(i * delta)
 host_buffer_angles[2*i + 1] = sin(i * delta)
 ```
@@ -205,7 +205,7 @@ interpreted by OpenCL as `constant float2 *angle_lut`.
 There is no angular offset property. After all batches have accumulated, either distribution kernel
 applies the same angular sampling factor used by `general-backproject` in singular mode:
 
-```text
+```
 normalization_factor = abs(overall_angle) / P
 ```
 
@@ -218,7 +218,7 @@ unnormalized.
 `batch_capacity` is `B` in singular mode and `2B` in even/odd mode. For every incoming projection,
 `process` derives:
 
-```text
+```
 batch_start      = floor(processed_proj_count / batch_capacity) * batch_capacity
 actual_burst     = min(batch_capacity, P - batch_start)
 idx_actual_burst = processed_proj_count - batch_start
@@ -246,7 +246,7 @@ The task mode is `UFO_TASK_MODE_REDUCTOR | UFO_TASK_MODE_GPU`. It consumes all p
 `output-mode=slices` then emits one two-dimensional output per requested z slice and volume;
 `output-mode=volume` emits one three-dimensional output per reconstructed volume.
 
-```text
+```
 construct task
   -> init defaults and private pointers
   -> pipeline sets GObject properties
@@ -378,7 +378,7 @@ write the read-only ring/LUT buffers or use the write-only final buffer as a cop
 
 The OpenCL descriptor is:
 
-```text
+```
 image type  = IMAGE2D_ARRAY
 width       = W
 height      = G = Z4/4
@@ -402,7 +402,7 @@ quantized to half before backprojection, while the sum remains float.
 Before allocation, all products and sums used by the memory estimate are checked for `gsize`
 overflow. The estimate includes:
 
-```text
+```
 ring buffer + texture + V coalesced volumes + one output-sized volume + device angle LUT
 ```
 
@@ -413,7 +413,7 @@ total estimate is compared with global device memory.
 
 The image descriptor is also checked against:
 
-```text
+```
 W <= CL_DEVICE_IMAGE2D_MAX_WIDTH
 G <= CL_DEVICE_IMAGE2D_MAX_HEIGHT
 batch_capacity <= CL_DEVICE_IMAGE_MAX_ARRAY_SIZE
@@ -488,20 +488,20 @@ fastest. Work item `(idx, idy, idz)` means:
 
 The projection base offset is:
 
-```text
+```
 proj_offset = p * W * H
 ```
 
 The four logical z indices carried by one RGBA value are:
 
-```text
+```
 logical_z(c) = 4*g + c for c in {0,1,2,3}
 detector_row(c) = row_start + logical_z(c) * row_step
 ```
 
 The corresponding flat ring-buffer address is:
 
-```text
+```
 ring_index(p, row, x) = p*W*H + row*W + x
 ```
 
@@ -562,7 +562,7 @@ backproject(
 
 Work item `(idx, idy, idz)` owns one in-plane output position and one RGBA z group:
 
-```text
+```
 idx in [0,Nx)
 idy in [0,Ny)
 idz in [0,G)
@@ -570,7 +570,7 @@ idz in [0,G)
 
 The indices are mapped onto the independently configured volume grids:
 
-```text
+```
 volume_x = x0 + idx*dx
 volume_y = y0 + idy*dy
 ```
@@ -581,13 +581,13 @@ axis subtraction or pixel-center shift.
 For projection slot `p`, the lookup pair is `(cos(theta_p), sin(theta_p))`. The detector coordinate
 is:
 
-```text
+```
 rho_p = axis + volume_x*cos(theta_p) + volume_y*sin(theta_p)
 ```
 
 The texture sample is:
 
-```text
+```
 read_imagef(projections, sampler, (rho_p, idz + 0.5, p, 0))
 ```
 
@@ -598,7 +598,7 @@ read_imagef(projections, sampler, (rho_p, idz + 0.5, p, 0))
 
 The loop accumulates `b` samples into `sum`. The flat coalesced-volume index is:
 
-```text
+```
 plane = Nx * Ny
 base(idx, idy, idz) = idz*plane + idy*Nx + idx
 ```
@@ -716,13 +716,13 @@ distribute(
 
 `distribute` is retained unchanged for slice output and uses the same `(Nx,Ny,G)` launch. It reads:
 
-```text
+```
 values = coalesced[idz*Nx*Ny + idy*Nx + idx] * normalization_factor
 ```
 
 and writes the channels to four separate z planes:
 
-```text
+```
 final[(4*idz + 0)*Nx*Ny + idy*Nx + idx] = values.x
 final[(4*idz + 1)*Nx*Ny + idy*Nx + idx] = values.y
 final[(4*idz + 2)*Nx*Ny + idy*Nx + idx] = values.z
@@ -781,7 +781,7 @@ downstream queue and before the source accumulator is released.
 
 Suppose:
 
-```text
+```
 H = 20
 z_start = 10
 z_stop = 15       (exclusive)
@@ -831,7 +831,7 @@ is the current `b`.
 After `distribute`, `device_final_slices` is logical `float[Z4][Ny][Nx]`. For generated plane `k`, C
 uses `clEnqueueCopyBufferRect` with:
 
-```text
+```
 row_pitch   = Nx * sizeof(float)
 slice_pitch = Ny * row_pitch
 
