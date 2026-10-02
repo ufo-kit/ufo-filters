@@ -212,7 +212,7 @@ ufo_fsc_core_task_get_requisition (UfoTask *task,
         !same_requisition (&in_req, &priv->spectrum_req)) {
         requisition->n_dims = 2;
         requisition->dims[0] = priv->num_bins;
-        requisition->dims[1] = 5;
+        requisition->dims[1] = 7;
         return;
     }
 
@@ -260,7 +260,7 @@ ufo_fsc_core_task_get_requisition (UfoTask *task,
     }
     requisition->n_dims = 2;
     requisition->dims[0] = bins;
-    requisition->dims[1] = 5;
+    requisition->dims[1] = 7;
 }
 
 static guint
@@ -318,6 +318,7 @@ configure_execution (UfoFscCoreTaskPrivate *priv,
     size_t preferred_multiple;
     size_t maximum_groups;
     gsize local_bytes;
+    gsize local_items;
     gsize partial_count;
     gsize partial_size;
     cl_int error;
@@ -368,7 +369,8 @@ configure_execution (UfoFscCoreTaskPrivate *priv,
         return FALSE;
     }
 
-    if (!checked_mul_size ((gsize) priv->num_bins, sizeof (cl_uint4), &local_bytes) ||
+    if (!checked_mul_size ((gsize) priv->num_bins, 6, &local_items) ||
+        !checked_mul_size (local_items, sizeof (cl_uint), &local_bytes) ||
         (cl_ulong) local_bytes + kernel_local_memory > device_local_memory) {
         g_warning ("fsc-core needs %lu bytes of dynamic local memory for %u bins, "
                    "but the selected device has %lu bytes available",
@@ -389,7 +391,7 @@ configure_execution (UfoFscCoreTaskPrivate *priv,
         MIN ((size_t) compute_units * 4, maximum_groups));
 
     if (!checked_mul_size ((gsize) priv->num_groups, (gsize) priv->num_bins, &partial_count) ||
-        !checked_mul_size (partial_count, sizeof (cl_float4), &partial_size)) {
+        !checked_mul_size (partial_count, sizeof (cl_float8), &partial_size)) {
         g_warning ("fsc-core partial-buffer size overflow");
         return FALSE;
     }
@@ -488,7 +490,7 @@ ufo_fsc_core_task_process (UfoTask *task,
     output_mem = ufo_buffer_get_device_array (output, queue);
     ufo_buffer_set_layout (output, UFO_BUFFER_LAYOUT_REAL);
     profiler = ufo_task_node_get_profiler (UFO_TASK_NODE (task));
-    local_bytes = (gsize) priv->num_bins * sizeof (cl_uint4);
+    local_bytes = (gsize) priv->num_bins * 6 * sizeof (cl_uint);
     global_size = (size_t) priv->num_groups * priv->local_size;
 
     UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 0, sizeof (cl_mem), &first_mem));

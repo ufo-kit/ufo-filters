@@ -285,8 +285,8 @@ Given a projection stream and common reconstruction geometry:
 3. Compute $F_{\mathrm{even}}=\mathcal{F}_3(V_{\mathrm{even}})$ and
    $F_{\mathrm{odd}}=\mathcal{F}_3(V_{\mathrm{odd}})$.
 4. Assign every Fourier coefficient to a physical-frequency shell.
-5. Accumulate $C_b$, $P_{\mathrm{even},b}$, $P_{\mathrm{odd},b}$, and $n_b$.
-6. Normalize the accumulated statistics to obtain $FSC_b$.
+5. Accumulate $C_b$, $P_{\mathrm{even},b}$, $P_{\mathrm{odd},b}$, $n_b$, and the magnitude extrema.
+6. Normalize the accumulated statistics and construct the comparison criteria.
 7. Transfer only the compact result vectors to the host and attach physical-frequency and count
    types.
 
@@ -297,10 +297,11 @@ V_even, V_odd = reconstruct_alternating_projection_sets(projections)
 F_even = fft3(V_even)
 F_odd  = fft3(V_odd)
 
-C, P_even, P_odd, n_shell = shell_statistics(F_even, F_odd, geometry)
+C, P_even, P_odd, n_shell, minimum, maximum = \
+    shell_statistics(F_even, F_odd, geometry)
 fsc = C / sqrt(P_even * P_odd)
 k_bin = physical_bin_centres(geometry)
-return FSCResult(fsc, k_bin, n_shell)
+return FSCComputation(fsc, k_bin, n_shell, criteria, geometry)
 ```
 
 Classic FSC requires no phase correction and no SFSC variance mapping. It is the experimental
@@ -576,7 +577,7 @@ fft(dimensions=3)
 device stream [F_even, F_odd]
       │
       ▼
-fsc-core ─ compact shell statistics ─ Python normalization ─ FSCResult
+fsc-core ─ compact shell statistics ─ shared Python post-processing ─ FSCComputation
 ```
 
 The scientific split and the device-only connection to the existing 3-D FFT now exist.
@@ -600,12 +601,13 @@ constructs the typed public result.
 | Direct volume-to-FFT connection | Available | `fft dimensions=3` accepts the 3-D real requisition and consumes the device buffer without `stack`. |
 | Sequential spectrum pairing | Available in `fsc-core` | The first complex spectrum is copied device-to-device and retained until the second arrives. |
 | Physical shell assignment | Available in `fsc-core` | Native unshifted FFT indices are assigned to conservative physical shells without `fftshift` or a shell-map volume. |
-| Shell-wise complex correlation and reduction | Available in `fsc-core` | A staged local-histogram reduction produces cross-correlation, two power sums, and `n_shell`. |
-| FSC normalization and compact output | Available across UFO and Python | `fsc-core` emits five compact rows; Python normalizes the three sums into FSC. |
-| Typed host result | Available in the benchmark layer | `FSCShellStatistics` constructs `FSCResult` after only compact data crosses to the host. The eventual tofu API remains future work. |
+| Shell-wise complex correlation and reduction | Available in `fsc-core` | A staged local-histogram reduction produces cross-correlation, two power sums, `n_shell`, and Fourier-magnitude extrema. |
+| FSC normalization and compact output | Available across UFO and Python | `fsc-core` emits seven compact rows; shared Python utilities normalize the sums and construct all comparison curves. |
+| Typed host result | Available in the benchmark layer | `FSCShellStatistics` constructs `FSCComputation` after only compact data crosses to the host. The eventual tofu API remains future work. |
 
 Thus, the classic computational track has all required building blocks. The standalone benchmark
-under `benchmarks/fsc` composes them while the eventual `tofu fsc` interface remains future work.
+under `analytical_methods/benchmarks/fsc` composes them while the eventual `tofu fsc` interface
+remains future work.
 
 #### 2.2.2 `fsc-core` interface and bin policy
 
@@ -656,15 +658,17 @@ $$
 only when $b<B$. The centre reported for that shell is $k_b=b\Delta k$. For cubic isotropic data,
 this is the paper's rounded integer-radius convention expressed in physical units.
 
-The task emits a 2-D UFO requisition `dims=(B,5)`, seen by NumPy as `(5,B)`. Its float32 rows are, in
-order, $C_b$, $P_{1,b}$, $P_{2,b}$, $n_b$, and $k_b$. Counts are accumulated as integers and converted
-only in the compact output. Python validates their integrality, converts them to `int64`, and computes
-$C_b/\sqrt{P_{1,b}P_{2,b}}$ using float64 intermediates.
+The task emits a 2-D UFO requisition `dims=(B,7)`, seen by NumPy as `(7,B)`. Its float32 rows are, in
+order, $C_b$, $P_{1,b}$, $P_{2,b}$, $n_b$, $k_b$, $m_b$, and $M_b$. Here $m_b$ and $M_b$ are the
+minimum and maximum Fourier magnitudes across both input spectra in shell $b$. Counts are accumulated
+as integers and converted only in the compact output. Python validates their integrality, converts
+them to `int64`, and computes $C_b/\sqrt{P_{1,b}P_{2,b}}$ using float64 intermediates. The two extrema
+are sufficient to construct the geometric lower bound without transferring either spectrum.
 
 #### 2.2.3 Normalized configuration in the classic benchmark
 
-The standalone runner in [`benchmarks/fsc`](../../benchmarks/fsc) uses normalized frequency rather
-than calibrated physical frequency. It configures the three `fsc-core` voxel sizes as
+The standalone runner in `analytical_methods/benchmarks/fsc` uses normalized frequency rather than
+calibrated physical frequency. It configures the three `fsc-core` voxel sizes as
 
 $$
 d_x=d_y=d_z=1,
@@ -850,20 +854,23 @@ Tofu is the natural orchestration layer because it already builds UFO graphs fro
 A conceptual host result is
 
 ```
-FSCResult
+FSCComputation
     fsc      : float32 [B]
-    k_bin    : float32 [B]   # reciprocal configured-distance unit
+    frequency: float32 [B]   # reciprocal configured-distance unit
     n_shell  : int64   [B]
+    fixed_threshold  : float64 [B]
+    half_bit_threshold: float64 [B]
+    geometric_bound : float64 [B]
     method   : classic | sfsc-basic | sfsc-corrected
     axis     : none | z | x | y | mean
     metadata : shape, voxel spacing, bin edges, normalization, corrections
 ```
 
-Classic FSC contains one `FSCResult`. An SFSC result contains `z`, `x`, and `y` `FSCResult` values and
+Classic FSC contains one `FSCComputation`. An SFSC result contains `z`, `x`, and `y` `FSCComputation` values and
 may additionally contain `mean`. Keeping a complete result per axis avoids assuming prematurely that
 the directional `k_bin` and `n_shell` vectors are identical.
 
-UFO buffers contain float32 storage. `fsc-core` therefore transports its five output rows as float32,
+UFO buffers contain float32 storage. `fsc-core` therefore transports its seven output rows as float32,
 including the shell counts. Counts are accumulated as integers on the device and are exactly
 representable after conversion for the target $512^3$ volumes. The Python layer validates that the
 received values are integral and exposes `n_shell` as `int64`. Larger future volume sizes must revisit
@@ -956,17 +963,17 @@ first complex spectrum F1 ── device copy ──┐
                                            ├─ partial shell histograms ─ final shell sums
 second complex spectrum F2 ────────────────┘                              │
                                                                           ▼
-                                                [C, P1, P2, n, k] on device
+                                             [C, P1, P2, n, k, min, max] on device
                                                                           │
                                                         compact transfer  ▼
                                                                Python normalization
                                                                           │
                                                                           ▼
-                                                                     FSCResult
+                                                                 FSCComputation
 ```
 
 The GPU does not calculate the final division. It produces the sufficient statistics
-$(C_b,P_{1,b},P_{2,b},n_b,k_b)$ for every shell. Python then calculates
+$(C_b,P_{1,b},P_{2,b},n_b,k_b,m_b,M_b)$ for every shell. Python then calculates
 $FSC_b=C_b/\sqrt{P_{1,b}P_{2,b}}$. This division concerns only a few hundred values, so moving it to
 Python does not require downloading either reconstructed volume or either full spectrum.
 
@@ -1055,6 +1062,8 @@ cross_sum = np.zeros(B, dtype=np.float64)
 power_1_sum = np.zeros(B, dtype=np.float64)
 power_2_sum = np.zeros(B, dtype=np.float64)
 n_shell = np.zeros(B, dtype=np.int64)
+minimum_magnitude = np.full(B, np.inf)
+maximum_magnitude = np.zeros(B)
 
 # Inside the loop these are running sums over the voxels visited so far.
 # After the loop they are the complete sums over all Fourier voxels.
@@ -1082,8 +1091,14 @@ for z in range(nz):
                 power_1_sum[b] += a.real * a.real + a.imag * a.imag
                 power_2_sum[b] += c.real * c.real + c.imag * c.imag
                 n_shell[b] += 1
+                minimum_magnitude[b] = min(
+                    minimum_magnitude[b], abs(a), abs(c))
+                maximum_magnitude[b] = max(
+                    maximum_magnitude[b], abs(a), abs(c))
 
 # All voxels have now been visited, so these arrays contain final shell sums.
+minimum_magnitude[n_shell == 0] = np.nan
+maximum_magnitude[n_shell == 0] = np.nan
 denominator = np.sqrt(power_1_sum * power_2_sum)
 fsc = np.full(B, np.nan)
 valid = (n_shell > 0) & (power_1_sum > 0) & (power_2_sum > 0)
@@ -1106,23 +1121,34 @@ partial_cross = np.zeros((num_groups, B), dtype=np.float64)
 partial_power_1 = np.zeros((num_groups, B), dtype=np.float64)
 partial_power_2 = np.zeros((num_groups, B), dtype=np.float64)
 partial_count = np.zeros((num_groups, B), dtype=np.int64)
+partial_minimum = np.full((num_groups, B), np.inf)
+partial_maximum = np.zeros((num_groups, B), dtype=np.float64)
 
 # Stage 1: every group calculates a complete subtotal for its assigned voxels.
 for group, indices in enumerate(indices_per_group):
     for index in indices:
-        b, cross, power_1, power_2 = voxel_contribution(index)
+        b, cross, power_1, power_2, magnitude_1, magnitude_2 = \
+            voxel_contribution(index)
 
         if b < B:
             partial_cross[group, b] += cross
             partial_power_1[group, b] += power_1
             partial_power_2[group, b] += power_2
             partial_count[group, b] += 1
+            partial_minimum[group, b] = min(
+                partial_minimum[group, b], magnitude_1, magnitude_2)
+            partial_maximum[group, b] = max(
+                partial_maximum[group, b], magnitude_1, magnitude_2)
 
 # Stage 2: combine all group subtotals into the complete shell statistics.
 cross_sum = partial_cross.sum(axis=0)
 power_1_sum = partial_power_1.sum(axis=0)
 power_2_sum = partial_power_2.sum(axis=0)
 n_shell = partial_count.sum(axis=0)
+minimum_magnitude = partial_minimum.min(axis=0)
+maximum_magnitude = partial_maximum.max(axis=0)
+minimum_magnitude[n_shell == 0] = np.nan
+maximum_magnitude[n_shell == 0] = np.nan
 ```
 
 This second example is conceptual: `indices_per_group` represents the strided index assignment
@@ -1137,7 +1163,7 @@ C_{g,b}=\sum_{\mathbf{k}\in S_b\cap W_g}
 Re(F_1(\mathbf{k})\overline{F_2(\mathbf{k})}).
 $$
 
-The corresponding partial power sums and count are
+The corresponding partial power sums, count, and magnitude extrema are
 
 $$
 P_{1,g,b}=\sum_{\mathbf{k}\in S_b\cap W_g}|F_1(\mathbf{k})|^2,
@@ -1147,6 +1173,16 @@ $$
 
 $$
 n_{g,b}=|S_b\cap W_g|.
+$$
+
+$$
+m_{g,b}=\min_{\mathbf{k}\in S_b\cap W_g}
+\left(|F_1(\mathbf{k})|,|F_2(\mathbf{k})|\right),
+$$
+
+$$
+M_{g,b}=\max_{\mathbf{k}\in S_b\cap W_g}
+\left(|F_1(\mathbf{k})|,|F_2(\mathbf{k})|\right).
 $$
 
 The sets $W_g$ divide the full volume without overlap, so the second stage recovers the complete
@@ -1160,6 +1196,14 @@ P_{1,b}=\sum_g P_{1,g,b},
 P_{2,b}=\sum_g P_{2,g,b},
 \qquad
 n_b=\sum_g n_{g,b}.
+$$
+
+The extrema combine differently from the additive quantities:
+
+$$
+m_b=\min_g m_{g,b},
+\qquad
+M_b=\max_g M_{g,b}.
 $$
 
 Thus, **partial means subtotal over one group's subset; reduction means combining those subtotals**.
@@ -1189,7 +1233,7 @@ The important OpenCL address spaces here are:
 | Address space | Visibility | Use in `fsc-core` |
 |---|---|---|
 | `global` | All work-items and later kernels | $F_1$, $F_2$, the partial histograms, and final output |
-| `local` | Work-items in one work-group only | One temporary four-vector shell histogram per group |
+| `local` | Work-items in one work-group only | One temporary six-vector shell histogram per group |
 | Private | One work-item only | Coordinates, coefficients, and individual contributions |
 
 The C task selects
@@ -1211,30 +1255,32 @@ $$
 work-groups, with at least one group. The first kernel consequently launches
 $G\times\text{local size}$ work-items.
 
-Every group needs four local arrays of $B$ unsigned 32-bit words:
+Every group needs six local arrays of $B$ unsigned 32-bit words:
 
 ```
 shells[0            : B]     cross sums C
 shells[B            : 2 * B] first-spectrum powers P1
 shells[2 * B        : 3 * B] second-spectrum powers P2
 shells[3 * B        : 4 * B] integer counts n
+shells[4 * B        : 5 * B] minimum magnitudes m
+shells[5 * B        : 6 * B] maximum magnitudes M
 ```
 
-The allocation therefore requires $4B\times4=16B$ bytes of local memory. It is written in C as
-`B * sizeof(cl_uint4)`, although the kernel addresses it as one flat `uint` array. The task rejects
+The allocation therefore requires $6B\times4=24B$ bytes of local memory. The kernel addresses it as
+one flat `uint` array. The task rejects
 the configuration if this allocation plus the kernel's static local memory exceeds the device
 limit.
 
-Each group ultimately writes $B$ `float4` partial records to global memory. With $G$ groups, the
-partial buffer is therefore $G\times B\times16$ bytes. This buffer is compact compared with either
-full spectrum.
+Each group ultimately writes $B$ `float8` partial records to global memory. Six lanes carry data and
+two are padding. With $G$ groups, the partial buffer is therefore $G\times B\times32$ bytes. This
+buffer is compact compared with either full spectrum.
 
 ### 3.4 First kernel: one partial histogram per work-group
 
 The first kernel is `fsc_accumulate_partials`. The following annotated blocks contain all of its
-executable code, including its helper function.
+executable code, including its helper functions.
 
-#### 3.4.1 Portable float addition in local memory
+#### 3.4.1 Portable float atomics in local memory
 
 ```
 inline void
@@ -1247,6 +1293,40 @@ atomic_add_float_local (volatile __local uint *address, float value)
         expected = previous;
         previous = atomic_cmpxchg (address, expected,
                                    as_uint (as_float (expected) + value));
+    } while (previous != expected);
+}
+
+inline void
+atomic_min_float_local (volatile __local uint *address, float value)
+{
+    const uint candidate = as_uint (value);
+    uint previous = *address;
+    uint expected;
+
+    do {
+        expected = previous;
+
+        if (candidate >= expected)
+            return;
+
+        previous = atomic_cmpxchg (address, expected, candidate);
+    } while (previous != expected);
+}
+
+inline void
+atomic_max_float_local (volatile __local uint *address, float value)
+{
+    const uint candidate = as_uint (value);
+    uint previous = *address;
+    uint expected;
+
+    do {
+        expected = previous;
+
+        if (candidate <= expected)
+            return;
+
+        previous = atomic_cmpxchg (address, expected, candidate);
     } while (previous != expected);
 }
 ```
@@ -1274,13 +1354,18 @@ Without the compare-and-exchange loop, both workers could write based on $10$, l
 contribution. The order of successful additions remains nondeterministic, so the last few
 floating-point bits may vary between devices or runs.
 
+The minimum and maximum helpers use the same retry pattern, but compare non-negative float bit
+patterns instead of adding them. IEEE-754 bit ordering agrees with numerical ordering for finite
+non-negative values, which includes Fourier magnitudes. The minimum region begins at positive
+infinity and the maximum region begins at zero.
+
 #### 3.4.2 Kernel arguments and worker identities
 
 ```
 kernel void
 fsc_accumulate_partials (global const float2 *first,
                          global const float2 *second,
-                         global float4 *partials,
+                         global float8 *partials,
                          local uint *shells,
                          uint nx,
                          uint ny,
@@ -1310,15 +1395,18 @@ below.
 #### 3.4.3 Cooperative local-memory initialization
 
 ```
-    for (size_t item = local_id; item < 4 * num_bins; item += local_size)
-        shells[item] = 0;
+    for (size_t item = local_id; item < 6 * num_bins; item += local_size) {
+        const bool is_minimum = item >= 4 * num_bins && item < 5 * num_bins;
+        shells[item] = is_minimum ? as_uint (INFINITY) : 0;
+    }
 
     barrier (CLK_LOCAL_MEM_FENCE);
 ```
 
 The local shell table is scratch memory and may initially contain arbitrary bits. Its initialization
-is shared: local worker $0$ clears entries $0,L,2L,\ldots$, worker $1$ clears
-$1,L+1,2L+1,\ldots$, and so on for local size $L$.
+is shared: local worker $0$ initializes entries $0,L,2L,\ldots$, worker $1$ initializes
+$1,L+1,2L+1,\ldots$, and so on for local size $L$. Additive values, counts, and maxima start at zero;
+the minimum region starts at positive infinity so the first observed magnitude always replaces it.
 
 The barrier means: *every work-item in this work-group must finish its local-memory writes before any
 work-item in the group continues*. Without it, one worker could add a contribution while another
@@ -1326,8 +1414,8 @@ worker was still clearing the same shell, erasing the contribution. This barrier
 other work-groups; each has its own independent `shells` allocation. Every work-item in the group
 must encounter the barrier, which is why it is outside the initialization loop.
 
-Integer zero has the same all-zero bit pattern as floating-point `0.0f`. It therefore initializes
-both the three float-bit regions and the integer-count region correctly.
+Integer zero has the same all-zero bit pattern as floating-point `0.0f`. The `as_uint` call stores
+the bit pattern of floating-point infinity without numerically converting it.
 
 #### 3.4.4 Strided traversal and shell assignment
 
@@ -1384,11 +1472,17 @@ This avoids both a full-volume `fftshift` and a full-volume shell-index map.
             const float cross = a.x * b.x + a.y * b.y;
             const float power_a = dot (a, a);
             const float power_b = dot (b, b);
+            const float magnitude_a = sqrt (power_a);
+            const float magnitude_b = sqrt (power_b);
+            const float minimum = fmin (magnitude_a, magnitude_b);
+            const float maximum = fmax (magnitude_a, magnitude_b);
 
             atomic_add_float_local (&shells[bin], cross);
             atomic_add_float_local (&shells[num_bins + bin], power_a);
             atomic_add_float_local (&shells[2 * num_bins + bin], power_b);
             atomic_inc ((volatile __local uint *) &shells[3 * num_bins + bin]);
+            atomic_min_float_local (&shells[4 * num_bins + bin], minimum);
+            atomic_max_float_local (&shells[5 * num_bins + bin], maximum);
         }
     }
 ```
@@ -1404,6 +1498,10 @@ The code `a.x * b.x + a.y * b.y` is exactly this cross term. Similarly,
 `dot(a,a)` is $a_r^2+a_i^2=|a|^2$, and `dot(b,b)` is $|c|^2$.
 The kernel calls the second coefficient `b`; the equations call it $c$ here to avoid confusing that
 coefficient with the shell index $b$.
+
+The square roots recover $|a|$ and $|c|$ from their powers. The two additional atomic operations
+retain the smallest and largest magnitude seen across either spectrum in the group's part of the
+shell. These extrema are later used by Python for the geometric lower bound.
 
 For work-group $g$, these atomic updates construct partial scientific quantities
 
@@ -1421,6 +1519,9 @@ $$
 n_{g,b}=|S_b\cap W_g|,
 $$
 
+along with partial magnitude extrema $m_{g,b}$ and $M_{g,b}$. The latter are minima and maxima, not
+sums. Empty group-shell combinations retain the initialization values infinity and zero.
+
 where $W_g$ is the set of voxel indices processed by work-group $g$. These are not yet the final
 $C_b$, $P_{1,b}$, $P_{2,b}$, and $n_b$ because every other group owns another part of the volume.
 
@@ -1431,10 +1532,14 @@ $C_b$, $P_{1,b}$, $P_{2,b}$, and $n_b$ because every other group owns another pa
 
     for (size_t bin = local_id; bin < num_bins; bin += local_size) {
         partials[group_id * num_bins + bin] =
-            (float4) (as_float (shells[bin]),
+            (float8) (as_float (shells[bin]),
                       as_float (shells[num_bins + bin]),
                       as_float (shells[2 * num_bins + bin]),
-                      convert_float (shells[3 * num_bins + bin]));
+                      convert_float (shells[3 * num_bins + bin]),
+                      as_float (shells[4 * num_bins + bin]),
+                      as_float (shells[5 * num_bins + bin]),
+                      0.0f,
+                      0.0f);
     }
 }
 ```
@@ -1444,14 +1549,15 @@ before any member reads the completed local histogram.
 
 The workers then cooperate again, this time to copy the $B$ shell records to global memory.
 `as_float` recovers the float values stored as bit patterns. The count uses `convert_float` instead
-because it is a numerical integer-to-float conversion. The resulting `float4` is ordered as
-$(C_{g,b},P_{1,g,b},P_{2,g,b},n_{g,b})$.
+because it is a numerical integer-to-float conversion. The resulting `float8` is ordered as
+$(C_{g,b},P_{1,g,b},P_{2,g,b},n_{g,b},m_{g,b},M_{g,b},0,0)$.
 
 The flat destination `group_id * num_bins + bin` is equivalent to
 `partials[group_id, bin]` in a two-dimensional Python array. In terms of the GPU-shaped Python
-example from Section 3.2, one `float4` record combines
+example from Section 3.2, one `float8` record combines
 `partial_cross[group_id, bin]`, `partial_power_1[group_id, bin]`,
-`partial_power_2[group_id, bin]`, and `partial_count[group_id, bin]`. The buffer is named `partials`
+`partial_power_2[group_id, bin]`, `partial_count[group_id, bin]`, `partial_minimum[group_id, bin]`,
+and `partial_maximum[group_id, bin]`. The buffer is named `partials`
 because each record is one work-group's subtotal rather than the complete value for that shell.
 
 ### 3.5 Second kernel: combine work-group partials
@@ -1461,7 +1567,7 @@ therefore a second kernel:
 
 ```
 kernel void
-fsc_reduce_partials (global const float4 *partials,
+fsc_reduce_partials (global const float8 *partials,
                      global float *output,
                      uint num_groups,
                      uint num_bins,
@@ -1473,15 +1579,23 @@ fsc_reduce_partials (global const float4 *partials,
         return;
 
     float4 total = (float4) (0.0f);
+    float minimum = INFINITY;
+    float maximum = 0.0f;
 
-    for (uint group = 0; group < num_groups; group++)
-        total += partials[group * num_bins + bin];
+    for (uint group = 0; group < num_groups; group++) {
+        const float8 partial = partials[group * num_bins + bin];
+        total += partial.lo;
+        minimum = fmin (minimum, partial.s4);
+        maximum = fmax (maximum, partial.s5);
+    }
 
     output[bin] = total.x;
     output[num_bins + bin] = total.y;
     output[2 * num_bins + bin] = total.z;
     output[3 * num_bins + bin] = total.w;
     output[4 * num_bins + bin] = (float) bin * shell_width;
+    output[5 * num_bins + bin] = total.w > 0.0f ? minimum : as_float (0x7fc00000u);
+    output[6 * num_bins + bin] = total.w > 0.0f ? maximum : as_float (0x7fc00000u);
 }
 ```
 
@@ -1500,11 +1614,16 @@ P_{2,b}=\sum_{g=0}^{G-1}P_{2,g,b},
 n_b=\sum_{g=0}^{G-1}n_{g,b}.
 $$
 
+It separately calculates $m_b=\min_g m_{g,b}$ and $M_b=\max_g M_{g,b}$. The unused group's
+infinity/zero initialization is neutral for these operations. If the final count is zero, the kernel
+writes quiet `NaN` values for both extrema. A populated all-zero shell instead retains the meaningful
+pair $(0,0)$.
+
 The first and second kernels are submitted to the same in-order UFO command queue. The second kernel
 therefore cannot begin until the first kernel has finished writing `partials`. This kernel-launch
 boundary supplies the device-wide ordering that a work-group barrier cannot provide.
 
-Every output element is overwritten. In the flat device buffer, five blocks of $B$ floats are laid
+Every output element is overwritten. In the flat device buffer, seven blocks of $B$ floats are laid
 out consecutively:
 
 | Flat output range | NumPy row | Meaning |
@@ -1514,9 +1633,11 @@ out consecutively:
 | `output[2B:3B]` | 2 | $P_{2,b}$ |
 | `output[3B:4B]` | 3 | $n_b$, transported as float32 |
 | `output[4B:5B]` | 4 | $k_b=b\Delta k$ |
+| `output[5B:6B]` | 5 | $m_b$, minimum magnitude across both spectra |
+| `output[6B:7B]` | 6 | $M_b$, maximum magnitude across both spectra |
 
-UFO describes this buffer as `dims=(B,5)` because `dims[0]` is the fastest-varying dimension.
-NumPy consequently exposes the same memory as shape `(5,B)`.
+UFO describes this buffer as `dims=(B,7)` because `dims[0]` is the fastest-varying dimension.
+NumPy consequently exposes the same memory as shape `(7,B)`.
 
 ### 3.6 Host-side kernel orchestration
 
@@ -1538,14 +1659,14 @@ UFO_RESOURCES_CHECK_SET_AND_RETURN (
 During the first requisition, `configure_execution` queries the selected device's compute-unit,
 work-group, and local-memory limits. It calculates the local-table and partial-buffer sizes with
 overflow checks, rejects an impossible local allocation, and allocates
-`num_groups * num_bins` `cl_float4` records.
+`num_groups * num_bins` `cl_float8` records.
 
 For a complete pair, `process` obtains device pointers to $F_1$, $F_2$, and the compact output. It
 passes the spectrum geometry, physical frequency increments, shell width, bin count, and total voxel
 count as kernel arguments. The launches are:
 
 ```
-local_bytes = (gsize) priv->num_bins * sizeof (cl_uint4);
+local_bytes = (gsize) priv->num_bins * 6 * sizeof (cl_uint);
 global_size = (size_t) priv->num_groups * priv->local_size;
 
 /* Arguments 0..12 bind F1, F2, partials, local memory, geometry and binning. */
@@ -1593,14 +1714,19 @@ input produces no output, while the second completes and emits one reduction res
 
 ### 3.7 Python normalization and typed output
 
-Only the compact $(5,B)$ array crosses to the host. Python separates its rows, validates that the
-transported count values are non-negative integers, and exposes the public result as:
+Only the compact $(7,B)$ array crosses to the host. Python separates its rows, validates that the
+transported count values are non-negative integers, checks the magnitude extrema, and exposes the
+shared result used by both the UFO and NumPy benchmark paths:
 
 ```
-FSCResult
-    fsc      : float32[B]
-    k_bin    : float32[B]
-    n_shell  : int64[B]
+FSCComputation
+    frequency         : float32[B]
+    fsc               : float64[B]
+    n_shell           : int64[B]
+    fixed_threshold   : float64[B]
+    half_bit_threshold: float64[B]
+    geometric_bound   : float64[B]
+    geometry          : ShellGeometry
 ```
 
 Normalization uses float64 intermediates:
@@ -1610,18 +1736,44 @@ cross = raw[0].astype(np.float64)
 power_1 = raw[1].astype(np.float64)
 power_2 = raw[2].astype(np.float64)
 n_shell = np.rint(raw[3]).astype(np.int64)
-k_bin = raw[4].astype(np.float32)
+frequency = raw[4].astype(np.float32)
+minimum_magnitude = raw[5].astype(np.float64)
+maximum_magnitude = raw[6].astype(np.float64)
 
 denominator = np.sqrt(power_1 * power_2)
 valid = (n_shell > 0) & (power_1 > 0.0) & (power_2 > 0.0)
 fsc = np.full(cross.shape, np.nan, dtype=np.float64)
 np.divide(cross, denominator, out=fsc, where=valid)
-fsc = fsc.astype(np.float32)
 ```
 
-An empty shell or non-positive denominator remains `NaN`. Valid values are not clamped. The raw GPU
-statistics remain useful for testing shell membership, counts, and reduction errors independently of
-the final division.
+An empty shell or non-positive denominator remains `NaN`. Valid values are not clamped. Shared
+utilities construct the fixed $0.143$ curve, the count-dependent half-bit curve, and the geometric
+lower bound from `minimum_magnitude`, `maximum_magnitude`, and `n_shell`. Empty, all-zero, or
+insufficient-count shells have a `NaN` geometric bound. The raw GPU statistics remain useful for
+testing shell membership, counts, extrema, and reduction errors independently of the final curves.
+
+For the half-bit curve, the shared utility uses
+
+$$
+s=\frac{\sqrt{2}-1}{2},
+\qquad
+h=2\sqrt{s},
+$$
+
+$$
+T_{1/2,b}=\frac{s\sqrt{n_b}+h+1}{(s+1)\sqrt{n_b}+h}.
+$$
+
+For populated shells with more than ten samples, the geometric lower bound is
+
+$$
+G_b=\frac{2\sqrt{M_bm_b}}{M_b+m_b}.
+$$
+
+The implementation evaluates this through the ratio $m_b/M_b$ for numerical stability. If
+$m_b=0<M_b$, the bound is zero. If $M_b=0$, the shell is all-zero and its bound remains `NaN`.
+Unlike the fixed and half-bit curves, this geometric curve is a consistency bound and its crossing
+is not reported as a spatial resolution.
 
 ### 3.8 Worked example with two work-groups
 
@@ -1649,24 +1801,24 @@ $(Re(a\overline{c}),|a|^2,|c|^2)$:
 
 The first kernel produces one **partial**, or subtotal, shell-statistics table per group:
 
-| Group | Shell | Partial $C_{g,b}$ | Partial $P_{1,g,b}$ | Partial $P_{2,g,b}$ | Partial $n_{g,b}$ |
-|---:|---:|---:|---:|---:|---:|
-| 0 | 0 | 2 | 4 | 1 | 1 |
-| 0 | 1 | 1 | 2 | 2 | 2 |
-| 0 | 2 | -1 | 1 | 1 | 1 |
-| 1 | 0 | 1 | 1 | 1 | 1 |
-| 1 | 1 | 3 | 5 | 2 | 2 |
-| 1 | 2 | 0 | 2 | 2 | 1 |
+| Group | Shell | Partial $C_{g,b}$ | Partial $P_{1,g,b}$ | Partial $P_{2,g,b}$ | Partial $n_{g,b}$ | $m_{g,b}$ | $M_{g,b}$ |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 0 | 2 | 4 | 1 | 1 | 1 | 2 |
+| 0 | 1 | 1 | 2 | 2 | 2 | 1 | 1 |
+| 0 | 2 | -1 | 1 | 1 | 1 | 1 | 1 |
+| 1 | 0 | 1 | 1 | 1 | 1 | 1 | 1 |
+| 1 | 1 | 3 | 5 | 2 | 2 | 1 | 2 |
+| 1 | 2 | 0 | 2 | 2 | 1 | $\sqrt{2}$ | $\sqrt{2}$ |
 
 No row in this table is yet a final shell statistic. For example, group 0's shell-1 cross subtotal
 is $1$, but it does not include the shell-1 contributions assigned to group 1. The second kernel adds
 the two partial rows for each shell and produces the complete statistics:
 
-| Shell $b$ | $C_b$ | $P_{1,b}$ | $P_{2,b}$ | $n_b$ | $FSC_b$ |
-|---:|---:|---:|---:|---:|---:|
-| 0 | 3 | 5 | 2 | 2 | $3/\sqrt{10}\approx0.949$ |
-| 1 | 4 | 7 | 4 | 4 | $4/\sqrt{28}\approx0.756$ |
-| 2 | -1 | 3 | 3 | 2 | $-1/3\approx-0.333$ |
+| Shell $b$ | $C_b$ | $P_{1,b}$ | $P_{2,b}$ | $n_b$ | $m_b$ | $M_b$ | $FSC_b$ |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0 | 3 | 5 | 2 | 2 | 1 | 2 | $3/\sqrt{10}\approx0.949$ |
+| 1 | 4 | 7 | 4 | 4 | 1 | 2 | $4/\sqrt{28}\approx0.756$ |
+| 2 | -1 | 3 | 3 | 2 | 1 | $\sqrt{2}$ | $-1/3\approx-0.333$ |
 
 Before normalization, the device output is:
 
@@ -1676,10 +1828,12 @@ row 1, power F1: [ 5, 7,  3]
 row 2, power F2: [ 2, 4,  3]
 row 3, count:    [ 2, 4,  2]
 row 4, k_bin:    [ 0, Δk, 2Δk]
+row 5, minimum:  [ 1, 1,  1]
+row 6, maximum:  [ 2, 2, √2]
 ```
 
 This example is deliberately small, but the $512^3$ case uses exactly the same structure: more
-strided loop iterations, the same four local arrays per work-group, one partial `float4` per group
+strided loop iterations, the same six local arrays per work-group, one partial `float8` per group
 and shell, and one final work-item per shell.
 
 ### 3.9 Scientific equations and implementation locations
@@ -1694,9 +1848,13 @@ and shell, and one final work-item per shell.
 | Partial $P_{1,g,b}$ | Second local-memory region and `power_a` |
 | Partial $P_{2,g,b}$ | Third local-memory region and `power_b` |
 | Partial $n_{g,b}$ | Fourth local-memory region and `atomic_inc` |
+| Partial $m_{g,b}$ | Fifth local-memory region and `atomic_min_float_local` |
+| Partial $M_{g,b}$ | Sixth local-memory region and `atomic_max_float_local` |
 | Final $(C_b,P_{1,b},P_{2,b},n_b)$ | Sum of `partials[group, bin]` in the second kernel |
+| Final $m_b$ and $M_b$ | Minimum and maximum of `partials[group, bin]` in the second kernel |
 | Bin centre $k_b$ | `(float) bin * shell_width` |
 | $FSC_b$ | Python `cross / sqrt(power_1 * power_2)` |
+| Geometric bound | Shared Python calculation from $m_b$, $M_b$, and $n_b$ |
 
 The complete execution can now be read as:
 
@@ -1712,10 +1870,10 @@ UFO receives F2
                                                                             │
        second kernel                                                        │
          └─ one worker per shell sums partials[:,b] ◄────────────────────────┘
-              └─ writes device output [C, P1, P2, n, k]
+              └─ writes device output [C, P1, P2, n, k, min, max]
 
 UFO emits one compact buffer
-    └─ Python converts counts, normalizes the shell sums, and creates FSCResult
+    └─ shared Python utilities normalize, construct criteria, and create FSCComputation
 ```
 
 The implementation retains a full complex copy of $F_1$, calculates shell membership on demand, and

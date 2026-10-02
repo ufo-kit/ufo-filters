@@ -17,8 +17,8 @@
  * License along with this library.  If not, see <http://www.gnu.org/licenses/>.
  */
 
- /* Accumulate one partial Fourier shell histogram per work-group. Four local
- * uint arrays store three float bit patterns and one integer count.
+ /* Accumulate one partial Fourier shell histogram per work-group. Six local
+ * uint arrays store five float bit patterns and one integer count.
  */
 inline void
 atomic_add_float_local (volatile __local uint *address, float value)
@@ -33,10 +33,44 @@ atomic_add_float_local (volatile __local uint *address, float value)
     } while (previous != expected);
 }
 
+inline void
+atomic_min_float_local (volatile __local uint *address, float value)
+{
+    const uint candidate = as_uint (value);
+    uint previous = *address;
+    uint expected;
+
+    do {
+        expected = previous;
+
+        if (candidate >= expected)
+            return;
+
+        previous = atomic_cmpxchg (address, expected, candidate);
+    } while (previous != expected);
+}
+
+inline void
+atomic_max_float_local (volatile __local uint *address, float value)
+{
+    const uint candidate = as_uint (value);
+    uint previous = *address;
+    uint expected;
+
+    do {
+        expected = previous;
+
+        if (candidate <= expected)
+            return;
+
+        previous = atomic_cmpxchg (address, expected, candidate);
+    } while (previous != expected);
+}
+
 kernel void
 fsc_accumulate_partials (global const float2 *first,
                          global const float2 *second,
-                         global float4 *partials,
+                         global float8 *partials,
                          local uint *shells,
                          uint nx,
                          uint ny,
@@ -54,8 +88,10 @@ fsc_accumulate_partials (global const float2 *first,
     const size_t global_id = get_global_id (0);
     const size_t global_size = get_global_size (0);
 
-    for (size_t item = local_id; item < 4 * num_bins; item += local_size)
-        shells[item] = 0;
+    for (size_t item = local_id; item < 6 * num_bins; item += local_size) {
+        const bool is_minimum = item >= 4 * num_bins && item < 5 * num_bins;
+        shells[item] = is_minimum ? as_uint (INFINITY) : 0;
+    }
 
     barrier (CLK_LOCAL_MEM_FENCE);
 
@@ -80,11 +116,17 @@ fsc_accumulate_partials (global const float2 *first,
             const float cross = a.x * b.x + a.y * b.y;
             const float power_a = dot (a, a);
             const float power_b = dot (b, b);
+            const float magnitude_a = sqrt (power_a);
+            const float magnitude_b = sqrt (power_b);
+            const float minimum = fmin (magnitude_a, magnitude_b);
+            const float maximum = fmax (magnitude_a, magnitude_b);
 
             atomic_add_float_local (&shells[bin], cross);
             atomic_add_float_local (&shells[num_bins + bin], power_a);
             atomic_add_float_local (&shells[2 * num_bins + bin], power_b);
             atomic_inc ((volatile __local uint *) &shells[3 * num_bins + bin]);
+            atomic_min_float_local (&shells[4 * num_bins + bin], minimum);
+            atomic_max_float_local (&shells[5 * num_bins + bin], maximum);
         }
     }
 
@@ -92,19 +134,24 @@ fsc_accumulate_partials (global const float2 *first,
 
     for (size_t bin = local_id; bin < num_bins; bin += local_size) {
         partials[group_id * num_bins + bin] =
-            (float4) (as_float (shells[bin]),
+            (float8) (as_float (shells[bin]),
                       as_float (shells[num_bins + bin]),
                       as_float (shells[2 * num_bins + bin]),
-                      convert_float (shells[3 * num_bins + bin]));
+                      convert_float (shells[3 * num_bins + bin]),
+                      as_float (shells[4 * num_bins + bin]),
+                      as_float (shells[5 * num_bins + bin]),
+                      0.0f,
+                      0.0f);
     }
 }
 
 /*
- * Output rows are cross sum, first power, second power, sample count and
- * physical shell centre. Every output element is overwritten.
+ * Output rows are cross sum, first power, second power, sample count,
+ * physical shell centre, minimum magnitude and maximum magnitude. Every
+ * output element is overwritten.
  */
 kernel void
-fsc_reduce_partials (global const float4 *partials,
+fsc_reduce_partials (global const float8 *partials,
                      global float *output,
                      uint num_groups,
                      uint num_bins,
@@ -116,13 +163,21 @@ fsc_reduce_partials (global const float4 *partials,
         return;
 
     float4 total = (float4) (0.0f);
+    float minimum = INFINITY;
+    float maximum = 0.0f;
 
-    for (uint group = 0; group < num_groups; group++)
-        total += partials[group * num_bins + bin];
+    for (uint group = 0; group < num_groups; group++) {
+        const float8 partial = partials[group * num_bins + bin];
+        total += partial.lo;
+        minimum = fmin (minimum, partial.s4);
+        maximum = fmax (maximum, partial.s5);
+    }
 
     output[bin] = total.x;
     output[num_bins + bin] = total.y;
     output[2 * num_bins + bin] = total.z;
     output[3 * num_bins + bin] = total.w;
     output[4 * num_bins + bin] = (float) bin * shell_width;
+    output[5 * num_bins + bin] = total.w > 0.0f ? minimum : as_float (0x7fc00000u);
+    output[6 * num_bins + bin] = total.w > 0.0f ? maximum : as_float (0x7fc00000u);
 }
