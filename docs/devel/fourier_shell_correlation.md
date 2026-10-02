@@ -126,7 +126,7 @@ The initial result contract is
 
 ```
 fsc      : float [B]    # correlation curve
-k_bin    : float [B]    # physical frequency, 1/um
+k_bin    : float [B]    # reciprocal configured-distance unit
 n_shell  : int   [B]    # Fourier-sample count
 ```
 
@@ -273,7 +273,7 @@ that evidence ceases to be sufficient. The choice of $\tau$ and the precise cros
 
 Classic FSC uses two separately reconstructed volumes whose noise is approximately independent. For
 this project, the two volumes are reconstructed by `rgba-backproject` from alternating projection
-indices using an `even_odd*` operation mode.
+indices using its `even_odd` operation mode.
 
 #### 1.4.1 Algorithm
 
@@ -563,7 +563,7 @@ projection stream
       │
       ▼
 rgba-backproject
-operation-mode=even_odd*
+operation-mode=even_odd
 output-mode=volume
       │
       ▼
@@ -595,7 +595,7 @@ constructs the typed public result.
 
 | Building block | Status | Evidence or remaining responsibility |
 |---|---|---|
-| Alternating even/odd projection reconstruction | Available | Both `rgba-backproject` `even_odd*` operation modes emit even then odd. |
+| Alternating even/odd projection reconstruction | Available | `rgba-backproject` in `even_odd` mode emits even then odd. |
 | Device-resident 3-D volume output | Available | `output-mode=volume` reports `(Nx,Ny,Z)`, requests only the output device array, and marks it real. |
 | Direct volume-to-FFT connection | Available | `fft dimensions=3` accepts the 3-D real requisition and consumes the device buffer without `stack`. |
 | Sequential spectrum pairing | Available in `fsc-core` | The first complex spectrum is copied device-to-device and retained until the second arrives. |
@@ -661,6 +661,76 @@ order, $C_b$, $P_{1,b}$, $P_{2,b}$, $n_b$, and $k_b$. Counts are accumulated as 
 only in the compact output. Python validates their integrality, converts them to `int64`, and computes
 $C_b/\sqrt{P_{1,b}P_{2,b}}$ using float64 intermediates.
 
+#### 2.2.3 Normalized configuration in the classic benchmark
+
+The standalone runner in [`benchmarks/fsc`](../../benchmarks/fsc) uses normalized frequency rather
+than calibrated physical frequency. It configures the three `fsc-core` voxel sizes as
+
+$$
+d_x=d_y=d_z=1,
+$$
+
+where one distance unit means one reconstructed voxel. Consequently, the reported $k_b$ values are
+in cycles per reconstructed voxel. This does not claim that a voxel is one micrometre or any other
+physical length.
+
+The reconstruction regions determine the volume shape $(N_z,N_y,N_x)$. Their meanings and the other
+backprojection properties are documented in
+[`rgba-backproject.md`](rgba-backproject.md). For this benchmark, all three region steps are exactly
+`1.0`; their extents may differ. Cubic volumes are therefore not required. Classic FSC requires only
+that the even and odd volumes are aligned, have the same shape, and describe the same sampling grid.
+
+For a possibly non-cubic normalized volume, the axial FFT increments are
+
+$$
+\Delta k_x=\frac{1}{N_x},
+\qquad
+\Delta k_y=\frac{1}{N_y},
+\qquad
+\Delta k_z=\frac{1}{N_z}.
+$$
+
+The `fsc-core` properties used by the benchmark have the following scientific roles:
+
+| Configuration property | Benchmark value | Scientific role |
+|---|---:|---|
+| `voxel_size_x` | `1.0` | Makes the X Fourier coordinate cycles per reconstructed voxel. |
+| `voxel_size_y` | `1.0` | Makes the Y Fourier coordinate cycles per reconstructed voxel. |
+| `voxel_size_z` | `1.0` | Makes the Z Fourier coordinate cycles per reconstructed voxel. |
+| `shell_width` | `0.0` by default | Selects the coarsest axial increment, $\Delta k=\max(\Delta k_x,\Delta k_y,\Delta k_z)$. A positive value explicitly selects a normalized radial spacing if the resulting shell configuration is valid. |
+| `max_frequency` | `0.5` | Sets the exclusive radial boundary to the isotropic Nyquist frequency. |
+
+Each Fourier coefficient retains its axis-specific coordinate. The kernel calculates
+
+$$
+\rho=\sqrt{k_x^2+k_y^2+k_z^2}
+$$
+
+and assigns the coefficient to
+
+$$
+b=\left\lfloor\frac{\rho}{\Delta k}+\frac{1}{2}\right\rfloor.
+$$
+
+With the exclusive normalized cutoff, the number of emitted bins and their centres are
+
+$$
+B=\left\lfloor\frac{0.5}{\Delta k}\right\rfloor,
+\qquad
+k_b=b\Delta k,
+\qquad 0\leq b<B.
+$$
+
+Thus every emitted centre is below `0.5`, while the plot spans the full interval from `0` to `0.5`.
+The value `0.5 cycles/voxel` is the per-axis Nyquist frequency: it represents a sinusoid with a full
+period of two reconstructed voxels. In three dimensions, Cartesian corner coefficients can have a
+radial magnitude above `0.5`, but shells above this boundary are not represented equally in every
+direction.
+
+The task itself remains unit-agnostic. Another caller may supply physical spacings such as micrometres
+per voxel; in that case $k_b$ is expressed in inverse micrometres and the physical isotropic cutoff is
+the smallest axial Nyquist frequency rather than the literal number `0.5`.
+
 ### 2.3 Basic-SFSC workflow
 
 ```
@@ -717,7 +787,7 @@ without changing the parity mathematics or the existing `stack` task:
 
 - `slices` preserves the current public behavior and compatibility;
 - `volume` emits one device-resident 3-D buffer in singular reconstruction mode;
-- `volume` emits two sequential device-resident 3-D buffers in `even_odd*` mode, even first and odd
+- `volume` emits two sequential device-resident 3-D buffers in `even_odd` mode, even first and odd
   second.
 
 In volume mode, the output requisition is `(Nx,Ny,Z)`. During `generate`, the task obtains the
@@ -737,8 +807,8 @@ No change to the existing `stack` task is proposed. The volume-output capability
 FSC-oriented development and `rgba-backproject`, where the data is already accumulated on the GPU.
 The CPU [`stack`](../../src/ufo-stack-task.c) is no longer present in the classic device path.
 
-This connection was validated on 2026-09-01 for both `even_odd_single` and `even_odd_dual`. In each
-case, slice and volume outputs agreed exactly for the test data, including parity order and a z depth
+This connection was validated on 2026-09-01 for even/odd reconstruction. Slice and volume outputs
+agreed exactly for the test data, including parity order and a z depth
 that exercised RGBA padding. The direct device graph
 `rgba-backproject → fft dimensions=3 → null` also completed successfully without an intervening
 `stack` task. Isolated numerical 3-D FFT checks at $8^3$ and $32^3$ also agreed with NumPy. This is
@@ -749,7 +819,7 @@ benchmark.
 
 | Operation | Current UFO support | Intended use or limitation |
 |---|---|---|
-| Even/odd projection reconstruction | Available in `rgba-backproject` `even_odd*` modes | Reuse for classic FSC. The scientific split is already present. |
+| Even/odd projection reconstruction | Available in `rgba-backproject` `even_odd` mode | Reuse for classic FSC. The scientific split is already present. |
 | Single reconstruction | Available in `rgba-backproject` singular mode | Reuse as SFSC input. |
 | 3-D device FFT/IFFT | Available in `fft` and `ifft` with `dimensions=3` | Reuse. Direct consumption of `rgba-backproject` volume output is validated. FFT size, padding, layout, and normalization must still be fixed explicitly for reproducibility. |
 | 2-D slices to 3-D volume | `stack` is available but CPU-based | Useful as a correctness prototype, not for the desired device-only path; do not modify it for FSC. |
@@ -782,7 +852,7 @@ A conceptual host result is
 ```
 FSCResult
     fsc      : float32 [B]
-    k_bin    : float32 [B]   # 1/um
+    k_bin    : float32 [B]   # reciprocal configured-distance unit
     n_shell  : int64   [B]
     method   : classic | sfsc-basic | sfsc-corrected
     axis     : none | z | x | y | mean
