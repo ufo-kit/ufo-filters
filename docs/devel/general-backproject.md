@@ -511,28 +511,3 @@ Two resource defects worth knowing if you touch this code:
    is leaked.
 2. `finalize()` releases all 11 vector-argument handles without null checks, while `priv->projections`
    is checked per element.
-
----
-
-## 6. Contrast with `rgba-backproject`
-
-[`ufo-rgba-backproject-task.c`](../src/ufo-rgba-backproject-task.c) is a narrow, heavily optimized
-parallel-beam backprojector. The comparison is the clearest way to see what generality costs.
-
-| | `rgba-backproject` | `general-backproject` |
-|---|---|---|
-| Texture format | `CL_RGBA` + `CL_HALF_FLOAT` — 4 detector rows packed per texel | `CL_INTENSITY` + `CL_FLOAT`; every fetch uses `.x` only |
-| Texture object | one `image2d_array_t`, `array_size = burst` | `burst` separate `image2d_t` arguments |
-| Fetch efficiency | one `read_imagef` serves **four slices** | one fetch serves one voxel |
-| Kernels | three (`accumulate` → `backproject` → `distribute`) | one generated kernel (plus rest kernel) |
-| Accumulator | `float4` buffer, explicitly zero-filled | scalar buffer; initialized by the `iteration == 0` store |
-| Work-item mapping | one item per **four** z-slices | one item per voxel |
-| Geometry | parallel beam only, no tilts | arbitrary cone beam, laminography, tilts, per-projection vectors |
-| Properties | 8 | 32 |
-
-**Why `general-backproject` cannot use the RGBA trick.** It relies on four slices sharing the *same*
-detector coordinate for a given angle — the detector column a voxel projects onto is independent of z.
-That holds only for pure parallel-beam, perpendicular-detector, untilted-axis geometry. Under cone-beam
-magnification, a tilted detector, or a tilted axis, the four slices project to four unrelated detector
-coordinates and the packing buys nothing. `general-backproject` trades that ~4x texture-bandwidth win
-for generality and recovers throughput instead through `burst` unrolling and per-GPU register tuning.
