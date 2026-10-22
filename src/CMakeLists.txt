@@ -137,6 +137,10 @@ set(general_backproject_aux_SRCS
     common/ufo-scarray.c
     common/ufo-ctgeometry.c)
 
+set(rgba_backproject_aux_SRCS
+    common/ufo-math.c
+    common/ufo-scarray.c)
+
 set(cross_correlate_aux_SRCS
     common/ufo-math.c
     common/ufo-fft.c)
