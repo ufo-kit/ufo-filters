@@ -31,6 +31,7 @@ plugins = [
     'filter-stripes1d',
     'flip',
     'fsc-core',
+    'frc-core',
     'forwardproject',
     'get-dup-circ',
     'gradient',

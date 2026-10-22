@@ -1605,3 +1605,194 @@ and the meaning of `n_shell` and is therefore deferred.
 Floating-point addition is not associative. Local atomic ordering and the later group summation can
 produce small rounding differences relative to a sequential Python or NumPy calculation. Tests
 therefore require exact counts but compare floating-point shell sums and FSC values with tolerances.
+
+## 4. Fourier Ring Correlation
+
+Fourier Ring Correlation (FRC) applies the same normalized spectral cross-correlation to two aligned
+2-D images. Rings replace 3-D shells; the signal/noise assumptions in Section 1.3 still apply.
+The task does not establish noise independence and does not reconstruct or transform its inputs.
+Its usual graph segment is:
+
+```
+paired images → fft(dimensions=2, auto-zeropadding=false) → frc-core → compact statistics
+```
+
+[ufo-frc-core-task.c](../../src/ufo-frc-core-task.c) and
+[frc-core.cl](../../src/kernels/frc-core.cl) implement the 2-D task independently of FSC.
+This section describes their differences. The work-group, atomics, barriers, and two-stage
+reduction explanations in Section 3 remain applicable and are not repeated here.
+
+### 4.1 Input and property differences
+
+The FRC task has one input port, receiving consecutive spectra $F_1,F_2,F_1,F_2,\ldots$.
+Each complete pair produces one output. A complex image with NumPy shape $(N_y,N_x)$ has UFO
+requisition $(2N_x,N_y)$: the doubled fastest-varying dimension stores real and imaginary floats.
+There is no Z dimension. Rectangular images and unequal X/Y pixel spacings are supported.
+All spectra handled by one instance must have the same shape; pair members must also represent
+the same aligned sampling grid.
+
+| FSC property | FRC property | Meaning in FRC |
+|---|---|---|
+| `voxel-size-x` | `pixel-size-x` | Positive sample spacing $d_x$ along X |
+| `voxel-size-y` | `pixel-size-y` | Positive sample spacing $d_y$ along Y |
+| `voxel-size-z` | None | No third spatial dimension |
+| `shell-width` | `ring-width` | Radial bin width $\Delta k$; zero selects automatic |
+| `max-frequency` | `max-frequency` | Frequency limit used to determine bin count; zero selects automatic |
+
+Both pixel sizes default to zero (unset) and must be supplied as finite positive values.
+The width and maximum frequency default to zero and must be finite and non-negative.
+Use a common length unit: micrometres produce frequencies in $1/\mu m$;
+unit pixel sizes produce cycles per pixel and an automatic Nyquist limit of $0.5$.
+
+Inputs need not already reside on the device. The task calls `ufo_buffer_get_device_array` to
+obtain them, allowing UFO to upload a host-resident spectrum when necessary. FFT-produced device
+buffers require no host round trip. As in Section 3.1, the first input is copied into task-owned
+device storage before the borrowed input buffer is released.
+
+### 4.2 Ring geometry
+
+Only two axial increments are needed:
+
+$$
+\Delta k_x=\frac{1}{N_xd_x},\qquad
+\Delta k_y=\frac{1}{N_yd_y}.
+$$
+
+**Meaning.** Each coordinate advances by the reciprocal of the image's physical extent along
+that axis. Neither square images nor isotropic pixels are required.
+
+Automatic width and frequency limit are:
+
+$$
+\Delta k=\max(\Delta k_x,\Delta k_y),\qquad
+k_{\max}=\min\left(\frac{1}{2d_x},\frac{1}{2d_y}\right).
+$$
+
+An explicit positive property overrides its corresponding automatic value. Signed unshifted FFT
+indices use the convention in Section 1.1. Their physical radius and rounded ring index are:
+
+$$
+\rho=\sqrt{(q_x\Delta k_x)^2+(q_y\Delta k_y)^2},\qquad
+b=\left\lfloor\frac{\rho}{\Delta k}+\frac12\right\rfloor.
+$$
+
+The nominal bin count and centres are:
+
+$$
+B=\left\lfloor\frac{k_{\max}}{\Delta k}\right\rfloor,\qquad
+k_b=b\Delta k,\qquad 0\le b<B.
+$$
+
+**Meaning.** The DC ring is centred at zero. Each other ring groups coefficients whose radial
+frequency rounds to the same centre. Exactly as in FSC, membership is $b<B$, not an additional
+test of $\rho<k_{\max}$. The last retained interval ends at $(B-\frac12)\Delta k$;
+the configured limit does not imply that every coefficient below it is retained.
+
+The C task rounds the resolved width to float32 before calculating $B$ and adds the same small
+float64 tolerance to the ratio before taking its floor:
+$16\,DBL\_EPSILON\,\max(1,|k_{\max}/\Delta k|)$.
+Axial increments are also passed to the kernel as float32. This preserves FSC's numerical policy,
+including its boundary behavior.
+
+As in FSC, coefficients extremely close to a bin boundary can fall into adjacent bins under
+different CPU/GPU floating-point evaluation (including fused arithmetic). Matching float32
+coordinates alone does not guarantee bitwise-identical membership at such boundaries. Exact-count
+reference tests use reproducible boundary cases as well as grids away from ambiguous boundaries;
+no extra boundary tolerance or higher-precision geometry is introduced in FRC.
+
+The count $n_b$ now measures full-spectrum Fourier pixels in a ring, not voxels in a shell.
+FRC and FSC have compatible output formats and normalization formulas, but their counts and
+correlation curves need not match. Count-dependent criteria can consequently differ too.
+
+### 4.3 Kernel and host differences
+
+The separate entry points are `frc_accumulate_partials` and `frc_reduce_partials`.
+The accumulation kernel receives `nx`, `ny`, `delta_kx`, `delta_ky`, `ring_width`, `num_bins`,
+and `num_pixels`; there are no `nz` or `delta_kz` arguments.
+
+The flattened traversal covers $N_xN_y$ pixels. These lines replace FSC's three-coordinate
+decoding and radius calculation:
+
+```c
+const uint x = (uint) (index % nx);
+const uint y = (uint) (index / nx);
+const int qx = x <= nx / 2 ? (int) x : (int) x - (int) nx;
+const int qy = y <= ny / 2 ? (int) y : (int) y - (int) ny;
+const float kx = (float) qx * delta_kx;
+const float ky = (float) qy * delta_ky;
+const float radius = sqrt (kx * kx + ky * ky);
+const float ring = floor (radius / ring_width + 0.5f);
+```
+
+The cross term, powers, counts, and extrema are unchanged: each retained pair of coefficients
+contributes $Re(F_1\overline{F_2})$, $|F_1|^2$, $|F_2|^2$, one count, and both magnitudes.
+Six local arrays store the same quantities described in Section 3.4, now indexed by ring.
+The second kernel still assigns one worker to each bin and combines all work-group partials.
+Its reduction arithmetic and seven-row output order are identical to FSC.
+
+The host uses two-dimensional sizes and spacing:
+
+```c
+nx = (cl_uint) (current_req.dims[0] / 2);
+ny = (cl_uint) current_req.dims[1];
+num_pixels = (cl_ulong) nx * (cl_ulong) ny;
+delta_kx = (cl_float) (1.0 / ((gdouble) nx * priv->pixel_size_x));
+delta_ky = (cl_float) (1.0 / ((gdouble) ny * priv->pixel_size_y));
+```
+
+The geometry arguments occupy indices 4–10 rather than FSC's 4–12.
+Arguments 0–3 remain the first spectrum, second spectrum, partial buffer, and local table:
+
+```c
+UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 4, sizeof (cl_uint), &nx));
+UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 5, sizeof (cl_uint), &ny));
+UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 6, sizeof (cl_float), &delta_kx));
+UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 7, sizeof (cl_float), &delta_ky));
+UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 8, sizeof (cl_float), &priv->resolved_ring_width));
+UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 9, sizeof (cl_uint), &priv->num_bins));
+UFO_RESOURCES_CHECK_CLERR (clSetKernelArg (priv->accumulate_kernel, 10, sizeof (cl_ulong), &num_pixels));
+```
+
+Execution sizing follows Section 3.3, with the image pixel count replacing the volume voxel count.
+Both launches use UFO's profiler and the assigned device's command queue.
+For $G$ work-groups and $B$ bins, the retained complex image occupies $8N_xN_y$ bytes,
+the local table occupies $24B$ bytes per group, the partial buffer occupies $32\,G\,B$ bytes,
+and the output occupies $28B$ bytes. These are individual allocations, not total pipeline peak
+memory; input buffers, FFT workspace, and overlapping lifetimes still matter.
+Excessive local-table requirements are rejected before reduction.
+
+### 4.4 Shared behavior and output
+
+The seven float32 rows have the same interpretation as FSC, with ring rather than shell sums:
+
+```
+UFO dims=(B,7) → NumPy shape=(7,B)
+rows: C, P1, P2, n, k, minimum_magnitude, maximum_magnitude
+```
+
+Empty rings contain zero sums/counts and `NaN` extrema. Populated all-zero rings contain zero
+extrema. Counts accumulate locally as integers and then travel through float32 partials and
+output; the same exact-integer representability limitation described in Section 2.4 applies.
+
+Downstream normalization uses float64 intermediates:
+
+$$
+FRC_b=\frac{C_b}{\sqrt{P_{1,b}P_{2,b}}}.
+$$
+
+Empty or non-positive-power bins remain `NaN`; values are not clamped. A common nonzero FFT
+normalization factor cancels from the correlation, while raw statistics retain that scaling.
+The fixed and half-bit criteria and the geometric diagnostic described in Section 3.7 can use
+these same compact statistics. The geometric bound remains a diagnostic, not a resolution
+threshold. No new Python runner or plotting interface is introduced by this task.
+
+The pairing and single-device rules in Section 3.1 remain in force: disable scheduler expansion;
+copying the task is rejected. A mismatched shape is discarded and resets pending pair state.
+Invalid dimensionality/layout is rejected; an unmatched final spectrum produces a warning
+without an output. Successful pairs reset state before the next pair.
+
+As with FSC, the implementation accumulates the full spectrum and performs no `fftshift` or
+full-image ring-map allocation. Hermitian half-spectrum optimization is deferred.
+The independent NumPy tests require exact representable counts and compare floating reductions
+with `rtol=2e-3`, `atol=2e-4`, including rectangular/anisotropic geometry, repeated pairs, and both
+host-fed and FFT-produced device inputs.

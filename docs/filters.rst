@@ -97,8 +97,9 @@ Fourier shell statistics
 .. gobj:class:: fsc-core
 
     Reduce consecutive pairs of complex-interleaved three-dimensional spectra into compact Fourier
-    shell statistics. The output is a two-dimensional ``(B, 5)`` requisition containing cross sum,
-    two power sums, shell count, and physical shell centre. This stateful task supports one device;
+    shell statistics. The output is a two-dimensional ``(B, 7)`` requisition containing cross sum,
+    two power sums, shell count, physical shell centre, and minimum and maximum Fourier magnitude
+    across both spectra. This stateful task supports one device;
     graph expansion must be disabled.
 
     .. gobj:prop:: voxel-size-x:double
@@ -120,6 +121,57 @@ Fourier shell statistics
     .. gobj:prop:: max-frequency:double
 
         Exclusive radial frequency limit. Zero selects the smallest axial Nyquist frequency.
+
+
+Fourier ring statistics
+----------------------
+
+.. gobj:class:: frc-core
+
+    Reduce consecutive pairs of complex-interleaved two-dimensional spectra into compact Fourier
+    ring statistics. One input port receives ``F1, F2, F1, F2, ...`` and produces one output per
+    complete pair. All inputs to one instance must have the same shape and sampling grid;
+    rectangular images and unequal X/Y pixel spacings are supported. The input requisition is
+    ``(2*Nx, Ny)`` for a complex image of shape ``(Ny, Nx)``. Host-resident inputs are uploaded
+    through UFO when needed; device-resident inputs need no host round trip.
+
+    The output is a real float32 ``(B, 7)`` requisition, exposed to NumPy as ``(7, B)``. Its rows
+    are cross sum, first power sum, second power sum, coefficient count, physical ring centre,
+    minimum magnitude, and maximum magnitude across both spectra. Empty rings have zero sums
+    and counts and NaN extrema; populated all-zero rings have zero extrema. Counts use float32
+    transport and are exact only within its integer representability limits. Normalization and
+    threshold calculations are left to the consumer.
+
+    Signed, unshifted FFT coordinates give axial frequencies with increments ``1/(Ni*di)``.
+    A coefficient of radius ``rho`` enters bin ``floor(rho/ring-width + 0.5)`` when that bin is
+    less than ``B = floor(max-frequency/ring-width)``. The resolved width uses float32 precision;
+    the bin-count calculation includes the same small float64 tolerance as ``fsc-core``.
+    Bin centres are ``b*ring-width``, including zero for DC. This rounded-bin policy does not
+    include every coefficient below the configured maximum frequency.
+
+    This stateful task supports one GPU; graph expansion must be disabled and copying is rejected.
+    An incomplete final pair produces a warning and no output. An incompatible shape is discarded
+    and pending pair state is reset; invalid dimensionality or layout is rejected.
+
+    .. gobj:prop:: pixel-size-x:double
+
+        Required finite positive pixel spacing along the fastest-varying X dimension.
+        The default zero is unset and must be replaced. Use one for cycles per pixel.
+
+    .. gobj:prop:: pixel-size-y:double
+
+        Required finite positive pixel spacing along Y, in the same unit as X.
+        The default zero is unset and must be replaced.
+
+    .. gobj:prop:: ring-width:double
+
+        Finite non-negative physical radial ring width. Default zero selects the coarsest
+        of the two axial FFT frequency increments.
+
+    .. gobj:prop:: max-frequency:double
+
+        Finite non-negative exclusive frequency limit used to determine the bin count.
+        Default zero selects the smaller axial Nyquist frequency.
 
 
 .. _generic-opencl-ref:

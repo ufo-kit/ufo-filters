@@ -38,6 +38,7 @@ set(ufofilter_SRCS
     ufo-filter-stripes1d-task.c
     ufo-flip-task.c
     ufo-fsc-core-task.c
+    ufo-frc-core-task.c
     ufo-forwardproject-task.c
     ufo-get-dup-circ-task.c
     ufo-gradient-task.c
