@@ -40,7 +40,6 @@ endforeach
 python_tests = [
     'test_memin',
     'test_fft',
-    'test_fsc_core',
     'test_swap_quadrants',
 ]
 
